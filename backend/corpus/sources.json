@@ -1,0 +1,102 @@
+{
+  "schema_version": "1.0",
+  "description": "Index of all citable external sources for the Escape Plan grounding corpus. The AI layer (S3.1/S3.2/S3.3) may only cite ids listed in `sources`. `corpus_files` maps each corpus markdown file to its primary front-matter id and the source ids it draws on.",
+  "sources": [
+    {
+      "id": "nfpa-escape-planning",
+      "org": "NFPA (National Fire Protection Association)",
+      "doc_title": "How to make a home fire escape plan",
+      "url": "https://www.nfpa.org/education-and-research/home-fire-safety/escape-planning",
+      "retrieved": "2026-07-10",
+      "topics": ["escape-planning", "two-ways-out", "meeting-point", "practice"]
+    },
+    {
+      "id": "usfa-escape-plans",
+      "org": "USFA (U.S. Fire Administration / FEMA)",
+      "doc_title": "Home Fire Escape Plans",
+      "url": "https://www.usfa.fema.gov/prevention/home-fires/prepare-for-fire/home-fire-escape-plans/",
+      "retrieved": "2026-07-10",
+      "topics": ["escape-planning", "practice"]
+    },
+    {
+      "id": "irc-2021-r310",
+      "org": "ICC (International Code Council)",
+      "doc_title": "2021 International Residential Code, Section R310 — Emergency Escape and Rescue Openings",
+      "url": "https://codes.iccsafe.org/s/IRC2021P2/chapter-3-building-planning/IRC2021P2-Pt03-Ch03-SecR310.1",
+      "retrieved": "2026-07-10",
+      "topics": ["egress", "windows", "code-requirements", "thresholds"]
+    },
+    {
+      "id": "irc-2021-r311",
+      "org": "ICC (International Code Council)",
+      "doc_title": "2021 International Residential Code, Section R311 — Means of Egress",
+      "url": "https://codes.iccsafe.org/s/IRC2021P2/chapter-3-building-planning",
+      "retrieved": "2026-07-10",
+      "topics": ["egress", "doors", "code-requirements", "thresholds"]
+    },
+    {
+      "id": "usfa-smoke-alarms",
+      "org": "USFA (U.S. Fire Administration / FEMA)",
+      "doc_title": "Smoke Alarms",
+      "url": "https://www.usfa.fema.gov/prevention/home-fires/prepare-for-fire/smoke-alarms/",
+      "retrieved": "2026-07-10",
+      "topics": ["smoke-alarms", "placement", "maintenance"]
+    },
+    {
+      "id": "nfpa-smoke-alarms-report",
+      "org": "NFPA (National Fire Protection Association)",
+      "doc_title": "Smoke Alarms in US Home Fires (research report)",
+      "url": "https://www.nfpa.org/education-and-research/research/nfpa-research/fire-statistical-reports/smoke-alarms-in-us-home-fires",
+      "retrieved": "2026-07-10",
+      "topics": ["statistics", "smoke-alarms"]
+    },
+    {
+      "id": "redcross-escape-plan",
+      "org": "American Red Cross",
+      "doc_title": "Home Fire Prevention & Safety Tips",
+      "url": "https://www.redcross.org/get-help/how-to-prepare-for-emergencies/types-of-emergencies/fire.html",
+      "retrieved": "2026-07-10",
+      "topics": ["escape-planning", "drills", "meeting-point", "pets"]
+    },
+    {
+      "id": "redcross-two-minutes",
+      "org": "American Red Cross",
+      "doc_title": "You May Have Only Two Minutes to Escape a Home Fire",
+      "url": "https://www.redcross.org/about-us/news-and-events/news/You-May-Have-Only-Two-Minutes-to-Escape-a-Home-Fire.html",
+      "retrieved": "2026-07-10",
+      "topics": ["statistics", "two-minute-drill"]
+    },
+    {
+      "id": "redcross-escape-fact-sheet",
+      "org": "American Red Cross",
+      "doc_title": "Fire Escape Planning Fast Facts",
+      "url": "https://www.redcross.org/content/dam/redcross/atg/PDF_s/Preparedness___Disaster_Recovery/Disaster_Preparedness/Home_Fire/FireEscapePlanningFactSheet.pdf",
+      "retrieved": "2026-07-10",
+      "topics": ["statistics", "escape-planning"]
+    },
+    {
+      "id": "usfa-disabilities",
+      "org": "USFA (U.S. Fire Administration / FEMA)",
+      "doc_title": "Fire Safety for People with Disabilities",
+      "url": "https://www.usfa.fema.gov/prevention/home-fires/at-risk-audiences/people-with-disabilities/",
+      "retrieved": "2026-07-10",
+      "topics": ["disabilities", "mobility", "profiles"]
+    },
+    {
+      "id": "nfpa-evacuation-disabilities",
+      "org": "NFPA (National Fire Protection Association)",
+      "doc_title": "Emergency Evacuation Planning Guide for People with Disabilities",
+      "url": "https://www.nfpa.org/downloadable-resources/guides/evacuation-guide-pdf",
+      "retrieved": "2026-07-10",
+      "topics": ["disabilities", "mobility", "profiles", "evacuation"]
+    }
+  ],
+  "corpus_files": [
+    {"file": "escape-planning-nfpa.md", "primary_id": "nfpa-escape-planning", "source_ids": ["nfpa-escape-planning", "usfa-escape-plans"]},
+    {"file": "egress-windows-irc.md", "primary_id": "irc-2021-r310", "source_ids": ["irc-2021-r310", "irc-2021-r311"]},
+    {"file": "smoke-alarms-usfa.md", "primary_id": "usfa-smoke-alarms", "source_ids": ["usfa-smoke-alarms", "nfpa-smoke-alarms-report"]},
+    {"file": "home-fire-escape-redcross.md", "primary_id": "redcross-escape-plan", "source_ids": ["redcross-escape-plan", "redcross-two-minutes", "redcross-escape-fact-sheet"]},
+    {"file": "fire-facts-stats.md", "primary_id": "fire-facts-stats", "source_ids": ["nfpa-smoke-alarms-report", "redcross-two-minutes", "redcross-escape-fact-sheet"]},
+    {"file": "special-considerations.md", "primary_id": "special-considerations", "source_ids": ["usfa-disabilities", "nfpa-evacuation-disabilities", "nfpa-escape-planning", "usfa-smoke-alarms", "redcross-escape-plan"]}
+  ]
+}

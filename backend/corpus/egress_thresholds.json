@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "description": "Machine-readable egress thresholds consumed by the deterministic egress checker (S1.1). Values are the 2021 IRC baseline; the HomeModel schema uses meters, so metric values are authoritative for computation and imperial values are the as-codified citations.",
+  "jurisdiction_note": "The IRC is a model code; adopted editions and local amendments vary by jurisdiction. These values are general guidance, not a substitute for the locally adopted code.",
+  "window_egress": {
+    "min_net_clear_opening_area": {
+      "value_sqft": 5.7,
+      "value_m2": 0.53,
+      "source_doc_id": "irc-2021-r310",
+      "code_ref": "R310.2.1",
+      "note": "Net clear opening when open, not glass size. Must be checked independently of height/width minimums."
+    },
+    "min_net_clear_opening_area_grade_floor": {
+      "value_sqft": 5.0,
+      "value_m2": 0.465,
+      "source_doc_id": "irc-2021-r310",
+      "code_ref": "R310.2.1",
+      "note": "Reduced minimum for grade-floor or below-grade openings."
+    },
+    "min_net_clear_opening_height": {
+      "value_in": 24,
+      "value_m": 0.61,
+      "source_doc_id": "irc-2021-r310",
+      "code_ref": "R310.2.1"
+    },
+    "min_net_clear_opening_width": {
+      "value_in": 20,
+      "value_m": 0.508,
+      "source_doc_id": "irc-2021-r310",
+      "code_ref": "R310.2.1"
+    },
+    "max_sill_height": {
+      "value_in": 44,
+      "value_m": 1.118,
+      "source_doc_id": "irc-2021-r310",
+      "code_ref": "R310.2.2",
+      "note": "Maximum height of the clear opening's bottom above the floor for a window serving as the emergency escape opening."
+    }
+  },
+  "egress_door": {
+    "min_clear_width": {
+      "value_in": 32,
+      "value_m": 0.813,
+      "source_doc_id": "irc-2021-r311",
+      "code_ref": "R311.2"
+    },
+    "min_clear_height": {
+      "value_in": 78,
+      "value_m": 1.981,
+      "source_doc_id": "irc-2021-r311",
+      "code_ref": "R311.2"
+    }
+  },
+  "rooms_requiring_escape_opening": {
+    "room_types": ["bedroom"],
+    "also": ["basements", "habitable attics"],
+    "source_doc_id": "irc-2021-r310",
+    "code_ref": "R310.1",
+    "note": "Every sleeping room requires at least one operable emergency escape and rescue opening; the app applies this to rooms typed 'bedroom'."
+  }
+}
