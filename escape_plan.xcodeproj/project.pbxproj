@@ -12,37 +12,37 @@
 			containerPortal = 27C930B93001895B002825E5 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 27C930C03001895C002825E5;
-			remoteInfo = "escape_plan";
+			remoteInfo = escape_plan;
 		};
 		27C930DE30018964002825E5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 27C930B93001895B002825E5 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 27C930C03001895C002825E5;
-			remoteInfo = "escape_plan";
+			remoteInfo = escape_plan;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		27C930C13001895C002825E5 /* escape_plan.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "escape_plan.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		27C930D330018964002825E5 /* escape_planTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "escape_planTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		27C930DD30018964002825E5 /* escape_planUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "escape_planUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		27C930C13001895C002825E5 /* escape_plan.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = escape_plan.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		27C930D330018964002825E5 /* escape_planTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = escape_planTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		27C930DD30018964002825E5 /* escape_planUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = escape_planUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		27C930C33001895C002825E5 /* escape_plan */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "escape_plan";
+			path = escape_plan;
 			sourceTree = "<group>";
 		};
 		27C930D630018964002825E5 /* escape_planTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "escape_planTests";
+			path = escape_planTests;
 			sourceTree = "<group>";
 		};
 		27C930E030018964002825E5 /* escape_planUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "escape_planUITests";
+			path = escape_planUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -110,10 +110,10 @@
 			fileSystemSynchronizedGroups = (
 				27C930C33001895C002825E5 /* escape_plan */,
 			);
-			name = "escape_plan";
+			name = escape_plan;
 			packageProductDependencies = (
 			);
-			productName = "escape_plan";
+			productName = escape_plan;
 			productReference = 27C930C13001895C002825E5 /* escape_plan.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -133,10 +133,10 @@
 			fileSystemSynchronizedGroups = (
 				27C930D630018964002825E5 /* escape_planTests */,
 			);
-			name = "escape_planTests";
+			name = escape_planTests;
 			packageProductDependencies = (
 			);
-			productName = "escape_planTests";
+			productName = escape_planTests;
 			productReference = 27C930D330018964002825E5 /* escape_planTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
@@ -156,10 +156,10 @@
 			fileSystemSynchronizedGroups = (
 				27C930E030018964002825E5 /* escape_planUITests */,
 			);
-			name = "escape_planUITests";
+			name = escape_planUITests;
 			packageProductDependencies = (
 			);
-			productName = "escape_planUITests";
+			productName = escape_planUITests;
 			productReference = 27C930DD30018964002825E5 /* escape_planUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
@@ -507,7 +507,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "escape_plan";
+				TEST_TARGET_NAME = escape_plan;
 			};
 			name = Debug;
 		};
@@ -526,7 +526,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "escape_plan";
+				TEST_TARGET_NAME = escape_plan;
 			};
 			name = Release;
 		};
