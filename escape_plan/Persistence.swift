@@ -1,6 +1,6 @@
 //
 //  Persistence.swift
-//  Escape Plan
+//  escape_plan
 //
 //  Created by Manogna Bhargav on 7/10/26.
 //
@@ -32,7 +32,7 @@ struct PersistenceController {
     let container: NSPersistentContainer
 
     init(inMemory: Bool = false) {
-        container = NSPersistentContainer(name: "Escape_Plan")
+        container = NSPersistentContainer(name: "escape_plan")
         if inMemory {
             container.persistentStoreDescriptions.first!.url = URL(fileURLWithPath: "/dev/null")
         }

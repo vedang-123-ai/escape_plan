@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  Escape Plan
+//  escape_plan
 //
 //  Created by Manogna Bhargav on 7/10/26.
 //

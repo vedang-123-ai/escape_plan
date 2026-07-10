@@ -1,13 +1,13 @@
 //
-//  Escape_PlanUITestsLaunchTests.swift
-//  Escape PlanUITests
+//  escape_planUITestsLaunchTests.swift
+//  escape_planUITests
 //
 //  Created by Manogna Bhargav on 7/10/26.
 //
 
 import XCTest
 
-final class Escape_PlanUITestsLaunchTests: XCTestCase {
+final class escape_planUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

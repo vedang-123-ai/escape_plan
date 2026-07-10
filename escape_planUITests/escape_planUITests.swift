@@ -1,13 +1,13 @@
 //
-//  Escape_PlanUITests.swift
-//  Escape PlanUITests
+//  escape_planUITests.swift
+//  escape_planUITests
 //
 //  Created by Manogna Bhargav on 7/10/26.
 //
 
 import XCTest
 
-final class Escape_PlanUITests: XCTestCase {
+final class escape_planUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.

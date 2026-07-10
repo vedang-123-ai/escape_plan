@@ -1,6 +1,6 @@
 //
-//  Escape_PlanApp.swift
-//  Escape Plan
+//  escape_planApp.swift
+//  escape_plan
 //
 //  Created by Manogna Bhargav on 7/10/26.
 //
@@ -9,7 +9,7 @@ import SwiftUI
 import CoreData
 
 @main
-struct Escape_PlanApp: App {
+struct escape_planApp: App {
     let persistenceController = PersistenceController.shared
 
     var body: some Scene {
