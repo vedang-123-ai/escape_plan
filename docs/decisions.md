@@ -4,6 +4,7 @@ Running log of deviations from playbook defaults, and why. Newest first.
 
 | Date | Session | Decision | Why |
 |------|---------|----------|-----|
+| 2026-07-10 | S0.3 (flag for P2) | Current Xcode scaffold is the stock "App with Core Data" template — left untouched on purpose | S0.3 can't start until S0.2 (schema) is done. Note for P2: playbook default persistence is local JSON via FileManager, Core Data only if P2 prefers — expect to replace the template's Persistence.swift/ContentView.swift wholesale, and decide whether the project moves under `ios/`. |
 | 2026-07-10 | S0.4 | Corpus is ~8 dense pages, under the playbook's 15–25 page target | Dense structured guidance beats padded prose for prompt grounding; every planned topic is covered. Expand in S3.1 if explanation quality demands it. |
 | 2026-07-10 | S0.4 | Added `validate.py` (stdlib-only) in `backend/corpus/` | "Thresholds file validates" acceptance needs a checkable definition; stdlib-only because the Python env isn't scaffolded until S1.6. Checks source resolution, front-matter, inline `[cite:]` tags, and imperial↔metric consistency (1% tolerance). |
 | 2026-07-10 | S0.4 | Citation convention: inline `[cite: source-id]` tags; compilation docs (`fire-facts-stats`, `special-considerations`) have non-source primary ids | Gives S3.1's citation validator an exact, greppable format; compilation docs only ever cite underlying external sources. |
