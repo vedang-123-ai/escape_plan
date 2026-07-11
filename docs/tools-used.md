@@ -7,7 +7,11 @@ Every library, framework, API, and tool used in this project — required for Co
 | Xcode / Swift / SwiftUI | Xcode 16+ | iOS app | Apple SDK |
 | Claude Code | — | AI pair-programming assistant (P3 lane + support); all code reviewed and understood by the team | Anthropic ToS |
 | git / GitHub | — | Version control, private repo `vedang-123-ai/escape_plan` | — |
-| Python 3 (stdlib only, so far) | 3.11+ | `backend/corpus/validate.py` corpus validation script | PSF |
+| Python 3 | 3.11+ | Backend: models, validation, routing engine | PSF |
+| pydantic | ≥2.7 | HomeModel domain models + structural invariant validation (`backend/app/models.py`) | MIT |
+| jsonschema | ≥4.21 | Validating documents against `schema/homemodel.schema.json` (draft 2020-12) | MIT |
+| pytest | ≥8.0 | Backend test suite (`backend/tests/`) | MIT |
+| matplotlib | ≥3.8 | Dev/debug only: fixture navigation-graph renderings in `docs/graphs/` (S1.1 handoff) | PSF-based |
 
 ## Content sources (grounding corpus, not code dependencies)
 

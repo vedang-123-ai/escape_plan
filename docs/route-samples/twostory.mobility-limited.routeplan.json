@@ -1,0 +1,330 @@
+{
+  "home_id": "9a5e6d34-2c3f-4a1b-8d70-456789abcde3",
+  "home_name": "Two-Story House",
+  "constraints": {
+    "avoid_stairs": true,
+    "avoid_windows": true,
+    "max_sill_height_m": null
+  },
+  "rooms": [
+    {
+      "room_id": "r_hall1",
+      "room_name": "Entry Hall",
+      "floor_id": "f1",
+      "primary": {
+        "waypoints": [
+          {
+            "x": 5.0,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "r_hall1",
+            "kind": "room"
+          },
+          {
+            "x": 5.01,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "opening"
+          },
+          {
+            "x": 5.01,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 4.0,
+        "uses_stairs": false,
+        "uses_window": false,
+        "exit_id": "d_front"
+      },
+      "secondary": {
+        "waypoints": [
+          {
+            "x": 5.0,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "r_hall1",
+            "kind": "room"
+          },
+          {
+            "x": 6.0,
+            "y": 4.05,
+            "floor_id": "f1",
+            "node_id": "d_hall_kitchen",
+            "kind": "opening"
+          },
+          {
+            "x": 8.0,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "r_kitchen",
+            "kind": "room"
+          },
+          {
+            "x": 7.95,
+            "y": 8.0,
+            "floor_id": "f1",
+            "node_id": "d_back",
+            "kind": "opening"
+          },
+          {
+            "x": 7.95,
+            "y": 8.0,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 7.002,
+        "uses_stairs": false,
+        "uses_window": false,
+        "exit_id": "d_back"
+      },
+      "findings": []
+    },
+    {
+      "room_id": "r_living",
+      "room_name": "Living Room",
+      "floor_id": "f1",
+      "primary": {
+        "waypoints": [
+          {
+            "x": 2.0,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "r_living",
+            "kind": "room"
+          },
+          {
+            "x": 4.0,
+            "y": 3.95,
+            "floor_id": "f1",
+            "node_id": "d_hall_living",
+            "kind": "opening"
+          },
+          {
+            "x": 5.0,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "r_hall1",
+            "kind": "room"
+          },
+          {
+            "x": 5.01,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "opening"
+          },
+          {
+            "x": 5.01,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 7.002,
+        "uses_stairs": false,
+        "uses_window": false,
+        "exit_id": "d_front"
+      },
+      "secondary": {
+        "waypoints": [
+          {
+            "x": 2.0,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "r_living",
+            "kind": "room"
+          },
+          {
+            "x": 4.0,
+            "y": 3.95,
+            "floor_id": "f1",
+            "node_id": "d_hall_living",
+            "kind": "opening"
+          },
+          {
+            "x": 5.0,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "r_hall1",
+            "kind": "room"
+          },
+          {
+            "x": 6.0,
+            "y": 4.05,
+            "floor_id": "f1",
+            "node_id": "d_hall_kitchen",
+            "kind": "opening"
+          },
+          {
+            "x": 8.0,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "r_kitchen",
+            "kind": "room"
+          },
+          {
+            "x": 7.95,
+            "y": 8.0,
+            "floor_id": "f1",
+            "node_id": "d_back",
+            "kind": "opening"
+          },
+          {
+            "x": 7.95,
+            "y": 8.0,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 10.004,
+        "uses_stairs": false,
+        "uses_window": false,
+        "exit_id": "d_back"
+      },
+      "findings": []
+    },
+    {
+      "room_id": "r_kitchen",
+      "room_name": "Kitchen",
+      "floor_id": "f1",
+      "primary": {
+        "waypoints": [
+          {
+            "x": 8.0,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "r_kitchen",
+            "kind": "room"
+          },
+          {
+            "x": 7.95,
+            "y": 8.0,
+            "floor_id": "f1",
+            "node_id": "d_back",
+            "kind": "opening"
+          },
+          {
+            "x": 7.95,
+            "y": 8.0,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 4.0,
+        "uses_stairs": false,
+        "uses_window": false,
+        "exit_id": "d_back"
+      },
+      "secondary": {
+        "waypoints": [
+          {
+            "x": 8.0,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "r_kitchen",
+            "kind": "room"
+          },
+          {
+            "x": 6.0,
+            "y": 4.05,
+            "floor_id": "f1",
+            "node_id": "d_hall_kitchen",
+            "kind": "opening"
+          },
+          {
+            "x": 5.0,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "r_hall1",
+            "kind": "room"
+          },
+          {
+            "x": 5.01,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "opening"
+          },
+          {
+            "x": 5.01,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 7.002,
+        "uses_stairs": false,
+        "uses_window": false,
+        "exit_id": "d_front"
+      },
+      "findings": []
+    },
+    {
+      "room_id": "r_landing",
+      "room_name": "Landing",
+      "floor_id": "f2",
+      "primary": null,
+      "secondary": null,
+      "findings": [
+        {
+          "kind": "no_viable_route",
+          "room_id": "r_landing",
+          "detail": "No viable escape route from 'Landing' under the current constraints."
+        }
+      ]
+    },
+    {
+      "room_id": "r_bed_master",
+      "room_name": "Master Bedroom",
+      "floor_id": "f2",
+      "primary": null,
+      "secondary": null,
+      "findings": [
+        {
+          "kind": "no_viable_route",
+          "room_id": "r_bed_master",
+          "detail": "No viable escape route from 'Master Bedroom' under the current constraints."
+        }
+      ]
+    },
+    {
+      "room_id": "r_bed_kids",
+      "room_name": "Kids' Bedroom",
+      "floor_id": "f2",
+      "primary": null,
+      "secondary": null,
+      "findings": [
+        {
+          "kind": "no_viable_route",
+          "room_id": "r_bed_kids",
+          "detail": "No viable escape route from 'Kids' Bedroom' under the current constraints."
+        }
+      ]
+    },
+    {
+      "room_id": "r_bath2",
+      "room_name": "Upstairs Bathroom",
+      "floor_id": "f2",
+      "primary": null,
+      "secondary": null,
+      "findings": [
+        {
+          "kind": "no_viable_route",
+          "room_id": "r_bath2",
+          "detail": "No viable escape route from 'Upstairs Bathroom' under the current constraints."
+        }
+      ]
+    }
+  ],
+  "bottlenecks": []
+}

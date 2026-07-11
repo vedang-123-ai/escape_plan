@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://escape-plan.app/schema/homemodel.schema.json",
+  "title": "HomeModel",
+  "description": "THE contract of the Escape Plan project (v1.0, finalized in S0.2). One JSON document describes a home: the scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. All linear units are meters; room footprints are 2D polygons in floor-local coordinates (3D is derived by extrusion — meshes are never stored). Structural invariants that JSON Schema cannot express (CCW non-self-intersecting polygons, cross-references, global id uniqueness) are enforced by backend/app/models.py; both validators must pass.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Version of this contract. Any change to the schema after S0.2 requires bumping this value plus team sign-off."
+    },
+    "home_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Stable UUID identifying this home document (generated on creation, never changes; used as the local persistence key)."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "User-facing display name of the home, e.g. \"Our House\"."
+    },
+    "floors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/floor" },
+      "description": "The floors of the home, each with its own rooms and openings. Levels must be unique across floors."
+    },
+    "stairs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/stairs" },
+      "default": [],
+      "description": "Stair connections between rooms on different floors. In the navigation graph a stair is an edge between its two endpoint rooms with a traversal cost higher than a same-floor edge."
+    },
+    "profiles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/profile" },
+      "default": [],
+      "description": "Household member profiles. Tags map deterministically to routing constraints (e.g. mobility_limited → avoid_stairs + avoid_windows) and personalize explanations."
+    },
+    "meta": { "$ref": "#/$defs/meta" }
+  },
+  "required": ["schema_version", "home_id", "name", "floors", "meta"],
+  "additionalProperties": false,
+  "$defs": {
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number", "description": "x coordinate in meters, floor-local frame." },
+        { "type": "number", "description": "y coordinate in meters, floor-local frame." }
+      ],
+      "items": false,
+      "minItems": 2,
+      "description": "A 2D point [x, y] in meters, in the floor-local coordinate frame."
+    },
+    "polygon": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "$ref": "#/$defs/point" },
+      "description": "A simple closed polygon as an ordered vertex list (the closing edge last→first is implicit; do not repeat the first vertex). Must be counter-clockwise and non-self-intersecting (enforced by pydantic). Edge i runs from vertex i to vertex (i+1) mod n — wall_segment.edge_index uses this convention."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["scan", "manual"],
+      "description": "Provenance of this element: 'scan' = derived from a RoomPlan capture (must carry confidence; low-confidence items are flagged for editor review, never silently dropped); 'manual' = created or confirmed by the user in the editor."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Detection confidence in [0,1]. Required when source is 'scan' (enforced by pydantic); optional for manual elements. The editor highlights low values for review."
+    },
+    "room": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "const": "EXTERIOR" },
+          "description": "Unique id of the room across the whole home. 'EXTERIOR' is a reserved pseudo-room id and may never be used for a real room."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "User-facing room name, e.g. \"Living Room\"."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["bedroom", "living", "kitchen", "hall", "bath", "garage", "other"],
+          "description": "Room category. Drives rendering accents and safety logic — rooms typed 'bedroom' require an emergency escape opening (IRC R310.1)."
+        },
+        "polygon": {
+          "$ref": "#/$defs/polygon",
+          "description": "The room's 2D footprint in meters, floor-local coordinates. 3D geometry is extruded from this using the floor's height_m."
+        },
+        "source": { "$ref": "#/$defs/source" },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      },
+      "required": ["id", "name", "type", "polygon", "source"],
+      "additionalProperties": false,
+      "description": "A room: a named, typed 2D footprint on one floor."
+    },
+    "wall_segment": {
+      "type": "object",
+      "properties": {
+        "room_id": {
+          "type": "string",
+          "description": "Id of the room whose polygon edge hosts this opening. Must be one of the opening's room_ids (a real room, never 'EXTERIOR')."
+        },
+        "edge_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Index i of the host edge: the wall from polygon vertex i to vertex (i+1) mod n of the referenced room. Must be < the polygon's vertex count."
+        },
+        "t0": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Normalized start of the opening along the edge (0 = at vertex i, 1 = at vertex i+1). Must be < t1."
+        },
+        "t1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Normalized end of the opening along the edge. Must be > t0."
+        }
+      },
+      "required": ["room_id", "edge_index", "t0", "t1"],
+      "additionalProperties": false,
+      "description": "Parametric placement of an opening on a wall: (room polygon edge, t-range). Because placement is relative to the edge, dragging a wall in the editor moves its doors and windows automatically."
+    },
+    "egress": {
+      "type": "object",
+      "properties": {
+        "viable": {
+          "type": "boolean",
+          "description": "Whether this opening qualifies as an emergency escape/egress path per the thresholds in backend/corpus/egress_thresholds.json (window size, sill height; door width/height)."
+        },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Human-readable reasons when viable is false (e.g. \"width 0.40m < required 0.508m\"). Empty when viable."
+        }
+      },
+      "required": ["viable"],
+      "additionalProperties": false,
+      "description": "COMPUTED egress assessment written back by the S1.1 egress annotator — never authored by hand or by the AI. Absent until the annotator runs."
+    },
+    "opening": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "const": "EXTERIOR" },
+          "description": "Unique id of the opening across the whole home."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["door", "window"],
+          "description": "Opening type. Routing prefers doors over windows via edge-weight penalties; windows must pass egress thresholds to count as escape paths."
+        },
+        "room_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "description": "The two spaces this opening connects. Two room ids = an interior opening (adjacency); one room id + the reserved 'EXTERIOR' pseudo-room = an exit to the outside. Both entries being 'EXTERIOR' is invalid."
+        },
+        "wall_segment": { "$ref": "#/$defs/wall_segment" },
+        "width_m": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Clear opening width in meters. Authoritative for egress checks (the t-range is placement, not size)."
+        },
+        "height_m": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Clear opening height in meters."
+        },
+        "sill_height_m": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Height of the opening's bottom above the floor, in meters. 0 for doors. Matters for window egress (IRC max sill 1.118m / 44in)."
+        },
+        "egress": { "$ref": "#/$defs/egress" },
+        "source": { "$ref": "#/$defs/source" },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      },
+      "required": ["id", "kind", "room_ids", "wall_segment", "width_m", "height_m", "sill_height_m", "source"],
+      "additionalProperties": false,
+      "description": "A door or window placed parametrically on a wall segment, connecting two rooms or a room and EXTERIOR."
+    },
+    "floor": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "const": "EXTERIOR" },
+          "description": "Unique id of the floor across the whole home."
+        },
+        "level": {
+          "type": "integer",
+          "description": "Vertical ordering of the floor: 0 = ground, 1 = second story, -1 = basement. Unique across floors."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "User-facing floor name, e.g. \"Ground Floor\"."
+        },
+        "height_m": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Floor-to-ceiling height in meters; the extrusion height for this floor's room polygons."
+        },
+        "rooms": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/room" },
+          "description": "Rooms whose footprints live on this floor (floor-local coordinate frame)."
+        },
+        "openings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/opening" },
+          "default": [],
+          "description": "Doors and windows on this floor. An opening's room_ids must reference rooms on this same floor (or 'EXTERIOR')."
+        }
+      },
+      "required": ["id", "level", "name", "height_m", "rooms"],
+      "additionalProperties": false,
+      "description": "One story of the home: rooms plus the openings that connect them."
+    },
+    "stair_end": {
+      "type": "object",
+      "properties": {
+        "floor_id": {
+          "type": "string",
+          "description": "Id of an existing floor."
+        },
+        "room_id": {
+          "type": "string",
+          "description": "Id of an existing room on that floor (the room the stair lands in)."
+        }
+      },
+      "required": ["floor_id", "room_id"],
+      "additionalProperties": false,
+      "description": "One endpoint of a stair: the (floor, room) it connects."
+    },
+    "stairs": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "const": "EXTERIOR" },
+          "description": "Unique id of the stair across the whole home."
+        },
+        "from": {
+          "$ref": "#/$defs/stair_end",
+          "description": "Lower endpoint (by convention the lower floor; the graph edge is bidirectional)."
+        },
+        "to": {
+          "$ref": "#/$defs/stair_end",
+          "description": "Upper endpoint. Must be on a different floor than 'from'."
+        },
+        "footprint": {
+          "$ref": "#/$defs/polygon",
+          "description": "2D footprint of the stair run for rendering (in the 'from' floor's coordinate frame)."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["straight", "L", "U"],
+          "description": "Stair shape, used only by the renderer's proxy geometry."
+        },
+        "source": { "$ref": "#/$defs/source" },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      },
+      "required": ["id", "from", "to", "footprint", "kind", "source"],
+      "additionalProperties": false,
+      "description": "A staircase connecting a room on one floor to a room on another; the only cross-floor connector in the navigation graph."
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "const": "EXTERIOR" },
+          "description": "Unique id of the profile across the whole home."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Household member's name (or pet's)."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["child", "elderly", "mobility_limited", "pet"]
+          },
+          "uniqueItems": true,
+          "default": [],
+          "description": "Traits that deterministically map to routing constraints and advice: mobility_limited → avoid_stairs + avoid_windows; child → window egress deprioritized + accompanied-adult framing. Empty = able-bodied adult."
+        },
+        "bedroom_room_id": {
+          "type": "string",
+          "description": "Id of the room this person sleeps in (their route origin at night). Must reference an existing room."
+        }
+      },
+      "required": ["id", "name", "tags", "bedroom_room_id"],
+      "additionalProperties": false,
+      "description": "A household member whose traits personalize routes and guidance."
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when the document was created."
+        },
+        "modified": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of the last mutation (the editor's autosave updates this)."
+        },
+        "address_optional": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "Optional free-text home address; null when the user hasn't provided one. Never required — the app works fully anonymously."
+        }
+      },
+      "required": ["created", "modified"],
+      "additionalProperties": false,
+      "description": "Document housekeeping metadata."
+    }
+  }
+}

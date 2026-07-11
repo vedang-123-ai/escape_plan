@@ -1,6 +1,17 @@
 # backend/ — Python FastAPI service
 
-Not yet scaffolded (happens in S1.6; corpus lands earlier in S0.4). Read the root `CLAUDE.md` first.
+Partially scaffolded: models + routing landed in S0.2/S1.1/S1.2; FastAPI wrapper comes in S1.6. Read the root `CLAUDE.md` first.
+
+Current state:
+
+- `app/models.py` — pydantic HomeModel (the schema's executable half) + geometry validators
+- `app/validate.py` — `python3 -m app.validate <file>` (JSON Schema + pydantic, run from backend/)
+- `app/routing/` — `egress.py` (threshold checks), `graph.py` (NavGraph builder), `engine.py`
+  (Dijkstra primary/secondary + bottlenecks), `plan.py` (RoutePlan models),
+  CLI `python3 -m app.routing plan ../schema/fixtures/twostory.json --pretty`
+- `scripts/render_graphs.py` — dev-only matplotlib graph renderings → docs/graphs/
+- `tests/` — pytest; run `python3 -m pytest backend/tests/` from the repo root
+- `requirements.txt` — pydantic, jsonschema, pytest (+ matplotlib dev-only)
 
 Planned structure (playbook §2.3):
 

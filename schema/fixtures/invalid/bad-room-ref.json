@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "home_id": "11111111-2222-4333-8444-555555555555",
+  "name": "Broken: opening references a room that does not exist",
+  "floors": [
+    {
+      "id": "f1",
+      "level": 0,
+      "name": "Ground Floor",
+      "height_m": 2.7,
+      "rooms": [
+        {
+          "id": "r_living",
+          "name": "Living Room",
+          "type": "living",
+          "polygon": [[0.0, 0.0], [5.0, 0.0], [5.0, 4.0], [0.0, 4.0]],
+          "source": "manual"
+        }
+      ],
+      "openings": [
+        {
+          "id": "d_ghost",
+          "kind": "door",
+          "room_ids": ["r_living", "r_ghost"],
+          "wall_segment": { "room_id": "r_living", "edge_index": 1, "t0": 0.3, "t1": 0.5 },
+          "width_m": 0.9,
+          "height_m": 2.0,
+          "sill_height_m": 0.0,
+          "source": "manual"
+        }
+      ]
+    }
+  ],
+  "stairs": [],
+  "profiles": [],
+  "meta": {
+    "created": "2026-07-10T12:00:00Z",
+    "modified": "2026-07-10T12:00:00Z",
+    "address_optional": null
+  }
+}

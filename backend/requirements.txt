@@ -1,0 +1,7 @@
+# Minimal deps for the schema/model layer (S0.2) and routing engine (S1.1/S1.2).
+# S1.6 (backend scaffold) adds FastAPI/uvicorn/anthropic on top of this.
+pydantic>=2.7
+jsonschema>=4.21
+pytest>=8.0
+# dev/debug only: fixture graph renderings (docs/graphs/), not a runtime dep
+matplotlib>=3.8
