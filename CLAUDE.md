@@ -24,6 +24,7 @@ iOS app that builds a structured 3D model of the user's home (via a full 3D edit
 Target monorepo layout (per playbook §2.3): `schema/`, `backend/` (Python 3.11+/FastAPI/pytest), `ios/`, `docs/`. **Current deviation:** the Xcode project lives at the repo root (`escape_plan/`, `escape_plan.xcodeproj`) instead of under `ios/` — moving it would break the open Xcode session; see `docs/decisions.md`.
 
 - `docs/playbook/` — the full execution playbook, one file per session (`S0-1.md` … `S5-3.md`). **Read the session file before starting any session.**
+- `docs/tracker/` — team progress tracker: `board.md` (DONE / READY / BLOCKED right now), `checklist.md` (per-session acceptance checkboxes), `notes/` (informal session notes). **Check `board.md` before picking work; update it when a session flips status.** How-to: `docs/tracker/README.md`.
 - `docs/decisions.md` — running log of deviations from playbook defaults. Update it every session.
 - `docs/tools-used.md` — every library/API/tool with version and purpose. **Required for CAC originality documentation.** Update whenever a dependency is added.
 - `schema/fixtures/` — synthetic test homes (bungalow, apartment, twostory) built in S0.2
