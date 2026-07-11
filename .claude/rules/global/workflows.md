@@ -12,7 +12,9 @@ an owner, prerequisites, acceptance criteria, and a handoff artifact. Dependency
 3. A session is DONE only when every acceptance criterion passes.
 4. Every session ends with: acceptance verified, `docs/decisions.md` updated (any deviation
    from playbook defaults, with why), `docs/tools-used.md` updated (any new dependency — CAC
-   originality requirement), handoff artifact posted. A session without a handoff didn't happen.
+   originality requirement), handoff artifact posted, and — MANDATORY — a session note written
+   in `docs/tracker/notes/` (copy `_TEMPLATE.md`) plus `docs/tracker/board.md` and
+   `checklist.md` updated. A session without a handoff and a tracker note didn't happen.
 
 ## Schedule pressure
 

@@ -24,7 +24,7 @@ iOS app that builds a structured 3D model of the user's home (via a full 3D edit
 Target monorepo layout (per playbook §2.3): `schema/`, `backend/` (Python 3.11+/FastAPI/pytest), `ios/`, `docs/`. **Current deviation:** the Xcode project lives at the repo root (`escape_plan/`, `escape_plan.xcodeproj`) instead of under `ios/` — moving it would break the open Xcode session; see `docs/decisions.md`.
 
 - `docs/playbook/` — the full execution playbook, one file per session (`S0-1.md` … `S5-3.md`). **Read the session file before starting any session.**
-- `docs/tracker/` — team progress tracker: `board.md` (DONE / READY / BLOCKED right now), `checklist.md` (per-session acceptance checkboxes), `notes/` (informal session notes). **Check `board.md` before picking work; update it when a session flips status.** How-to: `docs/tracker/README.md`.
+- `docs/tracker/` — team progress tracker: `board.md` (DONE / READY / BLOCKED right now), `checklist.md` (per-session acceptance checkboxes), `notes/` (session notes). **Check `board.md` before picking work; update it when a session flips status. Writing a session note in `notes/` (copy `_TEMPLATE.md`) is MANDATORY for every work session — no note, no DONE.** How-to: `docs/tracker/README.md`.
 - `docs/decisions.md` — running log of deviations from playbook defaults. Update it every session.
 - `docs/tools-used.md` — every library/API/tool with version and purpose. **Required for CAC originality documentation.** Update whenever a dependency is added.
 - `schema/fixtures/` — synthetic test homes (bungalow, apartment, twostory) built in S0.2
@@ -35,7 +35,7 @@ Work is organized into checkpointed sessions (S0.1–S5.3) with owners, prerequi
 
 1. Never start a session whose prerequisites aren't done
 2. A session is DONE only when all acceptance criteria pass
-3. Every session ends with: acceptance verified, `decisions.md` updated, `tools-used.md` updated, handoff artifact posted
+3. Every session ends with: acceptance verified, `decisions.md` updated, `tools-used.md` updated, handoff artifact posted, session note written in `docs/tracker/notes/` and `docs/tracker/` board/checklist updated (mandatory)
 4. If behind schedule, cut in this order: S4.2 drill → S3.3 chat → S3.5 score → camera tour → simplified agent. **Never cut scan→editor→3D routes→profile switch.**
 
 ## Conventions
