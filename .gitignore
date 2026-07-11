@@ -9,5 +9,9 @@ DerivedData/
 # macOS
 .DS_Store
 
-# Claude
-.claude/
+# Claude — shared control center (.claude/) is committed; only local overrides are ignored
+.claude/settings.local.json
+
+# Secrets
+.env
+.env.*

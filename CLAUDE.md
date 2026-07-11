@@ -45,3 +45,18 @@ Work is organized into checkpointed sessions (S0.1–S5.3) with owners, prerequi
 - AI layer: grounded in `backend/corpus/` only; citations validated against `sources.json`; low temperature; the AI explains and audits — routing is always the deterministic engine.
 - Small PRs; anything touching `schema/` goes through PR review.
 - Locked scope: fire only, iOS only, LiDAR scan only, no user accounts (local persistence + anonymous device id). Out of scope (deliberate): furniture detection, camera-only capture, Android, multi-user sync, other disasters.
+
+## Detailed rules (auto-loaded)
+
+@.claude/rules/global/architecture.md
+@.claude/rules/global/conventions.md
+@.claude/rules/global/workflows.md
+
+Scoped rules load on demand via frontmatter globs: `rules/languages/` (python, swift), `rules/paths/` (schema, corpus), `rules/vendors/anthropic.md`.
+
+## Working here
+
+- `/session <id>` — run a playbook session with the full handoff protocol (prereq check → plan → execute → acceptance → decisions/tools-used → handoff).
+- `/validate-corpus` — run `backend/corpus/validate.py` and fix failures.
+- `session-auditor` agent — evidence-based audit before declaring any session DONE; end-of-session checklist in `.claude/workflows/runbooks/end-of-session.md`.
+- Hooks (auto): editing an existing `schema/homemodel.schema.json` requires explicit confirmation; `git commit` is blocked if staged changes contain Anthropic key material.
