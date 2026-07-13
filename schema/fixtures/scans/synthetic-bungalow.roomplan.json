@@ -1,0 +1,493 @@
+{
+  "version": 2,
+  "rooms": [
+    {
+      "identifier": "b88a6977-a626-58d0-852d-07f2eb5d9936",
+      "walls": [
+        {
+          "identifier": "543b6ce7-0a0e-588f-8fab-b83cc647fa67",
+          "transform": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0,
+            1.0,
+            0.0,
+            2.5,
+            1.25,
+            0.0,
+            1.0
+          ],
+          "dimensions": [
+            5.0,
+            2.5,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "wall": {}
+          },
+          "parentIdentifier": null,
+          "story": 0
+        },
+        {
+          "identifier": "ca33d8c5-39a6-5b92-a61c-ffb20cda668d",
+          "transform": [
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            0.0,
+            0.0,
+            5.0,
+            1.25,
+            2.0,
+            1.0
+          ],
+          "dimensions": [
+            4.0,
+            2.5,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "wall": {}
+          },
+          "parentIdentifier": null,
+          "story": 0
+        },
+        {
+          "identifier": "f862ed26-9946-5b6d-aac4-fd32259e5c4d",
+          "transform": [
+            -1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0,
+            -1.0,
+            0.0,
+            2.5,
+            1.25,
+            4.0,
+            1.0
+          ],
+          "dimensions": [
+            5.0,
+            2.5,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "wall": {}
+          },
+          "parentIdentifier": null,
+          "story": 0
+        },
+        {
+          "identifier": "7f38c560-59f1-5852-bf0a-445f1389c46c",
+          "transform": [
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.25,
+            2.0,
+            1.0
+          ],
+          "dimensions": [
+            4.0,
+            2.5,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "wall": {}
+          },
+          "parentIdentifier": null,
+          "story": 0
+        }
+      ],
+      "doors": [
+        {
+          "identifier": "f97282db-b233-55bf-b659-d74160415e40",
+          "transform": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0,
+            1.0,
+            0.0,
+            1.45,
+            1.0,
+            0.0,
+            1.0
+          ],
+          "dimensions": [
+            0.9,
+            2.0,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "door": {
+              "isOpen": false
+            }
+          },
+          "parentIdentifier": null,
+          "story": 0
+        },
+        {
+          "identifier": "807e76b5-4291-55f9-80b9-82796fe23edb",
+          "transform": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0,
+            1.0,
+            0.0,
+            2.45,
+            1.0,
+            4.0,
+            1.0
+          ],
+          "dimensions": [
+            0.9,
+            2.0,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "door": {
+              "isOpen": false
+            }
+          },
+          "parentIdentifier": null,
+          "story": 0
+        }
+      ],
+      "windows": [
+        {
+          "identifier": "c6af10d9-3cec-54ca-b2bb-66b219c99ee1",
+          "transform": [
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.4,
+            1.5,
+            1.0
+          ],
+          "dimensions": [
+            1.0,
+            1.2,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "window": {}
+          },
+          "parentIdentifier": null,
+          "story": 0
+        }
+      ],
+      "openings": [],
+      "sections": [
+        {
+          "label": "livingRoom",
+          "center": [
+            2.5,
+            1.0,
+            2.0
+          ]
+        }
+      ]
+    },
+    {
+      "identifier": "10cd1177-e99d-566d-8e2a-e195e255410f",
+      "walls": [
+        {
+          "identifier": "3cd689ec-71ec-526e-ae3d-913d9beac14c",
+          "transform": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0,
+            1.0,
+            0.0,
+            2.5,
+            1.25,
+            4.0,
+            1.0
+          ],
+          "dimensions": [
+            5.0,
+            2.5,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "wall": {}
+          },
+          "parentIdentifier": null,
+          "story": 0
+        },
+        {
+          "identifier": "fff3d79e-9e90-5d37-8541-6f797af40f03",
+          "transform": [
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            0.0,
+            0.0,
+            5.0,
+            1.25,
+            6.0,
+            1.0
+          ],
+          "dimensions": [
+            4.0,
+            2.5,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "wall": {}
+          },
+          "parentIdentifier": null,
+          "story": 0
+        },
+        {
+          "identifier": "bc030971-0b14-54e7-b79b-c0bc1cd129e8",
+          "transform": [
+            -1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0,
+            -1.0,
+            0.0,
+            2.5,
+            1.25,
+            8.0,
+            1.0
+          ],
+          "dimensions": [
+            5.0,
+            2.5,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "wall": {}
+          },
+          "parentIdentifier": null,
+          "story": 0
+        },
+        {
+          "identifier": "aaecdcdb-7efb-58ca-83d2-cc0716faeb84",
+          "transform": [
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.25,
+            6.0,
+            1.0
+          ],
+          "dimensions": [
+            4.0,
+            2.5,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "wall": {}
+          },
+          "parentIdentifier": null,
+          "story": 0
+        }
+      ],
+      "doors": [
+        {
+          "identifier": "807e76b5-4291-55f9-80b9-82796fe23edb",
+          "transform": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0,
+            1.0,
+            0.0,
+            2.45,
+            1.0,
+            4.0,
+            1.0
+          ],
+          "dimensions": [
+            0.9,
+            2.0,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "door": {
+              "isOpen": false
+            }
+          },
+          "parentIdentifier": null,
+          "story": 0
+        }
+      ],
+      "windows": [
+        {
+          "identifier": "f6792e68-9489-598b-a747-a5b4b84eb4b9",
+          "transform": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0,
+            1.0,
+            0.0,
+            2.0,
+            1.4,
+            8.0,
+            1.0
+          ],
+          "dimensions": [
+            1.0,
+            1.2,
+            0.0
+          ],
+          "confidence": {
+            "high": {}
+          },
+          "category": {
+            "window": {}
+          },
+          "parentIdentifier": null,
+          "story": 0
+        }
+      ],
+      "openings": [],
+      "sections": [
+        {
+          "label": "bedroom",
+          "center": [
+            2.5,
+            1.0,
+            6.0
+          ]
+        }
+      ]
+    }
+  ]
+}

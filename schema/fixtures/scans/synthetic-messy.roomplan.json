@@ -1,0 +1,251 @@
+{
+  "identifier": "adde4d0a-3716-5262-9e44-470e326481c4",
+  "walls": [
+    {
+      "identifier": "e7b60288-cf73-5035-b1a1-6aa1b8c54174",
+      "transform": [
+        0.997732,
+        0.0,
+        0.067308,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -0.067308,
+        0.0,
+        0.997732,
+        0.0,
+        0.997845,
+        1.25,
+        0.067316,
+        1.0
+      ],
+      "dimensions": [
+        2.000225,
+        2.5,
+        0.0
+      ],
+      "confidence": {
+        "medium": {}
+      },
+      "category": {
+        "wall": {}
+      },
+      "parentIdentifier": null,
+      "story": 0
+    },
+    {
+      "identifier": "1a520233-4aa6-51e3-a104-3aafe453bd3a",
+      "transform": [
+        0.999302,
+        0.0,
+        0.037352,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -0.037352,
+        0.0,
+        0.999302,
+        0.0,
+        2.995103,
+        1.25,
+        0.171988,
+        1.0
+      ],
+      "dimensions": [
+        2.000225,
+        2.5,
+        0.0
+      ],
+      "confidence": {
+        "medium": {}
+      },
+      "category": {
+        "wall": {}
+      },
+      "parentIdentifier": null,
+      "story": 0
+    },
+    {
+      "identifier": "0277b8d8-4cc7-57a8-a9c5-e1fe1cd585f6",
+      "transform": [
+        -0.052336,
+        0.0,
+        0.99863,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -0.99863,
+        0.0,
+        -0.052336,
+        0.0,
+        3.923864,
+        1.25,
+        1.557494,
+        1.0
+      ],
+      "dimensions": [
+        2.7,
+        2.5,
+        0.0
+      ],
+      "confidence": {
+        "low": {}
+      },
+      "category": {
+        "wall": {}
+      },
+      "parentIdentifier": null,
+      "story": 0
+    },
+    {
+      "identifier": "47a1b572-665e-55d8-98b6-a47be369facd",
+      "transform": [
+        -0.99863,
+        0.0,
+        -0.052336,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.052336,
+        0.0,
+        -0.99863,
+        0.0,
+        1.840251,
+        1.25,
+        3.100561,
+        1.0
+      ],
+      "dimensions": [
+        4.0,
+        2.5,
+        0.0
+      ],
+      "confidence": {
+        "medium": {}
+      },
+      "category": {
+        "wall": {}
+      },
+      "parentIdentifier": null,
+      "story": 0
+    },
+    {
+      "identifier": "f1e3478b-c258-57a2-b81b-412f6304761b",
+      "transform": [
+        0.052336,
+        0.0,
+        -0.99863,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.99863,
+        0.0,
+        0.052336,
+        0.0,
+        -0.078504,
+        1.25,
+        1.497945,
+        1.0
+      ],
+      "dimensions": [
+        3.0,
+        2.5,
+        0.0
+      ],
+      "confidence": {
+        "medium": {}
+      },
+      "category": {
+        "wall": {}
+      },
+      "parentIdentifier": null,
+      "story": 0
+    }
+  ],
+  "doors": [
+    {
+      "identifier": "1e3ddbac-756e-58f1-897f-9e1bca4907dd",
+      "transform": [
+        0.99863,
+        0.0,
+        0.052336,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -0.052336,
+        0.0,
+        0.99863,
+        0.0,
+        1.416611,
+        1.0,
+        0.675065,
+        1.0
+      ],
+      "dimensions": [
+        0.899999,
+        2.0,
+        0.0
+      ],
+      "confidence": {
+        "medium": {}
+      },
+      "category": {
+        "door": {
+          "isOpen": false
+        }
+      },
+      "parentIdentifier": null,
+      "story": 0
+    }
+  ],
+  "windows": [
+    {
+      "identifier": "510536f8-1758-5f26-8cd7-358383bf2cce",
+      "transform": [
+        0.99863,
+        0.0,
+        0.052335,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -0.052335,
+        0.0,
+        0.99863,
+        0.0,
+        1.840251,
+        1.5,
+        3.100561,
+        1.0
+      ],
+      "dimensions": [
+        1.0,
+        1.2,
+        0.0
+      ],
+      "confidence": {
+        "low": {}
+      },
+      "category": {
+        "window": {}
+      },
+      "parentIdentifier": null,
+      "story": 0
+    }
+  ],
+  "openings": [],
+  "sections": []
+}
