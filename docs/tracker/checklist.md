@@ -60,11 +60,11 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [ ] Second full scan of same space completes without crashing
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (clean + messy exports → `schema/fixtures/scans/`)
 
-### S1.5 — Scan converter (RoomPlan → HomeModel) — **BLOCKED (needs S1.4)** (P1, P3 support)
-- [ ] Clean scan → valid HomeModel, renders in S1.3, ≥1 exterior door + ≥1 window mapped
-- [ ] Messy scan → valid model with low-confidence flags, no crash
-- [ ] Conversion idempotent
-- [ ] 📋 (known failure modes) · [ ] 🔧 · [ ] 📦 handoff (USDZ vs render side-by-side)
+### S1.5 — Scan converter (RoomPlan → HomeModel) — **PREP DONE 2026-07-13, awaiting S1.4 real exports** (P1, P3 support)
+- [~] Clean scan → valid HomeModel, renders in S1.3, ≥1 exterior door + ≥1 window mapped — **synthetic half done** (`backend/app/convert/`, ground-truth tests on 3 synthetic fixtures; S1.3 render check + real-export validation pending)
+- [~] Messy scan → valid model with low-confidence flags, no crash — passes on the synthetic messy fixture; re-verify on S1.4's real messy export
+- [~] Conversion idempotent — tested (synthetic); re-verify on real exports
+- [ ] 📋 (known failure modes — assumed-format risks listed in `backend/app/convert/README.md`, promote to decisions.md after S1.4 diff) · [ ] 🔧 · [ ] 📦 handoff (USDZ vs render side-by-side)
 
 ### S1.6 — Backend scaffold + deploy — **CODE DONE 2026-07-13, deploy BLOCKED-ON-HUMAN** (P1 via P3)
 - [~] Phone on cellular gets twostory.json routes from deployed backend in <2s — **blocked-on-human: P1 must create the Render account (exact steps: backend/README.md § Deploy); then verify from phone.** Local API fully tested (10 tests, `backend/tests/test_api.py`)
