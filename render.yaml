@@ -1,0 +1,20 @@
+# Render.com blueprint — deploys the FastAPI backend from this monorepo.
+# Human steps to go live are in backend/README.md § Deploy.
+services:
+  - type: web
+    name: escape-plan-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.6
+      - key: BACKEND_BEARER_TOKEN
+        generateValue: true # Render generates a random token; copy it into the team password note
+      - key: ANTHROPIC_API_KEY
+        sync: false # set manually in the Render dashboard — never in git
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-5

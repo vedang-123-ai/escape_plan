@@ -1,0 +1,4 @@
+# Dev/debug-only extras — not installed on the deploy target.
+-r requirements.txt
+# fixture graph renderings (scripts/render_graphs.py → docs/graphs/)
+matplotlib>=3.8
