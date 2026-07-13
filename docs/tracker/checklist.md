@@ -66,10 +66,10 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [ ] Conversion idempotent
 - [ ] 📋 (known failure modes) · [ ] 🔧 · [ ] 📦 handoff (USDZ vs render side-by-side)
 
-### S1.6 — Backend scaffold + deploy — **READY** (P3) ← unblocked by S1.2
-- [ ] Phone on cellular gets twostory.json routes from deployed backend in <2s
-- [ ] Secrets not in git (verified — hook helps but check)
-- [ ] 📋 · [ ] 🔧 (FastAPI etc.) · [ ] 📦 handoff (base URL + token in team password note; curl examples)
+### S1.6 — Backend scaffold + deploy — **CODE DONE 2026-07-13, deploy BLOCKED-ON-HUMAN** (P1 via P3)
+- [~] Phone on cellular gets twostory.json routes from deployed backend in <2s — **blocked-on-human: P1 must create the Render account (exact steps: backend/README.md § Deploy); then verify from phone.** Local API fully tested (10 tests, `backend/tests/test_api.py`)
+- [x] Secrets not in git (verified: `git grep` for key material clean; token/key are env-only, service fails closed without token)
+- [x] 📋 · [x] 🔧 (FastAPI, uvicorn, httpx, anthropic, Render) · [~] 📦 handoff (curl examples in backend/README.md ✓; base URL + token in team password note **pending deploy**)
 
 ## Phase 2 — The 3D editor
 
@@ -99,11 +99,11 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 
 ## Phase 3 — The AI layer
 
-### S3.1 — Grounded explanations + recommendations — **BLOCKED (needs S1.6)** (P1)
-- [ ] Valid, cited JSON on all fixtures
-- [ ] Citation validator rejects a fabricated source (in tests)
-- [ ] p95 latency <6s with prompt caching
-- [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (3 sample outputs; prompt files committed)
+### S3.1 — Grounded explanations + recommendations — **CODE DONE 2026-07-13, live verification BLOCKED-ON-HUMAN** (P1 via P3)
+- [~] Valid, cited JSON on all fixtures — enforced by code (schema-enforced tool-use + server-side citation validation w/ retry) and asserted by the 5 golden live tests; **needs one human run: `cd backend && ANTHROPIC_API_KEY=... python3 -m pytest tests/test_ai_live.py -m live -v` (key wasn't in P3's shell env), then review+commit `tests/golden/`**
+- [x] Citation validator rejects a fabricated source (in tests — `test_validator_rejects_fabricated_source`, plus full retry-then-502 path)
+- [~] p95 latency <6s with prompt caching — caching implemented (cache_control on corpus block, hits logged); latency recorded into golden snapshots on the live run above
+- [x] 📋 · [x] 🔧 · [~] 📦 handoff (prompt files committed in `backend/app/ai/grounded.py` ✓; 3 sample outputs = golden snapshots, produced by the live run; red-team deferral test included)
 
 ### S3.2 — Agentic home analysis — **BLOCKED (needs S3.1)** (P1)
 - [ ] apartment.json → flags single-point-of-failure exit with evidence (engine already flags `d_entry`)

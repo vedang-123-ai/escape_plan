@@ -11,7 +11,12 @@ Every library, framework, API, and tool used in this project — required for Co
 | pydantic | ≥2.7 | HomeModel domain models + structural invariant validation (`backend/app/models.py`) | MIT |
 | jsonschema | ≥4.21 | Validating documents against `schema/homemodel.schema.json` (draft 2020-12) | MIT |
 | pytest | ≥8.0 | Backend test suite (`backend/tests/`) | MIT |
-| matplotlib | ≥3.8 | Dev/debug only: fixture navigation-graph renderings in `docs/graphs/` (S1.1 handoff) | PSF-based |
+| matplotlib | ≥3.8 | Dev/debug only (`requirements-dev.txt`): fixture navigation-graph renderings in `docs/graphs/` (S1.1 handoff) | PSF-based |
+| FastAPI | ≥0.115 | HTTP service wrapping the routing engine + AI layer (`backend/app/main.py`) | MIT |
+| uvicorn | ≥0.30 | ASGI server running the FastAPI app (local + Render) | BSD-3 |
+| httpx | ≥0.27 | FastAPI TestClient transport; HTTP client inside the anthropic SDK | BSD-3 |
+| anthropic (Python SDK) | ≥0.60 | Grounded explanation layer (S3.1+): Claude API calls with prompt caching + tool-use structured output | MIT |
+| Render.com | free tier | Backend hosting (blueprint `render.yaml`; deploy pending human account creation) | Render ToS |
 
 ## Content sources (grounding corpus, not code dependencies)
 
