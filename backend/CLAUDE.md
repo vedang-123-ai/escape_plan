@@ -1,6 +1,6 @@
 # backend/ — Python FastAPI service
 
-Partially scaffolded: models + routing landed in S0.2/S1.1/S1.2; FastAPI wrapper comes in S1.6. Read the root `CLAUDE.md` first.
+Models + routing (S0.2/S1.1/S1.2), FastAPI service (S1.6), grounded AI layer (S3.1). Read the root `CLAUDE.md` first; run/deploy/curl docs in `README.md`.
 
 Current state:
 
@@ -9,9 +9,14 @@ Current state:
 - `app/routing/` — `egress.py` (threshold checks), `graph.py` (NavGraph builder), `engine.py`
   (Dijkstra primary/secondary + bottlenecks), `plan.py` (RoutePlan models),
   CLI `python3 -m app.routing plan ../schema/fixtures/twostory.json --pretty`
+- `app/main.py` + `app/config.py` — FastAPI: open `/health`; bearer-token `/routes`, `/explain`.
+  Fails closed without `BACKEND_BEARER_TOKEN`. Deploy blueprint: `render.yaml` (repo root)
+- `app/ai/grounded.py` — corpus-grounded explanations: cached corpus system block, tool-use
+  structured output, server-side citation validation with reject/retry
 - `scripts/render_graphs.py` — dev-only matplotlib graph renderings → docs/graphs/
-- `tests/` — pytest; run `python3 -m pytest backend/tests/` from the repo root
-- `requirements.txt` — pydantic, jsonschema, pytest (+ matplotlib dev-only)
+- `tests/` — pytest; run `python3 -m pytest` from backend/. Live-API golden tests are
+  `-m live` only: `ANTHROPIC_API_KEY=... python3 -m pytest tests/test_ai_live.py -m live -v`
+- `requirements.txt` — runtime deps (fastapi/uvicorn/anthropic/…); `requirements-dev.txt` adds matplotlib
 
 Planned structure (playbook §2.3):
 

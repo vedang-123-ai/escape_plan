@@ -15,8 +15,9 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict
 
+from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
 from app.config import get_settings, get_thresholds
-from app.models import HomeModel
+from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
 from app.routing.plan import RoutePlan, RoutingConstraints
 
@@ -73,3 +74,24 @@ def routes(request: RoutesRequest) -> RoutePlan:
     return compute_route_plan(
         request.home, get_thresholds(), constraints=request.constraints
     )
+
+
+class ExplainRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    home: HomeModel
+    route_plan: RoutePlan
+    profile: Optional[Profile] = None
+
+
+@app.post(
+    "/explain",
+    response_model=ExplainResponse,
+    dependencies=[Depends(require_token)],
+)
+def explain(request: ExplainRequest) -> ExplainResponse:
+    """Grounded, cited explanation of an already-computed RoutePlan (S3.1)."""
+    try:
+        return explain_routes(request.home, request.route_plan, request.profile)
+    except GroundingError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
