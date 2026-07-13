@@ -35,7 +35,7 @@ end-to-end demo path working by **Oct 5**; submit by **Oct 24**.
 ## ⏸ BLOCKED (waiting on the above)
 
 - **P2 lane:** S1.3 renderer ← S0.3 · S1.4 RoomPlan capture ← S0.3 (+ LiDAR device) · then S2.1 → S2.2
-- **P1 lane:** S1.5 scan converter ← S1.4
+- **P1 lane:** S1.5 scan converter ← S1.4 — **prep done 2026-07-13, awaiting S1.4 real exports**: device-independent half landed (`backend/app/convert/` pure module + 3 synthetic RoomPlan fixtures + 18 tests). Remaining: diff real exports against `backend/app/convert/README.md` assumptions, calibrate, S1.3 render check, USDZ side-by-side handoff. `/convert` endpoint wiring belongs to the S1.6 lane.
 - **P3 lane:** S2.4 persistence ← S2.1 · S3.3 chat ← S3.1 human step · S3.4 profiles ← S2.3 · S3.5 score ← S3.2
 - **All hands:** S4.x ← S4.1 ← (S1.5 + S2.3 + S3.1) · S5.x last
 
