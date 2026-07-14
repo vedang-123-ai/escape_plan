@@ -23,6 +23,7 @@ see § AI tests below.
 |---|---|---|
 | `GET /health` | none | liveness / platform health check |
 | `POST /routes` | bearer | HomeModel (+ optional constraints) → RoutePlan, deterministic |
+| `POST /convert` | bearer | `{scan: <RoomPlan export>, home_name?}` → validated HomeModel (S1.5 converter) |
 | `POST /explain` | bearer | HomeModel + RoutePlan (+ optional profile) → cited, structured explanation (S3.1) |
 
 Interactive docs at `http://localhost:8000/docs`.
@@ -55,6 +56,15 @@ EOF
 curl -s -X POST $BASE/routes \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   --data @/tmp/routes-req.json | python3 -m json.tool | head -40
+
+# convert a RoomPlan export (synthetic fixture shown)
+python3 - <<'EOF' > /tmp/convert-req.json
+import json
+print(json.dumps({"scan": json.load(open("../schema/fixtures/scans/synthetic-bungalow.roomplan.json")), "home_name": "My Home"}))
+EOF
+curl -s -X POST $BASE/convert \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  --data @/tmp/convert-req.json | python3 -m json.tool | head -30
 
 # grounded explanation of a computed plan (needs ANTHROPIC_API_KEY on the server)
 python3 - <<'EOF' > /tmp/explain-req.json

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from app import config
 from app.main import app
+from app.models import HomeModel
 from app.routing.plan import RoutePlan
 
 TEST_TOKEN = "test-token-not-a-secret"
@@ -87,6 +88,28 @@ def test_routes_rejects_unknown_fields(client: TestClient, bungalow: dict):
     resp = client.post(
         "/routes", json={"home": bungalow, "unexpected": 1}, headers=AUTH
     )
+    assert resp.status_code == 422
+
+
+def test_convert_scan_fixture(client: TestClient):
+    from tests.conftest import load_fixture
+
+    scan = load_fixture("scans/synthetic-bungalow.roomplan.json")
+    resp = client.post(
+        "/convert", json={"scan": scan, "home_name": "Test Scan"}, headers=AUTH
+    )
+    assert resp.status_code == 200
+    home = HomeModel.model_validate(resp.json())
+    assert home.name == "Test Scan"
+    assert home.floors[0].rooms
+
+
+def test_convert_requires_token(client: TestClient):
+    assert client.post("/convert", json={"scan": {}}).status_code == 401
+
+
+def test_convert_rejects_garbage_scan(client: TestClient):
+    resp = client.post("/convert", json={"scan": {"rooms": "nope"}}, headers=AUTH)
     assert resp.status_code == 422
 
 

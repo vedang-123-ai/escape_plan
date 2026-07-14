@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 import secrets
-from typing import Annotated, Optional
+from datetime import datetime, timezone
+from typing import Annotated, Any, Optional
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -17,6 +18,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
 from app.config import get_settings, get_thresholds
+from app.convert.converter import convert_scan
 from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
 from app.routing.plan import RoutePlan, RoutingConstraints
@@ -74,6 +76,32 @@ def routes(request: RoutesRequest) -> RoutePlan:
     return compute_route_plan(
         request.home, get_thresholds(), constraints=request.constraints
     )
+
+
+class ConvertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scan: dict[str, Any]
+    home_name: str = "Scanned Home"
+
+
+@app.post(
+    "/convert",
+    response_model=HomeModel,
+    dependencies=[Depends(require_token)],
+)
+def convert(request: ConvertRequest) -> HomeModel:
+    """RoomPlan export → validated HomeModel (S1.5 converter, pure)."""
+    try:
+        return convert_scan(
+            request.scan,
+            home_name=request.home_name,
+            timestamp=datetime.now(timezone.utc),
+        )
+    except Exception as exc:  # malformed exports are a client error, not a 500
+        raise HTTPException(
+            status_code=422, detail=f"scan could not be converted: {exc}"
+        ) from exc
 
 
 class ExplainRequest(BaseModel):
