@@ -67,7 +67,7 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [ ] 📋 (known failure modes — assumed-format risks listed in `backend/app/convert/README.md`, promote to decisions.md after S1.4 diff) · [ ] 🔧 · [ ] 📦 handoff (USDZ vs render side-by-side)
 
 ### S1.6 — Backend scaffold + deploy — **CODE DONE 2026-07-13, deploy BLOCKED-ON-HUMAN** (P1 via P3)
-- [~] Phone on cellular gets twostory.json routes from deployed backend in <2s — **blocked-on-human: P1 must create the Render account (exact steps: backend/README.md § Deploy); then verify from phone.** Local API fully tested (10 tests, `backend/tests/test_api.py`)
+- [~] Phone on cellular gets twostory.json routes from deployed backend in <2s — **blocked-on-human: P1 must create the Render account (exact steps: backend/README.md § Deploy); then verify from phone.** Local API fully tested (13 tests incl. /convert, `backend/tests/test_api.py`)
 - [x] Secrets not in git (verified: `git grep` for key material clean; token/key are env-only, service fails closed without token)
 - [x] 📋 · [x] 🔧 (FastAPI, uvicorn, httpx, anthropic, Render) · [~] 📦 handoff (curl examples in backend/README.md ✓; base URL + token in team password note **pending deploy**)
 

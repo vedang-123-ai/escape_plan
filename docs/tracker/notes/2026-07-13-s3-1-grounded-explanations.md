@@ -17,7 +17,7 @@
 - Server-side citation validation: citable ids = exactly the `sources` array of sources.json
   (compilation ids like `fire-facts-stats` are not citable). Invalid citation → `is_error`
   tool_result fed back, up to 2 retries → `GroundingError` → HTTP 502.
-- Tests: 14 deterministic (validator accepts real/rejects fabricated source, empty-recs
+- Tests: 10 deterministic (validator accepts real/rejects fabricated source, empty-recs
   rejected, prompt embeds all 7 corpus docs + cache_control, retry-then-succeed and
   give-up-after-retries with a faked client, endpoint 401/200/502). Live tests in
   `tests/test_ai_live.py` behind a `live` marker (excluded by default via pytest.ini):

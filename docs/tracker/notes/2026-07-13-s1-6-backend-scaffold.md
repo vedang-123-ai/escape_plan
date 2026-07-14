@@ -10,8 +10,10 @@
   `POST /routes` ({home, constraints?} → RoutePlan). Thin wrappers — all logic stays in
   `app.routing`. Token compared constant-time; service **fails closed** (refuses to serve)
   if `BACKEND_BEARER_TOKEN` is unset. `ANTHROPIC_API_KEY` plumbed through Settings.
-- 10 API tests in `backend/tests/test_api.py` (auth reject/wrong-token, all 3 fixtures,
-  constraints applied, invalid/unknown-field 422s, fail-closed). Whole suite: 79 pass.
+- 13 API tests in `backend/tests/test_api.py` (auth reject/wrong-token, all 3 fixtures,
+  constraints applied, invalid/unknown-field 422s, fail-closed, /convert). Whole suite: 100 pass.
+- Also wired `POST /convert` as a thin wrapper over S1.5-prep's `convert_scan` (the S1.5
+  terminal explicitly deferred endpoint wiring to this lane); malformed exports → 422.
 - `render.yaml` blueprint at repo root (free tier, rootDir backend, health check on /health,
   auto-generated token, ANTHROPIC_API_KEY sync:false). Curl examples + exact deploy steps in
   `backend/README.md`. matplotlib moved to `requirements-dev.txt` to keep the deploy image lean.

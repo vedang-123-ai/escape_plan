@@ -20,7 +20,7 @@ end-to-end demo path working by **Oct 5**; submit by **Oct 24**.
 
 | Session | What landed | The human step |
 |---|---|---|
-| S1.6 backend scaffold | FastAPI `/health` + `/routes`, bearer auth (fails closed), `render.yaml`, curl examples + API tests | **P1: create the Render account + deploy (~5 min, exact steps backend/README.md § Deploy), post base URL + token in the team password note, verify from phone on cellular** |
+| S1.6 backend scaffold | FastAPI `/health` + `/routes` + `/convert`, bearer auth (fails closed), `render.yaml`, curl examples + API tests | **P1: create the Render account + deploy (~5 min, exact steps backend/README.md § Deploy), post base URL + token in the team password note, verify from phone on cellular** |
 | S3.1 grounded explanations | `/explain` + `app/ai/grounded.py`: cached corpus prompt, structured output, server-side citation validation w/ reject-retry, golden + red-team live tests | **P1: `cd backend && ANTHROPIC_API_KEY=... python3 -m pytest tests/test_ai_live.py -m live -v`, hand-review `tests/golden/`, commit, paste 3 samples for team review** |
 
 ## ▶️ CAN START NOW
