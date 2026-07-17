@@ -21,3 +21,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+
+# SwiftPM test harness (tools/editorcore) — build products only; the sources are symlinks
+.build/
+
+# xcodebuild CLI output (xcodebuild -project ... without -derivedDataPath)
+build/

@@ -17,6 +17,9 @@ Every library, framework, API, and tool used in this project — required for Co
 | httpx | ≥0.27 | FastAPI TestClient transport; HTTP client inside the anthropic SDK | BSD-3 |
 | anthropic (Python SDK) | ≥0.60 | Grounded explanation layer (S3.1+): Claude API calls with prompt caching + tool-use structured output | MIT |
 | Render.com | free tier | Backend hosting (blueprint `render.yaml`; deploy pending human account creation) | Render ToS |
+| SceneKit | Apple SDK (iOS 17+) | 3D dollhouse renderer + the editor's gesture/hit-test surface (`escape_plan/Editor/SceneKit/`) | Apple SDK |
+| XCTest | Apple SDK | Swift unit tests (`escape_planTests/EditorCore/`) — run by both `xcodebuild test` and SwiftPM | Apple SDK |
+| Swift Package Manager | Swift 6.3 toolchain | **Test harness only, never shipped** (`tools/editorcore/`): runs the pure editor-core tests on macOS because no iOS simulator runtime is installed on the dev machine. Symlinks the app's own sources — no vendored copies, no third-party dependencies | Apache-2.0 (toolchain) |
 
 ## Content sources (grounding corpus, not code dependencies)
 
