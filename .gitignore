@@ -2,6 +2,8 @@
 *.xcuserstate
 xcuserdata/
 DerivedData/
+# `xcodebuild -target ...` without -derivedDataPath drops build products here
+build/
 *.moved-aside
 *.xccheckout
 *.xcscmblueprint

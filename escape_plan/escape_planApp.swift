@@ -6,16 +6,15 @@
 //
 
 import SwiftUI
-import CoreData
 
+// TODO(integration): S1.3 points the app at the renderer demo so the dollhouse can be run and
+// screenshotted. S0.3 replaces this with the real tab shell (and deletes the stock Core Data
+// template's PersistenceController / ContentView, which this no longer references).
 @main
 struct escape_planApp: App {
-    let persistenceController = PersistenceController.shared
-
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+            DollhouseDemoView()
         }
     }
 }
