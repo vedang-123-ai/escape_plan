@@ -1,10 +1,12 @@
 # Board — where we are right now
 
-_Last updated: 2026-07-16 (by P3/Claude, parallel worktree session). Update this whenever a session flips status._
+_Last updated: 2026-07-16 (by P3/Claude, merge terminal — all seven parallel lanes audited and merged to main). Update this whenever a session flips status._
 
-**Schedule check:** Phase 0 target is Jul 20 — only S0.3 remains in Phase 0; the backend lane
-is into Phase 3. **We are well ahead of schedule.** Immovable milestone:
-end-to-end demo path working by **Oct 5**; submit by **Oct 24**.
+**Schedule check:** the backend lane is essentially through Phase 3 (code); huge chunks of
+Phase 1–2 iOS code landed today ahead of schedule. **The critical gap is now S0.3** — it was
+assigned to a parallel terminal but never landed, and several merged modules carry stub model
+layers waiting for it. Immovable milestone: end-to-end demo path working by **Oct 5**; submit
+by **Oct 24**.
 
 ## ✅ DONE
 
@@ -16,33 +18,39 @@ end-to-end demo path working by **Oct 5**; submit by **Oct 24**.
 | S1.1 | Navigation graph builder + egress checker (docs/graphs/*.png) |
 | S1.2 | Routing engine: primary/secondary/bottlenecks/constraints (docs/route-samples/) |
 
-## 🟡 CODE DONE — one human step from DONE
+## 🟡 CODE DONE — human/device steps remain (all audited by session-auditor 2026-07-16)
 
 | Session | What landed | The human step |
 |---|---|---|
-| S1.6 backend scaffold | FastAPI `/health` + `/routes` + `/convert`, bearer auth (fails closed), `render.yaml`, curl examples + API tests | **P1: create the Render account + deploy (~5 min, exact steps backend/README.md § Deploy), post base URL + token in the team password note, verify from phone on cellular** |
-| S3.1 grounded explanations | `/explain` + `app/ai/grounded.py`: cached corpus prompt, structured output, server-side citation validation w/ reject-retry, golden + red-team live tests | **P1: `cd backend && ANTHROPIC_API_KEY=... python3 -m pytest tests/test_ai_live.py -m live -v`, hand-review `tests/golden/`, commit, paste 3 samples for team review** |
-| S3.2 agentic home analysis | `/analyze` + `app/ai/agent.py`: 6-tool inspection loop over the S1.2 engine + S1.1 egress checker, evidence/citation validated server-side, 22 tests, rendered example trace in `docs/agent-trace-example/` | **No ANTHROPIC_API_KEY was available — all tests use a scripted client, no live model run yet.** Needs: (1) a key, (2) a `test_agent_live.py` written mirroring `test_ai_live.py`'s pattern (doesn't exist yet), (3) that run + hand-review, before this flips DONE. Also: read the twostory.json note in `docs/decisions.md` (2026-07-16) — the kids' room planted issue surfaces via the agent's `check_egress` tool, not the engine's own RoutePlan finding. |
+| S1.6 backend scaffold | FastAPI `/health` `/routes` `/convert` (+ now `/explain` `/analyze` `/chat` `/score`), bearer auth, `render.yaml` | **P1: Render deploy (backend/README.md § Deploy), post URL+token, verify from phone** |
+| S3.1 grounded explanations | `/explain` + citation validation w/ reject-retry, golden + red-team live tests | **P1: run `-m live` tests with a key, hand-review `tests/golden/`, paste 3 samples** |
+| S3.2 agentic analysis | `/analyze` 6-tool loop, evidence/citation validation, 22 scripted-client tests, trace example | **Needs key + a `test_agent_live.py` + live run/review** |
+| S3.3 chat backend (prep) | `/chat` stateless multi-turn on the S3.1 grounding layer, cached summary block | **Live smoke tests (`test_chat_live.py -m live`) once key exists; iOS chat UI separate** |
+| S1.3 renderer | SceneKit dollhouse (`escape_plan/Renderer/`), all 3 fixtures decode+build, 18 tests **compiled, never executed** (no simulator runtime) | **Run `scripts/s13-acceptance.sh` once a simulator runtime exists; on-device 60fps check; 3 recordings (b-roll)** |
+| S1.4 RoomPlan capture | `escape_plan/Capture/` + raw JSON/USDZ exporter matching the converter contract; round-trip harness PASSES on synthetic | **Scan a real 2–3 room space on a LiDAR device; commit device-{clean,messy} fixtures to schema/fixtures/scans/ (gates S1.5 calibration); verify UIFileSharingEnabled lands in a device build** |
+| S2.1 editor core | `HomeModelStore` reducer + validation-on-mutation, drag/snap/hit-test logic; **89 tests RUN green** (SwiftPM harness) | **On-device: build bungalow by hand <5 min + recording (after S0.3 + renderer wiring)** |
+| S2.4 persistence | `escape_plan/Persistence/` document store, migration stub, export **validated against schema** (17 tests run green). ⚠️ landed directly on main, not via branch | **On-device kill/relaunch check once the app shell exists** |
+| S3.4 profiles (backend half) | Tag→constraint mapping (docs/profile-constraint-mappings.md), `/routes` profile_id, Grandpa-vs-Maya proven on twostory | **iOS half: profile CRUD UI + live 3D re-fetch (needs S2.3)** |
+| S3.5 score (backend half) | `/score` + pure scoring engine, weights doc hand-reproducible (docs/preparedness-score-weights.md), 34 tests | **iOS score screen + animation (P2); optional live golden for AI recommendations** |
 
 ## ▶️ CAN START NOW
 
 | Who | Session | Notes |
 |---|---|---|
-| **P2** | **S0.3 — iOS scaffold + model layer** | Unblocked by S0.2. Read docs/schema-summary.md first. Stock Core Data template gets replaced wholesale; decide root vs ios/ location (decisions.md). |
-| **P1** | S1.6 + S3.1 human steps (table above) | ~15 min total; flips both sessions to DONE. |
-| **P1** | Review pass | Read backend/app/ + docs/schema-summary.md + docs/corpus-summary.md — CAC requires the team to understand every line. |
+| **P2** | **S0.3 — iOS scaffold + model layer** ⚠️ **CRITICAL PATH** | Was assigned to a parallel terminal 2026-07-16 but never landed. `escape_plan/Models/Generated/HomeModel.swift` is the S2.1 lane's stub schema mirror standing in for it — S0.3 replaces it wholesale (round-trip tests are the swap gate). |
+| **anyone** | **S2.2 — openings/stairs/undo** | S2.1 merged; store hooks (`onCommit`, `replaceModel`) already prepared. |
+| **P1** | Human steps column above | Render deploy + one live-key test session clears four sessions at once. |
+| **P1** | Review pass | CAC requires the team to understand every line — backend/app/ grew a lot today. |
 
-## ⏸ BLOCKED (waiting on the above)
+## ⏸ BLOCKED
 
-- **P2 lane:** S1.3 renderer ← S0.3 · S1.4 RoomPlan capture ← S0.3 (+ LiDAR device) · then S2.1 → S2.2
-- **P1 lane:** S1.5 scan converter ← S1.4 — **prep done 2026-07-13, awaiting S1.4 real exports**: device-independent half landed (`backend/app/convert/` pure module + 3 synthetic RoomPlan fixtures + 18 tests). Remaining: diff real exports against `backend/app/convert/README.md` assumptions, calibrate, S1.3 render check, USDZ side-by-side handoff. `/convert` endpoint wiring belongs to the S1.6 lane.
-- **P3 lane:** S2.4 persistence ← S2.1 · S3.3 chat ← S3.1 human step · S3.4 profiles ← S2.3 · S3.5 score ← S3.2
-- **All hands:** S4.x ← S4.1 ← (S1.5 + S2.3 + S3.1) · S5.x last
+- S2.3 route viz ← S1.6 deploy + S1.3 device check · S1.5 calibration ← S1.4 device fixtures
+- S4.1 golden path ← S1.5 + S2.3 + S3.1 · S4.x after S4.1 · S5.1 draft v0 EXISTS (docs/demo/), final pass ← S4.1
 
 ## 🔑 Critical path to the Oct 5 demo milestone
 
-S0.3 → S1.3/S1.4 (P2) is the longest pole. The backend lane is deep into Phase 3:
-S3.2 needed nothing from iOS and its code landed 2026-07-16 (prep, pending a live API key).
+S0.3 → renderer/editor integration → S2.3 is the longest pole now; everything backend is
+code-complete and waiting on one Render deploy + one API-key test session.
 
 Cut order if we slip (never cut scan → editor → 3D routes → profile switch):
 1. S4.2 drill · 2. S3.3 chat · 3. S3.5 score · 4. camera tour · 5. simplified agent

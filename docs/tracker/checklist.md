@@ -49,13 +49,13 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [x] Constraints demonstrably change routes on twostory.json (avoid_stairs → window; +avoid_windows → no_viable_route)
 - [x] 📋 decisions.md · [x] 🔧 tools-used.md · [x] 📦 handoff (`docs/route-samples/*.routeplan.json`; CLI gif optional — P1 can record `python3 -m app.routing plan ../schema/fixtures/twostory.json --pretty`)
 
-### S1.3 — 3D dollhouse renderer — **BLOCKED (needs S0.3)** (P2)
+### S1.3 — 3D dollhouse renderer — **CODE DONE 2026-07-16, device acceptance DEFERRED (no simulator runtime; 18 tests compiled not run)** (P2)
 - [ ] All three fixtures render correctly and legibly on-device at 60fps
 - [ ] Two-story exploded view works
 - [ ] Toggling a floor works
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (30-sec recording per fixture — demo b-roll)
 
-### S1.4 — RoomPlan capture module — **BLOCKED (needs S0.3 + LiDAR device)** (P2)
+### S1.4 — RoomPlan capture module — **CODE DONE 2026-07-16, real-scan + device fixtures DEFERRED (LiDAR device needed)** (P2)
 - [ ] Real 2–3 room scan exports raw JSON with walls/doors/windows present
 - [ ] Second full scan of same space completes without crashing
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (clean + messy exports → `schema/fixtures/scans/`)
@@ -73,13 +73,13 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 
 ## Phase 2 — The 3D editor
 
-### S2.1 — Editor core: rooms, walls, vertices — **BLOCKED (needs S1.3)** (P2)
+### S2.1 — Editor core: rooms, walls, vertices — **CODE DONE 2026-07-16 (89 logic tests run green), on-device build test DEFERRED** (P2)
 - [ ] Build bungalow shape by hand on-device in <5 min from empty model
 - [ ] Drags feel smooth
 - [ ] No gesture yields an invalid model (validate on mutation, reject with haptic)
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff ("built from scratch in 4 min" recording)
 
-### S2.2 — Editor: openings, stairs, undo — **BLOCKED (needs S2.1)** (P2)
+### S2.2 — Editor: openings, stairs, undo — **READY (S2.1 merged; store hooks prepared)** (P2)
 - [ ] Fix a misplaced door + confirm flagged items on a real converted scan in <2 min
 - [ ] Add working stairs between floors of a hand-built 2-story
 - [ ] Undo/redo consistent across 20 mixed operations
@@ -91,7 +91,7 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [ ] Warning badge on room lacking secondary egress (apartment/kids' room fixtures are built for this)
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (recording)
 
-### S2.4 — Persistence & documents — **BLOCKED (needs S2.1)** (P3)
+### S2.4 — Persistence & documents — **CODE DONE 2026-07-16 (17 tests run green, export schema-validated), on-device kill/relaunch DEFERRED** (P3)
 - [ ] Kill + relaunch → everything persists
 - [ ] Two saved homes coexist
 - [ ] Export validates against the schema
@@ -114,19 +114,19 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 
 **Remaining for full DONE:** a real ANTHROPIC_API_KEY, a `test_agent_live.py` (doesn't exist yet — mirror `test_ai_live.py`'s marker pattern), one live run, hand-review.
 
-### S3.3 — Chat assistant — **BLOCKED (needs S3.1)** (P3 backend, P2 UI) — cut candidate #2
+### S3.3 — Chat assistant — **BACKEND CODE DONE 2026-07-16 (prep), live tests BLOCKED-ON-KEY; iOS UI not started** (P3 backend, P2 UI) — cut candidate #2
 - [ ] Smoke-detector question → cited, house-specific answer
 - [ ] Out-of-corpus question → graceful deferral
 - [ ] Conversation survives background/foreground
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (5 screenshot Q&As)
 
-### S3.4 — Family profiles end-to-end — **BLOCKED (needs S2.3)** (P3 + P2/P1)
+### S3.4 — Family profiles end-to-end — **BACKEND HALF DONE 2026-07-16 (mappings doc + /routes profile_id); iOS half BLOCKED (needs S2.3)** (P3 + P2/P1)
 - [ ] Grandpa vs Maya switch changes rendered route or raises no-viable-route flag (engine side already proven in tests)
 - [ ] Explanation text reflects the profile
 - [ ] Deterministic profile→constraints mappings documented
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (live-switch recording — demo material)
 
-### S3.5 — Preparedness score + checklist — **BLOCKED (needs S3.1 + S3.2)** (P3) — cut candidate #3
+### S3.5 — Preparedness score + checklist — **BACKEND HALF DONE 2026-07-16 (/score + weights doc); iOS screen BLOCKED (needs P2)** (P3) — cut candidate #3
 - [ ] Score reproducible by hand from documented weights
 - [ ] Completing an item updates the score
 - [ ] Breakdown screen legible
@@ -156,7 +156,7 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 
 ## Phase 5 — Demo video & submission
 
-### S5.1 — Script + storyboard — **BLOCKED (needs S4.1)** (P3 lead, P1 accuracy pass)
+### S5.1 — Script + storyboard — **DRAFT v0 2026-07-16 (docs/demo/), final pass BLOCKED (needs S4.1)** (P3 lead, P1 accuracy pass)
 - [ ] Table-read under 3:15
 - [ ] Every claim true of the shipped build
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 (storyboard mapped to session recordings)
