@@ -24,7 +24,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 
-# Build artifacts (S2.4 export acceptance writes here)
+# Build artifacts: S2.4 export acceptance, SwiftPM harnesses (tools/editorcore), xcodebuild CLI output
 .build/
 build/
 

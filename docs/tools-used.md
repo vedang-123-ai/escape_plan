@@ -21,8 +21,9 @@ Every library, framework, API, and tool used in this project — required for Co
 | anthropic (Python SDK) | ≥0.60 | Grounded explanation layer (S3.1+): Claude API calls with prompt caching + tool-use structured output | MIT |
 | Render.com | free tier | Backend hosting (blueprint `render.yaml`; deploy pending human account creation) | Render ToS |
 | Foundation (FileManager / JSONEncoder / UserDefaults) | iOS 17+ SDK | S2.4 local persistence: home documents on disk, JSON coding, anonymous device id. No third-party persistence library — the store is ~350 lines of Apple SDK | Apple SDK |
-| XCTest | Xcode 26 | Swift test suite (`escape_planTests/`) | Apple SDK |
-| Swift Package Manager | bundled | Dev/test only: `scripts/verify_export_validates.sh` builds the Persistence module as a throwaway macOS package so tests run without an iOS simulator runtime. Not a shipping dependency | Apache-2.0 |
+| SceneKit | Apple SDK (iOS 17+) | 3D dollhouse renderer + the editor's gesture/hit-test surface (`escape_plan/Editor/SceneKit/`) | Apple SDK |
+| XCTest | Xcode 26 | Swift test suites (`escape_planTests/`, incl. `EditorCore/`) — run by both `xcodebuild test` and SwiftPM | Apple SDK |
+| Swift Package Manager | Swift 6.3 toolchain | **Dev/test harnesses only, never shipped**: `tools/editorcore/` (editor-core tests) and `scripts/verify_export_validates.sh` (S2.4 persistence tests + export validation) run on macOS because no iOS simulator runtime is installed on the dev machine. Symlinked app sources — no vendored copies, no third-party dependencies | Apache-2.0 (toolchain) |
 
 ## Content sources (grounding corpus, not code dependencies)
 
