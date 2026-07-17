@@ -21,3 +21,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+
+# Build artifacts (S2.4 export acceptance writes here)
+.build/
+build/

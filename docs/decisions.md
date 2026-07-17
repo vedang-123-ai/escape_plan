@@ -9,6 +9,12 @@ Running log of deviations from playbook defaults, and why. Newest first.
 | 2026-07-16 | S3.2 | Evidence + citation validation is enforced server-side, not just requested of the model: `_validate_findings()` drops (does not retry) any finding whose `evidence` list doesn't resolve to a real `tool_use_id` in that run's trace, or whose `citation` isn't a real `sources.json` id. Dropped findings are reported back in `AnalysisResult.dropped` (reasons) rather than silently discarded | Unlike S3.1's citation retry loop (feed the rejection back to the model, retry up to 2×), S3.2's loop is already capped at 15 iterations end-to-end — adding a nested retry for finding-level validation risked blowing past the <60s acceptance target. One-shot filter-and-report is cheaper and the `dropped` field keeps the failure visible instead of invisible. |
 | 2026-07-16 | S3.2 | `search_corpus` tool does paragraph-level keyword search (split each corpus doc's body on blank lines, score by literal word overlap with the topic), separate from S3.1's `grounded.py::corpus_text()` which embeds the whole corpus doc-by-doc into the `/explain` system prompt | The agent needs to *look things up* mid-inspection (small tool results, many turns) rather than have the entire corpus pre-loaded once; paragraph granularity keeps tool_result payloads small. No new dependency — stdlib `re` only. |
 | 2026-07-16 | S3.3 (prep) | **Approved deviation: built S3.3's backend before its S3.1 prerequisite finished** (S3.1 is "CODE DONE — one human step from DONE"; the human live-run/review hasn't happened yet). New `backend/app/ai/chat/` module (`summary.py`: pure HomeModel/RoutePlan/Profile → compact text summaries, no I/O; `service.py`: stateless multi-turn `chat()`) + `backend/app/api_chat.py` router, wired into `app/main.py` with two lines (an import + `app.include_router(chat_router)`). Reuses S3.1's `grounded.corpus_text()` / `valid_source_ids()` for the cached corpus block rather than re-embedding the corpus; duplicates its small `_log_cache_usage` helper and the bearer-token dependency (≈10 lines each) instead of importing private symbols from `grounded.py`/`main.py`, since importing `require_token` from `app.main` would create a `main ↔ api_chat` circular import (`main` includes the chat router). Citation contract for free-text chat: inline `[cite: source-id]` tags are validated against `sources.json`; a reply needs zero citations (small talk, 911 deferrals), but any citation present that doesn't resolve is fabricated and triggers the same reject/retry loop as `/explain` (`ChatGroundingError` → HTTP 502). System prompt adds a third `cache_control` breakpoint for the house/plan/profile summary block (beyond the corpus block S3.1 already caches) — a chat session reuses the same home across every stateless turn, so it's a legitimate second cache target. **S3.3 backend is NOT done, labeled prep** — same shape as the S1.5-prep precedent: mocked/structural tests pass locally, but the live acceptance smoke tests (`tests/test_chat_live.py`, marked `live`) haven't been run because `ANTHROPIC_API_KEY` wasn't present in this session's shell (see session note). iOS chat UI is out of scope (P2, separate playbook task). | Matches team direction to prep S3.3 backend ahead of the blocking human step, per the S1.5-prep precedent (build the prerequisite-independent half now, validate once the blocker clears). Avoiding a circular import kept `api_chat.py` a clean, independently testable router file rather than reaching into `main.py`'s internals. |
+| 2026-07-16 | S2.4 | **A saved home is stored as exactly the HomeModel JSON — no envelope, no metadata sidecar, no index file.** One file per home at `<Documents>/Homes/<home_id>.homeplan.json`; the home-list rows (name/floors/rooms/modified) are derived by reading the documents, not cached. Writes are atomic | Export is then the stored file byte-for-byte, so "the export validates against the schema" is true by construction rather than by a second serializer staying in sync. An index would be one more thing that can disagree with disk; N is small (a household has a few homes), so deriving the list is cheap. |
+| 2026-07-16 | S2.4 | Persistence holds documents as a lossless `JSONValue` tree, not as decoded `HomeModel` structs. Generic `save(model:)` / `load(homeID:as:)` entry points exist for S2.1's Codable `HomeModel` | Keeps this layer from becoming a second, drifting copy of the schema, and makes unknown-field preservation automatic: a document written by a newer build round-trips instead of silently losing fields this build doesn't model. Also let S2.4 land while S2.1's `HomeModel` was still in flight in a parallel lane. |
+| 2026-07-16 | S2.4 | `schema_version` on load: newer than the build → **refuse** (`documentTooNew`, file left untouched, rest of the library still lists); older → run the `SchemaMigrator.migrations` registry, unregistered step fails loudly. Registry is empty (1.0 is the first version) — the stub is shape-only. Version compare is numeric per component, so "1.10" > "1.2" | Guessing at a future document's fields risks silently mangling a home someone's escape plan depends on. Refusing gracefully is recoverable (update the app); a bad migration is not. Numeric compare is the bug you only find after the tenth bump. |
+| 2026-07-16 | S2.4 | Import (of an exported/shared file) assigns a **fresh `home_id`** rather than restoring the original id | Re-importing your own export must not silently overwrite the home you still have. Duplicate does the same, so ids stay unique per device. |
+| 2026-07-16 | S2.4 | Swift tests read the real `schema/fixtures/*.json` off the host filesystem via `#filePath` (overridable with `ESCAPE_PLAN_REPO_ROOT`) instead of copying fixtures into the test bundle | Per rules/paths/schema.md the fixtures are the project-wide test bed; a bundled copy would drift from what every other lane tests against. |
+| 2026-07-16 | S2.4 | **Acceptance runs via `./scripts/verify_export_validates.sh`** (SwiftPM harness on macOS + `python3 -m app.validate` over the export) rather than `xcodebuild test`. **Blocker: no iOS simulator runtime is installed on this machine** ("iOS 26.5 is not installed" — Xcode ▸ Settings ▸ Components), so no `xcodebuild test` destination exists. Compile is verified with `xcodebuild -target escape_plan -sdk iphonesimulator26.5` | The Persistence module is Foundation/Combine/SwiftUI only, so it runs unmodified on macOS — the acceptance is real, not simulated. The python validator can't run inside a test host anyway, so the export check is a two-step script regardless. Once a runtime is installed, `xcodebuild test` runs the same test file in the app target and is the check that counts. |
 | 2026-07-13 | S1.5 (prep) | **Approved deviation: started S1.5's device-independent half before its S1.4 prerequisite** (P1 direction). Built `backend/app/convert/` as a pure module against an ASSUMED RoomPlan export format (documented in `backend/app/convert/README.md`: column-major simd transforms, `{"high": {}}` confidence objects, per-room surface arrays, shared doors appearing in both rooms), validated only on 3 synthetic fixtures (`schema/fixtures/scans/`, generated by `backend/scripts/gen_scan_fixtures.py`). **S1.5 is NOT done** — real S1.4 exports must be diffed against the README's assumptions first. `/convert` endpoint deliberately not wired (S1.6 lane owns FastAPI) | Playbook calls S1.5 "the hardest single module"; the polygon/mapping pipeline needs no device. Front-loading it means S1.4→S1.5 becomes a validate-and-calibrate step instead of a build step. |
 | 2026-07-13 | S1.5 (prep) | Converter behavior choices: shared doors paired by identifier first, then geometric coincidence (≤0.35 m, parallel); unpaired doors/windows → `[room, EXTERIOR]`; RoomPlan `openings` (doorless passages) emitted as doors (schema has no passage kind); opening >0.5 m from every wall edge kept but demoted to confidence ≤0.25; degenerate room geometry falls back to a bounding box at confidence ×0.3 (never crash/drop); one floor per scan session; all output ids uuid5-derived from input identifiers so conversion is idempotent | "80% right + flagged uncertainty" per the playbook — the Phase-2 editor is the corrector. Deterministic ids make idempotency testable and diffs stable. Known failure modes listed in the module README for the S1.4 calibration pass. |
 | 2026-07-13 | S3.1 | Golden tests assert structural stability (same rooms explained, ≥1 valid overlapping citation) against committed snapshots rather than exact-text equality; live-API tests live behind a `live` pytest marker excluded by default (`pytest.ini` addopts), run via `ANTHROPIC_API_KEY=... python3 -m pytest tests/test_ai_live.py -m live -v` from backend/. First run writes the snapshot for hand review | Model wording isn't deterministic even at temperature 0.2 — exact-text snapshots would be permanently flaky; the safety-relevant invariants (coverage + citations) are what must not drift. Marker keeps the default suite hermetic and free. |
@@ -29,3 +35,49 @@ Running log of deviations from playbook defaults, and why. Newest first.
 | 2026-07-10 | S0.4 | Thresholds carry both imperial (as codified) and metric values; metric is authoritative for computation | HomeModel schema is in meters; imperial preserved so citations match the code text judges can check. |
 | 2026-07-10 | S0.1 | Xcode project stays at repo root (`escape_plan/`, `escape_plan.xcodeproj`) instead of `ios/EscapePlan/` for now | Project was created before the monorepo layout was adopted; moving it mid-session breaks the open Xcode workspace. Revisit before Phase 1 iOS work (S0.3) — P2 can relocate it when scaffolding, or we keep root placement and document it. |
 | 2026-07-10 | S0.1 | Repo/init tasks executed by P3 (Claude Code) rather than P1 | Team assigned P3's full lane to Claude Code; P1 asked for the init to be done now. |
+
+---
+
+## S2.4 — Persistence manual test checklist
+
+Automated coverage (`./scripts/verify_export_validates.sh`, 17 tests) proves the store's
+behaviour; this checklist is what only a human on a device can confirm — that the app really
+does come back the way it was left. Run it on a device once S2.1/S2.2 wire `HomeModelStore`
+to `HomeDocumentStore` (see the `TODO(integration)` notes in `escape_plan/Persistence/`).
+
+**Kill and relaunch → everything persists**
+- [ ] Save a home, force-quit from the app switcher (not just background), relaunch → the home
+      is in the list with the same name, floor count, room count.
+- [ ] Open it → the editor shows the same rooms/openings; nothing silently reset to defaults.
+- [ ] Edit a room, force-quit *without* leaving the editor, relaunch → the edit is there
+      (this is the autosave contract, and is S2.1's to honour — persistence only stores what
+      it's handed).
+- [ ] Relaunch with the device in Airplane Mode → the list still loads (nothing here is
+      network-dependent).
+
+**Two homes coexist**
+- [ ] Save two homes with different names → both listed, correct floor/room counts each.
+- [ ] Edit one → the other's last-modified is unchanged.
+- [ ] Delete one → the other still opens.
+
+**Duplicate**
+- [ ] Duplicate a home → a new row appears named "<name> copy".
+- [ ] Rename the copy → the original's name is unchanged.
+- [ ] Delete the copy → the original survives.
+
+**Export / share**
+- [ ] Export → share sheet appears; send to Files/Mail/AirDrop → a `.json` lands.
+- [ ] Open the exported file in a text editor → it's a HomeModel document, readable, not an
+      app-private wrapper.
+- [ ] Run `cd backend && python3 -m app.validate <exported file>` → OK.
+- [ ] Re-import the exported file → it appears as a *second* home; the original is untouched.
+
+**Schema version**
+- [ ] Hand-edit a saved document's `schema_version` to `"2.0"` (via the export/import path or
+      a debug build), open the list → the home is refused with the "newer version" message,
+      the app does not crash, other homes still list, and the file is left on disk unmodified.
+
+**Storage hygiene / privacy**
+- [ ] Delete the app → homes are gone (scope lock: local only, no accounts, no cloud copy).
+- [ ] Confirm the device id is a random UUID in UserDefaults (`escape_plan.device_id`) — not
+      `identifierForVendor`, no name/email/account anywhere in the document.
