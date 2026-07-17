@@ -20,7 +20,7 @@ end-to-end demo path working by **Oct 5**; submit by **Oct 24**.
 
 | Session | What landed | The human step |
 |---|---|---|
-| S1.6 backend scaffold | FastAPI `/health` + `/routes` + `/convert`, bearer auth (fails closed), `render.yaml`, curl examples + API tests | **P1: create the Render account + deploy (~5 min, exact steps backend/README.md § Deploy), post base URL + token in the team password note, verify from phone on cellular** |
+| S1.6 backend scaffold | **DEPLOYED 2026-07-16** — live at `https://escape-plan-backend.onrender.com` (Render blueprint). FastAPI `/health` + `/routes` + `/convert`, bearer auth (fails closed), curl examples + API tests. `/health` and `/routes` (twostory.json) verified via curl: 200 OK, ~0.3-0.4s — well under the 2s bar. `ANTHROPIC_API_KEY` left unset (not required to boot; `/explain` will 502 until a real key is added). | **Remaining: phone-on-cellular <2s check — DEFERRED BY TEAM DECISION 2026-07-16** (no REST client on the test phone; nothing else is blocked on this number — will happen naturally when P2 wires `APIClient.swift` to the live URL post-S1.3). Bearer token: reveal in Render dashboard → Environment → `BACKEND_BEARER_TOKEN`, paste into the team password note (not committed to git). See `docs/decisions.md` (2026-07-16). |
 | S3.1 grounded explanations | `/explain` + `app/ai/grounded.py`: cached corpus prompt, structured output, server-side citation validation w/ reject-retry, golden + red-team live tests | **P1: `cd backend && ANTHROPIC_API_KEY=... python3 -m pytest tests/test_ai_live.py -m live -v`, hand-review `tests/golden/`, commit, paste 3 samples for team review** |
 | S3.2 agentic home analysis | `/analyze` + `app/ai/agent.py`: 6-tool inspection loop over the S1.2 engine + S1.1 egress checker, evidence/citation validated server-side, 22 tests, rendered example trace in `docs/agent-trace-example/` | **No ANTHROPIC_API_KEY was available — all tests use a scripted client, no live model run yet.** Needs: (1) a key, (2) a `test_agent_live.py` written mirroring `test_ai_live.py`'s pattern (doesn't exist yet), (3) that run + hand-review, before this flips DONE. Also: read the twostory.json note in `docs/decisions.md` (2026-07-16) — the kids' room planted issue surfaces via the agent's `check_egress` tool, not the engine's own RoutePlan finding. |
 
@@ -29,7 +29,7 @@ end-to-end demo path working by **Oct 5**; submit by **Oct 24**.
 | Who | Session | Notes |
 |---|---|---|
 | **P2** | **S0.3 — iOS scaffold + model layer** | Unblocked by S0.2. Read docs/schema-summary.md first. Stock Core Data template gets replaced wholesale; decide root vs ios/ location (decisions.md). |
-| **P1** | S1.6 + S3.1 human steps (table above) | ~15 min total; flips both sessions to DONE. |
+| **P1** | S3.1 human step (table above) | S1.6 deploy is done (cellular check deferred, doesn't block DONE-flip criteria that matter right now); S3.1 live-verification still needs a real `ANTHROPIC_API_KEY`. |
 | **P1** | Review pass | Read backend/app/ + docs/schema-summary.md + docs/corpus-summary.md — CAC requires the team to understand every line. |
 
 ## ⏸ BLOCKED (waiting on the above)

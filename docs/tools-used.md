@@ -16,7 +16,7 @@ Every library, framework, API, and tool used in this project — required for Co
 | uvicorn | ≥0.30 | ASGI server running the FastAPI app (local + Render) | BSD-3 |
 | httpx | ≥0.27 | FastAPI TestClient transport; HTTP client inside the anthropic SDK | BSD-3 |
 | anthropic (Python SDK) | ≥0.60 | Grounded explanation layer (S3.1+): Claude API calls with prompt caching + tool-use structured output | MIT |
-| Render.com | free tier | Backend hosting (blueprint `render.yaml`; deploy pending human account creation) | Render ToS |
+| Render.com | free tier | Backend hosting (blueprint `render.yaml`); **live** at `https://escape-plan-backend.onrender.com` since 2026-07-16 | Render ToS |
 
 ## Content sources (grounding corpus, not code dependencies)
 
