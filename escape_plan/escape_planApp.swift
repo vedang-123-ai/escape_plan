@@ -1,20 +1,19 @@
-//
 //  escape_planApp.swift
 //  escape_plan
 //
-//  Created by Manogna Bhargav on 7/10/26.
-//
+//  S0.3: replaced the stock Core Data template wholesale. Persistence is local JSON documents
+//  via FileManager (S2.4), not Core Data — this entry point just owns the shared APIClient.
 
 import SwiftUI
 
-// TODO(integration): S1.3 points the app at the renderer demo so the dollhouse can be run and
-// screenshotted. S0.3 replaces this with the real tab shell (and deletes the stock Core Data
-// template's PersistenceController / ContentView, which this no longer references).
 @main
 struct escape_planApp: App {
+    @State private var apiClient = APIClient()
+
     var body: some Scene {
         WindowGroup {
-            DollhouseDemoView()
+            ContentView()
+                .environment(apiClient)
         }
     }
 }

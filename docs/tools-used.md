@@ -4,13 +4,13 @@ Every library, framework, API, and tool used in this project — required for Co
 
 | Tool | Version | What it's used for | License |
 |------|---------|--------------------|---------|
-| Xcode / Swift / SwiftUI | Xcode 16+ (built on 26.6; iOS deployment target 26.5) | iOS app | Apple SDK |
-| SceneKit | iOS SDK (built-in) | 3D dollhouse renderer (`escape_plan/Renderer/`, S1.3): extruded room slabs (`SCNShape`), semi-transparent walls, parametric opening markers, stair proxies, orbit/pan/zoom camera (`SCNView.allowsCameraControl`). Playbook default; RealityKit not used | Apple SDK |
+| Xcode / Swift / SwiftUI | Xcode 26.6 (Swift 5, iOS 17+ target, tested against iOS 26.5 SDK) | iOS app: S0.3 model layer (`Models/`), tab shell (`Screens/`), `Networking/APIClient.swift`, renderer/editor/capture/persistence modules | Apple SDK |
+| SceneKit | iOS SDK (built-in) | 3D dollhouse renderer (`escape_plan/Renderer/`, S1.3): extruded room slabs (`SCNShape`), semi-transparent walls, parametric opening markers, stair proxies, orbit/pan/zoom camera. Also the editor's gesture/hit-test surface (`escape_plan/Editor/SceneKit/`). Playbook default; RealityKit not used | Apple SDK |
 | UIKit | iOS SDK (built-in) | Renderer support only — `UIColor`/`UIFont` for the palette and room labels, `UIBezierPath` to feed `SCNShape`. App UI is SwiftUI; SceneKit is bridged via `UIViewRepresentable` | Apple SDK |
 | RoomPlan (Apple framework) | iOS 17+ | LiDAR room capture: `RoomCaptureView`/`RoomCaptureSession` scanning, `RoomBuilder` per-room processing, `StructureBuilder` multi-room merge into `CapturedStructure`, parametric USDZ export (`escape_plan/Capture/`, S1.4) | Apple SDK |
 | ARKit (via RoomPlan) | iOS 17+ | World tracking underneath RoomPlan; kept alive across rooms (`stop(pauseARSession: false)`) so multi-room scans share one world origin (S1.4) | Apple SDK |
 | simd (Apple) | — | `simd_float4x4` surface transforms, flattened column-major for the scan export contract (S1.4) | Apple SDK |
-| Observation (Apple) | iOS 17+ | `@Observable` scan state machine driving the capture UI (`RoomCaptureController`, S1.4) | Apple SDK |
+| Observation (Apple) | iOS 17+ | `@Observable` state: APIClient (S0.3) and the scan state machine (`RoomCaptureController`, S1.4) | Apple SDK |
 | Claude Code | — | AI pair-programming assistant (P3 lane + support); all code reviewed and understood by the team | Anthropic ToS |
 | git / GitHub | — | Version control, private repo `vedang-123-ai/escape_plan` | — |
 | Python 3 | 3.11+ | Backend: models, validation, routing engine | PSF |
@@ -22,9 +22,8 @@ Every library, framework, API, and tool used in this project — required for Co
 | uvicorn | ≥0.30 | ASGI server running the FastAPI app (local + Render) | BSD-3 |
 | httpx | ≥0.27 | FastAPI TestClient transport; HTTP client inside the anthropic SDK | BSD-3 |
 | anthropic (Python SDK) | ≥0.60 | Grounded explanation layer (S3.1+): Claude API calls with prompt caching + tool-use structured output | MIT |
-| Render.com | free tier | Backend hosting (blueprint `render.yaml`; deploy pending human account creation) | Render ToS |
+| Render.com | free tier | Backend hosting (blueprint `render.yaml`); **live** at `https://escape-plan-backend.onrender.com` since 2026-07-16 | Render ToS |
 | Foundation (FileManager / JSONEncoder / UserDefaults) | iOS 17+ SDK | S2.4 local persistence: home documents on disk, JSON coding, anonymous device id. No third-party persistence library — the store is ~350 lines of Apple SDK | Apple SDK |
-| SceneKit | Apple SDK (iOS 17+) | 3D dollhouse renderer + the editor's gesture/hit-test surface (`escape_plan/Editor/SceneKit/`) | Apple SDK |
 | XCTest | Xcode 26 | Swift test suites (`escape_planTests/`, incl. `EditorCore/`) — run by both `xcodebuild test` and SwiftPM | Apple SDK |
 | Swift Package Manager | Swift 6.3 toolchain | **Dev/test harnesses only, never shipped**: `tools/editorcore/` (editor-core tests) and `scripts/verify_export_validates.sh` (S2.4 persistence tests + export validation) run on macOS because no iOS simulator runtime is installed on the dev machine. Symlinked app sources — no vendored copies, no third-party dependencies | Apache-2.0 (toolchain) |
 
