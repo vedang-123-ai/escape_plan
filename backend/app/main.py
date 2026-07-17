@@ -16,6 +16,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict
 
+from app.ai.agent import AgentError, AnalysisResult, run_agent_analysis
 from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
 from app.config import get_settings, get_thresholds
 from app.convert.converter import convert_scan
@@ -122,4 +123,25 @@ def explain(request: ExplainRequest) -> ExplainResponse:
     try:
         return explain_routes(request.home, request.route_plan, request.profile)
     except GroundingError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+class AnalyzeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    home: HomeModel
+
+
+@app.post(
+    "/analyze",
+    response_model=AnalysisResult,
+    dependencies=[Depends(require_token)],
+)
+def analyze(request: AnalyzeRequest) -> AnalysisResult:
+    """Agentic safety inspection: tool-use loop over the home, evidence-linked
+    findings only (S3.2). The agent never computes routes or egress itself —
+    it calls the same deterministic engines /routes and /explain use."""
+    try:
+        return run_agent_analysis(request.home, get_thresholds())
+    except AgentError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

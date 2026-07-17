@@ -1,0 +1,508 @@
+{
+  "findings": [
+    {
+      "severity": "high",
+      "room_ids": [
+        "r_bed1",
+        "r_bed2",
+        "r_hall",
+        "r_kitchen",
+        "r_living"
+      ],
+      "finding": "Every room in Apartment 4B depends on a single exterior door ('d_entry'). The routing engine's bottleneck analysis confirms removing this one opening disconnects all five rooms from any exit.",
+      "evidence": [
+        "toolu_04"
+      ],
+      "recommendation": "Identify a second means of egress (a compliant window or a second exterior door) so a fire or blockage near the entry does not trap the household.",
+      "citation": "nfpa-escape-planning"
+    }
+  ],
+  "trace": [
+    {
+      "id": "toolu_01",
+      "tool_name": "get_home_summary",
+      "input": {},
+      "output": {
+        "home_id": "7e9c4b22-8a1d-4f3e-b502-3456789abcd2",
+        "name": "Apartment 4B",
+        "floors": [
+          {
+            "id": "f1",
+            "name": "Apartment Floor",
+            "level": 0,
+            "rooms": [
+              {
+                "id": "r_hall",
+                "name": "Hallway",
+                "type": "hall"
+              },
+              {
+                "id": "r_bed1",
+                "name": "Bedroom 1",
+                "type": "bedroom"
+              },
+              {
+                "id": "r_bed2",
+                "name": "Bedroom 2",
+                "type": "bedroom"
+              },
+              {
+                "id": "r_living",
+                "name": "Living Room",
+                "type": "living"
+              },
+              {
+                "id": "r_kitchen",
+                "name": "Kitchen",
+                "type": "kitchen"
+              }
+            ],
+            "opening_count": 8
+          }
+        ],
+        "stairs": []
+      }
+    },
+    {
+      "id": "toolu_02",
+      "tool_name": "get_room",
+      "input": {
+        "room_id": "r_bed1"
+      },
+      "output": {
+        "id": "r_bed1",
+        "name": "Bedroom 1",
+        "type": "bedroom",
+        "floor_id": "f1",
+        "polygon": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            5.0,
+            0.0
+          ],
+          [
+            5.0,
+            4.0
+          ],
+          [
+            0.0,
+            4.0
+          ]
+        ],
+        "openings": [
+          {
+            "id": "d_hall_bed1",
+            "kind": "door",
+            "room_ids": [
+              "r_hall",
+              "r_bed1"
+            ],
+            "is_exit": false,
+            "width_m": 0.9,
+            "height_m": 2.0,
+            "sill_height_m": 0.0
+          },
+          {
+            "id": "w_bed1",
+            "kind": "window",
+            "room_ids": [
+              "r_bed1",
+              "EXTERIOR"
+            ],
+            "is_exit": true,
+            "width_m": 1.0,
+            "height_m": 1.2,
+            "sill_height_m": 1.4
+          }
+        ]
+      }
+    },
+    {
+      "id": "toolu_03",
+      "tool_name": "get_room",
+      "input": {
+        "room_id": "r_bed2"
+      },
+      "output": {
+        "id": "r_bed2",
+        "name": "Bedroom 2",
+        "type": "bedroom",
+        "floor_id": "f1",
+        "polygon": [
+          [
+            0.0,
+            4.0
+          ],
+          [
+            5.0,
+            4.0
+          ],
+          [
+            5.0,
+            8.0
+          ],
+          [
+            0.0,
+            8.0
+          ]
+        ],
+        "openings": [
+          {
+            "id": "d_hall_bed2",
+            "kind": "door",
+            "room_ids": [
+              "r_hall",
+              "r_bed2"
+            ],
+            "is_exit": false,
+            "width_m": 0.9,
+            "height_m": 2.0,
+            "sill_height_m": 0.0
+          },
+          {
+            "id": "w_bed2",
+            "kind": "window",
+            "room_ids": [
+              "r_bed2",
+              "EXTERIOR"
+            ],
+            "is_exit": true,
+            "width_m": 1.0,
+            "height_m": 1.2,
+            "sill_height_m": 1.4
+          }
+        ]
+      }
+    },
+    {
+      "id": "toolu_04",
+      "tool_name": "compute_routes",
+      "input": {},
+      "output": {
+        "home_id": "7e9c4b22-8a1d-4f3e-b502-3456789abcd2",
+        "home_name": "Apartment 4B",
+        "constraints": {
+          "avoid_stairs": false,
+          "avoid_windows": false,
+          "max_sill_height_m": null
+        },
+        "rooms": [
+          {
+            "room_id": "r_hall",
+            "room_name": "Hallway",
+            "floor_id": "f1",
+            "primary": {
+              "waypoints": [
+                {
+                  "x": 6.0,
+                  "y": 4.0,
+                  "floor_id": "f1",
+                  "node_id": "r_hall",
+                  "kind": "room"
+                },
+                {
+                  "x": 6.05,
+                  "y": 0.0,
+                  "floor_id": "f1",
+                  "node_id": "d_entry",
+                  "kind": "opening"
+                },
+                {
+                  "x": 6.05,
+                  "y": 0.0,
+                  "floor_id": "f1",
+                  "node_id": "EXTERIOR",
+                  "kind": "exterior"
+                }
+              ],
+              "length_m": 4.0,
+              "uses_stairs": false,
+              "uses_window": false,
+              "exit_id": "d_entry"
+            },
+            "secondary": null,
+            "findings": [
+              {
+                "kind": "no_secondary_egress",
+                "room_id": "r_hall",
+                "detail": "'Hallway' has no second way out: every route depends on exit 'd_entry'."
+              }
+            ]
+          },
+          {
+            "room_id": "r_bed1",
+            "room_name": "Bedroom 1",
+            "floor_id": "f1",
+            "primary": {
+              "waypoints": [
+                {
+                  "x": 2.5,
+                  "y": 2.0,
+                  "floor_id": "f1",
+                  "node_id": "r_bed1",
+                  "kind": "room"
+                },
+                {
+                  "x": 5.0,
+                  "y": 1.9500000000000002,
+                  "floor_id": "f1",
+                  "node_id": "d_hall_bed1",
+                  "kind": "opening"
+                },
+                {
+                  "x": 6.0,
+                  "y": 4.0,
+                  "floor_id": "f1",
+                  "node_id": "r_hall",
+                  "kind": "room"
+                },
+                {
+                  "x": 6.05,
+                  "y": 0.0,
+                  "floor_id": "f1",
+                  "node_id": "d_entry",
+                  "kind": "opening"
+                },
+                {
+                  "x": 6.05,
+                  "y": 0.0,
+                  "floor_id": "f1",
+                  "node_id": "EXTERIOR",
+                  "kind": "exterior"
+                }
+              ],
+              "length_m": 8.782,
+              "uses_stairs": false,
+              "uses_window": false,
+              "exit_id": "d_entry"
+            },
+            "secondary": null,
+            "findings": [
+              {
+                "kind": "no_secondary_egress",
+                "room_id": "r_bed1",
+                "detail": "'Bedroom 1' has no second way out: every route depends on exit 'd_entry'."
+              }
+            ]
+          },
+          {
+            "room_id": "r_bed2",
+            "room_name": "Bedroom 2",
+            "floor_id": "f1",
+            "primary": {
+              "waypoints": [
+                {
+                  "x": 2.5,
+                  "y": 6.0,
+                  "floor_id": "f1",
+                  "node_id": "r_bed2",
+                  "kind": "room"
+                },
+                {
+                  "x": 5.0,
+                  "y": 5.95,
+                  "floor_id": "f1",
+                  "node_id": "d_hall_bed2",
+                  "kind": "opening"
+                },
+                {
+                  "x": 6.0,
+                  "y": 4.0,
+                  "floor_id": "f1",
+                  "node_id": "r_hall",
+                  "kind": "room"
+                },
+                {
+                  "x": 6.05,
+                  "y": 0.0,
+                  "floor_id": "f1",
+                  "node_id": "d_entry",
+                  "kind": "opening"
+                },
+                {
+                  "x": 6.05,
+                  "y": 0.0,
+                  "floor_id": "f1",
+                  "node_id": "EXTERIOR",
+                  "kind": "exterior"
+                }
+              ],
+              "length_m": 8.692,
+              "uses_stairs": false,
+              "uses_window": false,
+              "exit_id": "d_entry"
+            },
+            "secondary": null,
+            "findings": [
+              {
+                "kind": "no_secondary_egress",
+                "room_id": "r_bed2",
+                "detail": "'Bedroom 2' has no second way out: every route depends on exit 'd_entry'."
+              }
+            ]
+          },
+          {
+            "room_id": "r_living",
+            "room_name": "Living Room",
+            "floor_id": "f1",
+            "primary": {
+              "waypoints": [
+                {
+                  "x": 9.5,
+                  "y": 2.0,
+                  "floor_id": "f1",
+                  "node_id": "r_living",
+                  "kind": "room"
+                },
+                {
+                  "x": 7.0,
+                  "y": 2.05,
+                  "floor_id": "f1",
+                  "node_id": "d_hall_living",
+                  "kind": "opening"
+                },
+                {
+                  "x": 6.0,
+                  "y": 4.0,
+                  "floor_id": "f1",
+                  "node_id": "r_hall",
+                  "kind": "room"
+                },
+                {
+                  "x": 6.05,
+                  "y": 0.0,
+                  "floor_id": "f1",
+                  "node_id": "d_entry",
+                  "kind": "opening"
+                },
+                {
+                  "x": 6.05,
+                  "y": 0.0,
+                  "floor_id": "f1",
+                  "node_id": "EXTERIOR",
+                  "kind": "exterior"
+                }
+              ],
+              "length_m": 8.692,
+              "uses_stairs": false,
+              "uses_window": false,
+              "exit_id": "d_entry"
+            },
+            "secondary": null,
+            "findings": [
+              {
+                "kind": "no_secondary_egress",
+                "room_id": "r_living",
+                "detail": "'Living Room' has no second way out: every route depends on exit 'd_entry'."
+              }
+            ]
+          },
+          {
+            "room_id": "r_kitchen",
+            "room_name": "Kitchen",
+            "floor_id": "f1",
+            "primary": {
+              "waypoints": [
+                {
+                  "x": 9.5,
+                  "y": 6.0,
+                  "floor_id": "f1",
+                  "node_id": "r_kitchen",
+                  "kind": "room"
+                },
+                {
+                  "x": 7.0,
+                  "y": 6.05,
+                  "floor_id": "f1",
+                  "node_id": "d_hall_kitchen",
+                  "kind": "opening"
+                },
+                {
+                  "x": 6.0,
+                  "y": 4.0,
+                  "floor_id": "f1",
+                  "node_id": "r_hall",
+                  "kind": "room"
+                },
+                {
+                  "x": 6.05,
+                  "y": 0.0,
+                  "floor_id": "f1",
+                  "node_id": "d_entry",
+                  "kind": "opening"
+                },
+                {
+                  "x": 6.05,
+                  "y": 0.0,
+                  "floor_id": "f1",
+                  "node_id": "EXTERIOR",
+                  "kind": "exterior"
+                }
+              ],
+              "length_m": 8.782,
+              "uses_stairs": false,
+              "uses_window": false,
+              "exit_id": "d_entry"
+            },
+            "secondary": null,
+            "findings": [
+              {
+                "kind": "no_secondary_egress",
+                "room_id": "r_kitchen",
+                "detail": "'Kitchen' has no second way out: every route depends on exit 'd_entry'."
+              }
+            ]
+          }
+        ],
+        "bottlenecks": [
+          {
+            "opening_id": "d_entry",
+            "disconnected_room_ids": [
+              "r_bed1",
+              "r_bed2",
+              "r_hall",
+              "r_kitchen",
+              "r_living"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "toolu_05",
+      "tool_name": "search_corpus",
+      "input": {
+        "topic": "two ways out"
+      },
+      "output": {
+        "results": [
+          {
+            "source_id": "nfpa-escape-planning",
+            "excerpt": "- **Two ways out of every room.** Identify two escape routes from each room where possible \u2014 usually the door, plus a second path such as a window or a second doorway. A second route matters because the first can be blocked by smoke or flames. [cite: nfpa-escape-planning]\n- **Draw the plan.** Households (especially those with children) should draw a floor plan of the home marking two ways out of each room, including windows and doors. [cite: nfpa-escape-planning]\n- **Routes must be usable by everyone.** Verify that each escape route can actually be used safely by every member of the household \u2014 check that windows open, screens can be removed, and security bars can be released from the inside. [cite: nfpa-escape-planning]\n- **Keep exits clear.** Escape paths must be free of clutter, furniture, and stored items. [cite: usfa-escape-plans]"
+          },
+          {
+            "source_id": "nfpa-escape-planning",
+            "excerpt": "- Get out and stay out. **Never go back inside** for people, pets, or possessions. [cite: nfpa-escape-planning]\n- If there is smoke, **get low and go** \u2014 crawl beneath the smoke layer where air is cleaner. [cite: nfpa-escape-planning]\n- Test doors before opening: if the door or handle is warm to the back of your hand, use your second way out. [cite: nfpa-escape-planning]\n- Close doors behind you as you leave to slow the spread of fire and smoke. [cite: usfa-escape-plans]\n- Call 911 (or the local emergency number) **from outside** the home. [cite: nfpa-escape-planning]\n- If escape is impossible, keep doors closed, seal door cracks and vents, and signal for help at the window. [cite: nfpa-escape-planning]"
+          },
+          {
+            "source_id": "nfpa-escape-planning",
+            "excerpt": "These principles are the basis for the app's core features: primary + secondary route computation per room (\"two ways out\"), the meeting-point setting, the practice/drill mode with twice-a-year reminders, and profile-aware planning for household members with disabilities."
+          },
+          {
+            "source_id": "redcross-escape-plan",
+            "excerpt": "1. **Find two ways out of every room** \u2014 usually the door, plus a window or second doorway \u2014 in case the first path is blocked by smoke or flames. [cite: redcross-escape-plan]\n2. **Check that exits are usable**: paths clear of clutter and furniture, windows open easily, screens removable. [cite: redcross-escape-plan]\n3. **Pick an outside meeting place** a safe distance from the home where everyone goes after escaping. [cite: redcross-escape-plan]\n4. **Walk the plan with everyone in the household**, including children, and assign help for anyone who needs it. [cite: redcross-escape-plan]"
+          },
+          {
+            "source_id": "special-considerations",
+            "excerpt": "**App mapping (deterministic, documented in S3.4):** `mobility_limited` \u2192 routing constraints `avoid_stairs` + `avoid_windows`. If no viable route exists under these constraints, the app surfaces a high-severity \"no accessible escape route\" finding rather than silently showing an unusable route."
+          }
+        ]
+      }
+    }
+  ],
+  "truncated": false,
+  "dropped": []
+}

@@ -1,0 +1,462 @@
+"""Agentic home analysis (S3.2): the "AI safety inspector."
+
+Iron rule (same as S3.1's grounded.py): the agent NEVER computes or invents
+routes or egress verdicts — it calls the S1.2 routing engine and S1.1 egress
+checker as tools and reports what they say. Its job is to walk the home
+systematically and surface findings, each backed by a real tool call recorded
+in the trace. Findings whose evidence doesn't resolve to an actual trace entry,
+or whose citation isn't a real corpus source id, are dropped server-side before
+the response goes out — "zero findings without evidence" is enforced here, not
+just requested of the model.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+from functools import lru_cache
+from typing import Any, Literal, Optional
+
+import anthropic
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.ai.grounded import valid_source_ids
+from app.config import CORPUS_DIR, get_settings
+from app.models import HomeModel
+from app.routing.egress import EgressThresholds, check_egress
+from app.routing.engine import compute_route_plan
+from app.routing.plan import RoutePlan, RoutingConstraints
+
+logger = logging.getLogger("app.ai.agent")
+
+TEMPERATURE = 0.2
+MAX_TOKENS = 4096
+MAX_ITERATIONS = 15
+"""Cap per playbook S3.2: bounds both latency (<60s acceptance) and API cost."""
+
+CORPUS_DOC_FILES = [
+    "escape-planning-nfpa.md",
+    "egress-windows-irc.md",
+    "smoke-alarms-usfa.md",
+    "home-fire-escape-redcross.md",
+    "fire-facts-stats.md",
+    "special-considerations.md",
+]
+
+
+# ---------------------------------------------------------------------------
+# Structured output contract (/analyze response)
+
+
+class Finding(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    severity: Literal["high", "med", "low"]
+    room_ids: list[str] = Field(default_factory=list)
+    finding: str = Field(description="What's wrong, in plain language.")
+    evidence: list[str] = Field(
+        description="tool_use_id(s) from this conversation's trace that support this finding."
+    )
+    recommendation: str
+    citation: str = Field(description="A corpus source id from the provided source list.")
+
+
+class AnalysisSubmission(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    findings: list[Finding]
+
+
+class ToolCallRecord(BaseModel):
+    """One tool invocation, for the returned trace (also demo material)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    tool_name: str
+    input: dict[str, Any]
+    output: Any
+
+
+class AnalysisResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    findings: list[Finding]
+    trace: list[ToolCallRecord]
+    truncated: bool = Field(
+        description="True if the iteration cap was hit before the agent submitted findings."
+    )
+    dropped: list[str] = Field(
+        default_factory=list,
+        description="Findings the model submitted that failed evidence/citation validation and were removed.",
+    )
+
+
+class AgentError(Exception):
+    """The agent loop could not produce a validated result."""
+
+
+# ---------------------------------------------------------------------------
+# Tools exposed to the model — each is a thin, read-only wrapper over
+# HomeModel/RoutePlan data or the deterministic engines. No tool ever lets the
+# model write to the home or invent a route/egress verdict.
+
+
+TOOLS: list[dict[str, Any]] = [
+    {
+        "name": "get_home_summary",
+        "description": (
+            "Get a high-level summary of the home: floors, rooms per floor "
+            "(id/name/type), opening counts, and stairs. Start here."
+        ),
+        "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "get_room",
+        "description": "Get full detail for one room: polygon, type, and every opening attached to it.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"room_id": {"type": "string"}},
+            "required": ["room_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "list_openings",
+        "description": "List every opening (door/window) on a floor, with dimensions and which rooms it connects.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"floor_id": {"type": "string"}},
+            "required": ["floor_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "compute_routes",
+        "description": (
+            "Run the deterministic routing engine: primary/secondary escape routes for "
+            "every room, plus bottleneck (single-point-of-failure) findings. Optionally "
+            "constrain the search (e.g. avoid_stairs for a mobility-limited profile)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "avoid_stairs": {"type": "boolean"},
+                "avoid_windows": {"type": "boolean"},
+                "max_sill_height_m": {"type": "number"},
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "check_egress",
+        "description": (
+            "Run the deterministic egress checker on one opening against the codified "
+            "IRC thresholds (door/window minimum size, max window sill height). Returns "
+            "viable: bool and the specific reasons if not."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"opening_id": {"type": "string"}},
+            "required": ["opening_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "search_corpus",
+        "description": (
+            "Search the fire-safety grounding corpus for guidance on a topic (e.g. "
+            "'window egress', 'smoke alarms', 'mobility'). Returns matching passages "
+            "with their citable source ids. Use this before writing any recommendation "
+            "or citation."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"topic": {"type": "string"}},
+            "required": ["topic"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "submit_findings",
+        "description": (
+            "Submit your final findings list and end the inspection. Call this once you "
+            "have systematically checked every room. Every finding's evidence must list "
+            "the tool_use_id(s) of the tool calls that actually support it."
+        ),
+        "input_schema": AnalysisSubmission.model_json_schema(),
+    },
+]
+
+
+AGENT_SYSTEM_PROMPT = """\
+You are the agentic home safety inspector for Escape Plan, a home fire escape \
+planning app. You are given tools to walk a specific home room by room. \
+Hard rules:
+
+1. NEVER invent a route, an egress verdict, or a safety fact. Every factual \
+   claim about routes or egress must come from compute_routes or check_egress. \
+   Every safety recommendation must be grounded by search_corpus and cite a \
+   real source id it returned.
+2. Inspect systematically: get_home_summary first, then examine every room \
+   (get_room / list_openings), run compute_routes to see the engine's own \
+   bottleneck and no_secondary_egress findings, and check_egress on any \
+   opening that looks marginal (small windows, high sills).
+3. A finding without a real tool call behind it is worthless and will be \
+   discarded — always call the tool, look at its actual output, THEN write \
+   the finding, and reference the exact tool_use_id(s) you used as evidence.
+4. Report findings at the severity the evidence supports: high = no viable \
+   route or no secondary egress from an occupied room; med = marginal egress \
+   (fails a threshold) or a bottleneck opening; low = best-practice gaps \
+   (e.g. missing recommended clearance) with no acute failure.
+5. When you have checked every room, call submit_findings exactly once with \
+   your complete findings list. If you have nothing to report, submit an \
+   empty findings list — do not pad it.
+"""
+
+
+# ---------------------------------------------------------------------------
+# Corpus search (paragraph-level; grounded.py's corpus_text() is doc-level and
+# used for the /explain system prompt instead)
+
+
+@lru_cache(maxsize=1)
+def _corpus_paragraphs() -> list[tuple[str, str]]:
+    """(source_id, paragraph_text) pairs across every corpus doc's body."""
+    pairs: list[tuple[str, str]] = []
+    for name in CORPUS_DOC_FILES:
+        text = (CORPUS_DIR / name).read_text()
+        match = re.match(r"^---\n(.*?)\n---\n(.*)$", text, re.DOTALL)
+        if not match:
+            continue
+        front_matter, body = match.group(1), match.group(2)
+        id_match = re.search(r"^id:\s*(\S+)", front_matter, re.MULTILINE)
+        doc_id = id_match.group(1) if id_match else name
+        for para in body.split("\n\n"):
+            para = para.strip()
+            if para and not para.startswith("#"):
+                pairs.append((doc_id, para))
+    return pairs
+
+
+def search_corpus(topic: str, *, max_results: int = 5) -> list[dict[str, str]]:
+    """Keyword search over corpus paragraphs; returns [{source_id, excerpt}, ...]."""
+    words = [w for w in re.findall(r"[a-z0-9]+", topic.lower()) if len(w) > 2]
+    if not words:
+        return []
+    scored: list[tuple[int, str, str]] = []
+    for doc_id, para in _corpus_paragraphs():
+        low = para.lower()
+        score = sum(low.count(w) for w in words)
+        if score > 0:
+            scored.append((score, doc_id, para))
+    scored.sort(key=lambda t: t[0], reverse=True)
+    return [{"source_id": doc_id, "excerpt": para} for _, doc_id, para in scored[:max_results]]
+
+
+# ---------------------------------------------------------------------------
+# Tool dispatch — reads HomeModel/RoutePlan, calls the deterministic engines.
+# Never mutates the home; never fabricates a value the engines didn't produce.
+
+
+def _room_and_floor(home: HomeModel, room_id: str):
+    for floor in home.floors:
+        for room in floor.rooms:
+            if room.id == room_id:
+                return floor, room
+    return None, None
+
+
+def _dispatch_tool(
+    name: str, tool_input: dict[str, Any], home: HomeModel, thresholds: EgressThresholds
+) -> Any:
+    if name == "get_home_summary":
+        return {
+            "home_id": home.home_id,
+            "name": home.name,
+            "floors": [
+                {
+                    "id": f.id,
+                    "name": f.name,
+                    "level": f.level,
+                    "rooms": [
+                        {"id": r.id, "name": r.name, "type": r.type.value} for r in f.rooms
+                    ],
+                    "opening_count": len(f.openings),
+                }
+                for f in home.floors
+            ],
+            "stairs": [
+                {"id": s.id, "from": s.from_.room_id, "to": s.to.room_id} for s in home.stairs
+            ],
+        }
+
+    if name == "get_room":
+        floor, room = _room_and_floor(home, tool_input["room_id"])
+        if room is None:
+            return {"error": f"no such room_id: {tool_input['room_id']}"}
+        openings = [o for o in floor.openings if room.id in o.room_ids]
+        return {
+            "id": room.id,
+            "name": room.name,
+            "type": room.type.value,
+            "floor_id": floor.id,
+            "polygon": room.polygon,
+            "openings": [
+                {
+                    "id": o.id,
+                    "kind": o.kind.value,
+                    "room_ids": o.room_ids,
+                    "is_exit": o.is_exit,
+                    "width_m": o.width_m,
+                    "height_m": o.height_m,
+                    "sill_height_m": o.sill_height_m,
+                }
+                for o in openings
+            ],
+        }
+
+    if name == "list_openings":
+        floor = next((f for f in home.floors if f.id == tool_input["floor_id"]), None)
+        if floor is None:
+            return {"error": f"no such floor_id: {tool_input['floor_id']}"}
+        return {
+            "floor_id": floor.id,
+            "openings": [
+                {
+                    "id": o.id,
+                    "kind": o.kind.value,
+                    "room_ids": o.room_ids,
+                    "is_exit": o.is_exit,
+                    "width_m": o.width_m,
+                    "height_m": o.height_m,
+                    "sill_height_m": o.sill_height_m,
+                }
+                for o in floor.openings
+            ],
+        }
+
+    if name == "compute_routes":
+        constraints = RoutingConstraints(
+            avoid_stairs=tool_input.get("avoid_stairs", False),
+            avoid_windows=tool_input.get("avoid_windows", False),
+            max_sill_height_m=tool_input.get("max_sill_height_m"),
+        )
+        plan: RoutePlan = compute_route_plan(home, thresholds, constraints=constraints)
+        return plan.model_dump(mode="json")
+
+    if name == "check_egress":
+        opening_id = tool_input["opening_id"]
+        for floor in home.floors:
+            grade = floor.level <= 0
+            for opening in floor.openings:
+                if opening.id == opening_id:
+                    assessment = check_egress(opening, thresholds, grade_floor=grade)
+                    return {
+                        "opening_id": opening_id,
+                        "viable": assessment.viable,
+                        "reasons": assessment.reasons,
+                    }
+        return {"error": f"no such opening_id: {opening_id}"}
+
+    if name == "search_corpus":
+        return {"results": search_corpus(tool_input["topic"])}
+
+    raise AgentError(f"unknown tool: {name}")
+
+
+# ---------------------------------------------------------------------------
+# Server-side evidence + citation validation — the enforcement behind
+# "zero findings without evidence links" (S3.2 acceptance).
+
+
+def _validate_findings(
+    findings: list[Finding], trace: list[ToolCallRecord]
+) -> tuple[list[Finding], list[str]]:
+    trace_ids = {t.id for t in trace}
+    valid_sources = valid_source_ids()
+    kept: list[Finding] = []
+    dropped: list[str] = []
+    for f in findings:
+        problems: list[str] = []
+        if not f.evidence:
+            problems.append("no evidence tool_use_ids")
+        else:
+            unknown = [e for e in f.evidence if e not in trace_ids]
+            if unknown:
+                problems.append(f"evidence references unknown tool call(s): {unknown}")
+        if f.citation not in valid_sources:
+            problems.append(f"citation '{f.citation}' is not a known corpus source id")
+        if problems:
+            dropped.append(f"[{f.finding[:60]!r}] " + "; ".join(problems))
+        else:
+            kept.append(f)
+    return kept, dropped
+
+
+# ---------------------------------------------------------------------------
+# The loop
+
+
+def _client() -> anthropic.Anthropic:
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        raise AgentError("ANTHROPIC_API_KEY is not configured on the server")
+    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+
+
+def run_agent_analysis(
+    home: HomeModel,
+    thresholds: EgressThresholds,
+    *,
+    client: Optional[anthropic.Anthropic] = None,
+    max_iterations: int = MAX_ITERATIONS,
+) -> AnalysisResult:
+    """Run the tool-use inspection loop and return validated findings + trace."""
+    client = client or _client()
+    settings = get_settings()
+
+    messages: list[dict[str, Any]] = [
+        {
+            "role": "user",
+            "content": (
+                "Inspect this home for fire escape safety issues. Use the tools to "
+                "gather real evidence about every room, then call submit_findings."
+            ),
+        }
+    ]
+    trace: list[ToolCallRecord] = []
+
+    for _ in range(max_iterations):
+        response = client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=MAX_TOKENS,
+            temperature=TEMPERATURE,
+            system=AGENT_SYSTEM_PROMPT,
+            tools=TOOLS,
+            messages=messages,
+        )
+        messages.append({"role": "assistant", "content": response.content})
+
+        tool_uses = [b for b in response.content if b.type == "tool_use"]
+        if not tool_uses:
+            break
+
+        submit_call = next((t for t in tool_uses if t.name == "submit_findings"), None)
+        if submit_call is not None:
+            submission = AnalysisSubmission.model_validate(submit_call.input)
+            kept, dropped = _validate_findings(submission.findings, trace)
+            return AnalysisResult(findings=kept, trace=trace, truncated=False, dropped=dropped)
+
+        tool_results: list[dict[str, Any]] = []
+        for tu in tool_uses:
+            output = _dispatch_tool(tu.name, tu.input, home, thresholds)
+            trace.append(ToolCallRecord(id=tu.id, tool_name=tu.name, input=tu.input, output=output))
+            tool_results.append(
+                {"type": "tool_result", "tool_use_id": tu.id, "content": json.dumps(output, default=str)}
+            )
+        messages.append({"role": "user", "content": tool_results})
+
+    logger.warning("agent analysis hit the %d-iteration cap without submitting", max_iterations)
+    return AnalysisResult(findings=[], trace=trace, truncated=True)
