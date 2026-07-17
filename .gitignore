@@ -2,6 +2,8 @@
 *.xcuserstate
 xcuserdata/
 DerivedData/
+# `xcodebuild -target ...` without -derivedDataPath drops build products here
+build/
 *.moved-aside
 *.xccheckout
 *.xcscmblueprint
@@ -25,3 +27,7 @@ __pycache__/
 # Build artifacts (S2.4 export acceptance writes here)
 .build/
 build/
+
+# S1.3 acceptance run artifacts (screenshots + test logs) — regenerate via scripts/s13-acceptance.sh
+artifacts/
+.build-s13/

@@ -4,7 +4,10 @@ Every library, framework, API, and tool used in this project — required for Co
 
 | Tool | Version | What it's used for | License |
 |------|---------|--------------------|---------|
-| Xcode / Swift / SwiftUI | Xcode 16+ | iOS app | Apple SDK |
+| Xcode / Swift / SwiftUI | Xcode 16+ (S1.3 built on 26.6; iOS deployment target 26.5) | iOS app | Apple SDK |
+| SceneKit | iOS SDK (built-in) | 3D dollhouse renderer (`escape_plan/Renderer/`, S1.3): extruded room slabs (`SCNShape`), semi-transparent walls, parametric opening markers, stair proxies, orbit/pan/zoom camera (`SCNView.allowsCameraControl`). Playbook default; RealityKit not used | Apple SDK |
+| UIKit | iOS SDK (built-in) | Renderer support only — `UIColor`/`UIFont` for the palette and room labels, `UIBezierPath` to feed `SCNShape`. App UI is SwiftUI; SceneKit is bridged via `UIViewRepresentable` | Apple SDK |
+| XCTest | iOS SDK (built-in) | iOS test suite (`escape_planTests/`) — renderer geometry, fixture decoding, bundled-fixture drift check | Apple SDK |
 | Claude Code | — | AI pair-programming assistant (P3 lane + support); all code reviewed and understood by the team | Anthropic ToS |
 | git / GitHub | — | Version control, private repo `vedang-123-ai/escape_plan` | — |
 | Python 3 | 3.11+ | Backend: models, validation, routing engine | PSF |
