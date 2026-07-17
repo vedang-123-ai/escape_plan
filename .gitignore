@@ -21,3 +21,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+
+# Xcode CLI build output (xcodebuild without -derivedDataPath)
+build/

@@ -5,6 +5,10 @@ Every library, framework, API, and tool used in this project — required for Co
 | Tool | Version | What it's used for | License |
 |------|---------|--------------------|---------|
 | Xcode / Swift / SwiftUI | Xcode 16+ | iOS app | Apple SDK |
+| RoomPlan (Apple framework) | iOS 17+ | LiDAR room capture: `RoomCaptureView`/`RoomCaptureSession` scanning, `RoomBuilder` per-room processing, `StructureBuilder` multi-room merge into `CapturedStructure`, parametric USDZ export (`escape_plan/Capture/`, S1.4) | Apple SDK |
+| ARKit (via RoomPlan) | iOS 17+ | World tracking underneath RoomPlan; kept alive across rooms (`stop(pauseARSession: false)`) so multi-room scans share one world origin (S1.4) | Apple SDK |
+| simd (Apple) | — | `simd_float4x4` surface transforms, flattened column-major for the scan export contract (S1.4) | Apple SDK |
+| Observation (Apple) | iOS 17+ | `@Observable` scan state machine driving the capture UI (`RoomCaptureController`, S1.4) | Apple SDK |
 | Claude Code | — | AI pair-programming assistant (P3 lane + support); all code reviewed and understood by the team | Anthropic ToS |
 | git / GitHub | — | Version control, private repo `vedang-123-ai/escape_plan` | — |
 | Python 3 | 3.11+ | Backend: models, validation, routing engine | PSF |
