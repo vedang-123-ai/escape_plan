@@ -14,18 +14,18 @@
 
 import Foundation
 
-public struct SnapSettings: Equatable, Sendable {
-    public var gridEnabled: Bool
+struct SnapSettings: Equatable, Sendable {
+    var gridEnabled: Bool
     /// Grid pitch in meters. 10cm is the playbook default.
-    public var gridSizeM: Double
-    public var axisEnabled: Bool
+    var gridSizeM: Double
+    var axisEnabled: Bool
     /// How close a coordinate must be to an anchor's to lock onto it.
-    public var axisToleranceM: Double
-    public var wallSnapEnabled: Bool
+    var axisToleranceM: Double
+    var wallSnapEnabled: Bool
     /// Capture radius for another room's vertices and walls.
-    public var wallSnapRadiusM: Double
+    var wallSnapRadiusM: Double
 
-    public init(gridEnabled: Bool = true, gridSizeM: Double = 0.1,
+    init(gridEnabled: Bool = true, gridSizeM: Double = 0.1,
                 axisEnabled: Bool = true, axisToleranceM: Double = 0.05,
                 wallSnapEnabled: Bool = true, wallSnapRadiusM: Double = 0.25) {
         self.gridEnabled = gridEnabled
@@ -36,50 +36,50 @@ public struct SnapSettings: Equatable, Sendable {
         self.wallSnapRadiusM = wallSnapRadiusM
     }
 
-    public static let `default` = SnapSettings()
+    static let `default` = SnapSettings()
     /// Every snap off — raw coordinates through. Used by tests that assert exact geometry.
-    public static let disabled = SnapSettings(gridEnabled: false, axisEnabled: false,
+    static let disabled = SnapSettings(gridEnabled: false, axisEnabled: false,
                                               wallSnapEnabled: false)
 }
 
 /// What the snapper had to work with. Built by the store from the active floor, excluding the
 /// geometry being dragged (you never snap to yourself).
-public struct SnapContext: Equatable, Sendable {
+struct SnapContext: Equatable, Sendable {
     /// Corners of other rooms on the active floor.
-    public var vertices: [Point2D]
+    var vertices: [Point]
     /// Walls of other rooms on the active floor, as endpoint pairs.
-    public var segments: [[Point2D]]
+    var segments: [[Point]]
     /// Points whose x/y the dragged point should prefer to line up with — normally the dragged
     /// vertex's own two polygon neighbours, which is what keeps a wall axis-aligned.
-    public var axisAnchors: [Point2D]
+    var axisAnchors: [Point]
 
-    public init(vertices: [Point2D] = [], segments: [[Point2D]] = [],
-                axisAnchors: [Point2D] = []) {
+    init(vertices: [Point] = [], segments: [[Point]] = [],
+                axisAnchors: [Point] = []) {
         self.vertices = vertices
         self.segments = segments
         self.axisAnchors = axisAnchors
     }
 
-    public static let empty = SnapContext()
+    static let empty = SnapContext()
 }
 
-public struct SnapResult: Equatable, Sendable {
-    public enum Kind: String, Sendable {
+struct SnapResult: Equatable, Sendable {
+    enum Kind: String, Sendable {
         case none, grid, axis, wall, vertex
     }
 
-    public var point: Point2D
-    public var kind: Kind
+    var point: Point
+    var kind: Kind
 
-    public init(_ point: Point2D, _ kind: Kind) {
+    init(_ point: Point, _ kind: Kind) {
         self.point = point
         self.kind = kind
     }
 }
 
-public enum SnapEngine {
+enum SnapEngine {
 
-    public static func snap(_ p: Point2D, context: SnapContext,
+    static func snap(_ p: Point, context: SnapContext,
                             settings: SnapSettings) -> SnapResult {
         if settings.wallSnapEnabled {
             if let v = nearestVertex(p, context.vertices, within: settings.wallSnapRadiusM) {
@@ -120,22 +120,22 @@ public enum SnapEngine {
 
     /// Snapping a translation (dragging a wall or a whole room): snap the *delta* so the shape
     /// keeps its exact proportions instead of each vertex drifting to its own grid cell.
-    public static func snapTranslation(_ delta: Point2D, settings: SnapSettings) -> Point2D {
+    static func snapTranslation(_ delta: Point, settings: SnapSettings) -> Point {
         guard settings.gridEnabled, settings.gridSizeM > Geometry.epsilon else { return delta }
-        return Point2D(roundToGrid(delta.x, settings.gridSizeM),
+        return Point(roundToGrid(delta.x, settings.gridSizeM),
                        roundToGrid(delta.y, settings.gridSizeM))
     }
 
     // MARK: - Helpers
 
-    public static func roundToGrid(_ value: Double, _ size: Double) -> Double {
+    static func roundToGrid(_ value: Double, _ size: Double) -> Double {
         guard size > Geometry.epsilon else { return value }
         return (value / size).rounded() * size
     }
 
-    static func nearestVertex(_ p: Point2D, _ candidates: [Point2D],
-                              within radius: Double) -> Point2D? {
-        var best: Point2D?
+    static func nearestVertex(_ p: Point, _ candidates: [Point],
+                              within radius: Double) -> Point? {
+        var best: Point?
         var bestD = radius
         for c in candidates {
             let d = Geometry.distance(p, c)
@@ -147,9 +147,9 @@ public enum SnapEngine {
         return best
     }
 
-    static func nearestWallPoint(_ p: Point2D, _ segments: [[Point2D]],
-                                 within radius: Double) -> Point2D? {
-        var best: Point2D?
+    static func nearestWallPoint(_ p: Point, _ segments: [[Point]],
+                                 within radius: Double) -> Point? {
+        var best: Point?
         var bestD = radius
         for seg in segments where seg.count == 2 {
             let hit = Geometry.closestPointOnSegment(p, seg[0], seg[1]).point

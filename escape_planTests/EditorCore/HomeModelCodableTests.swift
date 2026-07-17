@@ -19,8 +19,8 @@ final class HomeModelCodableTests: XCTestCase {
     func testFixturesRoundTripSemantically() throws {
         for name in Fixtures.validNames {
             let original = try Fixtures.load(name)
-            let reencoded = try JSONEncoder().encode(original)
-            let again = try JSONDecoder().decode(HomeModel.self, from: reencoded)
+            let reencoded = try HomeModel.encoder().encode(original)
+            let again = try HomeModel.decoder.decode(HomeModel.self, from: reencoded)
             XCTAssertEqual(original, again, "\(name).json did not survive a round trip")
         }
     }
@@ -34,7 +34,7 @@ final class HomeModelCodableTests: XCTestCase {
             let originalJSON = try JSONSerialization.jsonObject(with: try Fixtures.data(name))
             let model = try Fixtures.load(name)
             let roundTripped = try JSONSerialization.jsonObject(
-                with: try JSONEncoder().encode(model))
+                with: try HomeModel.encoder().encode(model))
 
             let a = normalize(originalJSON)
             let b = normalize(roundTripped)
@@ -72,28 +72,28 @@ final class HomeModelCodableTests: XCTestCase {
     }
 
     func testPointEncodesAsATwoElementArray() throws {
-        let data = try JSONEncoder().encode(Point2D(1.5, -2.25))
+        let data = try JSONEncoder().encode(Point(1.5, -2.25))
         let json = try JSONSerialization.jsonObject(with: data) as? [Double]
         XCTAssertEqual(json, [1.5, -2.25])
     }
 
     func testStairsUsesTheReservedFromKey() throws {
         let stairs = Stairs(id: "s1",
-                            fromEnd: StairEnd(floorId: "f1", roomId: "r1"),
-                            toEnd: StairEnd(floorId: "f2", roomId: "r2"),
-                            footprint: Geometry.rectangle(origin: Point2D(0, 0),
+                            from: StairEnd(floor_id: "f1", room_id: "r1"),
+                            to: StairEnd(floor_id: "f2", room_id: "r2"),
+                            footprint: Geometry.rectangle(origin: Point(0, 0),
                                                           width: 1, height: 3),
-                            kind: .straight, source: .manual)
+                            kind: .straight, source: .manual, confidence: nil)
         let json = try JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(stairs)) as? [String: Any]
-        XCTAssertNotNil(json?["from"], "the JSON key must be 'from', not 'fromEnd'")
+        XCTAssertNotNil(json?["from"], "the JSON key must be 'from', not 'from'")
         XCTAssertNotNil(json?["to"])
     }
 
     func testExteriorIsNotAValidRoomType() throws {
         // EXTERIOR is a pseudo-room: it may appear in room_ids and nowhere else.
         var model = try Fixtures.load("bungalow")
-        model.floors[0].rooms[0].id = EXTERIOR_ROOM_ID
+        model.floors[0].rooms[0].id = EXTERIOR_ID
         let issues = EditorValidation.validate(model)
         XCTAssertTrue(issues.contains { $0.kind == .reservedId })
     }

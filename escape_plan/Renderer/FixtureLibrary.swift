@@ -44,7 +44,7 @@ enum FixtureLibrary {
         }
         let data = try Data(contentsOf: url)
         do {
-            return try JSONDecoder().decode(HomeModel.self, from: data)
+            return try HomeModel.decoder.decode(HomeModel.self, from: data)
         } catch {
             throw FixtureLoadError.decodeFailed(fixture.rawValue, underlying: error)
         }

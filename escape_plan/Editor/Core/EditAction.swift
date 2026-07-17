@@ -11,7 +11,7 @@
 
 import Foundation
 
-public enum EditAction: Equatable, Sendable {
+enum EditAction: Equatable, Sendable {
 
     // MARK: Home
     case setHomeName(String)
@@ -23,10 +23,10 @@ public enum EditAction: Equatable, Sendable {
     case addFloor(relativeTo: String, above: Bool)
     case deleteFloor(floorId: String)
     case renameFloor(floorId: String, name: String)
-    case setFloorHeight(floorId: String, heightM: Double)
+    case setFloorHeight(floorId: String, height_m: Double)
 
     // MARK: Rooms
-    case addRoom(floorId: String, origin: Point2D, widthM: Double, heightM: Double,
+    case addRoom(floorId: String, origin: Point, width_m: Double, height_m: Double,
                  type: RoomType, name: String)
     /// Cascades to the room's openings. Rejected if a profile or stair still references it.
     case deleteRoom(roomId: String)
@@ -35,16 +35,16 @@ public enum EditAction: Equatable, Sendable {
 
     // MARK: Drags
     /// Moves one corner. Connected walls follow because they share the vertex.
-    case dragVertex(roomId: String, vertexIndex: Int, to: Point2D)
+    case dragVertex(roomId: String, vertexIndex: Int, to: Point)
     /// Translates wall `edgeIndex` by `by`; the two neighbouring walls stretch to keep up.
-    case dragEdge(roomId: String, edgeIndex: Int, by: Point2D)
+    case dragEdge(roomId: String, edgeIndex: Int, by: Point)
     /// Translates the whole footprint.
-    case dragRoom(roomId: String, by: Point2D)
+    case dragRoom(roomId: String, by: Point)
 }
 
 extension EditAction {
     /// Human-readable label — S2.2 uses this for "Undo Move Wall" style menu titles.
-    public var undoLabel: String {
+    var undoLabel: String {
         switch self {
         case .setHomeName: return "Rename Home"
         case .addFloor: return "Add Floor"
@@ -63,7 +63,7 @@ extension EditAction {
 
     /// True for the continuous gestures. S2.2 coalesces a drag's many intermediate actions into
     /// one undo entry instead of 200.
-    public var isContinuousDrag: Bool {
+    var isContinuousDrag: Bool {
         switch self {
         case .dragVertex, .dragEdge, .dragRoom: return true
         default: return false
@@ -75,14 +75,14 @@ extension EditAction {
 
 /// What the user currently has selected. NOT part of the HomeModel — it is editor UI state and
 /// must never be persisted into the document.
-public enum Selection: Equatable, Sendable {
+enum Selection: Equatable, Sendable {
     case none
     case room(roomId: String)
     case wall(roomId: String, edgeIndex: Int)
     case vertex(roomId: String, vertexIndex: Int)
     case opening(openingId: String)
 
-    public var roomId: String? {
+    var roomId: String? {
         switch self {
         case .none, .opening: return nil
         case .room(let id), .wall(let id, _), .vertex(let id, _): return id

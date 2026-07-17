@@ -38,10 +38,10 @@ import UIKit
 /// It is intentionally tiny: three calls, none of which leak SceneKit types into the editor
 /// core. If this protocol grows past a handful of methods, the split has gone wrong.
 @MainActor
-public protocol EditorSceneAdapter: AnyObject {
+protocol EditorSceneAdapter: AnyObject {
     /// Unprojects a touch onto the active floor's ground plane. Returns nil when the ray misses
     /// (e.g. the user tapped the sky). Result is in floor-local meters — the schema's frame.
-    func worldPoint(from screenPoint: CGPoint) -> Point2D?
+    func worldPoint(from screenPoint: CGPoint) -> Point?
 
     /// Meters covered by one screen point at the current camera zoom.
     func metersPerPoint() -> Double
@@ -56,40 +56,40 @@ public protocol EditorSceneAdapter: AnyObject {
 /// only source of truth (rules/languages/swift.md), and this class is a translator, not an
 /// editor.
 @MainActor
-public final class SceneKitEditorBridge {
+final class SceneKitEditorBridge {
 
     private let store: HomeModelStore
     private weak var scene: EditorSceneAdapter?
 
     /// A touch target of ~44pt is the platform minimum; corners get a little more because they
     /// are the smallest thing on screen and the most precise thing to grab.
-    public var vertexHandlePoints: Double = 22
-    public var wallHandlePoints: Double = 14
+    var vertexHandlePoints: Double = 22
+    var wallHandlePoints: Double = 14
 
     /// Set to false in tests / previews. Haptics are the "no gesture puts the model in an
     /// invalid state" feedback the playbook asks for — a rejected drag must FEEL rejected.
-    public var hapticsEnabled = true
+    var hapticsEnabled = true
 
     /// Where the in-progress drag started, in floor-local meters, plus what it grabbed.
-    private var dragOrigin: Point2D?
+    private var dragOrigin: Point?
     private var dragSubject: Selection = .none
     /// The last point actually committed, so each gesture update sends a delta rather than an
     /// absolute — the store's edge/room drags are translations.
-    private var lastDragPoint: Point2D?
+    private var lastDragPoint: Point?
 
-    public init(store: HomeModelStore, scene: EditorSceneAdapter?) {
+    init(store: HomeModelStore, scene: EditorSceneAdapter?) {
         self.store = store
         self.scene = scene
     }
 
-    public func attach(scene: EditorSceneAdapter) {
+    func attach(scene: EditorSceneAdapter) {
         self.scene = scene
     }
 
     // MARK: Tap
 
     /// TODO(integration): call from a UITapGestureRecognizer on S1.3's SCNView.
-    public func handleTap(at screenPoint: CGPoint) {
+    func handleTap(at screenPoint: CGPoint) {
         guard let scene, let world = scene.worldPoint(from: screenPoint) else { return }
 
         let selection = HitTesting.hitTest(world, floor: store.activeFloor,
@@ -105,7 +105,7 @@ public final class SceneKitEditorBridge {
     ///
     /// One gesture = many dispatches. That is fine for the model (each is validated) but S2.2
     /// must coalesce them into ONE undo entry — see `EditAction.isContinuousDrag`.
-    public func handleDrag(_ state: UIGestureRecognizer.State, at screenPoint: CGPoint) {
+    func handleDrag(_ state: UIGestureRecognizer.State, at screenPoint: CGPoint) {
         guard let scene, let world = scene.worldPoint(from: screenPoint) else { return }
 
         switch state {
@@ -147,7 +147,7 @@ public final class SceneKitEditorBridge {
         }
     }
 
-    private func action(for subject: Selection, target: Point2D, delta: Point2D) -> EditAction? {
+    private func action(for subject: Selection, target: Point, delta: Point) -> EditAction? {
         switch subject {
         case .vertex(let roomId, let index):
             // Corners are absolute: the vertex goes where the finger is (then snaps).

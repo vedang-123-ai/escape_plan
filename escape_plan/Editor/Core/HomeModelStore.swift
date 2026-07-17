@@ -14,23 +14,23 @@
 
 import Foundation
 
-public final class HomeModelStore {
+final class HomeModelStore {
 
     /// Records one accepted mutation. S2.2's undo stack and autosave both subscribe here —
     /// `before`/`after` snapshots are all an undo stack needs, so undo never re-runs a reducer.
-    public struct Commit: Sendable {
-        public let action: EditAction
-        public let before: HomeModel
-        public let after: HomeModel
+    struct Commit: Sendable {
+        let action: EditAction
+        let before: HomeModel
+        let after: HomeModel
     }
 
-    public enum Outcome: Equatable {
+    enum Outcome: Equatable {
         /// Applied. Carries what the snapper did, so the UI can show "snapped to wall".
         case applied(snap: SnapResult?)
         /// Refused; the model is untouched. The editor plays an error haptic and shows these.
         case rejected([ValidationIssue])
 
-        public var didApply: Bool {
+        var didApply: Bool {
             if case .applied = self { return true }
             return false
         }
@@ -38,15 +38,15 @@ public final class HomeModelStore {
 
     // MARK: - State
 
-    public private(set) var model: HomeModel
-    public private(set) var activeFloorId: String
+    private(set) var model: HomeModel
+    private(set) var activeFloorId: String
     /// UI-only; never persisted into the document.
-    public private(set) var selection: Selection = .none
-    public var snapSettings: SnapSettings
+    private(set) var selection: Selection = .none
+    var snapSettings: SnapSettings
 
     /// Called after every accepted mutation. S2.2 attaches undo-stack push + autosave here.
     /// Not called for `replaceModel` (undo itself must not push onto the undo stack).
-    public var onCommit: ((Commit) -> Void)?
+    var onCommit: ((Commit) -> Void)?
 
     private let now: () -> Date
     private let makeId: () -> String
@@ -54,14 +54,14 @@ public final class HomeModelStore {
     // MARK: - Defaults
 
     /// A new room's footprint, in meters. Big enough to grab and drag on a phone.
-    public static let defaultRoomSize = (width: 3.0, height: 3.0)
-    public static let defaultFloorHeightM = 2.7
+    static let defaultRoomSize = (width: 3.0, height: 3.0)
+    static let defaultFloorHeightM = 2.7
 
     // MARK: - Init
 
     /// Fails if `model` is already invalid — the store's guarantee only holds from a valid seed,
     /// so we refuse to launder a broken document into a "trusted" one.
-    public init(model: HomeModel,
+    init(model: HomeModel,
                 activeFloorId: String? = nil,
                 snapSettings: SnapSettings = .default,
                 now: @escaping () -> Date = Date.init,
@@ -82,29 +82,29 @@ public final class HomeModelStore {
         }
     }
 
-    public enum StoreError: Error {
+    enum StoreError: Error {
         case invalidInitialModel([ValidationIssue])
     }
 
     // MARK: - Selection (UI state — no validation, no commit)
 
-    public func select(_ selection: Selection) {
+    func select(_ selection: Selection) {
         self.selection = selection
     }
 
-    public func clearSelection() { selection = .none }
+    func clearSelection() { selection = .none }
 
     /// Switches the edited floor. Per-floor edit isolation: every action resolves ids against
     /// the whole model, but `snapContext` and the renderer only ever see the active floor.
     @discardableResult
-    public func setActiveFloor(_ floorId: String) -> Bool {
+    func setActiveFloor(_ floorId: String) -> Bool {
         guard model.floor(floorId) != nil else { return false }
         activeFloorId = floorId
         selection = .none
         return true
     }
 
-    public var activeFloor: Floor {
+    var activeFloor: Floor {
         // Safe: activeFloorId is only ever set to a floor that exists, and deleteFloor
         // reassigns it before committing.
         model.floor(activeFloorId)!
@@ -114,7 +114,7 @@ public final class HomeModelStore {
 
     /// The one door in. Reduce onto a copy -> validate -> commit or reject.
     @discardableResult
-    public func dispatch(_ action: EditAction) -> Outcome {
+    func dispatch(_ action: EditAction) -> Outcome {
         var draft = model
         let snap: SnapResult?
 
@@ -129,7 +129,7 @@ public final class HomeModelStore {
         let issues = EditorValidation.validate(draft)
         guard issues.isEmpty else { return .rejected(issues) }
 
-        draft.meta.modified = Self.iso8601.string(from: now())
+        draft.meta.modified = now()
 
         let before = model
         model = draft
@@ -140,7 +140,7 @@ public final class HomeModelStore {
     /// Wholesale replacement, used by S2.2's undo/redo (and by loading a document). Validated
     /// like everything else, but does NOT fire `onCommit` — undoing must not record a commit.
     @discardableResult
-    public func replaceModel(_ newModel: HomeModel) -> Outcome {
+    func replaceModel(_ newModel: HomeModel) -> Outcome {
         let issues = EditorValidation.validate(newModel)
         guard issues.isEmpty else { return .rejected(issues) }
         model = newModel
@@ -175,20 +175,20 @@ public final class HomeModelStore {
             draft.floors[i].name = name
             return nil
 
-        case .setFloorHeight(let floorId, let heightM):
+        case .setFloorHeight(let floorId, let height_m):
             let i = try floorIndex(draft, floorId)
-            draft.floors[i].heightM = heightM
+            draft.floors[i].height_m = height_m
             return nil
 
-        case .addRoom(let floorId, let origin, let widthM, let heightM, let type, let name):
+        case .addRoom(let floorId, let origin, let width_m, let height_m, let type, let name):
             let i = try floorIndex(draft, floorId)
             let snapped = SnapEngine.snap(origin, context: snapContext(draft, floorId: floorId),
                                           settings: snapSettings)
             draft.floors[i].rooms.append(
                 Room(id: makeId(), name: name, type: type,
                      polygon: Geometry.rectangle(origin: snapped.point,
-                                                 width: widthM, height: heightM),
-                     source: .manual))
+                                                 width: width_m, height: height_m),
+                     source: .manual, confidence: nil))
             return snapped
 
         case .deleteRoom(let roomId):
@@ -237,7 +237,7 @@ public final class HomeModelStore {
             Floor(id: floorId,
                   level: level,
                   name: Self.floorName(level: level),
-                  heightM: Self.defaultFloorHeightM,
+                  height_m: Self.defaultFloorHeightM,
                   // The schema requires >= 1 room per floor, so a new floor is born with a
                   // starter room for the user to reshape rather than an invalid empty one.
                   rooms: [starterRoom()]))
@@ -250,14 +250,14 @@ public final class HomeModelStore {
             throw ValidationIssue(.emptyCollection, entityId: floorId,
                                   "cannot delete the only floor — a home must have at least one")
         }
-        let roomIds = Set(draft.floors[i].rooms.map(\.id))
+        let room_ids = Set(draft.floors[i].rooms.map(\.id))
 
-        if let p = draft.profiles.first(where: { roomIds.contains($0.bedroomRoomId) }) {
+        if let p = draft.profiles.first(where: { room_ids.contains($0.bedroom_room_id) }) {
             throw ValidationIssue(.danglingReference, entityId: floorId,
                                   "profile '\(p.name)' sleeps on this floor — reassign it first")
         }
         // Stairs landing on this floor have no meaning once it's gone.
-        draft.stairs.removeAll { $0.fromEnd.floorId == floorId || $0.toEnd.floorId == floorId }
+        draft.stairs.removeAll { $0.from.floor_id == floorId || $0.to.floor_id == floorId }
         draft.floors.remove(at: i)
 
         if activeFloorId == floorId {
@@ -277,15 +277,15 @@ public final class HomeModelStore {
         // Refuse rather than cascade: silently deleting someone's bedroom assignment loses
         // information the user can't get back. Cascading openings is safe (they only exist to
         // connect this room); cascading a profile's home is not.
-        if let p = draft.profiles.first(where: { $0.bedroomRoomId == roomId }) {
+        if let p = draft.profiles.first(where: { $0.bedroom_room_id == roomId }) {
             throw ValidationIssue(.danglingReference, entityId: roomId,
                                   "profile '\(p.name)' sleeps here — reassign them first")
         }
-        if let s = draft.stairs.first(where: { $0.fromEnd.roomId == roomId || $0.toEnd.roomId == roomId }) {
+        if let s = draft.stairs.first(where: { $0.from.room_id == roomId || $0.to.room_id == roomId }) {
             throw ValidationIssue(.danglingReference, entityId: roomId,
                                   "stairs '\(s.id)' land in this room — delete them first")
         }
-        draft.floors[f].openings.removeAll { $0.roomIds.contains(roomId) }
+        draft.floors[f].openings.removeAll { $0.room_ids.contains(roomId) }
         draft.floors[f].rooms.remove(at: r)
 
         if selection.roomId == roomId { selection = .none }
@@ -294,7 +294,7 @@ public final class HomeModelStore {
     // MARK: Drags
 
     private func dragVertex(_ draft: inout HomeModel, _ roomId: String,
-                            _ vertexIndex: Int, _ target: Point2D) throws -> SnapResult {
+                            _ vertexIndex: Int, _ target: Point) throws -> SnapResult {
         let (f, r) = try roomIndex(draft, roomId)
         let polygon = draft.floors[f].rooms[r].polygon
         guard vertexIndex >= 0, vertexIndex < polygon.count else {
@@ -314,7 +314,7 @@ public final class HomeModelStore {
     }
 
     private func dragEdge(_ draft: inout HomeModel, _ roomId: String,
-                          _ edgeIndex: Int, _ by: Point2D) throws -> SnapResult {
+                          _ edgeIndex: Int, _ by: Point) throws -> SnapResult {
         let (f, r) = try roomIndex(draft, roomId)
         let count = draft.floors[f].rooms[r].polygon.count
         guard edgeIndex >= 0, edgeIndex < count else {
@@ -337,11 +337,11 @@ public final class HomeModelStore {
 
     /// Everything on `floorId` worth snapping to, minus the room being dragged. Per-floor
     /// isolation: geometry on other floors is never a snap target.
-    public func snapContext(_ model: HomeModel, floorId: String,
+    func snapContext(_ model: HomeModel, floorId: String,
                             excludingRoom excluded: String? = nil) -> SnapContext {
         guard let floor = model.floor(floorId) else { return .empty }
-        var vertices: [Point2D] = []
-        var segments: [[Point2D]] = []
+        var vertices: [Point] = []
+        var segments: [[Point]] = []
         for room in floor.rooms where room.id != excluded {
             vertices += room.polygon
             for i in room.polygon.indices {
@@ -372,10 +372,10 @@ public final class HomeModelStore {
 
     private func starterRoom() -> Room {
         Room(id: makeId(), name: "Room", type: .other,
-             polygon: Geometry.rectangle(origin: Point2D(0, 0),
+             polygon: Geometry.rectangle(origin: Point(0, 0),
                                          width: Self.defaultRoomSize.width,
                                          height: Self.defaultRoomSize.height),
-             source: .manual)
+             source: .manual, confidence: nil)
     }
 
     static func floorName(level: Int) -> String {
@@ -389,29 +389,24 @@ public final class HomeModelStore {
         }
     }
 
-    static let iso8601: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
-        return f
-    }()
-
     /// The emptiest model the schema permits: one floor, one room. There is no such thing as a
     /// zero-room home in the contract (`floor.rooms` is minItems: 1), so "start from empty"
     /// means starting here and reshaping.
-    public static func newHome(name: String = "My Home",
+    static func newHome(name: String = "My Home",
                                now: @escaping () -> Date = Date.init,
                                makeId: @escaping () -> String = { UUID().uuidString }) -> HomeModel {
-        let stamp = iso8601.string(from: now())
+        let stamp = now()
         let room = Room(id: makeId(), name: "Room", type: .other,
-                        polygon: Geometry.rectangle(origin: Point2D(0, 0),
+                        polygon: Geometry.rectangle(origin: Point(0, 0),
                                                     width: defaultRoomSize.width,
                                                     height: defaultRoomSize.height),
-                        source: .manual)
+                        source: .manual, confidence: nil)
         return HomeModel(
-            homeId: UUID().uuidString,
+            schema_version: HomeModel.currentSchemaVersion,
+            home_id: UUID().uuidString,
             name: name,
             floors: [Floor(id: makeId(), level: 0, name: floorName(level: 0),
-                           heightM: defaultFloorHeightM, rooms: [room])],
+                           height_m: defaultFloorHeightM, rooms: [room])],
             meta: Meta(created: stamp, modified: stamp))
     }
 }

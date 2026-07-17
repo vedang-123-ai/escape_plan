@@ -50,7 +50,7 @@ enum Fixtures {
     }
 
     static func load(_ name: String) throws -> HomeModel {
-        try JSONDecoder().decode(HomeModel.self, from: data(name))
+        try HomeModel.decoder.decode(HomeModel.self, from: data(name))
     }
 
     /// Deliberately broken documents from `schema/fixtures/invalid/`.
@@ -63,7 +63,7 @@ enum Fixtures {
 
     static func loadInvalid(_ file: String) throws -> HomeModel {
         let url = directory.appendingPathComponent("invalid").appendingPathComponent(file)
-        return try JSONDecoder().decode(HomeModel.self, from: Data(contentsOf: url))
+        return try HomeModel.decoder.decode(HomeModel.self, from: Data(contentsOf: url))
     }
 }
 
@@ -115,7 +115,7 @@ func XCTAssertApplied(_ outcome: HomeModelStore.Outcome, _ message: String = "",
     }
 }
 
-func XCTAssertPointEqual(_ a: Point2D, _ b: Point2D, accuracy: Double = 1e-9,
+func XCTAssertPointEqual(_ a: Point, _ b: Point, accuracy: Double = 1e-9,
                          _ message: String = "",
                          file: StaticString = #filePath, line: UInt = #line) {
     XCTAssertEqual(a.x, b.x, accuracy: accuracy, "\(message) (x)", file: file, line: line)

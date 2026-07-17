@@ -8,9 +8,9 @@
 
 import Foundation
 
-public struct ValidationIssue: Equatable, Sendable, CustomStringConvertible {
-    public enum Kind: String, Sendable {
-        case schemaVersion
+struct ValidationIssue: Equatable, Sendable, CustomStringConvertible {
+    enum Kind: String, Sendable {
+        case schema_version
         case idUniqueness
         case reservedId
         case polygonDegenerate
@@ -25,18 +25,18 @@ public struct ValidationIssue: Equatable, Sendable, CustomStringConvertible {
         case emptyString
     }
 
-    public let kind: Kind
+    let kind: Kind
     /// Id of the offending entity, when there is one — for driving editor highlighting.
-    public let entityId: String?
-    public let message: String
+    let entityId: String?
+    let message: String
 
-    public init(_ kind: Kind, entityId: String? = nil, _ message: String) {
+    init(_ kind: Kind, entityId: String? = nil, _ message: String) {
         self.kind = kind
         self.entityId = entityId
         self.message = message
     }
 
-    public var description: String {
+    var description: String {
         if let entityId { return "[\(kind.rawValue)] \(entityId): \(message)" }
         return "[\(kind.rawValue)] \(message)"
     }
@@ -46,15 +46,15 @@ public struct ValidationIssue: Equatable, Sendable, CustomStringConvertible {
 /// (an action naming an id that doesn't exist leaves no bad entity behind to detect).
 extension ValidationIssue: Error {}
 
-public enum EditorValidation {
+enum EditorValidation {
 
     /// Every structural rule, checked in one pass. Empty result == the backend will accept it.
-    public static func validate(_ model: HomeModel) -> [ValidationIssue] {
+    static func validate(_ model: HomeModel) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
 
-        if model.schemaVersion != HomeModel.currentSchemaVersion {
-            issues.append(.init(.schemaVersion,
-                                "schema_version must be \(HomeModel.currentSchemaVersion), got \(model.schemaVersion)"))
+        if model.schema_version != HomeModel.currentSchemaVersion {
+            issues.append(.init(.schema_version,
+                                "schema_version must be \(HomeModel.currentSchemaVersion), got \(model.schema_version)"))
         }
         if model.name.isEmpty {
             issues.append(.init(.emptyString, "home name must not be empty"))
@@ -75,7 +75,7 @@ public enum EditorValidation {
         return issues
     }
 
-    public static func isValid(_ model: HomeModel) -> Bool { validate(model).isEmpty }
+    static func isValid(_ model: HomeModel) -> Bool { validate(model).isEmpty }
 
     // MARK: - Ids
 
@@ -89,9 +89,9 @@ public enum EditorValidation {
                 issues.append(.init(.emptyString, "\(what) has an empty id"))
                 return
             }
-            if id == EXTERIOR_ROOM_ID {
+            if id == EXTERIOR_ID {
                 issues.append(.init(.reservedId, entityId: id,
-                                    "'\(EXTERIOR_ROOM_ID)' is reserved and may not be used as a \(what) id"))
+                                    "'\(EXTERIOR_ID)' is reserved and may not be used as a \(what) id"))
                 return
             }
             if !seen.insert(id).inserted {
@@ -128,9 +128,9 @@ public enum EditorValidation {
         if floor.name.isEmpty {
             issues.append(.init(.emptyString, entityId: floor.id, "floor name must not be empty"))
         }
-        if floor.heightM <= 0 {
+        if floor.height_m <= 0 {
             issues.append(.init(.polygonDegenerate, entityId: floor.id,
-                                "height_m must be > 0, got \(floor.heightM)"))
+                                "height_m must be > 0, got \(floor.height_m)"))
         }
         if floor.rooms.isEmpty {
             issues.append(.init(.emptyCollection, entityId: floor.id,
@@ -176,18 +176,18 @@ public enum EditorValidation {
         let id = opening.id
 
         // --- room_ids ---
-        if opening.roomIds.count != 2 {
+        if opening.room_ids.count != 2 {
             issues.append(.init(.openingPlacement, entityId: id,
-                                "room_ids must have exactly 2 entries, got \(opening.roomIds.count)"))
+                                "room_ids must have exactly 2 entries, got \(opening.room_ids.count)"))
         }
-        if Set(opening.roomIds).count != opening.roomIds.count {
+        if Set(opening.room_ids).count != opening.room_ids.count {
             issues.append(.init(.openingPlacement, entityId: id, "room_ids entries must be distinct"))
         }
-        if opening.roomIds.allSatisfy({ $0 == EXTERIOR_ROOM_ID }) && !opening.roomIds.isEmpty {
+        if opening.room_ids.allSatisfy({ $0 == EXTERIOR_ID }) && !opening.room_ids.isEmpty {
             issues.append(.init(.openingPlacement, entityId: id,
                                 "an opening cannot connect EXTERIOR to EXTERIOR"))
         }
-        for roomId in opening.roomIds where roomId != EXTERIOR_ROOM_ID {
+        for roomId in opening.room_ids where roomId != EXTERIOR_ID {
             if floor.room(roomId) == nil {
                 issues.append(.init(.danglingReference, entityId: id,
                                     "room_ids references '\(roomId)', which is not a room on floor '\(floor.id)'"))
@@ -195,22 +195,22 @@ public enum EditorValidation {
         }
 
         // --- wall_segment ---
-        let seg = opening.wallSegment
-        if !opening.roomIds.contains(seg.roomId) {
+        let seg = opening.wall_segment
+        if !opening.room_ids.contains(seg.room_id) {
             issues.append(.init(.openingPlacement, entityId: id,
-                                "wall_segment.room_id '\(seg.roomId)' must be one of the opening's room_ids"))
+                                "wall_segment.room_id '\(seg.room_id)' must be one of the opening's room_ids"))
         }
-        if seg.roomId == EXTERIOR_ROOM_ID {
+        if seg.room_id == EXTERIOR_ID {
             issues.append(.init(.openingPlacement, entityId: id,
                                 "wall_segment.room_id must be a real room, never EXTERIOR"))
-        } else if let host = floor.room(seg.roomId) {
-            if seg.edgeIndex < 0 || seg.edgeIndex >= host.polygon.count {
+        } else if let host = floor.room(seg.room_id) {
+            if seg.edge_index < 0 || seg.edge_index >= host.polygon.count {
                 issues.append(.init(.openingPlacement, entityId: id,
-                                    "edge_index \(seg.edgeIndex) is out of range for room '\(host.id)' (\(host.polygon.count) edges)"))
+                                    "edge_index \(seg.edge_index) is out of range for room '\(host.id)' (\(host.polygon.count) edges)"))
             }
         } else {
             issues.append(.init(.danglingReference, entityId: id,
-                                "wall_segment.room_id '\(seg.roomId)' is not a room on floor '\(floor.id)'"))
+                                "wall_segment.room_id '\(seg.room_id)' is not a room on floor '\(floor.id)'"))
         }
         if seg.t0 < 0 || seg.t1 > 1 {
             issues.append(.init(.openingPlacement, entityId: id,
@@ -222,13 +222,13 @@ public enum EditorValidation {
         }
 
         // --- dimensions ---
-        if opening.widthM <= 0 {
+        if opening.width_m <= 0 {
             issues.append(.init(.openingDimensions, entityId: id, "width_m must be > 0"))
         }
-        if opening.heightM <= 0 {
+        if opening.height_m <= 0 {
             issues.append(.init(.openingDimensions, entityId: id, "height_m must be > 0"))
         }
-        if opening.sillHeightM < 0 {
+        if opening.sill_height_m < 0 {
             issues.append(.init(.openingDimensions, entityId: id, "sill_height_m must be >= 0"))
         }
 
@@ -242,18 +242,18 @@ public enum EditorValidation {
     private static func validateStairs(_ model: HomeModel) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
         for stair in model.stairs {
-            for (label, end) in [("from", stair.fromEnd), ("to", stair.toEnd)] {
-                guard let floor = model.floor(end.floorId) else {
+            for (label, end) in [("from", stair.from), ("to", stair.to)] {
+                guard let floor = model.floor(end.floor_id) else {
                     issues.append(.init(.danglingReference, entityId: stair.id,
-                                        "\(label).floor_id '\(end.floorId)' does not exist"))
+                                        "\(label).floor_id '\(end.floor_id)' does not exist"))
                     continue
                 }
-                if floor.room(end.roomId) == nil {
+                if floor.room(end.room_id) == nil {
                     issues.append(.init(.danglingReference, entityId: stair.id,
-                                        "\(label).room_id '\(end.roomId)' is not a room on floor '\(end.floorId)'"))
+                                        "\(label).room_id '\(end.room_id)' is not a room on floor '\(end.floor_id)'"))
                 }
             }
-            if stair.fromEnd.floorId == stair.toEnd.floorId {
+            if stair.from.floor_id == stair.to.floor_id {
                 issues.append(.init(.danglingReference, entityId: stair.id,
                                     "stairs must connect two different floors"))
             }
@@ -274,9 +274,9 @@ public enum EditorValidation {
                 issues.append(.init(.emptyString, entityId: profile.id,
                                     "profile name must not be empty"))
             }
-            if model.locateRoom(profile.bedroomRoomId) == nil {
+            if model.locateRoom(profile.bedroom_room_id) == nil {
                 issues.append(.init(.danglingReference, entityId: profile.id,
-                                    "bedroom_room_id '\(profile.bedroomRoomId)' is not a room in this home"))
+                                    "bedroom_room_id '\(profile.bedroom_room_id)' is not a room in this home"))
             }
             if Set(profile.tags).count != profile.tags.count {
                 issues.append(.init(.idUniqueness, entityId: profile.id, "tags must be unique"))
@@ -289,7 +289,7 @@ public enum EditorValidation {
 
     /// Scan-derived items MUST carry confidence — that's what drives the editor's
     /// "needs review" treatment (S2.2). Never silently dropped, never silently unflagged.
-    private static func validateProvenance(source: SourceKind, confidence: Double?,
+    private static func validateProvenance(source: Source, confidence: Double?,
                                            entityId: String) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
         if source == .scan && confidence == nil {

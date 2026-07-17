@@ -146,7 +146,7 @@ final class StoreInvariantTests: XCTestCase {
         func coord() -> Double {
             Double.random(in: -dragRange...dragRange, using: &rng)
         }
-        func point() -> Point2D { Point2D(coord(), coord()) }
+        func point() -> Point { Point(coord(), coord()) }
 
         // Weighted so the geometry-mangling drags dominate — they're where invalid states come
         // from. Structural actions are sprinkled in to keep the shape of the model moving.
@@ -159,7 +159,7 @@ final class StoreInvariantTests: XCTestCase {
         case 28..<48:
             // Nudge a corner slightly: the near-degenerate cases the wild flings mostly miss.
             let i = Int.random(in: 0..<room.polygon.count, using: &rng)
-            let jitter = Point2D(Double.random(in: -0.3...0.3, using: &rng),
+            let jitter = Point(Double.random(in: -0.3...0.3, using: &rng),
                                  Double.random(in: -0.3...0.3, using: &rng))
             return .dragVertex(roomId: room.id, vertexIndex: i,
                                to: Geometry.add(room.polygon[i], jitter))
@@ -171,8 +171,8 @@ final class StoreInvariantTests: XCTestCase {
             return .dragRoom(roomId: anyRoom.id, by: point())
         case 72..<78:
             return .addRoom(floorId: floor.id, origin: point(),
-                            widthM: Double.random(in: 0.5...6, using: &rng),
-                            heightM: Double.random(in: 0.5...6, using: &rng),
+                            width_m: Double.random(in: 0.5...6, using: &rng),
+                            height_m: Double.random(in: 0.5...6, using: &rng),
                             type: RoomType.allCases.randomElement(using: &rng)!,
                             name: "Fuzz Room")
         case 78..<84:
@@ -191,7 +191,7 @@ final class StoreInvariantTests: XCTestCase {
                                 type: RoomType.allCases.randomElement(using: &rng)!)
         case 97..<99:
             return .setFloorHeight(floorId: floor.id,
-                                   heightM: Double.random(in: -1...4, using: &rng))
+                                   height_m: Double.random(in: -1...4, using: &rng))
         default:
             return .setHomeName(Bool.random(using: &rng) ? "" : "Fuzzed Home")
         }
@@ -206,23 +206,23 @@ final class StoreInvariantTests: XCTestCase {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
         // r_living is [0,0],[5,0],[5,4],[0,4]. Vertex 0 -> [5,4] is vertex 2: a bowtie.
         XCTAssertRejected(store.dispatch(.dragVertex(roomId: "r_living", vertexIndex: 0,
-                                                     to: Point2D(5, 4))))
+                                                     to: Point(5, 4))))
     }
 
     func testCollapsingAWallToZeroLengthIsRejected() throws {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
         // Drop vertex 0 exactly onto vertex 1: edge 0 vanishes.
         XCTAssertRejected(store.dispatch(.dragVertex(roomId: "r_living", vertexIndex: 0,
-                                                     to: Point2D(5, 0))))
+                                                     to: Point(5, 0))))
     }
 
     func testFlatteningARoomToALineIsRejected() throws {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
         XCTAssertApplied(store.dispatch(.dragVertex(roomId: "r_living", vertexIndex: 3,
-                                                    to: Point2D(0, 0.5))))
+                                                    to: Point(0, 0.5))))
         // Now push the last off-line corner onto the line: zero area.
         XCTAssertRejected(store.dispatch(.dragVertex(roomId: "r_living", vertexIndex: 2,
-                                                     to: Point2D(5, 0))))
+                                                     to: Point(5, 0))))
     }
 
     func testInvertingWindingIsRejected() throws {
@@ -239,7 +239,7 @@ final class StoreInvariantTests: XCTestCase {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
         // Push the top wall of r_living (edge 2) down past the bottom wall.
         XCTAssertRejected(store.dispatch(.dragEdge(roomId: "r_living", edgeIndex: 2,
-                                                   by: Point2D(0, -6))))
+                                                   by: Point(0, -6))))
     }
 
     // MARK: - Openings survive everything
@@ -251,16 +251,16 @@ final class StoreInvariantTests: XCTestCase {
         var rng = SeededGenerator(seed: 99)
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"), snap: .default)
         let openingIds = Set(store.activeFloor.openings.map(\.id))
-        let refsBefore = store.activeFloor.openings.map { ($0.id, $0.wallSegment) }
+        let refsBefore = store.activeFloor.openings.map { ($0.id, $0.wall_segment) }
 
         for _ in 0..<400 {
             let room = store.activeFloor.rooms.randomElement(using: &rng)!
             let i = Int.random(in: 0..<room.polygon.count, using: &rng)
             store.dispatch(.dragVertex(roomId: room.id, vertexIndex: i,
-                                       to: Point2D(Double.random(in: -2...12, using: &rng),
+                                       to: Point(Double.random(in: -2...12, using: &rng),
                                                    Double.random(in: -2...12, using: &rng))))
             store.dispatch(.dragEdge(roomId: room.id, edgeIndex: i,
-                                     by: Point2D(Double.random(in: -1...1, using: &rng),
+                                     by: Point(Double.random(in: -1...1, using: &rng),
                                                  Double.random(in: -1...1, using: &rng))))
         }
 
@@ -268,7 +268,7 @@ final class StoreInvariantTests: XCTestCase {
                        "no drag should ever add or drop an opening")
         for (id, seg) in refsBefore {
             let now = store.activeFloor.openings.first { $0.id == id }!
-            XCTAssertEqual(now.wallSegment, seg,
+            XCTAssertEqual(now.wall_segment, seg,
                            "opening \(id)'s parametric ref was rewritten — it should never need to be")
         }
         XCTAssertModelValid(store.model)

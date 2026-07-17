@@ -52,7 +52,7 @@ final class HomeModelStoreTests: XCTestCase {
 
         // Drag a corner of the living room diagonally across the footprint -> bowtie.
         let outcome = store.dispatch(.dragVertex(roomId: "r_living", vertexIndex: 0,
-                                                 to: Point2D(5, 4)))
+                                                 to: Point(5, 4)))
         XCTAssertRejected(outcome, "a self-intersecting drag must not land")
         XCTAssertEqual(store.model, before, "a rejection must not leave partial state behind")
     }
@@ -63,7 +63,7 @@ final class HomeModelStoreTests: XCTestCase {
         store.onCommit = { _ in commits += 1 }
 
         XCTAssertRejected(store.dispatch(.dragVertex(roomId: "r_living", vertexIndex: 0,
-                                                     to: Point2D(5, 4))))
+                                                     to: Point(5, 4))))
         XCTAssertEqual(commits, 0, "S2.2's undo stack must never see a rejected action")
     }
 
@@ -72,9 +72,9 @@ final class HomeModelStoreTests: XCTestCase {
         XCTAssertRejected(store.dispatch(.renameRoom(roomId: "nope", name: "X")))
         XCTAssertRejected(store.dispatch(.deleteRoom(roomId: "nope")))
         XCTAssertRejected(store.dispatch(.renameFloor(floorId: "nope", name: "X")))
-        XCTAssertRejected(store.dispatch(.dragVertex(roomId: "nope", vertexIndex: 0, to: Point2D(0, 0))))
-        XCTAssertRejected(store.dispatch(.dragVertex(roomId: "r_living", vertexIndex: 99, to: Point2D(0, 0))))
-        XCTAssertRejected(store.dispatch(.dragEdge(roomId: "r_living", edgeIndex: 99, by: Point2D(1, 0))))
+        XCTAssertRejected(store.dispatch(.dragVertex(roomId: "nope", vertexIndex: 0, to: Point(0, 0))))
+        XCTAssertRejected(store.dispatch(.dragVertex(roomId: "r_living", vertexIndex: 99, to: Point(0, 0))))
+        XCTAssertRejected(store.dispatch(.dragEdge(roomId: "r_living", edgeIndex: 99, by: Point(1, 0))))
     }
 
     // MARK: - Commit hook
@@ -112,11 +112,12 @@ final class HomeModelStoreTests: XCTestCase {
 
     func testMutationsStampMetaModified() throws {
         var model = try Fixtures.load("bungalow")
-        model.meta.modified = "2020-01-01T00:00:00Z"
+        let past = Date(timeIntervalSince1970: 1_577_836_800) // 2020-01-01T00:00:00Z
+        model.meta.modified = past
         let store = try HomeModelStore.testStore(model)
 
         XCTAssertApplied(store.dispatch(.setHomeName("Renamed")))
-        XCTAssertNotEqual(store.model.meta.modified, "2020-01-01T00:00:00Z")
+        XCTAssertNotEqual(store.model.meta.modified, past)
         XCTAssertEqual(store.model.meta.created, model.meta.created, "created never moves")
     }
 
@@ -127,10 +128,10 @@ final class HomeModelStoreTests: XCTestCase {
         let before = store.model.locateRoom("r_living")!.room.polygon
 
         XCTAssertApplied(store.dispatch(.dragVertex(roomId: "r_living", vertexIndex: 1,
-                                                    to: Point2D(5.5, -0.5))))
+                                                    to: Point(5.5, -0.5))))
 
         let after = store.model.locateRoom("r_living")!.room.polygon
-        XCTAssertPointEqual(after[1], Point2D(5.5, -0.5))
+        XCTAssertPointEqual(after[1], Point(5.5, -0.5))
         for i in [0, 2, 3] {
             XCTAssertPointEqual(after[i], before[i], "vertex \(i) should not have moved")
         }
@@ -140,14 +141,14 @@ final class HomeModelStoreTests: XCTestCase {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
         // Living room is [0,0],[5,0],[5,4],[0,4]. Edge 2 is the top wall ([5,4] -> [0,4]).
         XCTAssertApplied(store.dispatch(.dragEdge(roomId: "r_living", edgeIndex: 2,
-                                                  by: Point2D(0, 1))))
+                                                  by: Point(0, 1))))
 
         let p = store.model.locateRoom("r_living")!.room.polygon
-        XCTAssertPointEqual(p[2], Point2D(5, 5), accuracy: 1e-9)
-        XCTAssertPointEqual(p[3], Point2D(0, 5), accuracy: 1e-9)
+        XCTAssertPointEqual(p[2], Point(5, 5), accuracy: 1e-9)
+        XCTAssertPointEqual(p[3], Point(0, 5), accuracy: 1e-9)
         // The side walls stretched because they share those endpoints.
-        XCTAssertPointEqual(p[0], Point2D(0, 0), accuracy: 1e-9)
-        XCTAssertPointEqual(p[1], Point2D(5, 0), accuracy: 1e-9)
+        XCTAssertPointEqual(p[0], Point(0, 0), accuracy: 1e-9)
+        XCTAssertPointEqual(p[1], Point(5, 0), accuracy: 1e-9)
         XCTAssertEqual(Geometry.area(p), 25.0, accuracy: 1e-9)
     }
 
@@ -155,22 +156,22 @@ final class HomeModelStoreTests: XCTestCase {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
         // Edge 3 is the closing wall: vertex 3 -> vertex 0.
         XCTAssertApplied(store.dispatch(.dragEdge(roomId: "r_living", edgeIndex: 3,
-                                                  by: Point2D(-1, 0))))
+                                                  by: Point(-1, 0))))
         let p = store.model.locateRoom("r_living")!.room.polygon
-        XCTAssertPointEqual(p[3], Point2D(-1, 4), accuracy: 1e-9)
-        XCTAssertPointEqual(p[0], Point2D(-1, 0), accuracy: 1e-9)
+        XCTAssertPointEqual(p[3], Point(-1, 4), accuracy: 1e-9)
+        XCTAssertPointEqual(p[0], Point(-1, 0), accuracy: 1e-9)
     }
 
     func testDragRoomTranslatesTheWholeFootprintRigidly() throws {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
         let before = store.model.locateRoom("r_bedroom")!.room.polygon
 
-        XCTAssertApplied(store.dispatch(.dragRoom(roomId: "r_bedroom", by: Point2D(-2, 3))))
+        XCTAssertApplied(store.dispatch(.dragRoom(roomId: "r_bedroom", by: Point(-2, 3))))
 
         let after = store.model.locateRoom("r_bedroom")!.room.polygon
         XCTAssertEqual(Geometry.area(before), Geometry.area(after), accuracy: 1e-9)
         for (a, b) in zip(before, after) {
-            XCTAssertPointEqual(b, Geometry.add(a, Point2D(-2, 3)), accuracy: 1e-9)
+            XCTAssertPointEqual(b, Geometry.add(a, Point(-2, 3)), accuracy: 1e-9)
         }
     }
 
@@ -179,12 +180,12 @@ final class HomeModelStoreTests: XCTestCase {
         // changes; where it resolves to in the world does.
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
 
-        func frontDoorPosition() -> Point2D {
+        func frontDoorPosition() -> Point {
             let floor = store.activeFloor
             let door = floor.openings.first { $0.id == "d_front" }!
-            let host = floor.room(door.wallSegment.roomId)!
-            return Geometry.pointOnEdge(host.polygon, edgeIndex: door.wallSegment.edgeIndex,
-                                        t: (door.wallSegment.t0 + door.wallSegment.t1) / 2)!
+            let host = floor.room(door.wall_segment.room_id)!
+            return Geometry.pointOnEdge(host.polygon, edgeIndex: door.wall_segment.edge_index,
+                                        t: (door.wall_segment.t0 + door.wall_segment.t1) / 2)!
         }
 
         let doorBefore = store.activeFloor.openings.first { $0.id == "d_front" }!
@@ -192,12 +193,12 @@ final class HomeModelStoreTests: XCTestCase {
 
         // The front door lives on edge 0 of r_living. Drag that wall down 1m.
         XCTAssertApplied(store.dispatch(.dragEdge(roomId: "r_living", edgeIndex: 0,
-                                                  by: Point2D(0, -1))))
+                                                  by: Point(0, -1))))
 
         let doorAfter = store.activeFloor.openings.first { $0.id == "d_front" }!
-        XCTAssertEqual(doorBefore.wallSegment, doorAfter.wallSegment,
+        XCTAssertEqual(doorBefore.wall_segment, doorAfter.wall_segment,
                        "the stored parametric ref must be untouched — no fixup code needed")
-        XCTAssertPointEqual(frontDoorPosition(), Geometry.add(worldBefore, Point2D(0, -1)),
+        XCTAssertPointEqual(frontDoorPosition(), Geometry.add(worldBefore, Point(0, -1)),
                             accuracy: 1e-9, "the door should have ridden along with its wall")
     }
 
@@ -209,12 +210,12 @@ final class HomeModelStoreTests: XCTestCase {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"), snap: .default)
 
         let outcome = store.dispatch(.dragVertex(roomId: "r_living", vertexIndex: 1,
-                                                 to: Point2D(4.94, 0.04)))
+                                                 to: Point(4.94, 0.04)))
         XCTAssertApplied(outcome)
         guard case .applied(let snap) = outcome else { return XCTFail() }
         XCTAssertEqual(snap?.kind, .vertex)
         XCTAssertPointEqual(store.model.locateRoom("r_living")!.room.polygon[1],
-                            Point2D(5, 0), accuracy: 1e-9)
+                            Point(5, 0), accuracy: 1e-9)
     }
 
     func testStoreNeverSnapsARoomToItself() throws {
@@ -230,7 +231,7 @@ final class HomeModelStoreTests: XCTestCase {
         }
     }
 
-    private func isSharedWithAnotherRoom(_ p: Point2D, store: HomeModelStore) -> Bool {
+    private func isSharedWithAnotherRoom(_ p: Point, store: HomeModelStore) -> Bool {
         store.activeFloor.rooms
             .filter { $0.id != "r_living" }
             .contains { $0.polygon.contains(p) }
@@ -242,8 +243,8 @@ final class HomeModelStoreTests: XCTestCase {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
         let floorId = store.activeFloorId
 
-        XCTAssertApplied(store.dispatch(.addRoom(floorId: floorId, origin: Point2D(20, 20),
-                                                 widthM: 3, heightM: 4, type: .bedroom,
+        XCTAssertApplied(store.dispatch(.addRoom(floorId: floorId, origin: Point(20, 20),
+                                                 width_m: 3, height_m: 4, type: .bedroom,
                                                  name: "Guest Room")))
         let room = try XCTUnwrap(store.activeFloor.rooms.last)
         XCTAssertEqual(room.name, "Guest Room")
@@ -256,7 +257,7 @@ final class HomeModelStoreTests: XCTestCase {
 
     func testDeleteRoomCascadesToItsOpenings() throws {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
-        let doomed = store.activeFloor.openings.filter { $0.roomIds.contains("r_bath") }
+        let doomed = store.activeFloor.openings.filter { $0.room_ids.contains("r_bath") }
         XCTAssertFalse(doomed.isEmpty, "fixture precondition: the bathroom has openings")
 
         XCTAssertApplied(store.dispatch(.deleteRoom(roomId: "r_bath")))
@@ -274,14 +275,14 @@ final class HomeModelStoreTests: XCTestCase {
         let store = try HomeModelStore.testStore(try Fixtures.load("twostory"))
         let profile = try XCTUnwrap(store.model.profiles.first)
 
-        XCTAssertRejected(store.dispatch(.deleteRoom(roomId: profile.bedroomRoomId)))
-        XCTAssertNotNil(store.model.locateRoom(profile.bedroomRoomId))
+        XCTAssertRejected(store.dispatch(.deleteRoom(roomId: profile.bedroom_room_id)))
+        XCTAssertNotNil(store.model.locateRoom(profile.bedroom_room_id))
     }
 
     func testDeleteRoomIsRefusedWhenStairsLandThere() throws {
         let store = try HomeModelStore.testStore(try Fixtures.load("twostory"))
         let stair = try XCTUnwrap(store.model.stairs.first)
-        XCTAssertRejected(store.dispatch(.deleteRoom(roomId: stair.fromEnd.roomId)))
+        XCTAssertRejected(store.dispatch(.deleteRoom(roomId: stair.from.room_id)))
     }
 
     func testCannotDeleteTheLastRoomOnAFloor() throws {
@@ -346,7 +347,7 @@ final class HomeModelStoreTests: XCTestCase {
     func testDeletingAFloorIsRefusedWhenSomeoneSleepsOnIt() throws {
         let store = try HomeModelStore.testStore(try Fixtures.load("twostory"))
         let profile = try XCTUnwrap(store.model.profiles.first)
-        let floorId = store.model.locateRoom(profile.bedroomRoomId)!.floorId
+        let floorId = store.model.locateRoom(profile.bedroom_room_id)!.floorId
 
         XCTAssertRejected(store.dispatch(.deleteFloor(floorId: floorId)))
     }
@@ -365,9 +366,9 @@ final class HomeModelStoreTests: XCTestCase {
 
     func testInvalidFloorHeightIsRejected() throws {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
-        XCTAssertRejected(store.dispatch(.setFloorHeight(floorId: store.activeFloorId, heightM: 0)))
-        XCTAssertRejected(store.dispatch(.setFloorHeight(floorId: store.activeFloorId, heightM: -3)))
-        XCTAssertApplied(store.dispatch(.setFloorHeight(floorId: store.activeFloorId, heightM: 2.4)))
+        XCTAssertRejected(store.dispatch(.setFloorHeight(floorId: store.activeFloorId, height_m: 0)))
+        XCTAssertRejected(store.dispatch(.setFloorHeight(floorId: store.activeFloorId, height_m: -3)))
+        XCTAssertApplied(store.dispatch(.setFloorHeight(floorId: store.activeFloorId, height_m: 2.4)))
     }
 
     // MARK: - Selection
@@ -386,8 +387,8 @@ final class HomeModelStoreTests: XCTestCase {
         let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
         for i in 0..<10 {
             XCTAssertApplied(store.dispatch(.addRoom(floorId: store.activeFloorId,
-                                                     origin: Point2D(Double(i) * 10, 40),
-                                                     widthM: 3, heightM: 3,
+                                                     origin: Point(Double(i) * 10, 40),
+                                                     width_m: 3, height_m: 3,
                                                      type: .other, name: "R\(i)")))
         }
         XCTAssertModelValid(store.model, "id collisions would surface here")

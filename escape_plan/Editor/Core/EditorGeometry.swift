@@ -6,47 +6,47 @@
 
 import Foundation
 
-public enum Geometry {
+enum Geometry {
 
     /// Distances below this are treated as zero. 1e-6 m = 1 micron: far below the 1 cm the
     /// editor's snapping works in, far above Double noise on meter-scale coordinates.
-    public static let epsilon = 1e-6
+    static let epsilon = 1e-6
 
     // MARK: - Vectors
 
-    public static func add(_ a: Point2D, _ b: Point2D) -> Point2D {
-        Point2D(a.x + b.x, a.y + b.y)
+    static func add(_ a: Point, _ b: Point) -> Point {
+        Point(a.x + b.x, a.y + b.y)
     }
 
-    public static func subtract(_ a: Point2D, _ b: Point2D) -> Point2D {
-        Point2D(a.x - b.x, a.y - b.y)
+    static func subtract(_ a: Point, _ b: Point) -> Point {
+        Point(a.x - b.x, a.y - b.y)
     }
 
-    public static func scale(_ a: Point2D, _ k: Double) -> Point2D {
-        Point2D(a.x * k, a.y * k)
+    static func scale(_ a: Point, _ k: Double) -> Point {
+        Point(a.x * k, a.y * k)
     }
 
-    public static func dot(_ a: Point2D, _ b: Point2D) -> Double {
+    static func dot(_ a: Point, _ b: Point) -> Double {
         a.x * b.x + a.y * b.y
     }
 
     /// z-component of the 3D cross product — sign gives orientation of the turn a->b.
-    public static func cross(_ a: Point2D, _ b: Point2D) -> Double {
+    static func cross(_ a: Point, _ b: Point) -> Double {
         a.x * b.y - a.y * b.x
     }
 
-    public static func length(_ a: Point2D) -> Double {
+    static func length(_ a: Point) -> Double {
         (a.x * a.x + a.y * a.y).squareRoot()
     }
 
-    public static func distance(_ a: Point2D, _ b: Point2D) -> Double {
+    static func distance(_ a: Point, _ b: Point) -> Double {
         length(subtract(a, b))
     }
 
     // MARK: - Polygons
 
     /// Positive for counter-clockwise, negative for clockwise (shoelace formula).
-    public static func signedArea(_ polygon: [Point2D]) -> Double {
+    static func signedArea(_ polygon: [Point]) -> Double {
         guard polygon.count >= 3 else { return 0 }
         var sum = 0.0
         for i in polygon.indices {
@@ -57,35 +57,35 @@ public enum Geometry {
         return sum / 2
     }
 
-    public static func area(_ polygon: [Point2D]) -> Double { abs(signedArea(polygon)) }
+    static func area(_ polygon: [Point]) -> Double { abs(signedArea(polygon)) }
 
-    public static func isCounterClockwise(_ polygon: [Point2D]) -> Bool {
+    static func isCounterClockwise(_ polygon: [Point]) -> Bool {
         signedArea(polygon) > epsilon
     }
 
     /// Reverses vertex order. Note this renumbers edges — any `wall_segment.edge_index`
     /// pointing into this polygon becomes wrong, so the editor never calls it on a room that
     /// already hosts openings (see `HomeModelStore`, which rejects rather than reorients).
-    public static func reversed(_ polygon: [Point2D]) -> [Point2D] {
+    static func reversed(_ polygon: [Point]) -> [Point] {
         polygon.reversed()
     }
 
     /// Edge i of a polygon: vertex i -> vertex (i+1) mod n. This is THE schema convention.
-    public static func edge(_ polygon: [Point2D], _ index: Int) -> (a: Point2D, b: Point2D)? {
+    static func edge(_ polygon: [Point], _ index: Int) -> (a: Point, b: Point)? {
         guard polygon.count >= 3, index >= 0, index < polygon.count else { return nil }
         return (polygon[index], polygon[(index + 1) % polygon.count])
     }
 
     /// The point at normalized position `t` along edge `index` — how the schema's parametric
     /// opening placement resolves to a world position.
-    public static func pointOnEdge(_ polygon: [Point2D], edgeIndex: Int, t: Double) -> Point2D? {
+    static func pointOnEdge(_ polygon: [Point], edgeIndex: Int, t: Double) -> Point? {
         guard let e = edge(polygon, edgeIndex) else { return nil }
         return add(e.a, scale(subtract(e.b, e.a), t))
     }
 
     /// A polygon is simple when no edge crosses another and no vertex is duplicated.
     /// Adjacent edges are allowed to touch only at their shared vertex.
-    public static func isSimple(_ polygon: [Point2D]) -> Bool {
+    static func isSimple(_ polygon: [Point]) -> Bool {
         let n = polygon.count
         guard n >= 3 else { return false }
 
@@ -116,43 +116,43 @@ public enum Geometry {
     }
 
     /// Convenience: the full room-polygon contract from the schema.
-    public static func isValidRoomPolygon(_ polygon: [Point2D]) -> Bool {
+    static func isValidRoomPolygon(_ polygon: [Point]) -> Bool {
         polygon.count >= 3 && isSimple(polygon) && isCounterClockwise(polygon)
     }
 
-    public static func translate(_ polygon: [Point2D], by delta: Point2D) -> [Point2D] {
+    static func translate(_ polygon: [Point], by delta: Point) -> [Point] {
         polygon.map { add($0, delta) }
     }
 
-    public static func centroid(_ polygon: [Point2D]) -> Point2D {
-        guard !polygon.isEmpty else { return Point2D(0, 0) }
+    static func centroid(_ polygon: [Point]) -> Point {
+        guard !polygon.isEmpty else { return Point(0, 0) }
         let sx = polygon.reduce(0) { $0 + $1.x }
         let sy = polygon.reduce(0) { $0 + $1.y }
-        return Point2D(sx / Double(polygon.count), sy / Double(polygon.count))
+        return Point(sx / Double(polygon.count), sy / Double(polygon.count))
     }
 
     /// Axis-aligned CCW rectangle — the shape "add room" drops on the floor.
-    public static func rectangle(origin: Point2D, width: Double, height: Double) -> [Point2D] {
+    static func rectangle(origin: Point, width: Double, height: Double) -> [Point] {
         [
             origin,
-            Point2D(origin.x + width, origin.y),
-            Point2D(origin.x + width, origin.y + height),
-            Point2D(origin.x, origin.y + height),
+            Point(origin.x + width, origin.y),
+            Point(origin.x + width, origin.y + height),
+            Point(origin.x, origin.y + height),
         ]
     }
 
     // MARK: - Segments
 
     /// Sign of the turn p->q->r: +1 counter-clockwise, -1 clockwise, 0 collinear.
-    public static func orientation(_ p: Point2D, _ q: Point2D, _ r: Point2D) -> Int {
+    static func orientation(_ p: Point, _ q: Point, _ r: Point) -> Int {
         let v = cross(subtract(q, p), subtract(r, p))
         if v > epsilon { return 1 }
         if v < -epsilon { return -1 }
         return 0
     }
 
-    public static func segmentsIntersect(_ p1: Point2D, _ p2: Point2D,
-                                         _ q1: Point2D, _ q2: Point2D) -> Bool {
+    static func segmentsIntersect(_ p1: Point, _ p2: Point,
+                                         _ q1: Point, _ q2: Point) -> Bool {
         let o1 = orientation(p1, p2, q1)
         let o2 = orientation(p1, p2, q2)
         let o3 = orientation(q1, q2, p1)
@@ -169,8 +169,8 @@ public enum Geometry {
     }
 
     /// True when two collinear segments share more than a single point.
-    public static func segmentsOverlapCollinearly(_ p1: Point2D, _ p2: Point2D,
-                                                  _ q1: Point2D, _ q2: Point2D) -> Bool {
+    static func segmentsOverlapCollinearly(_ p1: Point, _ p2: Point,
+                                                  _ q1: Point, _ q2: Point) -> Bool {
         guard orientation(p1, p2, q1) == 0, orientation(p1, p2, q2) == 0 else { return false }
         let d = subtract(p2, p1)
         let len2 = dot(d, d)
@@ -185,14 +185,14 @@ public enum Geometry {
     }
 
     /// Assumes `r` is collinear with the segment.
-    public static func isOnSegment(_ p1: Point2D, _ p2: Point2D, _ r: Point2D) -> Bool {
+    static func isOnSegment(_ p1: Point, _ p2: Point, _ r: Point) -> Bool {
         r.x >= min(p1.x, p2.x) - epsilon && r.x <= max(p1.x, p2.x) + epsilon
             && r.y >= min(p1.y, p2.y) - epsilon && r.y <= max(p1.y, p2.y) + epsilon
     }
 
     /// Nearest point on segment a-b to p, plus its normalized position `t` along the segment.
-    public static func closestPointOnSegment(_ p: Point2D, _ a: Point2D,
-                                             _ b: Point2D) -> (point: Point2D, t: Double) {
+    static func closestPointOnSegment(_ p: Point, _ a: Point,
+                                             _ b: Point) -> (point: Point, t: Double) {
         let d = subtract(b, a)
         let len2 = dot(d, d)
         guard len2 > epsilon else { return (a, 0) }
@@ -200,14 +200,14 @@ public enum Geometry {
         return (add(a, scale(d, t)), t)
     }
 
-    public static func distanceToSegment(_ p: Point2D, _ a: Point2D, _ b: Point2D) -> Double {
+    static func distanceToSegment(_ p: Point, _ a: Point, _ b: Point) -> Double {
         distance(p, closestPointOnSegment(p, a, b).point)
     }
 
     // MARK: - Containment
 
     /// Ray casting. Used for hit-testing a tap against a room footprint.
-    public static func contains(_ polygon: [Point2D], _ p: Point2D) -> Bool {
+    static func contains(_ polygon: [Point], _ p: Point) -> Bool {
         guard polygon.count >= 3 else { return false }
         var inside = false
         var j = polygon.count - 1
