@@ -9,11 +9,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class RoutingConstraints(BaseModel):
-    """Profile-derived constraints applied before path search (S3.4 hook).
+    """Profile-derived constraints applied during path search (S3.4 hook).
 
-    Deterministic tag mapping (documented for judges):
-    mobility_limited → avoid_stairs + avoid_windows; child → window egress is
-    already deprioritized for everyone via the window penalty.
+    Hard fields remove edges from the search; penalty fields keep the edge but
+    make it lose to comparable alternatives. Profiles never reach the engine
+    directly — `app.routing.profiles.constraints_for_profile` maps tags to this
+    model through a fixed table (docs/profile-constraint-mappings.md).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -21,6 +22,11 @@ class RoutingConstraints(BaseModel):
     avoid_stairs: bool = False
     avoid_windows: bool = False
     max_sill_height_m: Optional[float] = Field(default=None, ge=0)
+    stair_penalty_m: float = Field(default=0.0, ge=0)
+    """Soft surcharge per stair traversal (0 = no preference)."""
+    window_penalty_m: float = Field(default=0.0, ge=0)
+    """Soft surcharge on window egress, on top of the engine's universal
+    WINDOW_EXIT_PENALTY (0 = the universal penalty only)."""
 
 
 class Waypoint(BaseModel):
@@ -81,5 +87,7 @@ class RoutePlan(BaseModel):
     home_id: str
     home_name: str
     constraints: RoutingConstraints
+    profile_id: Optional[str] = None
+    """The profile whose tags produced `constraints`, when routed per-profile."""
     rooms: list[RoomRoutePlan]
     bottlenecks: list[Bottleneck] = Field(default_factory=list)

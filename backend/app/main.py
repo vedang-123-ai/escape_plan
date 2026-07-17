@@ -24,6 +24,7 @@ from app.convert.converter import convert_scan
 from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
 from app.routing.plan import RoutePlan, RoutingConstraints
+from app.routing.profiles import find_profile
 
 logging.basicConfig(level=logging.INFO)
 
@@ -57,6 +58,9 @@ class RoutesRequest(BaseModel):
 
     home: HomeModel
     constraints: Optional[RoutingConstraints] = None
+    profile_id: Optional[str] = None
+    """Route for one household member: their tags derive `constraints` via the
+    S3.4 mapping table. Mutually exclusive with an explicit `constraints`."""
 
 
 class HealthResponse(BaseModel):
@@ -76,8 +80,24 @@ def health() -> HealthResponse:
 )
 def routes(request: RoutesRequest) -> RoutePlan:
     """Compute primary/secondary escape routes for every room (deterministic)."""
+    profile = None
+    if request.profile_id is not None:
+        if request.constraints is not None:
+            raise HTTPException(
+                status_code=422,
+                detail="pass either profile_id or constraints, not both",
+            )
+        profile = find_profile(request.home.profiles, request.profile_id)
+        if profile is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"no profile '{request.profile_id}' in this home",
+            )
     return compute_route_plan(
-        request.home, get_thresholds(), constraints=request.constraints
+        request.home,
+        get_thresholds(),
+        constraints=request.constraints,
+        profile=profile,
     )
 
 
