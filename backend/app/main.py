@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.ai.agent import AgentError, AnalysisResult, run_agent_analysis
 from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
+from app.api_chat import router as chat_router
 from app.config import get_settings, get_thresholds
 from app.convert.converter import convert_scan
 from app.models import HomeModel, Profile
@@ -34,6 +35,7 @@ app = FastAPI(
     ),
     version="1.0",
 )
+app.include_router(chat_router)
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
