@@ -25,6 +25,7 @@ see § AI tests below.
 | `POST /routes` | bearer | HomeModel (+ optional constraints) → RoutePlan, deterministic |
 | `POST /convert` | bearer | `{scan: <RoomPlan export>, home_name?}` → validated HomeModel (S1.5 converter) |
 | `POST /explain` | bearer | HomeModel + RoutePlan (+ optional profile) → cited, structured explanation (S3.1) |
+| `POST /score` | bearer | HomeModel (+ constraints, `/analyze` findings, checklist state) → 0–100 preparedness score + breakdown + checklist (S3.5) |
 
 Interactive docs at `http://localhost:8000/docs`.
 
@@ -81,6 +82,20 @@ EOF
 curl -s -X POST $BASE/explain \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   --data @/tmp/explain-req.json | python3 -m json.tool
+
+# preparedness score (deterministic — no API key needed unless you ask for
+# recommendations). twostory with an empty checklist scores 75; see
+# docs/preparedness-score-weights.md for the hand-calculation.
+python3 - <<'EOF' > /tmp/score-req.json
+import json
+print(json.dumps({
+  "home": json.load(open("../schema/fixtures/twostory.json")),
+  "checklist_state": {"practice.meeting_point": True},
+}))
+EOF
+curl -s -X POST $BASE/score \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  --data @/tmp/score-req.json | python3 -m json.tool | head -40
 ```
 
 ## AI tests (S3.1)

@@ -14,7 +14,7 @@ from typing import Annotated, Any, Optional
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai.agent import AgentError, AnalysisResult, run_agent_analysis
 from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
@@ -25,6 +25,9 @@ from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
 from app.routing.plan import RoutePlan, RoutingConstraints
 from app.routing.profiles import find_profile
+from app.scoring.findings import Finding
+from app.scoring.recommend import recommendation_items
+from app.scoring.score import ScoreBreakdown, compute_score
 
 logging.basicConfig(level=logging.INFO)
 
@@ -167,3 +170,55 @@ def analyze(request: AnalyzeRequest) -> AnalysisResult:
         return run_agent_analysis(request.home, get_thresholds())
     except AgentError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+class ScoreRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    home: HomeModel
+    constraints: Optional[RoutingConstraints] = None
+    findings: list[Finding] = Field(
+        default_factory=list,
+        description="Findings from /analyze (S3.2). Omit for a routes-and-checklist "
+        "score; the findings component then sits at full marks.",
+    )
+    checklist_state: dict[str, bool] = Field(
+        default_factory=dict,
+        description="item id -> done, as persisted on the home document.",
+    )
+    include_recommendations: bool = Field(
+        default=False,
+        description="Append grounded AI recommendations (S3.1) to the checklist. "
+        "They are advisory only and never change the score.",
+    )
+    profile: Optional[Profile] = None
+
+
+@app.post(
+    "/score",
+    response_model=ScoreBreakdown,
+    dependencies=[Depends(require_token)],
+)
+def score(request: ScoreRequest) -> ScoreBreakdown:
+    """Explainable 0-100 preparedness score + checklist (S3.5).
+
+    The score itself is deterministic — weights in
+    docs/preparedness-score-weights.md. `include_recommendations` is the only
+    part that calls the AI, and only to add non-scoring checklist items.
+    """
+    plan = compute_route_plan(
+        request.home, get_thresholds(), constraints=request.constraints
+    )
+    breakdown = compute_score(
+        request.home, plan, request.findings, request.checklist_state
+    )
+    if request.include_recommendations:
+        try:
+            breakdown.checklist.extend(
+                recommendation_items(
+                    request.home, plan, request.checklist_state, request.profile
+                )
+            )
+        except GroundingError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return breakdown
