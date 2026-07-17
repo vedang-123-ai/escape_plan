@@ -105,11 +105,14 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [~] p95 latency <6s with prompt caching — caching implemented (cache_control on corpus block, hits logged); latency recorded into golden snapshots on the live run above
 - [x] 📋 · [x] 🔧 · [~] 📦 handoff (prompt files committed in `backend/app/ai/grounded.py` ✓; 3 sample outputs = golden snapshots, produced by the live run; red-team deferral test included)
 
-### S3.2 — Agentic home analysis — **BLOCKED (needs S3.1)** (P1)
-- [ ] apartment.json → flags single-point-of-failure exit with evidence (engine already flags `d_entry`)
-- [ ] twostory.json → flags bedroom lacking secondary egress (kids' room is planted for this)
-- [ ] Zero findings without evidence links · [ ] runs <60s
-- [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (rendered example trace in docs/)
+### S3.2 — Agentic home analysis — **CODE DONE 2026-07-16, live verification BLOCKED-ON-KEY** (P3, parallel worktree)
+- [~] apartment.json → flags single-point-of-failure exit with evidence — engine flags `d_entry` (confirmed directly); agent correctly cites it in the scripted test (`test_agent_flags_apartment_single_exit_with_evidence`), but no live model has run it yet
+- [~] twostory.json → flags bedroom lacking secondary egress — **the engine's own `no_secondary_egress` RouteFinding does NOT trip for `r_bed_kids`** (its secondary route legitimately exits through a different downstairs door); the room's window (`w_kids`) does fail egress on its own, and the agent's `check_egress` tool catches this (`test_agent_flags_kids_room_undersized_window_via_check_egress`) — see `docs/decisions.md` 2026-07-16 for the full explanation before assuming the literal playbook wording holds
+- [x] Zero findings without evidence links — enforced server-side in `_validate_findings()`, not just requested of the model (4 tests incl. bad-evidence and bad-citation drops)
+- [~] runs <60s — trivially true for the scripted tests (milliseconds); real latency unverified without a live model call
+- [x] 📋 decisions.md · [x] 🔧 tools-used.md (no new deps — reuses `anthropic`, already listed) · [x] 📦 handoff (`docs/agent-trace-example/README.md` + `apartment-analysis.json`)
+
+**Remaining for full DONE:** a real ANTHROPIC_API_KEY, a `test_agent_live.py` (doesn't exist yet — mirror `test_ai_live.py`'s marker pattern), one live run, hand-review.
 
 ### S3.3 — Chat assistant — **BLOCKED (needs S3.1)** (P3 backend, P2 UI) — cut candidate #2
 - [ ] Smoke-detector question → cited, house-specific answer
