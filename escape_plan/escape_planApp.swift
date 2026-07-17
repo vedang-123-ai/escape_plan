@@ -1,21 +1,19 @@
-//
 //  escape_planApp.swift
 //  escape_plan
 //
-//  Created by Manogna Bhargav on 7/10/26.
-//
+//  S0.3: replaced the stock Core Data template wholesale. Persistence is local JSON documents
+//  via FileManager (S2.4), not Core Data — this entry point just owns the shared APIClient.
 
 import SwiftUI
-import CoreData
 
 @main
 struct escape_planApp: App {
-    let persistenceController = PersistenceController.shared
+    @State private var apiClient = APIClient()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                .environment(apiClient)
         }
     }
 }

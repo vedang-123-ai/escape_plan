@@ -5,13 +5,17 @@ The iOS half of the project. Read the root `CLAUDE.md` first; Swift conventions 
 
 Status notes (see docs/decisions.md):
 
-- This is still the stock Xcode "App with Core Data" template — S0.3 (owner P2) is expected
-  to replace `Persistence.swift`/`ContentView.swift` wholesale. Playbook default persistence
-  is local JSON via FileManager, not Core Data.
-- The project lives at the repo root instead of the playbook's `ios/` layout because moving
-  it would break the open Xcode session. P2 decides at S0.3 whether to relocate; update the
-  root CLAUDE.md and decisions.md if it moves.
+- S0.3 replaced the stock Core Data template wholesale: `Persistence.swift` and
+  `escape_plan.xcdatamodeld` are gone. Persistence is local JSON documents via FileManager,
+  landing in S2.4 — nothing persists yet, `HomeScreen` loads a bundled fixture as proof of
+  decode.
+- The project stays at the repo root (not the playbook's `ios/` layout) — see decisions.md;
+  revisit if the team wants the monorepo layout before Phase 2.
 
-Target structure once S0.3 lands (playbook §2.3): `Models/` (Codable schema mirror +
-round-trip test), `Scan/` (RoomPlan), `Engine3D/` (SceneKit dollhouse), `Editor/`,
-`Screens/`, `Networking/` (APIClient with configurable base URL + bearer token).
+Current structure (S0.3): `Models/` (Codable schema mirror, exact field names/optionality vs.
+`schema/homemodel.schema.json` + `backend/app/models.py`; round-trip test in
+`escape_planTests/`), `Fixtures/` (bundled copies of `schema/fixtures/*.json`), `Screens/`
+(tab shell: Home/Editor/Plan/Assistant/Settings — only Home has real content), `Networking/`
+(`APIClient` with configurable base URL + bearer token, `/health` check).
+Still to come: `Scan/` (RoomPlan, S1.4), `Engine3D/` (SceneKit dollhouse, S1.3), `Editor/`
+(S1.3+).
