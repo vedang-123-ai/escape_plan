@@ -22,11 +22,11 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [x] Schema doc-comments explain every field
 - [x] 📋 decisions.md · [x] 🔧 tools-used.md · [x] 📦 handoff (`docs/schema-summary.md`)
 
-### S0.3 — iOS app scaffold + model layer — **READY** (P2) ← unblocked by S0.2
-- [ ] App builds and runs on a real device
-- [ ] Fixture decodes and displays room names per floor
-- [ ] Decode → encode → semantic-compare round-trip test passes
-- [ ] 📋 decisions.md (incl. Core Data vs JSON docs; root vs `ios/` location) · [ ] 🔧 tools-used.md · [ ] 📦 handoff (screenshot + schema-friction note to P1)
+### S0.3 — iOS app scaffold + model layer — **CODE DONE 2026-07-16, device-run BLOCKED-ON-HUMAN** (P3, at user's direction)
+- [~] App builds and runs on a real device — **builds clean on Simulator (iPhone 17, iOS 26.5); real-device run needs P2's physical iPhone — click-by-click steps in `docs/tracker/notes/2026-07-16-s0-3-ios-scaffold.md` and the board.md "P2 — READ THIS FIRST" box**
+- [x] Fixture decodes and displays room names per floor (`HomeScreen` loads `twostory.json`, lists rooms per floor; asserted in `testTwostoryDecodesExpectedStructure`)
+- [x] Decode → encode → semantic-compare round-trip test passes (`HomeModelRoundTripTests.testAllFixturesRoundTrip`, all 3 fixtures; `-only-testing:escape_planTests` → `** TEST SUCCEEDED **`)
+- [x] 📋 decisions.md (Core Data → JSON replacement, root vs `ios/` reaffirmed, fixture-copy drift risk, Swift `from`/`to` note) · [x] 🔧 tools-used.md · [x] 📦 handoff (session note `docs/tracker/notes/2026-07-16-s0-3-ios-scaffold.md`; schema friction noted for P1 — none blocking, Swift mirror is stricter about default-empty-array fields than the fixtures currently need)
 
 ### S0.4 — Fire-safety grounding corpus — **DONE 2026-07-10** (P3)
 - [x] Every claim traceable to a named source (`python3 backend/corpus/validate.py`)
@@ -49,13 +49,13 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [x] Constraints demonstrably change routes on twostory.json (avoid_stairs → window; +avoid_windows → no_viable_route)
 - [x] 📋 decisions.md · [x] 🔧 tools-used.md · [x] 📦 handoff (`docs/route-samples/*.routeplan.json`; CLI gif optional — P1 can record `python3 -m app.routing plan ../schema/fixtures/twostory.json --pretty`)
 
-### S1.3 — 3D dollhouse renderer — **BLOCKED (needs S0.3)** (P2)
+### S1.3 — 3D dollhouse renderer — **READY (S0.3 code done, unblocked)** (P2)
 - [ ] All three fixtures render correctly and legibly on-device at 60fps
 - [ ] Two-story exploded view works
 - [ ] Toggling a floor works
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (30-sec recording per fixture — demo b-roll)
 
-### S1.4 — RoomPlan capture module — **BLOCKED (needs S0.3 + LiDAR device)** (P2)
+### S1.4 — RoomPlan capture module — **READY (S0.3 code done, unblocked; needs LiDAR device)** (P2)
 - [ ] Real 2–3 room scan exports raw JSON with walls/doors/windows present
 - [ ] Second full scan of same space completes without crashing
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (clean + messy exports → `schema/fixtures/scans/`)
