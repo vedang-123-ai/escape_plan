@@ -23,3 +23,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+
+# S1.3 acceptance run artifacts (screenshots + test logs) — regenerate via scripts/s13-acceptance.sh
+artifacts/
+.build-s13/
