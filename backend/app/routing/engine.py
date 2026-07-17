@@ -19,9 +19,10 @@ from __future__ import annotations
 import heapq
 from dataclasses import dataclass
 
-from app.models import EXTERIOR_ID, HomeModel, Opening, OpeningKind
+from app.models import EXTERIOR_ID, HomeModel, Opening, OpeningKind, Profile
 from app.routing.egress import EgressThresholds
 from app.routing.graph import Edge, EdgeKind, NavGraph, NodeKind, build_graph, polygon_centroid
+from app.routing.profiles import constraints_for_profile
 from app.routing.plan import (
     Bottleneck,
     RoomRoutePlan,
@@ -64,6 +65,8 @@ def _edge_cost(
     if edge.kind == EdgeKind.stair and constraints.avoid_stairs:
         return None
     cost = edge.weight
+    if edge.kind == EdgeKind.stair:
+        cost += constraints.stair_penalty_m
     for endpoint in (node_from, target):
         node = graph.nodes[endpoint]
         if node.kind != NodeKind.opening:
@@ -80,7 +83,7 @@ def _edge_cost(
                     and sill > constraints.max_sill_height_m
                 ):
                     return None
-                cost += WINDOW_EXIT_PENALTY
+                cost += WINDOW_EXIT_PENALTY + constraints.window_penalty_m
         if endpoint in penalized_openings and target == endpoint:
             cost += REUSED_OPENING_PENALTY
     return cost
@@ -238,9 +241,19 @@ def compute_route_plan(
     thresholds: EgressThresholds,
     constraints: RoutingConstraints | None = None,
     *,
+    profile: Profile | None = None,
     bottleneck_min_rooms: int = 2,
 ) -> RoutePlan:
-    """Primary + secondary escape routes for every room, plus bottleneck findings."""
+    """Primary + secondary escape routes for every room, plus bottleneck findings.
+
+    `profile` and `constraints` are alternatives: passing a profile derives the
+    constraints from its tags (S3.4 mapping table). Passing both is a caller
+    bug — the derived table must not be silently overridden.
+    """
+    if profile is not None:
+        if constraints is not None:
+            raise ValueError("pass either profile or constraints, not both")
+        constraints = constraints_for_profile(profile, thresholds)
     constraints = constraints or RoutingConstraints()
     graph = build_graph(home, thresholds)
     openings = _openings_by_id(home)
@@ -306,6 +319,7 @@ def compute_route_plan(
         home_id=home.home_id,
         home_name=home.name,
         constraints=constraints,
+        profile_id=profile.id if profile is not None else None,
         rooms=room_plans,
         bottlenecks=find_bottlenecks(
             graph, openings, min_rooms=bottleneck_min_rooms

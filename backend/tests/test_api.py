@@ -76,6 +76,56 @@ def test_routes_applies_constraints(client: TestClient, twostory: dict):
                 assert route.uses_window is False
 
 
+def test_routes_by_profile_id_derives_constraints(client: TestClient, twostory: dict):
+    """S3.4: the demo's profile switch, over HTTP."""
+    resp = client.post(
+        "/routes", json={"home": twostory, "profile_id": "p_grandpa"}, headers=AUTH
+    )
+    assert resp.status_code == 200
+    plan = RoutePlan.model_validate(resp.json())
+    assert plan.profile_id == "p_grandpa"
+    assert plan.constraints.avoid_stairs is True
+    assert plan.constraints.avoid_windows is True
+
+
+def test_routes_profile_switch_changes_the_answer(client: TestClient, twostory: dict):
+    def bedroom_route(profile_id: str, room_id: str):
+        resp = client.post(
+            "/routes", json={"home": twostory, "profile_id": profile_id}, headers=AUTH
+        )
+        assert resp.status_code == 200
+        plan = RoutePlan.model_validate(resp.json())
+        return next(r for r in plan.rooms if r.room_id == room_id)
+
+    grandpa = bedroom_route("p_grandpa", "r_bed_master")
+    maya = bedroom_route("p_maya", "r_bed_kids")
+    assert grandpa.primary is None
+    assert "no_viable_route" in [f.kind for f in grandpa.findings]
+    assert maya.primary is not None
+
+
+def test_routes_unknown_profile_id_is_404(client: TestClient, twostory: dict):
+    resp = client.post(
+        "/routes", json={"home": twostory, "profile_id": "p_nobody"}, headers=AUTH
+    )
+    assert resp.status_code == 404
+
+
+def test_routes_profile_id_and_constraints_conflict_is_422(
+    client: TestClient, twostory: dict
+):
+    resp = client.post(
+        "/routes",
+        json={
+            "home": twostory,
+            "profile_id": "p_grandpa",
+            "constraints": {"avoid_windows": True},
+        },
+        headers=AUTH,
+    )
+    assert resp.status_code == 422
+
+
 def test_routes_rejects_invalid_home(client: TestClient, bungalow: dict):
     broken = dict(bungalow)
     broken.pop("floors")
