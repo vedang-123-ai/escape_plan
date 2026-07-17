@@ -4,7 +4,8 @@ Every library, framework, API, and tool used in this project — required for Co
 
 | Tool | Version | What it's used for | License |
 |------|---------|--------------------|---------|
-| Xcode / Swift / SwiftUI | Xcode 16+ | iOS app | Apple SDK |
+| Xcode / Swift / SwiftUI | Xcode 26.6 (Swift 5, iOS 17+ target, tested against iOS 26.5 Simulator) | iOS app: S0.3 model layer (`Models/`, Codable mirror of the HomeModel schema), tab shell (`Screens/`), `Networking/APIClient.swift`, XCTest round-trip test | Apple SDK |
+| Foundation (`Observation`, `XCTest`) | Apple SDK (bundled) | `@Observable` APIClient state, unit tests — no external Swift packages added in S0.3 | Apple SDK |
 | Claude Code | — | AI pair-programming assistant (P3 lane + support); all code reviewed and understood by the team | Anthropic ToS |
 | git / GitHub | — | Version control, private repo `vedang-123-ai/escape_plan` | — |
 | Python 3 | 3.11+ | Backend: models, validation, routing engine | PSF |
