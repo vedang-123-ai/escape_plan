@@ -114,6 +114,10 @@ class ConvertRequest(BaseModel):
 @app.post(
     "/convert",
     response_model=HomeModel,
+    # Optional fields the converter never sets (egress, confidence on manual items)
+    # serialize as explicit nulls by default, which additionalProperties/nullability
+    # in the JSON Schema rejects — e.g. "egress": null. Omit them instead.
+    response_model_exclude_none=True,
     dependencies=[Depends(require_token)],
 )
 def convert(request: ConvertRequest) -> HomeModel:

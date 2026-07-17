@@ -12,7 +12,7 @@ enum DollhouseGeometry {
 
     // MARK: - Frame mapping
 
-    static func scenePoint(_ p: Point, y: Double) -> SCNVector3 {
+    static func scenePoint(_ p: Point2D, y: Double) -> SCNVector3 {
         SCNVector3(Float(p.x), Float(y), Float(-p.y))
     }
 
@@ -20,32 +20,32 @@ enum DollhouseGeometry {
 
     /// Edge `i` of a polygon runs vertex `i` → vertex `(i+1) % count`. This is the schema's
     /// convention and the meaning of `wall_segment.edge_index`.
-    static func edge(_ polygon: Polygon, _ index: Int) -> (a: Point, b: Point)? {
+    static func edge(_ polygon: [Point2D], _ index: Int) -> (a: Point2D, b: Point2D)? {
         guard polygon.count >= 3, index >= 0, index < polygon.count else { return nil }
         return (polygon[index], polygon[(index + 1) % polygon.count])
     }
 
     /// Point at normalized position `t` along an edge (0 = vertex i, 1 = vertex i+1).
-    static func pointOnEdge(_ polygon: Polygon, edgeIndex: Int, t: Double) -> Point? {
+    static func pointOnEdge(_ polygon: [Point2D], edgeIndex: Int, t: Double) -> Point2D? {
         guard let e = edge(polygon, edgeIndex) else { return nil }
-        return Point(x: e.a.x + (e.b.x - e.a.x) * t,
+        return Point2D(x: e.a.x + (e.b.x - e.a.x) * t,
                      y: e.a.y + (e.b.y - e.a.y) * t)
     }
 
-    static func length(from a: Point, to b: Point) -> Double {
+    static func length(from a: Point2D, to b: Point2D) -> Double {
         (((b.x - a.x) * (b.x - a.x)) + ((b.y - a.y) * (b.y - a.y))).squareRoot()
     }
 
     /// Heading of the edge in the scene's XZ plane, as a rotation about +y.
     /// A box whose local +x runs along the edge gets this as its `eulerAngles.y`.
-    static func sceneYaw(from a: Point, to b: Point) -> Double {
+    static func sceneYaw(from a: Point2D, to b: Point2D) -> Double {
         // Plan +y maps to scene −z, so the scene-space direction is (dx, −dy).
         atan2(-(b.y - a.y), b.x - a.x)
     }
 
     /// Area-weighted centroid of a simple polygon (falls back to the vertex mean if the polygon
     /// is degenerate, so a bad footprint places a label imprecisely rather than at NaN).
-    static func centroid(_ polygon: Polygon) -> Point {
+    static func centroid(_ polygon: [Point2D]) -> Point2D {
         guard polygon.count >= 3 else { return vertexMean(polygon) }
         var doubleArea = 0.0
         var cx = 0.0
@@ -60,17 +60,17 @@ enum DollhouseGeometry {
         }
         guard abs(doubleArea) > 1e-9 else { return vertexMean(polygon) }
         let factor = 1.0 / (3.0 * doubleArea)
-        return Point(x: cx * factor, y: cy * factor)
+        return Point2D(x: cx * factor, y: cy * factor)
     }
 
-    private static func vertexMean(_ polygon: Polygon) -> Point {
-        guard !polygon.isEmpty else { return Point(x: 0, y: 0) }
+    private static func vertexMean(_ polygon: [Point2D]) -> Point2D {
+        guard !polygon.isEmpty else { return Point2D(x: 0, y: 0) }
         let sx = polygon.reduce(0) { $0 + $1.x }
         let sy = polygon.reduce(0) { $0 + $1.y }
-        return Point(x: sx / Double(polygon.count), y: sy / Double(polygon.count))
+        return Point2D(x: sx / Double(polygon.count), y: sy / Double(polygon.count))
     }
 
-    static func path(for polygon: Polygon) -> CGPath? {
+    static func path(for polygon: [Point2D]) -> CGPath? {
         guard polygon.count >= 3 else { return nil }
         let path = CGMutablePath()
         path.move(to: CGPoint(x: polygon[0].x, y: polygon[0].y))
@@ -92,9 +92,9 @@ enum DollhouseGeometry {
         var isEmpty: Bool { minX > maxX }
         var width: Double { isEmpty ? 0 : maxX - minX }
         var depth: Double { isEmpty ? 0 : maxY - minY }
-        var center: Point { Point(x: (minX + maxX) / 2, y: (minY + maxY) / 2) }
+        var center: Point2D { Point2D(x: (minX + maxX) / 2, y: (minY + maxY) / 2) }
 
-        mutating func extend(_ p: Point) {
+        mutating func extend(_ p: Point2D) {
             minX = Swift.min(minX, p.x)
             minY = Swift.min(minY, p.y)
             maxX = Swift.max(maxX, p.x)
@@ -133,11 +133,11 @@ enum DollhouseGeometry {
 
     /// One wall of a room's footprint, ready to become a box.
     struct WallSpec {
-        var a: Point
-        var b: Point
+        var a: Point2D
+        var b: Point2D
         var length: Double
         var yaw: Double
-        var midpoint: Point
+        var midpoint: Point2D
     }
 
     /// Deduplicated walls for a floor. Adjacent rooms each own the shared wall in their own
@@ -159,7 +159,7 @@ enum DollhouseGeometry {
                     b: e.b,
                     length: len,
                     yaw: sceneYaw(from: e.a, to: e.b),
-                    midpoint: Point(x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2)
+                    midpoint: Point2D(x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2)
                 ))
             }
         }
@@ -168,7 +168,7 @@ enum DollhouseGeometry {
 
     /// Order-independent key at 1 mm resolution, so room A's edge (p→q) and room B's edge (q→p)
     /// hash to the same wall.
-    private static func wallKey(_ a: Point, _ b: Point) -> String {
+    private static func wallKey(_ a: Point2D, _ b: Point2D) -> String {
         let ka = String(format: "%.3f,%.3f", a.x, a.y)
         let kb = String(format: "%.3f,%.3f", b.x, b.y)
         return ka < kb ? "\(ka)|\(kb)" : "\(kb)|\(ka)"
@@ -179,7 +179,7 @@ enum DollhouseGeometry {
     /// Where an opening sits in the world, derived entirely from its parametric wall reference.
     struct OpeningPlacement {
         /// Center of the opening in plan coordinates.
-        var center: Point
+        var center: Point2D
         /// Rotation about +y so the marker's local +x runs along the host wall.
         var yaw: Double
         /// Clear width in meters — from `width_m`, which is authoritative for size.
@@ -197,7 +197,7 @@ enum DollhouseGeometry {
     /// Returns nil when the reference dangles — a bad `room_id` or an out-of-range `edge_index`
     /// is a data error the caller should surface, not silently place at the origin.
     static func placement(for opening: Opening, on floor: Floor) -> OpeningPlacement? {
-        guard let room = floor.rooms.first(where: { $0.id == opening.wallSegment.roomID }),
+        guard let room = floor.rooms.first(where: { $0.id == opening.wallSegment.roomId }),
               let e = edge(room.polygon, opening.wallSegment.edgeIndex)
         else { return nil }
 

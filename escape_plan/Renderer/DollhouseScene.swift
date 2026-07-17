@@ -109,15 +109,15 @@ enum DollhouseSceneBuilder {
                 guard let placement = DollhouseGeometry.placement(for: opening, on: floor) else {
                     issues.append(BuildIssue(
                         entityID: opening.id,
-                        message: "wall_segment references room '\(opening.wallSegment.roomID)' edge \(opening.wallSegment.edgeIndex), which does not resolve on floor '\(floor.id)'"
+                        message: "wall_segment references room '\(opening.wallSegment.roomId)' edge \(opening.wallSegment.edgeIndex), which does not resolve on floor '\(floor.id)'"
                     ))
                     continue
                 }
                 floorNode.addChildNode(makeOpening(opening, placement: placement, floorHeight: floor.heightM))
             }
 
-            for stair in home.stairs where stair.from.floorID == floor.id {
-                let rise = (baseHeights[stair.to.floorID] ?? 0) - baseY
+            for stair in home.stairs where stair.fromEnd.floorId == floor.id {
+                let rise = (baseHeights[stair.toEnd.floorId] ?? 0) - baseY
                 if let node = makeStairs(stair, rise: rise) {
                     floorNode.addChildNode(node)
                 } else {
@@ -264,8 +264,8 @@ enum DollhouseSceneBuilder {
 
             let alongCenter = (Double(i) + 0.5) * treadDepth
             let plan = alongX
-                ? Point(x: bounds.minX + alongCenter, y: bounds.center.y)
-                : Point(x: bounds.center.x, y: bounds.minY + alongCenter)
+                ? Point2D(x: bounds.minX + alongCenter, y: bounds.center.y)
+                : Point2D(x: bounds.center.x, y: bounds.minY + alongCenter)
             node.position = DollhouseGeometry.scenePoint(plan, y: Double(i) * stepRise + stepRise / 2)
             container.addChildNode(node)
         }
@@ -291,7 +291,7 @@ enum DollhouseSceneBuilder {
 
         // Three-quarter view from above — the angle that reads as a dollhouse rather than a
         // floor plan. The user can orbit away from it; this is only the opening shot.
-        let center = bounds.isEmpty ? Point(x: 0, y: 0) : bounds.center
+        let center = bounds.isEmpty ? Point2D(x: 0, y: 0) : bounds.center
         let dist = Double(extent) * 1.15
         node.position = SCNVector3(
             Float(center.x + dist * 0.75),

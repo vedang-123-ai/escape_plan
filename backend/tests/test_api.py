@@ -154,6 +154,28 @@ def test_convert_scan_fixture(client: TestClient):
     assert home.floors[0].rooms
 
 
+def test_convert_response_has_no_null_optionals(client: TestClient):
+    """Regression (S1.4 lane finding): /convert used to serialize unset optionals
+    as explicit nulls — e.g. ``"egress": null`` on every opening — which is
+    schema-invalid. The route must omit unset fields entirely."""
+    from tests.conftest import load_fixture
+
+    scan = load_fixture("scans/synthetic-bungalow.roomplan.json")
+    resp = client.post("/convert", json={"scan": scan}, headers=AUTH)
+    assert resp.status_code == 200
+
+    def assert_no_nulls(node: object, path: str = "$") -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                assert value is not None, f"null value at {path}.{key}"
+                assert_no_nulls(value, f"{path}.{key}")
+        elif isinstance(node, list):
+            for i, value in enumerate(node):
+                assert_no_nulls(value, f"{path}[{i}]")
+
+    assert_no_nulls(resp.json())
+
+
 def test_convert_requires_token(client: TestClient):
     assert client.post("/convert", json={"scan": {}}).status_code == 401
 

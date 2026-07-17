@@ -9,7 +9,7 @@ import XCTest
 /// Test homes come from `schema/fixtures/` (the project-wide test bed) read off
 /// the host filesystem via `#filePath` — never a copy in the test bundle, which
 /// would drift from the fixtures every other lane tests against.
-enum Fixtures {
+enum PersistenceFixtures {
     /// The checkout root. Derived from this file's own path, unless
     /// `ESCAPE_PLAN_REPO_ROOT` overrides it — which it must when the tests are
     /// compiled somewhere other than in place (see
@@ -53,7 +53,7 @@ final class PersistenceTests: XCTestCase {
     /// A store instance is per-launch state; a fresh instance over the same
     /// directory is what the app sees after a cold start.
     func testDocumentSurvivesRelaunchByteForByte() throws {
-        let original = try Fixtures.document("bungalow")
+        let original = try PersistenceFixtures.document("bungalow")
         let homeID = try XCTUnwrap(original.homeID)
         try makeStore().save(original)
 
@@ -74,7 +74,7 @@ final class PersistenceTests: XCTestCase {
 
     func testEveryFixtureRoundTripsLosslessly() throws {
         for name in ["bungalow", "apartment", "twostory"] {
-            let original = try Fixtures.document(name)
+            let original = try PersistenceFixtures.document(name)
             let store = try HomeDocumentStore(
                 directory: directory.appendingPathComponent(name)
             )
@@ -91,8 +91,8 @@ final class PersistenceTests: XCTestCase {
     // MARK: - Acceptance: two saved homes coexist
 
     func testTwoHomesCoexistAndAreIndependent() throws {
-        let bungalow = try Fixtures.document("bungalow")
-        let apartment = try Fixtures.document("apartment")
+        let bungalow = try PersistenceFixtures.document("bungalow")
+        let apartment = try PersistenceFixtures.document("apartment")
         let store = try makeStore()
         try store.save(bungalow)
         try store.save(apartment)
@@ -111,7 +111,7 @@ final class PersistenceTests: XCTestCase {
     }
 
     func testListReportsNameFloorsRoomsAndModified() throws {
-        let twostory = try Fixtures.document("twostory")
+        let twostory = try PersistenceFixtures.document("twostory")
         let now = Date(timeIntervalSince1970: 1_780_000_000)
         try makeStore().save(twostory, now: now)
 
@@ -127,7 +127,7 @@ final class PersistenceTests: XCTestCase {
 
     func testListSkipsUnreadableFilesInsteadOfFailing() throws {
         let store = try makeStore()
-        try store.save(try Fixtures.document("bungalow"))
+        try store.save(try PersistenceFixtures.document("bungalow"))
         try Data("not json".utf8).write(
             to: directory.appendingPathComponent("garbage.homeplan.json")
         )
@@ -138,7 +138,7 @@ final class PersistenceTests: XCTestCase {
     // MARK: - Acceptance: duplicate gets a fresh id
 
     func testDuplicateGetsFreshIDAndIsIndependent() throws {
-        let original = try Fixtures.document("bungalow")
+        let original = try PersistenceFixtures.document("bungalow")
         let originalID = try XCTUnwrap(original.homeID)
         let store = try makeStore()
         try store.save(original)
@@ -162,7 +162,7 @@ final class PersistenceTests: XCTestCase {
     }
 
     func testDuplicateOfDuplicateGetsAnotherFreshID() throws {
-        let original = try Fixtures.document("bungalow")
+        let original = try PersistenceFixtures.document("bungalow")
         let store = try makeStore()
         try store.save(original)
         let first = try store.duplicate(homeID: XCTUnwrap(original.homeID))
@@ -179,7 +179,7 @@ final class PersistenceTests: XCTestCase {
     /// lives in `scripts/verify_export_validates.sh` — `python3 -m app.validate`
     /// can't run inside the simulator.
     func testExportProducesTheStoredDocumentAtAHostVisiblePath() throws {
-        let original = try Fixtures.document("bungalow")
+        let original = try PersistenceFixtures.document("bungalow")
         let store = try makeStore()
         try store.save(original)
 
@@ -203,11 +203,11 @@ final class PersistenceTests: XCTestCase {
         if let path = ProcessInfo.processInfo.environment["EXPORT_ARTIFACT_DIR"] {
             return URL(fileURLWithPath: path, isDirectory: true)
         }
-        return Fixtures.repoRoot.appendingPathComponent(".build/s24-exports", isDirectory: true)
+        return PersistenceFixtures.repoRoot.appendingPathComponent(".build/s24-exports", isDirectory: true)
     }
 
     func testImportedExportGetsAFreshIDAndDoesNotClobber() throws {
-        let original = try Fixtures.document("bungalow")
+        let original = try PersistenceFixtures.document("bungalow")
         let store = try makeStore()
         try store.save(original)
         let exported = try store.export(homeID: XCTUnwrap(original.homeID),
@@ -224,7 +224,7 @@ final class PersistenceTests: XCTestCase {
 
     func testLoadRefusesADocumentFromANewerBuild() throws {
         let future = try XCTUnwrap(
-            Fixtures.document("bungalow").body.setting("schema_version", to: .string("2.0"))
+            PersistenceFixtures.document("bungalow").body.setting("schema_version", to: .string("2.0"))
         )
         let document = HomeDocument(body: future)
         let homeID = try XCTUnwrap(document.homeID)
@@ -247,7 +247,7 @@ final class PersistenceTests: XCTestCase {
         // No 0.x documents exist in the wild (1.0 is the first version), so this
         // asserts the hook's contract rather than a real upgrade.
         let old = try XCTUnwrap(
-            Fixtures.document("bungalow").body.setting("schema_version", to: .string("0.9"))
+            PersistenceFixtures.document("bungalow").body.setting("schema_version", to: .string("0.9"))
         )
         XCTAssertThrowsError(try SchemaMigrator.migrate(HomeDocument(body: old))) { error in
             XCTAssertEqual(
@@ -260,7 +260,7 @@ final class PersistenceTests: XCTestCase {
     func testCurrentVersionMatchesTheSchemaContract() throws {
         let schema = try JSONDecoder().decode(
             JSONValue.self,
-            from: Data(contentsOf: Fixtures.repoRoot
+            from: Data(contentsOf: PersistenceFixtures.repoRoot
                 .appendingPathComponent("schema/homemodel.schema.json"))
         )
         XCTAssertEqual(
@@ -279,7 +279,7 @@ final class PersistenceTests: XCTestCase {
     func testSaveRejectsADocumentWithoutSchemaVersionOrHomeID() throws {
         let store = try makeStore()
         let noVersion = try XCTUnwrap(
-            Fixtures.document("bungalow").body.objectValue.map { object -> JSONValue in
+            PersistenceFixtures.document("bungalow").body.objectValue.map { object -> JSONValue in
                 var copy = object
                 copy["schema_version"] = nil
                 return .object(copy)
@@ -290,7 +290,7 @@ final class PersistenceTests: XCTestCase {
         }
 
         let noID = try XCTUnwrap(
-            Fixtures.document("bungalow").body.objectValue.map { object -> JSONValue in
+            PersistenceFixtures.document("bungalow").body.objectValue.map { object -> JSONValue in
                 var copy = object
                 copy["home_id"] = nil
                 return .object(copy)

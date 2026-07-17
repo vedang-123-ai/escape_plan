@@ -43,7 +43,7 @@ final class DollhouseRendererTests: XCTestCase {
 
     func testPointOnEdgeFollowsSchemaEdgeConvention() {
         // Edge i runs vertex i → vertex (i+1) % n. Edge 1 of this square is (4,0) → (4,8).
-        let square: Polygon = [Point(x: 0, y: 0), Point(x: 4, y: 0), Point(x: 4, y: 8), Point(x: 0, y: 8)]
+        let square: [Point2D] = [Point2D(x: 0, y: 0), Point2D(x: 4, y: 0), Point2D(x: 4, y: 8), Point2D(x: 0, y: 8)]
 
         let start = DollhouseGeometry.pointOnEdge(square, edgeIndex: 1, t: 0)
         XCTAssertEqual(start?.x ?? .nan, 4, accuracy: 1e-9)
@@ -63,14 +63,14 @@ final class DollhouseRendererTests: XCTestCase {
     }
 
     func testPlanToSceneMapsYToNegativeZ() {
-        let v = DollhouseGeometry.scenePoint(Point(x: 3, y: 5), y: 2)
+        let v = DollhouseGeometry.scenePoint(Point2D(x: 3, y: 5), y: 2)
         XCTAssertEqual(v.x, 3, accuracy: 1e-6)
         XCTAssertEqual(v.y, 2, accuracy: 1e-6)
         XCTAssertEqual(v.z, -5, accuracy: 1e-6)
     }
 
     func testCentroidOfSquare() {
-        let square: Polygon = [Point(x: 0, y: 0), Point(x: 4, y: 0), Point(x: 4, y: 8), Point(x: 0, y: 8)]
+        let square: [Point2D] = [Point2D(x: 0, y: 0), Point2D(x: 4, y: 0), Point2D(x: 4, y: 8), Point2D(x: 0, y: 8)]
         let c = DollhouseGeometry.centroid(square)
         XCTAssertEqual(c.x, 2, accuracy: 1e-9)
         XCTAssertEqual(c.y, 4, accuracy: 1e-9)
@@ -78,7 +78,7 @@ final class DollhouseRendererTests: XCTestCase {
 
     func testCentroidOfDegeneratePolygonFallsBackInsteadOfProducingNaN() {
         // Zero-area polygon: the area-weighted formula divides by zero.
-        let line: Polygon = [Point(x: 0, y: 0), Point(x: 2, y: 0), Point(x: 4, y: 0)]
+        let line: [Point2D] = [Point2D(x: 0, y: 0), Point2D(x: 2, y: 0), Point2D(x: 4, y: 0)]
         let c = DollhouseGeometry.centroid(line)
         XCTAssertFalse(c.x.isNaN)
         XCTAssertFalse(c.y.isNaN)
@@ -151,7 +151,7 @@ final class DollhouseRendererTests: XCTestCase {
     func testDanglingWallSegmentReferenceIsReportedNotSilentlyPlaced() throws {
         let home = try FixtureLibrary.load(.twostory)
         var ground = try XCTUnwrap(home.floors.first { $0.level == 0 })
-        ground.openings[0].wallSegment = WallSegment(roomID: "r_does_not_exist", edgeIndex: 0, t0: 0.1, t1: 0.2)
+        ground.openings[0].wallSegment = WallSegmentRef(roomId: "r_does_not_exist", edgeIndex: 0, t0: 0.1, t1: 0.2)
 
         XCTAssertNil(DollhouseGeometry.placement(for: ground.openings[0], on: ground))
     }
