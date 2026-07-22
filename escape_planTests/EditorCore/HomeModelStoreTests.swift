@@ -202,6 +202,83 @@ final class HomeModelStoreTests: XCTestCase {
                             accuracy: 1e-9, "the door should have ridden along with its wall")
     }
 
+    // MARK: - Opening drag (S2.2)
+
+    func testDragOpeningSlidesAlongItsWallPreservingWidth() throws {
+        let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
+        // d_front is on r_living's edge 0 (length 5), t0=0.4/t1=0.58, width_m 0.9 -> width in
+        // t-units is 0.18. Slide its midpoint to t=0.2.
+        XCTAssertApplied(store.dispatch(.dragOpening(openingId: "d_front", t: 0.2)))
+
+        let seg = store.activeFloor.openings.first { $0.id == "d_front" }!.wall_segment
+        XCTAssertEqual(seg.t0, 0.11, accuracy: 1e-9)
+        XCTAssertEqual(seg.t1, 0.29, accuracy: 1e-9)
+        XCTAssertEqual(seg.t1 - seg.t0, 0.18, accuracy: 1e-9, "width must be preserved")
+    }
+
+    func testDragOpeningClampsAtWallEnds() throws {
+        let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
+        XCTAssertApplied(store.dispatch(.dragOpening(openingId: "d_front", t: 0.0)))
+        let seg = store.activeFloor.openings.first { $0.id == "d_front" }!.wall_segment
+        XCTAssertGreaterThanOrEqual(seg.t0, 0)
+        XCTAssertLessThanOrEqual(seg.t1, 1)
+        XCTAssertEqual(seg.t0, 0, accuracy: 1e-9)
+    }
+
+    func testDragOpeningRejectsUnknownOpeningId() throws {
+        let store = try HomeModelStore.testStore(try Fixtures.load("bungalow"))
+        XCTAssertRejected(store.dispatch(.dragOpening(openingId: "nope", t: 0.5)))
+    }
+
+    // MARK: - Stairs (S2.2)
+
+    private static let extraStairsFootprint: [Point] = [
+        Point(0.5, 0.5), Point(1.5, 0.5), Point(1.5, 1.5), Point(0.5, 1.5)
+    ]
+
+    func testAddStairsConnectsTwoFloors() throws {
+        let store = try HomeModelStore.testStore(try Fixtures.load("twostory"))
+        XCTAssertApplied(store.dispatch(.addStairs(
+            fromFloorId: "f1", fromRoomId: "r_living", toFloorId: "f2", toRoomId: "r_bed_master",
+            footprint: Self.extraStairsFootprint, kind: .straight)))
+
+        let added = store.model.stairs.first { $0.from.room_id == "r_living" }
+        let stairs = try XCTUnwrap(added)
+        XCTAssertEqual(stairs.from.floor_id, "f1")
+        XCTAssertEqual(stairs.to.floor_id, "f2")
+        XCTAssertEqual(stairs.to.room_id, "r_bed_master")
+        XCTAssertEqual(stairs.kind, .straight)
+    }
+
+    func testAddStairsRejectedWhenFromAndToFloorsAreTheSame() throws {
+        let store = try HomeModelStore.testStore(try Fixtures.load("twostory"))
+        XCTAssertRejected(store.dispatch(.addStairs(
+            fromFloorId: "f1", fromRoomId: "r_living", toFloorId: "f1", toRoomId: "r_kitchen",
+            footprint: Self.extraStairsFootprint, kind: .straight)))
+    }
+
+    func testAddStairsRejectedWhenRoomDoesNotExistOnFloor() throws {
+        let store = try HomeModelStore.testStore(try Fixtures.load("twostory"))
+        XCTAssertRejected(store.dispatch(.addStairs(
+            fromFloorId: "f1", fromRoomId: "nope", toFloorId: "f2", toRoomId: "r_bed_master",
+            footprint: Self.extraStairsFootprint, kind: .straight)))
+        XCTAssertRejected(store.dispatch(.addStairs(
+            fromFloorId: "f1", fromRoomId: "r_living", toFloorId: "f2", toRoomId: "nope",
+            footprint: Self.extraStairsFootprint, kind: .straight)))
+    }
+
+    func testDeleteStairsRemovesEntry() throws {
+        let store = try HomeModelStore.testStore(try Fixtures.load("twostory"))
+        XCTAssertEqual(store.model.stairs.count, 1)
+        XCTAssertApplied(store.dispatch(.deleteStairs(stairsId: "s_main")))
+        XCTAssertTrue(store.model.stairs.isEmpty)
+    }
+
+    func testDeleteStairsRejectsUnknownId() throws {
+        let store = try HomeModelStore.testStore(try Fixtures.load("twostory"))
+        XCTAssertRejected(store.dispatch(.deleteStairs(stairsId: "nope")))
+    }
+
     // MARK: - Snapping through the store
 
     func testDragVertexSnapsToAnAdjacentRoomsCorner() throws {

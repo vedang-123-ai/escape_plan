@@ -1,9 +1,9 @@
 //  ContentView.swift
 //  escape_plan
 //
-//  Tab shell: Home / Editor / Plan / Assistant / Settings. Each non-Home tab is a placeholder
-//  until its owning session lands (S1.3 renderer/editor, S3.3 chat assistant); wiring them up
-//  now means later sessions fill in a screen body rather than restructuring navigation.
+//  Tab shell: Home / Editor / Plan / Assistant / Settings. Home/Editor/Plan are wired to real
+//  content (S2.1 editor, S2.4 persistence, S1.3 renderer); Assistant stays a placeholder until
+//  the AI backend has a live API key (S3.1-S3.3).
 
 import SwiftUI
 

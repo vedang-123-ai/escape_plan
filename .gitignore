@@ -31,3 +31,5 @@ build/
 # S1.3 acceptance run artifacts (screenshots + test logs) — regenerate via scripts/s13-acceptance.sh
 artifacts/
 .build-s13/
+# xcodebuild -derivedDataPath output from the 2026-07-22 integration verification pass
+.build-merge/

@@ -4,6 +4,15 @@ Running log of deviations from playbook defaults, and why. Newest first.
 
 | Date | Session | Decision | Why |
 |------|---------|----------|-----|
+| 2026-07-22 | integration (S2.2×S2.3×S3.3×S3.4×S3.5) | **Closed S3.4's `TODO(integration)`: PlanScreen now has a "Who" profile picker.** Selecting a family member calls the existing `fetchRoutes(home:profileID:)` seam S2.3 had already left in place, and jumps the room selection to that profile's `bedroom_room_id`; "Everyone" (nil) restores the unconstrained whole-house plan. Switching homes resets the selection. The client still sends only `profile_id` — tag→constraint translation stays server-side, and nothing client-side re-derives a route | The two halves were built in parallel against an agreed seam, so joining them was wiring, not new logic. Auto-selecting the profile's bedroom makes the Grandpa-vs-Maya acceptance a one-tap demo instead of a two-step one |
+| 2026-07-22 | integration | **Fixed `DollhouseRendererTests.testBundledFixturesMatchSchemaFixtures`**, failing since the 2026-07-16 model-layer unification: it compared `schema/fixtures/*.json` against `escape_plan/Resources/Fixtures/`, a directory that merge deliberately deleted (the fixtures moved to `escape_plan/Fixtures/`). Repointed the path; all three fixtures are byte-identical, so the guard passes and is live again. Full `escape_planTests` suite is now green with no known failures | The test is a real drift guard between the canonical schema fixtures and the bundled app copies — leaving it red normalized a failing suite and would have hidden actual drift. Two lanes independently reported it as "pre-existing and unrelated," which is exactly how a stale failure survives |
+| 2026-07-22 | S2.2 | **`dragOpening(openingId:t:)` action shape**: `t` is the opening's requested midpoint position (normalized [0,1]) along its host wall; the `HomeModelStore` reducer derives `t0`/`t1` from `t` and the opening's existing `width_m`, clamps into `[0,1]`, and writes back to `wall_segment`. No `SnapEngine` involvement — snapping is a 2D point/delta concept (vertex/wall/axis/grid) with no analogue for a 1D walk along a fixed wall; `EditorValidation.validateOpening` (unchanged) is the real backstop. **Known gap, not closed here**: no pairwise opening-overlaps-opening check exists anywhere in the codebase (pre-existing, not introduced by S2.2) — `dragOpening` can slide one door through another's t-range | Keeps "how wide is this door" logic in one place (the reducer), matching how `dragEdge` already owns its own delta math. Flagging the overlap gap rather than silently adding unrequested validation scope |
+| 2026-07-22 | S2.2 | **Stairs authoring**: added `addStairs(fromFloorId:fromRoomId:toFloorId:toRoomId:footprint:kind:)` and a companion `deleteStairs(stairsId:)` (not one of the three acceptance criteria, but the minimum way back from a bad placement — mirrors `deleteRoom`'s guard-then-remove shape). The reducer only checks that both floor/room ids resolve; `EditorValidation.validateStairs` (unchanged) is the real gate (from/to distinctness, footprint simplicity, provenance). **No geometric containment check** that `footprint` sits inside the `from`/`to` rooms — schema-valid but visually nonsensical placements are accepted. Minimal UI: select a room on the active floor, tap "Add Stairs," pick a room from the sheet listing rooms on the floor immediately above; footprint defaults to a 1m×1m square at the `from` room's centroid; `kind` hardcoded to `.straight` (no kind picker) | "Validated" per the acceptance criterion means "passes the existing whole-model validator," not "is geometrically sane" — containment was out of scope for this session. `deleteStairs` was cheap enough to include so `addStairs` isn't a dead-end action |
+| 2026-07-22 | S2.2 | **Undo/redo**: new `UndoStack` (`Editor/Core/UndoStack.swift`), built on `HomeModelStore.Commit`'s existing before/after snapshots via `onCommit`. A continuous drag (`dragVertex`/`dragEdge`/`dragRoom`/`dragOpening`, `isContinuousDrag == true`) fires `dispatch` on every gesture `.changed` event — coalescing by matching the action's subject (same room/opening id) can't distinguish "still dragging" from "let go and immediately started a new drag on the same thing," so `SceneKitEditorBridge.handleDrag` explicitly brackets the gesture instead: `.began` calls `undoStack.beginCoalescing(snapshot:)` (captures the pre-drag state), every `.changed` still autosaves per-step as before, `.ended`/`.cancelled`/`.failed` calls `undoStack.endCoalescing()`, which pushes exactly one `Commit` for the whole gesture (or nothing if nothing actually changed). Non-continuous actions push one undo entry per dispatch, unchanged. `replaceModel` (used by undo/redo) deliberately never fires `onCommit`, so `EditorScreen`'s `undo()`/`redo()` handlers explicitly bump `revision` and call `autosave(...)` themselves after `undoStack.undo(on:)`/`redo(on:)` — mirroring `addRoom()`'s existing manual-bump pattern — so undo/redo can never re-push themselves onto their own stack while still keeping disk and the 3D view in sync. `UndoStack` is deliberately **not** `@MainActor`-annotated (matches `HomeModelStore`'s own "main-actor UI state by documented contract, not enforced" convention), so its own logic stays synchronously unit-testable | Bracketing the gesture rather than merging by subject-match is the only design that correctly separates "one continuous gesture" from "two separate taps on the same target." Not autosaving inside `replaceModel` is exactly why undo/redo can't fight autosave or loop back onto themselves |
+| 2026-07-22 | S2.2 | Added `Selection.stairs(stairsId:)` (needed so `deleteStairs` has a selection target). Its SceneKit highlight (`EditorSceneController.highlightCenter`) is left as a no-marker case, same as the pre-existing `.opening` case — deferred, not silently skipped: a device-coupled rendering change with no way to verify off-device this session | `.opening` already had this exact gap; adding `.stairs` alongside it rather than inventing new scope |
+| 2026-07-22 | S2.2 | **A real iOS 26.5 simulator runtime IS installed on this machine** (iPhone 17/17 Pro/17 Pro Max/17e/Air, all bootable) — contradicting every S1.3–S2.4 decisions.md entry that assumed none existed. Ran the full `escape_planTests` suite via `xcodebuild test -destination 'platform=iOS Simulator,id=...'`: every test passes except the pre-existing, unrelated `DollhouseRendererTests.testBundledFixturesMatchSchemaFixtures`, which references a deleted path (`escape_plan/Resources/Fixtures/`) left over from the S2.1×S0.3 "Model-layer unification" merge — not caused by S2.2, not fixed here (out of scope: touches Renderer, not Editor). Also booted the simulator, installed, and launched the app — it reaches the Home tab without crashing. Full on-screen gesture/tap verification of S2.2's three acceptance criteria is still not done (no simulator-automation tool available in this environment) and is left for a human | Earlier "no simulator, so acceptance is code-done-only" framing across S1.3–S2.4 no longer holds — flagging so those sessions' device-acceptance boxes get revisited, and so this session's own boxes are left unchecked for the right reason (no automation tool, not no simulator) |
+| 2026-07-22 | S3.3 (iOS half) | **Assistant chat screen built** (`Screens/AssistantScreen.swift` rewrite + new `Networking/APIClient+Chat.swift` + new `Persistence/ConversationStore.swift`). Wire types are exactly the server's `extra="forbid"` shape — a separate persisted `AssistantMessage` (id/citations) projects down to the `{role, content}` `ChatMessage` for requests, locked by `escape_planTests/ChatRequestEncodingTests` (4 tests, RUN GREEN on the iPhone 17 Pro simulator — a runtime is now installed on this machine, unlike the S2.1/S2.4 sessions). `route_plan`/`profiles` deliberately not sent in v1 (optional server-side; chat grounds in the home alone). Chat grounds in the most-recently-modified saved home, falling back to the bundled twostory fixture on a fresh install; conversation persists to `<Documents>/Assistant/conversation.json` (atomic, HomeDocumentStore-style) after every appended message plus on scenePhase→background, so it survives force-quit. Inline `[cite: source-id]` tags render **verbatim** in the reply bubble with the server's `citations` array echoed as chips beneath. The extension uses `URLSession.shared` (APIClient's `session` is private and APIClient.swift was out of scope; its default is `.shared` anyway); 60s timeout for Render cold starts | The wire/persisted type split is forced by the server contract: any extra encoded key on a history message 422s the whole call. Rendering citations verbatim (not stripped/prettified) is the session requirement and the honest UI for the grounding story. |
+| 2026-07-22 | S3.3 (found, not fixed) | **A missing `ANTHROPIC_API_KEY` makes `/chat` return a plain-text 500, not the 502 the session brief assumed.** `api_chat.post_chat` catches `ValueError` (→422) and `ChatGroundingError` (→502, fabricated citations after retries) but NOT the base `GroundingError` that `service._client()` raises when the key is unset — it propagates to FastAPI's generic 500 ("Internal Server Error", not JSON). Verified live: local uvicorn without the key, `/chat` on twostory → 500. `/explain` and `/analyze` in `main.py` DO catch it (→502). The iOS client treats all 5xx as one "assistant unavailable" state with Retry (the user's message stays in the thread), so the app behaves correctly either way. Backend not touched — `app/` is P1's lane per the session scope | Flag for P1: adding `GroundingError` handling to `api_chat.py` (mirroring `/explain`) would make the no-key state a deliberate 502 instead of an accidental 500. Recorded here so it isn't rediscovered when the key session runs the live smoke tests. |
 | 2026-07-16 | post-merge | **Model-layer unification: S2.1's stub `Models/Generated/HomeModel.swift` deleted; S0.3's `Models/` is the single Codable mirror.** Renderer, Editor Core, SceneKit bridge, and the shared tests ported via mechanical renames to S0.3's snake_case schema-exact API (`Point2D`→`Point`, `EXTERIOR_ROOM_ID`→`EXTERIOR_ID`, `SourceKind`→`Source`, `fromEnd/toEnd`→`from/to`, camelCase members→`room_ids`/`wall_segment`/`width_m`/… and `Meta` timestamps are now `Date`, coded via `HomeModel.decoder`/`encoder()`). Nothing added to `Models/`; the non-schema conveniences the editor/renderer need (positional `Point.init(_:_:)`, `HomeModel.currentSchemaVersion`, `floor/floorIndex/locateRoom`, `Floor.room`) live in a new `escape_plan/Editor/Core/ModelSupport.swift`. Editor Core dropped its `public` modifiers (S0.3's types are internal; both runners compile everything into one module anyway). `tools/editorcore` symlink repointed `Generated`→`escape_plan/Models`; `Editor/Core/Geometry.swift` renamed `EditorGeometry.swift` (basename collision with `Models/Geometry.swift` under SwiftPM). Deleted the S1.3-lane duplicate `escape_plan/Resources/Fixtures/*.json` (byte-identical to S0.3's `escape_plan/Fixtures/`, and Xcode refused to bundle both). Persistence and the scan exporter needed no changes (JSONValue tree / own export types) | The stub was always marked replace-with-S0.3; keeping two `HomeModel` declarations can't compile. S0.3's layer is the reviewed schema mirror with the round-trip gate, so consumers move to it rather than the reverse — and the "pure mirror, extensions live consumer-side" rule from the earlier renderer port carries over unchanged. |
 | 2026-07-16 | post-merge | `/convert` route decorator gains `response_model_exclude_none=True` (only `/convert`; other endpoints' response models don't serialize schema-checked optionals). Fixes the S1.4-lane finding that unset optionals (e.g. every opening's `egress`) serialized as explicit `null`, which the JSON Schema rejects. Regression test: `test_convert_response_has_no_null_optionals` in `backend/tests/test_api.py` walks the whole response for nulls | The converter never sets `egress`/`confidence` on manual items; an explicit `"egress": null` makes the endpoint's own output fail `python3 -m app.validate`. Omitting unset fields is what the schema (and the Swift decoder) expects. |
 | 2026-07-16 | post-merge | Renderer ported from the deleted S1.3 stub model to the merged S2.1 `Models/Generated/HomeModel.swift`: mechanical renames (`Point`→`Point2D`, `Polygon`→`[Point2D]`, `roomID`→`roomId`, `stair.from/to`→`fromEnd/toEnd`, `WallSegment`→`WallSegmentRef`). Renderer-only conveniences (`Point2D.init(x:y:)`, `HomeModel.floorsByLevel`) live in `escape_plan/Renderer/HomeModel+Renderer.swift`, not in the schema mirror. Duplicate test-support `Fixtures` enum (S2.4 vs S2.1 lanes) resolved by renaming the persistence one to `PersistenceFixtures` | `HomeModel.swift` must stay a pure schema mirror ("never add a field here without a schema bump"), so anything the renderer needs beyond schema fields is a retroactive extension in a Renderer-side file. |
@@ -118,3 +127,109 @@ to `HomeDocumentStore` (see the `TODO(integration)` notes in `escape_plan/Persis
 - [ ] Delete the app → homes are gone (scope lock: local only, no accounts, no cloud copy).
 - [ ] Confirm the device id is a random UUID in UserDefaults (`escape_plan.device_id`) — not
       `identifierForVendor`, no name/email/account anywhere in the document.
+
+## 2026-07-22 — Tab screens wired to real S1.3/S2.1/S2.4 code
+
+`EditorScreen`/`PlanScreen`/`HomeScreen` were rewritten from S0.3-era placeholders into real
+screens backed by `HomeLibrary`/`HomeDocumentStore`/`HomeModelStore`/`DollhouseSceneBuilder` —
+all of which already existed and were tested, just never read by the tab shell. New file
+`Editor/SceneKit/EditorSceneController.swift` supplies the `EditorSceneAdapter` conformance
+`SceneKitEditorBridge` was written against (S2.1 predates S1.3 on the branch it was built in).
+Chose a fixed top-down **orthographic** camera for the editor (exact screen→floor-plane math,
+no conflict with `allowsCameraControl`'s orbit gestures) — the Plan tab keeps the free-orbit
+perspective camera from `DollhouseSceneView`/`DollhouseDemoView` unchanged. Full writeup:
+`docs/tracker/notes/2026-07-22-home-editor-plan-integration.md`. No schema, backend, or
+dependency changes.
+
+## 2026-07-22 — S3.5 iOS half: preparedness score screen
+
+The S3.5 backend was already DONE; this lands the iOS screen. Decisions:
+
+- **Score lives under Home, not a sixth tab.** The TabView already has five tabs (a sixth
+  overflows into iOS's "More" list), and the score is per-home data — so it's a per-home push
+  from the homes list (leading swipe "Score" / context menu), exactly how the editor and the
+  S3.4 profiles screen are reached.
+- **No client-side score math.** Every checklist toggle persists locally then re-POSTs
+  `/score` with the updated `checklist_state`; the displayed number and breakdown are always
+  the backend's, so "score matches documented backend math" holds by construction. Verified
+  against `docs/preparedness-score-weights.md`: bungalow 75 → 80 (`practice.meeting_point`)
+  → 100 (all items); twostory 75 → 77 (one alarm item, +15/7 half-up).
+- **Checklist done-state persists in UserDefaults** (`checklistState.<home_id>`), NOT on the
+  home document: the schema is frozen (no checklist field without a version bump) and
+  `HomeDocumentStore` files are exactly HomeModel JSON by design (export is the stored file).
+  This deviates from `backend/app/scoring/checklist.py`'s "persisted on the home document"
+  docstring; consequence: checklist state does not travel with export/import, and deleting a
+  home leaves a tiny orphaned defaults entry.
+- **Request sends only `home` + `checklist_state`.** `findings`, `constraints`, `profile`,
+  and `include_recommendations` are omitted (server defaults) until /analyze (S3.2 wiring)
+  and recommendations land — so the findings component reads 20/20 for now, as designed.
+- **`APIClient+Score.swift` uses `URLSession.shared`**: `session` is `private` (file-scoped)
+  in `APIClient.swift`, which this session was forbidden to edit; the default init uses
+  `.shared` anyway, so behavior is identical. This file establishes the
+  `APIClient+<Endpoint>.swift` extension pattern for future endpoints.
+
+No new dependencies (SwiftUI + URLSession only). Full writeup:
+`docs/tracker/notes/2026-07-22-s3-5-score-ios.md`.
+
+## 2026-07-22 — S3.4 iOS half: profiles CRUD UI (live re-fetch deferred to S2.3)
+
+The S3.4 backend was already DONE; this lands the profile CRUD UI. Decisions:
+
+- **Profiles are edited per-home from the Homes list, not from Settings.** Profiles live
+  inside the HomeModel document (`HomeModel.profiles`), so the UI is a per-home push from
+  the homes list (leading swipe "Profiles" / context menu → `ProfilesScreen`), sharing the
+  entry-point pattern with the S3.5 score screen. Settings stays app-global config only.
+- **Profile mutations go through new append-only `EditAction` cases**
+  (`addProfile` / `updateProfile` / `deleteProfile`) reduced in `HomeModelStore` — so they
+  get validation, the commit hook (undo + autosave), and the "rejected actions leave the
+  model untouched" guarantee for free. No new validation code was needed:
+  `EditorValidation.validate` already enforced every profile invariant since S2.1.
+- **Bedroom picker shows ALL rooms grouped by floor** (bedroom-typed rooms hinted with a
+  bed icon), not filtered to `type == .bedroom` — fresh editor homes default rooms to
+  `.other`, and the schema allows any room id as a bedroom, so filtering would dead-end.
+- **`ProfileTag.displayName` lives in `Screens/ProfileEditorView.swift`**, not
+  `Models/Enums.swift` — Models/ stays a pure schema mirror.
+- **Live route re-fetch on profile switch is deliberately NOT built** — it needs S2.3's
+  route overlay on PlanScreen (untouched this session). Marked with `TODO(integration)` in
+  `ProfilesScreen.swift`; the remaining S3.4 acceptance boxes stay open until then.
+
+Tests: `escape_planTests/EditorCore/ProfileActionsTests.swift` (11 tests via the SwiftPM
+harness). No schema, backend, or dependency changes. Full writeup:
+`docs/tracker/notes/2026-07-22-s3-4-profiles-ios.md`.
+
+## 2026-07-22 — S2.3 route visualization on the 3D dollhouse
+
+Full overlay code landed (P3, on top of the same-day PlanScreen/dollhouse integration);
+device eyes-on pass + acceptance recording remain, same posture as S1.3. Decisions:
+
+- **`Models/RoutePlan.swift` mirrors `backend/app/routing/plan.py`**, not the homemodel
+  schema — same snake_case wire-mirror stance as `ScoreModels.swift`. Backend-defaulted keys
+  (`findings`, `bottlenecks`, S3.4 penalty constraints) decode leniently so the pre-S3.4
+  committed samples in `docs/route-samples/` all decode. `RoutesRequest` omits nil
+  `constraints`/`profile_id` keys entirely (backend 422s when both arrive).
+- **S2.3 sends no `profile_id`** — the playbook's "default profile" has no counterpart in
+  the app (nothing selects one), so the fetch is the base whole-house plan; `fetchRoutes`
+  is parameterized so S3.4's live-switch TODO(integration) is UI-only work now.
+- **Route tubes live in per-floor `"routes:<floorID>"` containers** under the builder's
+  floor nodes: exploded view and floor hiding apply with zero overlay code. Floor crossings
+  render as paired glowing stubs (one per floor, floor-local) instead of a cross-floor tube,
+  which would need per-frame recompute under explode.
+- **Custom tube geometry with arc-length-normalized UVs**; the primary's pulse is a
+  fragment shader modifier on `u_time` (bands travel room → exit at constant speed), so
+  `DollhouseSceneView` gained `wantsContinuousRendering` (continuous redraw only while
+  routes are shown). Secondary dashes are alpha-zero in the shader, not `discard` —
+  SceneKit's GLSL→Metal transpile of discard is unreliable across OS versions.
+- **"Everyone" mode draws primaries + badges only**; both routes render once a single room
+  is picked — a whole-house overlay with every secondary was unreadable.
+- **Warning badges render engine findings verbatim** (`no_secondary_egress` = red `!`,
+  `no_viable_route` = dark `✕`, billboard over the room) — the client never derives egress
+  judgments. Acceptance for the badge runs on the **apartment** fixture per the 2026-07-16
+  finding-vs-fixture note.
+- **Tour = one `SCNAction.customAction`** sampling an arc-length table at 1.5 m/s with 1 m
+  look-ahead on a temporary camera; explode/hidden floors reset before flight; free orbit
+  restored on finish/cancel. `APIClient.swift` untouched (extension pattern per S3.5);
+  90 s request timeout for Render cold starts, surfaced as a non-blocking banner.
+
+Tests: `escape_planTests/RoutePlanTests.swift` (14) + full suite green on the iPhone 17 Pro
+simulator. No new dependencies (SceneKit/URLSession only). Full writeup:
+`docs/tracker/notes/2026-07-22-s2-3-route-visualization.md`.

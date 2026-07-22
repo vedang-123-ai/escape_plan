@@ -217,6 +217,35 @@ final class HomeModelStore {
             draft.floors[f].rooms[r].polygon =
                 Geometry.translate(draft.floors[f].rooms[r].polygon, by: delta)
             return SnapResult(delta, snapSettings.gridEnabled ? .grid : .none)
+
+        case .dragOpening(let openingId, let t):
+            try dragOpening(&draft, openingId, t)
+            return nil
+
+        case .addStairs(let fromFloorId, let fromRoomId, let toFloorId, let toRoomId,
+                        let footprint, let kind):
+            try addStairs(&draft, fromFloorId, fromRoomId, toFloorId, toRoomId, footprint, kind)
+            return nil
+
+        case .deleteStairs(let stairsId):
+            try deleteStairs(&draft, stairsId)
+            return nil
+
+        case .addProfile(let profileId, let name, let tags, let bedroom_room_id):
+            draft.profiles.append(Profile(id: profileId, name: name, tags: tags,
+                                          bedroom_room_id: bedroom_room_id))
+            return nil
+
+        case .updateProfile(let profileId, let name, let tags, let bedroom_room_id):
+            let i = try profileIndex(draft, profileId)
+            draft.profiles[i] = Profile(id: profileId, name: name, tags: tags,
+                                        bedroom_room_id: bedroom_room_id)
+            return nil
+
+        case .deleteProfile(let profileId):
+            let i = try profileIndex(draft, profileId)
+            draft.profiles.remove(at: i)
+            return nil
         }
     }
 
@@ -333,6 +362,65 @@ final class HomeModelStore {
         return SnapResult(delta, snapSettings.gridEnabled ? .grid : .none)
     }
 
+    // MARK: Openings
+
+    /// Slides an opening's t0/t1 along its host wall, preserving its width_m. `t` is the
+    /// requested midpoint position; the reducer (not the caller) owns turning that plus the
+    /// opening's own width into a t0/t1 pair, matching how dragEdge owns its own delta math.
+    private func dragOpening(_ draft: inout HomeModel, _ openingId: String, _ t: Double) throws {
+        let (f, o) = try openingIndex(draft, openingId)
+        let opening = draft.floors[f].openings[o]
+        let seg = opening.wall_segment
+        guard let host = draft.floors[f].room(seg.room_id),
+              let edge = Geometry.edge(host.polygon, seg.edge_index) else {
+            throw ValidationIssue(.danglingReference, entityId: openingId,
+                                  "opening's host wall no longer exists")
+        }
+        let edgeLength = Geometry.distance(edge.a, edge.b)
+        guard edgeLength > 1e-6 else {
+            throw ValidationIssue(.openingPlacement, entityId: openingId,
+                                  "host wall has zero length")
+        }
+        let halfWidthT = (opening.width_m / 2) / edgeLength
+        let clampedT = min(1, max(0, t))
+        let newT0 = min(1, max(0, clampedT - halfWidthT))
+        let newT1 = min(1, max(0, clampedT + halfWidthT))
+        draft.floors[f].openings[o].wall_segment.t0 = newT0
+        draft.floors[f].openings[o].wall_segment.t1 = newT1
+    }
+
+    // MARK: Stairs
+
+    private func addStairs(_ draft: inout HomeModel, _ fromFloorId: String, _ fromRoomId: String,
+                           _ toFloorId: String, _ toRoomId: String, _ footprint: Polygon,
+                           _ kind: StairKind) throws {
+        _ = try floorIndex(draft, fromFloorId)
+        _ = try floorIndex(draft, toFloorId)
+        guard draft.floor(fromFloorId)?.room(fromRoomId) != nil else {
+            throw ValidationIssue(.danglingReference, entityId: fromRoomId,
+                                  "no such room on the from-floor")
+        }
+        guard draft.floor(toFloorId)?.room(toRoomId) != nil else {
+            throw ValidationIssue(.danglingReference, entityId: toRoomId,
+                                  "no such room on the to-floor")
+        }
+        // EditorValidation.validateStairs is the real gate (from/to distinctness, footprint
+        // simplicity, provenance) — this just builds a well-formed candidate.
+        draft.stairs.append(Stairs(id: makeId(),
+                                   from: StairEnd(floor_id: fromFloorId, room_id: fromRoomId),
+                                   to: StairEnd(floor_id: toFloorId, room_id: toRoomId),
+                                   footprint: footprint, kind: kind, source: .manual,
+                                   confidence: nil))
+    }
+
+    private func deleteStairs(_ draft: inout HomeModel, _ stairsId: String) throws {
+        guard let i = draft.stairs.firstIndex(where: { $0.id == stairsId }) else {
+            throw ValidationIssue(.danglingReference, entityId: stairsId, "no such stairs")
+        }
+        draft.stairs.remove(at: i)
+        if case .stairs(let id) = selection, id == stairsId { selection = .none }
+    }
+
     // MARK: - Snap context
 
     /// Everything on `floorId` worth snapping to, minus the room being dragged. Per-floor
@@ -366,6 +454,20 @@ final class HomeModelStore {
             if let r = floor.rooms.firstIndex(where: { $0.id == roomId }) { return (f, r) }
         }
         throw ValidationIssue(.danglingReference, entityId: roomId, "no such room")
+    }
+
+    private func openingIndex(_ model: HomeModel, _ openingId: String) throws -> (Int, Int) {
+        for (f, floor) in model.floors.enumerated() {
+            if let o = floor.openings.firstIndex(where: { $0.id == openingId }) { return (f, o) }
+        }
+        throw ValidationIssue(.danglingReference, entityId: openingId, "no such opening")
+    }
+
+    private func profileIndex(_ model: HomeModel, _ profileId: String) throws -> Int {
+        guard let i = model.profiles.firstIndex(where: { $0.id == profileId }) else {
+            throw ValidationIssue(.danglingReference, entityId: profileId, "no such profile")
+        }
+        return i
     }
 
     // MARK: - Factories

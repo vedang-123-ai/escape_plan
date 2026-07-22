@@ -60,6 +60,7 @@ final class SceneKitEditorBridge {
 
     private let store: HomeModelStore
     private weak var scene: EditorSceneAdapter?
+    private let undoStack: UndoStack?
 
     /// A touch target of ~44pt is the platform minimum; corners get a little more because they
     /// are the smallest thing on screen and the most precise thing to grab.
@@ -77,9 +78,10 @@ final class SceneKitEditorBridge {
     /// absolute — the store's edge/room drags are translations.
     private var lastDragPoint: Point?
 
-    init(store: HomeModelStore, scene: EditorSceneAdapter?) {
+    init(store: HomeModelStore, scene: EditorSceneAdapter?, undoStack: UndoStack? = nil) {
         self.store = store
         self.scene = scene
+        self.undoStack = undoStack
     }
 
     func attach(scene: EditorSceneAdapter) {
@@ -120,6 +122,7 @@ final class SceneKitEditorBridge {
             lastDragPoint = world
             store.select(subject)
             scene.highlight(subject)
+            undoStack?.beginCoalescing(snapshot: store.model)
 
         case .changed:
             guard let last = lastDragPoint else { return }
@@ -141,6 +144,7 @@ final class SceneKitEditorBridge {
             dragSubject = .none
             dragOrigin = nil
             lastDragPoint = nil
+            undoStack?.endCoalescing()
 
         default:
             break
@@ -156,8 +160,19 @@ final class SceneKitEditorBridge {
             return .dragEdge(roomId: roomId, edgeIndex: edgeIndex, by: delta)
         case .room(let roomId):
             return .dragRoom(roomId: roomId, by: delta)
-        case .opening:
-            // Sliding an opening along its wall is S2.2 (the t-parameter drag).
+        case .opening(let openingId):
+            // Parametric: project the raw touch onto the opening's own host wall to get a new
+            // midpoint-t, rather than the vertex/room delta machinery (which works in absolute/
+            // delta meters, not wall-normalized units).
+            guard let opening = store.activeFloor.openings.first(where: { $0.id == openingId }),
+                  let host = store.activeFloor.room(opening.wall_segment.room_id),
+                  let edge = Geometry.edge(host.polygon, opening.wall_segment.edge_index) else {
+                return nil
+            }
+            let (_, t) = Geometry.closestPointOnSegment(target, edge.a, edge.b)
+            return .dragOpening(openingId: openingId, t: t)
+        case .stairs:
+            // Stairs aren't drag-manipulated (placed/deleted only) — nothing to do here.
             return nil
         case .none:
             return nil

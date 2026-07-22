@@ -27,6 +27,16 @@ enum DollhousePalette {
         }
     }
 
+    // S2.3 route overlay. Primary is the hottest color in the scene on purpose — the escape
+    // path is the thing the eye must find first. Secondary is cool and dashed so the two
+    // never read as interchangeable.
+    static let routePrimary = UIColor(red: 0.95, green: 0.45, blue: 0.15, alpha: 1.0)
+    static let routeSecondary = UIColor(red: 0.35, green: 0.55, blue: 0.85, alpha: 1.0)
+    static let exitGlow = UIColor(red: 0.20, green: 0.85, blue: 0.45, alpha: 1.0)
+    static let warningBadge = UIColor(red: 0.90, green: 0.30, blue: 0.25, alpha: 1.0)
+    /// `no_viable_route` is worse than `no_secondary_egress`; its badge darkens to match.
+    static let warningBadgeSevere = UIColor(red: 0.62, green: 0.15, blue: 0.13, alpha: 1.0)
+
     /// Exits read differently from interior openings on purpose — an exit is the thing the whole
     /// app is about, and a judge should be able to find them without a legend.
     static func opening(kind: OpeningKind, isExit: Bool) -> UIColor {

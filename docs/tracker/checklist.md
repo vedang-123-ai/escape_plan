@@ -79,17 +79,17 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [ ] No gesture yields an invalid model (validate on mutation, reject with haptic)
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff ("built from scratch in 4 min" recording)
 
-### S2.2 — Editor: openings, stairs, undo — **READY (S2.1 merged; store hooks prepared)** (P2)
-- [ ] Fix a misplaced door + confirm flagged items on a real converted scan in <2 min
-- [ ] Add working stairs between floors of a hand-built 2-story
-- [ ] Undo/redo consistent across 20 mixed operations
-- [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (updated recording; schema pressure → P1)
+### S2.2 — Editor: openings, stairs, undo — **CODE DONE 2026-07-22, device-acceptance DEFERRED (no simulator-automation tool this session)** (P3)
+- [ ] Fix a misplaced door + confirm flagged items on a real converted scan in <2 min — **reducer/validation path unit-tested (`testDragOpeningSlidesAlongItsWallPreservingWidth`, `testDragOpeningClampsAtWallEnds`); on-screen drag needs a human — a real simulator is available now, see decisions.md**
+- [ ] Add working stairs between floors of a hand-built 2-story — **reducer/validation path unit-tested (`testAddStairsConnectsTwoFloors` + rejection tests); on-screen placement via the new toolbar sheet needs a human**
+- [ ] Undo/redo consistent across 20 mixed operations — **coalescing/stack logic unit-tested in isolation (7 `UndoStackTests`, incl. gesture-coalescing and non-continuous-action cases); the on-screen 20-op feel needs a human**
+- [x] 📋 (decisions.md: action shapes, coalescing-by-gesture-bracket design, simulator-now-available finding) · [x] 🔧 (no new deps; tools-used.md note updated) · [x] 📦 handoff (`docs/tracker/notes/2026-07-22-s2-2-editor-openings-stairs-undo.md`; no schema pressure — no schema changes this session)
 
-### S2.3 — Route visualization on the 3D model — **BLOCKED (needs S1.3 + S1.6)** (P2)
-- [ ] Upstairs bedroom → primary animates down stairs and out front door; secondary shows window path
-- [ ] Tour mode runs smoothly
-- [ ] Warning badge on room lacking secondary egress (apartment/kids' room fixtures are built for this)
-- [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (recording)
+### S2.3 — Route visualization on the 3D model — **CODE DONE 2026-07-22; device acceptance + recording pending (same posture as S1.3)** (P2, code by P3)
+- [ ] Upstairs bedroom → primary animates down stairs and out front door; secondary shows window path (*code + tests done; needs device eyes-on*)
+- [ ] Tour mode runs smoothly (*implemented — `RouteOverlay.startTour`; smoothness is a device check*)
+- [ ] Warning badge on room lacking secondary egress (*implemented + tested on the **apartment** sample — the RoutePlan-level finding fires there, not on the twostory kids' room; see decisions.md 2026-07-16*)
+- [x] 📋 decisions.md (2026-07-22 S2.3 entry) · [x] 🔧 tools-used.md (no new deps) · [ ] 📦 handoff (recording — needs device)
 
 ### S2.4 — Persistence & documents — **CODE DONE 2026-07-16 (17 tests run green, export schema-validated), on-device kill/relaunch DEFERRED** (P3)
 - [ ] Kill + relaunch → everything persists
@@ -114,23 +114,23 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 
 **Remaining for full DONE:** a real ANTHROPIC_API_KEY, a `test_agent_live.py` (doesn't exist yet — mirror `test_ai_live.py`'s marker pattern), one live run, hand-review.
 
-### S3.3 — Chat assistant — **BACKEND CODE DONE 2026-07-16 (prep), live tests BLOCKED-ON-KEY; iOS UI not started** (P3 backend, P2 UI) — cut candidate #2
-- [ ] Smoke-detector question → cited, house-specific answer
-- [ ] Out-of-corpus question → graceful deferral
-- [ ] Conversation survives background/foreground
+### S3.3 — Chat assistant — **BACKEND CODE DONE 2026-07-16 (prep) + iOS UI DONE 2026-07-22; live acceptance BLOCKED-ON-KEY** (P3 backend, P2 UI) — cut candidate #2
+- [ ] Smoke-detector question → cited, house-specific answer *(UI renders reply + inline `[cite:]` tags verbatim; needs live key to verify)*
+- [ ] Out-of-corpus question → graceful deferral *(needs live key)*
+- [ ] Conversation survives background/foreground *(persistence implemented + unit-tested — `ConversationStore`; tick after an on-device check)*
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (5 screenshot Q&As)
 
-### S3.4 — Family profiles end-to-end — **BACKEND HALF DONE 2026-07-16 (mappings doc + /routes profile_id); iOS half BLOCKED (needs S2.3)** (P3 + P2/P1)
-- [ ] Grandpa vs Maya switch changes rendered route or raises no-viable-route flag (engine side already proven in tests)
+### S3.4 — Family profiles end-to-end — **CODE DONE 2026-07-22 (mappings doc + /routes profile_id + iOS CRUD UI + live route switch); device acceptance pending** (P3 + P2/P1)
+- [ ] Grandpa vs Maya switch changes rendered route or raises no-viable-route flag (engine side proven in tests; *iOS wiring complete 2026-07-22 — PlanScreen's "Who" picker re-fetches /routes with profile_id and jumps to that profile's bedroom. Unchecked because nobody has watched the route actually change on screen.*)
 - [ ] Explanation text reflects the profile
-- [ ] Deterministic profile→constraints mappings documented
-- [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (live-switch recording — demo material)
+- [x] Deterministic profile→constraints mappings documented (docs/profile-constraint-mappings.md)
+- [x] 📋 decisions.md (2026-07-22 S3.4 iOS entry) · [x] 🔧 tools-used.md (no new deps) · [ ] 📦 handoff (live-switch recording — demo material; no longer blocked, needs a device session)
 
-### S3.5 — Preparedness score + checklist — **BACKEND HALF DONE 2026-07-16 (/score + weights doc); iOS screen BLOCKED (needs P2)** (P3) — cut candidate #3
-- [ ] Score reproducible by hand from documented weights
-- [ ] Completing an item updates the score
-- [ ] Breakdown screen legible
-- [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (weights in docs/)
+### S3.5 — Preparedness score + checklist — **BACKEND DONE 2026-07-16; iOS screen BUILT 2026-07-22 (P3) — needs simulator/device eyes-on pass** — cut candidate #3
+- [x] Score reproducible by hand from documented weights (34 backend tests + live curl cross-check 2026-07-22: bungalow 75→80→100, twostory 75→77)
+- [x] Completing an item updates the score (client does no math — every toggle re-POSTs /score; backend-asserted)
+- [ ] Breakdown screen legible (built: 5 DisclosureGroup rows w/ progress bars + backend detail/rationale — needs an eyes-on simulator run to tick)
+- [x] 📋 · [x] 🔧 · [x] 📦 handoff (weights in docs/; session note 2026-07-22-s3-5-score-ios.md)
 
 ## Phase 4 — Integration & product
 

@@ -38,6 +38,11 @@ extension HomeModel {
         }
         return nil
     }
+
+    /// Finds stairs anywhere in the home by id — symmetry with `locateRoom`.
+    func locateStairs(_ stairsId: String) -> Stairs? {
+        stairs.first { $0.id == stairsId }
+    }
 }
 
 extension Floor {

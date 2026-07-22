@@ -25,7 +25,7 @@ Every library, framework, API, and tool used in this project — required for Co
 | Render.com | free tier | Backend hosting (blueprint `render.yaml`); **live** at `https://escape-plan-backend.onrender.com` since 2026-07-16 | Render ToS |
 | Foundation (FileManager / JSONEncoder / UserDefaults) | iOS 17+ SDK | S2.4 local persistence: home documents on disk, JSON coding, anonymous device id. No third-party persistence library — the store is ~350 lines of Apple SDK | Apple SDK |
 | XCTest | Xcode 26 | Swift test suites (`escape_planTests/`, incl. `EditorCore/`) — run by both `xcodebuild test` and SwiftPM | Apple SDK |
-| Swift Package Manager | Swift 6.3 toolchain | **Dev/test harnesses only, never shipped**: `tools/editorcore/` (editor-core tests) and `scripts/verify_export_validates.sh` (S2.4 persistence tests + export validation) run on macOS because no iOS simulator runtime is installed on the dev machine. Symlinked app sources — no vendored copies, no third-party dependencies | Apache-2.0 (toolchain) |
+| Swift Package Manager | Swift 6.3 toolchain | **Dev/test harnesses only, never shipped**: `tools/editorcore/` (editor-core tests) and `scripts/verify_export_validates.sh` (S2.4 persistence tests + export validation) give a ~5s macOS feedback loop instead of a simulator boot. Symlinked app sources — no vendored copies, no third-party dependencies. As of S2.2 (2026-07-22) an iOS 26.5 simulator runtime IS installed on the dev machine (iPhone 17/17 Pro/17 Pro Max/17e/Air) — earlier sessions' "no simulator" blockers are stale; `xcodebuild test`/`xcodebuild build` now run for real, see decisions.md | Apache-2.0 (toolchain) |
 
 ## Content sources (grounding corpus, not code dependencies)
 

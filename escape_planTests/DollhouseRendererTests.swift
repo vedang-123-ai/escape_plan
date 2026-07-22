@@ -28,12 +28,12 @@ final class DollhouseRendererTests: XCTestCase {
             let canonical = repoRoot
                 .appendingPathComponent("schema/fixtures/\(fixture.rawValue).json")
             let bundled = repoRoot
-                .appendingPathComponent("escape_plan/Resources/Fixtures/\(fixture.rawValue).json")
+                .appendingPathComponent("escape_plan/Fixtures/\(fixture.rawValue).json")
 
             let a = try Data(contentsOf: canonical)
             let b = try Data(contentsOf: bundled)
             XCTAssertEqual(a, b, """
-                escape_plan/Resources/Fixtures/\(fixture.rawValue).json has drifted from \
+                escape_plan/Fixtures/\(fixture.rawValue).json has drifted from \
                 schema/fixtures/\(fixture.rawValue).json. Re-copy it.
                 """)
         }
