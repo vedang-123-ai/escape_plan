@@ -3,19 +3,48 @@
 The iOS half of the project. Read the root `CLAUDE.md` first; Swift conventions are in
 `.claude/rules/languages/swift.md`.
 
-Status notes (see docs/decisions.md):
+The project stays at the repo root (not the playbook's `ios/` layout) — see `docs/decisions.md`;
+revisit only if the team wants the monorepo layout. The Xcode project uses a
+`PBXFileSystemSynchronizedRootGroup`, so any `.swift` file added under `escape_plan/` (or
+`escape_planTests/`) is compiled automatically — no project.pbxproj edit, but also no stray
+scratch files.
 
-- S0.3 replaced the stock Core Data template wholesale: `Persistence.swift` and
-  `escape_plan.xcdatamodeld` are gone. Persistence is local JSON documents via FileManager,
-  landing in S2.4 — nothing persists yet, `HomeScreen` loads a bundled fixture as proof of
-  decode.
-- The project stays at the repo root (not the playbook's `ios/` layout) — see decisions.md;
-  revisit if the team wants the monorepo layout before Phase 2.
+## Structure (current)
 
-Current structure (S0.3): `Models/` (Codable schema mirror, exact field names/optionality vs.
-`schema/homemodel.schema.json` + `backend/app/models.py`; round-trip test in
-`escape_planTests/`), `Fixtures/` (bundled copies of `schema/fixtures/*.json`), `Screens/`
-(tab shell: Home/Editor/Plan/Assistant/Settings — only Home has real content), `Networking/`
-(`APIClient` with configurable base URL + bearer token, `/health` check).
-Still to come: `Scan/` (RoomPlan, S1.4), `Engine3D/` (SceneKit dollhouse, S1.3), `Editor/`
-(S1.3+).
+- `Models/` — Codable schema mirror, field-for-field exact vs `schema/homemodel.schema.json` and
+  `backend/app/models.py`. **Pure mirror** — round-trip test in `escape_planTests/`. Non-schema
+  conveniences live in `Editor/Core/ModelSupport.swift` / `Renderer/HomeModel+Renderer.swift`,
+  never as new fields here (that would be a schema change).
+- `Persistence/` — local JSON documents via FileManager, one file per home
+  (`<Documents>/Homes/<home_id>.homeplan.json`), schema-versioned, atomic writes. Plus
+  `ConversationStore` (chat thread) and `ChecklistStateStore` (score checklist, UserDefaults).
+- `Editor/Core/` — `HomeModelStore` reducer (the ONLY path that mutates a `HomeModel`),
+  `EditAction`, `UndoStack`, validation, hit-testing, snapping. Pure Foundation — also compiled &
+  tested as the `tools/editorcore` SwiftPM package.
+- `Editor/SceneKit/` — `EditorSceneController`/`EditorSceneView` and `SceneKitEditorBridge` (gesture
+  → `EditAction`).
+- `Renderer/` — SceneKit dollhouse (`DollhouseScene*`) + `RouteOverlay`/`RouteGeometry` (animated
+  escape routes drawn from a `/routes` RoutePlan — never computed client-side).
+- `Capture/` — RoomPlan LiDAR capture + raw JSON/USDZ exporter matching the converter contract.
+- `Networking/` — `APIClient` (base URL + bearer token, `/health`) plus sibling extensions:
+  `APIClient+Routes`, `+Chat`, `+Score`. Keep new endpoints as new extension files.
+- `Screens/` — the tab shell + per-home sub-screens.
+
+## Screen → session ownership (non-obvious after the five-lane merge)
+
+| Screen | Session | Notes |
+|---|---|---|
+| `HomeScreen` | S0.3/S2.4 | home library; swipe/menu → Score & Profiles |
+| `EditorScreen` | S2.1/S2.2 | 3D editor: rooms, openings, stairs, undo/redo |
+| `PlanScreen` | S1.3/S2.3 | dollhouse + route overlay + camera tour + "Who" profile picker (S3.4) |
+| `AssistantScreen` | S3.3 | grounded chat; graceful error when the key is unset |
+| `ScoreScreen` | S3.5 | preparedness score; backend does all the math |
+| `ProfilesScreen` / `ProfileEditorView` | S3.4 | per-home family profiles CRUD |
+| `SettingsScreen` | S0.3 | app-global config |
+
+## Hard rules (from rules/languages/swift.md — don't relearn them the hard way)
+
+- Mutate the model only through `HomeModelStore` + an `EditAction`. Never from a view.
+- Openings are parametric (`wall_segment` = `edge_index` + `t0/t1`) — never absolute coordinates.
+- Routes always come from a real `/routes` response — the app never computes or approximates one.
+- No API keys / tokens in source; they come from configuration.

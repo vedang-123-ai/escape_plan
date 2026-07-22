@@ -24,5 +24,15 @@ Never cut scan → editor → 3D routes → profile switch.
 
 ## Validation commands (grow this list as modules land)
 
+Run the whole gate via the `verify-all` skill / `/verify`. Individually:
+
 - Corpus: `python3 backend/corpus/validate.py`
-- Backend (once S1.6 lands): `python3 -m pytest backend/tests/`
+- Backend: `python3 -m pytest backend/tests/ -m "not live"` (drop `-m` filter only when the
+  Anthropic key is set)
+- Editor core (pure Foundation, macOS, fast — catches non-exhaustive switches):
+  `swift test --package-path tools/editorcore`
+- iOS app + unit/UI tests (a real iOS 26.5 simulator IS installed — this works now):
+  `xcodebuild test -project escape_plan.xcodeproj -scheme escape_plan -destination
+  'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .build-merge CODE_SIGNING_ALLOWED=NO`
+  (add `-only-testing:escape_planTests` to skip the slow UI tests while iterating). SourceKit/VS
+  Code can't index this project — trust `xcodebuild`, not the editor's phantom errors.

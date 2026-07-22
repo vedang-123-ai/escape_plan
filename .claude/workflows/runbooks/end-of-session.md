@@ -15,7 +15,18 @@
 2. `docs/tools-used.md`: add any new library/API/tool with version, purpose, license
    (CAC originality requirement — non-negotiable).
 
-## Phase 3 — Hand off
+## Phase 3 — Tracker (MANDATORY)
+
+Root `CLAUDE.md`: **no note, no DONE.** This phase is not optional.
+
+1. Write a session note in `docs/tracker/notes/` — copy `_TEMPLATE.md`, name it
+   `YYYY-MM-DD-s<x>-<y>-<slug>.md`.
+2. Update `docs/tracker/board.md` — flip this session's status and any it unblocked.
+3. Update `docs/tracker/checklist.md` — check only genuinely-passing criteria; leave device-only
+   ones unchecked with a note on what's needed. Never check a box for something not observed on
+   hardware.
+
+## Phase 4 — Hand off
 
 1. Produce the handoff artifact named in the session file (recording, screenshot, summary,
    committed files) and post it to the team.
@@ -23,4 +34,6 @@
 
 ## Done criteria
 
-All three phases complete. A session without a handoff didn't happen.
+All four phases complete — including the Phase 3 tracker note/board/checklist. A session without a
+handoff and a tracker note didn't happen. The `end-of-session-handoff` skill / `/handoff` command
+runs this whole runbook.
