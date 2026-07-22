@@ -112,9 +112,10 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [~] runs <60s — trivially true for the scripted tests (milliseconds); real latency unverified without a live model call
 - [x] 📋 decisions.md · [x] 🔧 tools-used.md (no new deps — reuses `anthropic`, already listed) · [x] 📦 handoff (`docs/agent-trace-example/README.md` + `apartment-analysis.json`)
 
-**Remaining for full DONE:** a real ANTHROPIC_API_KEY, a `test_agent_live.py` (doesn't exist yet — mirror `test_ai_live.py`'s marker pattern), one live run, hand-review.
+**Remaining for full DONE:** a real ANTHROPIC_API_KEY, one live run, hand-review of `tests/golden/agent_*.json`. ~~a `test_agent_live.py` (doesn't exist yet)~~ **written 2026-07-22** — key-skipped acceptance suite encoding the criteria above (single-exit apartment, `w_kids` via check_egress semantics, evidence/citation invariants, <60s) with first-run golden snapshots.
 
 ### S3.3 — Chat assistant — **BACKEND CODE DONE 2026-07-16 (prep) + iOS UI DONE 2026-07-22; live acceptance BLOCKED-ON-KEY** (P3 backend, P2 UI) — cut candidate #2
+- [x] Missing-key `/chat` failure is a deliberate 502, not a plain-text 500 *(fixed 2026-07-22 — `GroundingError` handled in `api_chat.py` mirroring `/explain`; regression test green, verified red on pre-fix code)*
 - [ ] Smoke-detector question → cited, house-specific answer *(UI renders reply + inline `[cite:]` tags verbatim; needs live key to verify)*
 - [ ] Out-of-corpus question → graceful deferral *(needs live key)*
 - [ ] Conversation survives background/foreground *(persistence implemented + unit-tested — `ConversationStore`; tick after an on-device check)*

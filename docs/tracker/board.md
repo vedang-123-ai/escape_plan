@@ -18,6 +18,10 @@ criteria, S2.3's recording, S3.4's Grandpa-vs-Maya switch, and S3.5's legibility
 the click-by-click list: `docs/tracker/notes/2026-07-22-five-lane-integration.md`.
 Still key-blocked (not device-blocked): S3.3's live chat acceptance.
 
+**Late-day backend pass (P3):** the S3.3 500-vs-502 finding is FIXED (`/chat` now 502s on a
+missing key, regression-tested) and S3.2's missing `test_agent_live.py` is written (key-skipped
+live acceptance suite). Backend now 197 green. P1's key session is now run-and-review only.
+
 **Schedule check:** enormous day — S0.3 landed, the backend is deployed and code-complete
 through Phase 3, and big chunks of Phase 1–2 iOS code merged. **We are far ahead of schedule.**
 What's left is mostly device/human verification, not code. Immovable milestone: end-to-end
@@ -67,8 +71,8 @@ replaced with the real `Models/`/`Screens/`/`Networking/` layer. Your one human 
 |---|---|---|
 | S0.3 iOS scaffold | `Models/` Codable mirror + round-trip test PASSED (simulator on teammate's machine), tab shell, APIClient | **P2: build+run on real iPhone (box above)** |
 | S3.1 grounded explanations | `/explain`, citation validation w/ reject-retry, golden + red-team live tests | **P1: live `-m live` run with key, review `tests/golden/`** |
-| S3.2 agentic analysis | `/analyze` 6-tool loop, 22 scripted-client tests, trace example | **Key + write `test_agent_live.py` + live run/review** |
-| S3.3 chat backend (prep) + iOS UI (2026-07-22) | `/chat` stateless multi-turn on the S3.1 grounding layer; **iOS chat screen built** (`AssistantScreen` + `APIClient+Chat` + `ConversationStore`) — verbatim `[cite:]` rendering, graceful 5xx "AI unavailable" state, thread persists across background/force-quit; 4 new unit tests green on simulator (a runtime is installed on this machine now). Note: missing key → `/chat` 500s, not 502 (see decisions.md) | **Key session: live smoke tests + in-app acceptance (cited answer, deferral) + 5 screenshot Q&As** |
+| S3.2 agentic analysis | `/analyze` 6-tool loop, 22 scripted-client tests, trace example; **`tests/test_agent_live.py` written 2026-07-22** (key-skipped acceptance suite w/ golden snapshots) | **Key + live run/review (suite exists, just run it)** |
+| S3.3 chat backend (prep) + iOS UI (2026-07-22) | `/chat` stateless multi-turn on the S3.1 grounding layer; **iOS chat screen built** (`AssistantScreen` + `APIClient+Chat` + `ConversationStore`) — verbatim `[cite:]` rendering, graceful 5xx "AI unavailable" state, thread persists across background/force-quit; 4 new unit tests green on simulator (a runtime is installed on this machine now). ~~Missing key → `/chat` 500s~~ **fixed 2026-07-22: now a deliberate 502** (regression-tested, see decisions.md) | **Key session: live smoke tests + in-app acceptance (cited answer, deferral) + 5 screenshot Q&As** |
 | S1.3 renderer | SceneKit dollhouse (`Renderer/`), 3 fixtures decode+build, 18 tests compiled (no simulator runtime to run them) | **Simulator/device: run `scripts/s13-acceptance.sh`, 60fps check, 3 recordings (b-roll)** |
 | S1.4 RoomPlan capture | `Capture/` + raw JSON/USDZ exporter matching converter contract; synthetic round-trip PASSES | **LiDAR device: real 2–3 room scan, commit device-{clean,messy} fixtures (gates S1.5 calibration), verify UIFileSharingEnabled on device** |
 | S2.1 editor core | `HomeModelStore` reducer + validation-on-mutation, drag/snap/hit-test; 89 tests RUN green (SwiftPM) | **On-device bungalow hand-build <5 min + recording; wire `EditorSceneAdapter` seam to the renderer** |

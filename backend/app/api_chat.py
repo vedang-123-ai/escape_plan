@@ -16,6 +16,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai.chat.service import ChatGroundingError, ChatMessage, ChatResponse, chat
+from app.ai.grounded import GroundingError
 from app.config import get_settings
 from app.models import HomeModel, Profile
 from app.routing.plan import RoutePlan
@@ -61,5 +62,7 @@ def post_chat(request: ChatRequest) -> ChatResponse:
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except ChatGroundingError as exc:
+    except (ChatGroundingError, GroundingError) as exc:
+        # GroundingError covers the unset-ANTHROPIC_API_KEY path — a deliberate
+        # 502, matching /explain and /analyze, not an accidental 500.
         raise HTTPException(status_code=502, detail=str(exc)) from exc

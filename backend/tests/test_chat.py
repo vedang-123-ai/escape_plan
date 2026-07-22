@@ -20,7 +20,7 @@ from app.ai.chat.service import (
     find_invalid_chat_citations,
 )
 from app.ai.chat.summary import summarize_home, summarize_profiles, summarize_route_plan
-from app.ai.grounded import valid_source_ids
+from app.ai.grounded import GroundingError, valid_source_ids
 from app.main import app
 from app.models import HomeModel, Profile, ProfileTag
 from app.routing.engine import compute_route_plan
@@ -244,6 +244,31 @@ def test_chat_endpoint_maps_grounding_error_to_502(bungalow_home_and_plan, monke
 
     def boom(*a, **k):
         raise ChatGroundingError("chat citation validation failed after retries")
+
+    monkeypatch.setattr("app.api_chat.chat", boom)
+    resp = TestClient(app).post(
+        "/chat",
+        json={
+            "home": home.model_dump(mode="json"),
+            "route_plan": plan.model_dump(mode="json"),
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+        headers=AUTH,
+    )
+    assert resp.status_code == 502
+
+
+def test_chat_endpoint_maps_missing_key_grounding_error_to_502(
+    bungalow_home_and_plan, monkeypatch
+):
+    """Regression: an unset ANTHROPIC_API_KEY raises the base GroundingError
+    (not ChatGroundingError) from service._client(); it used to escape the
+    handler and surface as a plain-text 500 instead of the deliberate 502
+    that /explain and /analyze return (decisions.md 2026-07-22)."""
+    home, plan = bungalow_home_and_plan
+
+    def boom(*a, **k):
+        raise GroundingError("ANTHROPIC_API_KEY is not configured on the server")
 
     monkeypatch.setattr("app.api_chat.chat", boom)
     resp = TestClient(app).post(
