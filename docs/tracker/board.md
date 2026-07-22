@@ -89,7 +89,7 @@ replaced with the real `Models/`/`Screens/`/`Networking/` layer. Your one human 
 ## ⏸ BLOCKED
 
 - S2.3 route viz CODE DONE 2026-07-22 (device recording ← S1.3-style device pass) · S1.5 calibration ← S1.4 device fixtures
-- S4.1 golden path ← S1.5 + S2.3 + S3.1 · S4.x after S4.1 · S5.1 draft v0 EXISTS (docs/demo/), final pass ← S4.1
+- S4.1 golden path ← S1.5 + S2.3 + S3.1 · S4.x after S4.1 · S5.1 **v1 DELIVERED 2026-07-22** (script-v1 + storyboard-v1 w/ b-roll path contract in docs/demo/) — remaining: team table-read + P1 accuracy pass; re-read once S4.1 runs
 
 ## 🔑 Critical path to the Oct 5 demo milestone
 

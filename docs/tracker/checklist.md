@@ -156,10 +156,10 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 
 ## Phase 5 — Demo video & submission
 
-### S5.1 — Script + storyboard — **DRAFT v0 2026-07-16 (docs/demo/), final pass BLOCKED (needs S4.1)** (P3 lead, P1 accuracy pass)
-- [ ] Table-read under 3:15
-- [ ] Every claim true of the shipped build
-- [ ] 📋 · [ ] 🔧 · [ ] 📦 (storyboard mapped to session recordings)
+### S5.1 — Script + storyboard — **v1 DELIVERED 2026-07-22 (docs/demo/script-v1.md + storyboard-v1.md); acceptance needs the team** (P3 lead, P1 accuracy pass)
+- [ ] Table-read under 3:15 — *on paper 436 words ≈ 2:54 at 150 wpm; the box is a real team read-aloud*
+- [ ] Every claim true of the shipped build — *self-audited via the truth-ledger appendix in script-v1; the box is P1's tech-accuracy pass*
+- [x] 📋 · [x] 🔧 (no new tools) · [x] 📦 (storyboard-v1 maps every beat to canonical `docs/demo/broll/` paths + exists-today fallbacks)
 
 ### S5.2 — Film + edit — **BLOCKED (needs S5.1)** (all)
 - [ ] Three non-team viewers get it and name the wow moment unprompted

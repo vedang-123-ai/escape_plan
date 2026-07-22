@@ -1,5 +1,7 @@
 # Storyboard — **DRAFT v0**
 
+> **SUPERSEDED 2026-07-22 by `storyboard-v1.md`** — the b-roll path contract lives there now.
+
 Companion to `script-v0.md`. Same status: early draft, written 2026-07-16, nothing locked.
 
 This maps each beat to the footage it needs and says plainly whether that footage **exists

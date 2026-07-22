@@ -1,5 +1,8 @@
 # Demo video script — **DRAFT v0**
 
+> **SUPERSEDED 2026-07-22 by `script-v1.md`** — edit that file, not this one. Kept for the
+> record of what was promised vs what shipped.
+
 > **Status: EARLY DRAFT.** Written 2026-07-16, months before S5.1's real slot (S5.1 formally
 > follows S4.1, which hasn't started). The point of drafting now is so the team edits a real
 > script in October instead of writing one from zero. **Nothing here is locked.**
