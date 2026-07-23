@@ -2,7 +2,17 @@
 
 _Last updated: 2026-07-22 (by P3/Claude — five-lane integration pass: S2.2 + S2.3 + S3.3 + S3.4 + S3.5 all landed and verified together). Update this whenever a session flips status._
 
-## 🆕 2026-07-22 (latest) — five lanes integrated, whole suite green (P3)
+## 🆕 2026-07-22 (latest) — test-coverage lane: +42 unit tests for the merged code (P3)
+
+Pure test-authoring pass over the five-lane merge, no source edits. First-ever coverage for
+`ScoreModels` and `ChecklistStateStore`, RoutePlan decode-error paths, ConversationStore
+corrupt-file/relaunch, `ChatError` messages, and the EditAction edges the lane suites missed
+(13 of the 42 run in the fast `tools/editorcore` harness → now 128/128). Full gate green:
+196 backend, corpus valid, 231 iOS tests on the simulator — excluding only a *concurrent*
+S4.2 drill lane's in-flight `DrillSessionTests` (one WIP failure there, theirs to fix).
+Details + coverage map: `docs/tracker/notes/2026-07-22-test-coverage-lane.md`.
+
+## 🆕 2026-07-22 — five lanes integrated, whole suite green (P3)
 
 S2.2 (editor openings/stairs/undo), S2.3 (route visualization), S3.3 (chat UI), S3.4 (profiles
 CRUD) and S3.5 (score screen) were all built the same day and all landed in this one working
