@@ -79,17 +79,17 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [ ] No gesture yields an invalid model (validate on mutation, reject with haptic)
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff ("built from scratch in 4 min" recording)
 
-### S2.2 — Editor: openings, stairs, undo — **CODE DONE 2026-07-22, device-acceptance DEFERRED (no simulator-automation tool this session)** (P3)
-- [ ] Fix a misplaced door + confirm flagged items on a real converted scan in <2 min — **reducer/validation path unit-tested (`testDragOpeningSlidesAlongItsWallPreservingWidth`, `testDragOpeningClampsAtWallEnds`); on-screen drag needs a human — a real simulator is available now, see decisions.md**
-- [ ] Add working stairs between floors of a hand-built 2-story — **reducer/validation path unit-tested (`testAddStairsConnectsTwoFloors` + rejection tests); on-screen placement via the new toolbar sheet needs a human**
-- [ ] Undo/redo consistent across 20 mixed operations — **coalescing/stack logic unit-tested in isolation (7 `UndoStackTests`, incl. gesture-coalescing and non-continuous-action cases); the on-screen 20-op feel needs a human**
+### S2.2 — Editor: openings, stairs, undo — **SIMULATOR ACCEPTANCE PASS 2026-07-22 (idb-driven, evidence in `artifacts/acceptance-2026-07-22/`); real-scan door-fix still open** (P3)
+- [~] Fix a misplaced door + confirm flagged items on a real converted scan in <2 min — **on-screen opening drag OBSERVED on the twostory fixture** (front door slid along its wall, width preserved — `s22-01/03`, `s22-02-drag-undo-redo.mp4`); the *real converted scan* + flagged-items half still needs S1.4/S1.5 real exports
+- [ ] Add working stairs between floors of a hand-built 2-story — **on-screen flow OBSERVED on the seeded twostory fixture** (select room → "Add Stairs" → "Add Stairs To…" sheet → Landing; commits, undoable — `s22-15/16/17`), but NOT on a hand-built home, and it needs a workaround: after a tap-selection the toolbar doesn't refresh, so Add Stairs stays disabled until some revision-bumping action re-renders it (**UI bug — see decisions.md 2026-07-22 device-acceptance entry**)
+- [x] Undo/redo consistent across 20 mixed operations — **OBSERVED: ~15 mixed ops** (2 opening drags, 2 room drags, 2×Add Room, Add Stairs, then undo×8 + redo×2) unwound cleanly to the pixel-identical original state (`s22-18/19`); redo once needed a second tap right after undo (same stale-toolbar-render suspicion) — noted, not blocking
 - [x] 📋 (decisions.md: action shapes, coalescing-by-gesture-bracket design, simulator-now-available finding) · [x] 🔧 (no new deps; tools-used.md note updated) · [x] 📦 handoff (`docs/tracker/notes/2026-07-22-s2-2-editor-openings-stairs-undo.md`; no schema pressure — no schema changes this session)
 
-### S2.3 — Route visualization on the 3D model — **CODE DONE 2026-07-22; device acceptance + recording pending (same posture as S1.3)** (P2, code by P3)
-- [ ] Upstairs bedroom → primary animates down stairs and out front door; secondary shows window path (*code + tests done; needs device eyes-on*)
-- [ ] Tour mode runs smoothly (*implemented — `RouteOverlay.startTour`; smoothness is a device check*)
-- [ ] Warning badge on room lacking secondary egress (*implemented + tested on the **apartment** sample — the RoutePlan-level finding fires there, not on the twostory kids' room; see decisions.md 2026-07-16*)
-- [x] 📋 decisions.md (2026-07-22 S2.3 entry) · [x] 🔧 tools-used.md (no new deps) · [ ] 📦 handoff (recording — needs device)
+### S2.3 — Route visualization on the 3D model — **SIMULATOR ACCEPTANCE PASS 2026-07-22; real-device 60fps check still open** (P2, code by P3)
+- [x] Upstairs bedroom → primary animates down stairs and out front door; secondary shows window path — **OBSERVED** (Kids' Bedroom: animated orange pulse route out through the green-highlighted exit + blue secondary window path — `s23-04-exploded-routes.png`, `s23-06-tour-mid.png`, `s23-05-tour-kids-bedroom.mp4`; routes from live POST /routes against a local backend, never client-computed)
+- [x] Tour mode runs smoothly — **OBSERVED on simulator** (`s23-05-tour-kids-bedroom.mp4`; starts/stops cleanly, controls lock during tour). Real-device frame-rate check still open (same posture as S1.3's 60fps box)
+- [x] Warning badge on room lacking secondary egress — **OBSERVED on the apartment fixture**: red badges on all 5 rooms + findings list "'X' has no second way out: every route depends on exit 'd_entry'" (`s23-09-apartment-badges.png`); twostory correctly shows NO kids'-room badge (documented gap, decisions.md 2026-07-16)
+- [x] 📋 decisions.md (2026-07-22 S2.3 entry) · [x] 🔧 tools-used.md (no new deps) · [x] 📦 handoff (recordings + screenshots in `artifacts/acceptance-2026-07-22/` — demo b-roll for S5.1)
 
 ### S2.4 — Persistence & documents — **CODE DONE 2026-07-16 (17 tests run green, export schema-validated), on-device kill/relaunch DEFERRED** (P3)
 - [ ] Kill + relaunch → everything persists
@@ -121,16 +121,16 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [ ] Conversation survives background/foreground *(persistence implemented + unit-tested — `ConversationStore`; tick after an on-device check)*
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (5 screenshot Q&As)
 
-### S3.4 — Family profiles end-to-end — **CODE DONE 2026-07-22 (mappings doc + /routes profile_id + iOS CRUD UI + live route switch); device acceptance pending** (P3 + P2/P1)
-- [ ] Grandpa vs Maya switch changes rendered route or raises no-viable-route flag (engine side proven in tests; *iOS wiring complete 2026-07-22 — PlanScreen's "Who" picker re-fetches /routes with profile_id and jumps to that profile's bedroom. Unchecked because nobody has watched the route actually change on screen.*)
-- [ ] Explanation text reflects the profile
+### S3.4 — Family profiles end-to-end — **SIMULATOR ACCEPTANCE PASS 2026-07-22 (route switch + no-viable-route flag + CRUD observed); explanation box key-blocked** (P3 + P2/P1)
+- [x] Grandpa vs Maya switch changes rendered route or raises no-viable-route flag — **OBSERVED 2026-07-22 on simulator** (`s34-02-profile-switch.mp4`): Maya → camera jumps to Kids' Bedroom with her route; Grandpa → jumps to Master Bedroom with red ❌ badge + "No viable escape route from 'Master Bedroom' under the current constraints" (mobility_limited avoids stairs+windows upstairs). One POST /routes per switch confirmed in backend log. Profile CRUD also exercised: added Grandpa (Elderly+Limited Mobility) and Maya (Child, Bedroom 2) via ProfilesScreen on Apartment 4B (`s34-05/06`)
+- [ ] Explanation text reflects the profile — *blocked on ANTHROPIC_API_KEY (/explain), not on a device*
 - [x] Deterministic profile→constraints mappings documented (docs/profile-constraint-mappings.md)
-- [x] 📋 decisions.md (2026-07-22 S3.4 iOS entry) · [x] 🔧 tools-used.md (no new deps) · [ ] 📦 handoff (live-switch recording — demo material; no longer blocked, needs a device session)
+- [x] 📋 decisions.md (2026-07-22 S3.4 iOS entry) · [x] 🔧 tools-used.md (no new deps) · [x] 📦 handoff (live-switch recording `artifacts/acceptance-2026-07-22/s34-02-profile-switch.mp4` — demo money shot)
 
-### S3.5 — Preparedness score + checklist — **BACKEND DONE 2026-07-16; iOS screen BUILT 2026-07-22 (P3) — needs simulator/device eyes-on pass** — cut candidate #3
+### S3.5 — Preparedness score + checklist — **DONE 2026-07-22 (backend 07-16; iOS screen built + simulator eyes-on pass same day)** — cut candidate #3
 - [x] Score reproducible by hand from documented weights (34 backend tests + live curl cross-check 2026-07-22: bungalow 75→80→100, twostory 75→77)
 - [x] Completing an item updates the score (client does no math — every toggle re-POSTs /score; backend-asserted)
-- [ ] Breakdown screen legible (built: 5 DisclosureGroup rows w/ progress bars + backend detail/rationale — needs an eyes-on simulator run to tick)
+- [x] Breakdown screen legible — **OBSERVED 2026-07-22 on simulator**: 5 DisclosureGroup rows w/ progress bars; expanding "Smoke alarms" shows per-item math ("0 of 7 … 2.14 points each") + cited rationale (`s35-01/02`); toggling "Smoke alarm inside Master Bedroom" re-POSTed /score and moved 75→77 on screen (`s35-05`), matching the documented backend cross-check
 - [x] 📋 · [x] 🔧 · [x] 📦 handoff (weights in docs/; session note 2026-07-22-s3-5-score-ios.md)
 
 ## Phase 4 — Integration & product

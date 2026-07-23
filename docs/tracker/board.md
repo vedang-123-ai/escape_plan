@@ -1,6 +1,31 @@
 # Board — where we are right now
 
-_Last updated: 2026-07-22 (by P3/Claude — S4.1 onboarding-flow backbone landed). Update this whenever a session flips status._
+_Last updated: 2026-07-22 (by P3/Claude — device-acceptance pass cleared S2.2/S2.3/S3.4/S3.5 on-screen boxes). Update this whenever a session flips status._
+
+## 🆕 2026-07-22 (latest) — simulator device-acceptance pass: S2.2 / S2.3 / S3.4 / S3.5 (P3)
+
+Drove the app click-by-click on a **dedicated** iPhone 17 Pro simulator (`p3-acceptance`) with
+`idb` HID taps/swipes, against a **local** backend (`localhost:8000`, dev bearer token — the
+Render token wasn't available; /routes and /score are deterministic, no Anthropic key needed).
+Evidence (screenshots + recordings = S5.1 b-roll) in **`artifacts/acceptance-2026-07-22/`**.
+
+- **S2.3 fully observed**: pulse primary + blue secondary from Kids' Bedroom, exploded view,
+  camera tour recorded, apartment shows red no-second-way-out badges + findings list (twostory
+  kids' room correctly shows none). Only the real-device 60fps box remains.
+- **S3.4 money shot recorded**: Everyone→Maya (route + camera to Kids' Bedroom) →Grandpa
+  (Master Bedroom + red "No viable escape route" flag). Profile CRUD (Grandpa, Maya) exercised
+  on Apartment 4B. Explanation-text box stays key-blocked.
+- **S3.5 DONE**: breakdown legible (expanded rationale w/ citation), toggle → POST /score →
+  75→77 on screen (matches backend cross-check).
+- **S2.2 mostly observed**: opening drag + stairs sheet + ~15-op mixed undo/redo unwind all
+  watched happen. Two UI bugs found for P2 (see decisions.md): tap-selection doesn't re-render
+  the toolbar (Add Stairs stays disabled until a revision-bumping action), and a redo tap
+  immediately after undo was dropped once. Real-scan door-fix box still awaits S1.4/S1.5.
+- **Ops note**: sharing the default 'iPhone 17 Pro' simulator + `.build-merge` derived-data
+  with a concurrently running session causes device shutdowns and build swaps mid-pass — use a
+  dedicated device + private derived-data path (this pass used `.build-p3`).
+
+Details: `docs/tracker/notes/2026-07-22-device-acceptance-pass.md`.
 
 ## 🆕 2026-07-22 (latest) — S4.1 golden-path backbone CODE DONE, device half remains (P3)
 

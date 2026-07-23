@@ -311,3 +311,42 @@ end — `PlanScreen` never called `reload()` when homes existed at first appeara
 `docs/demo/broll/s41-golden-path-simulator.mp4` (b-roll contract dir), driven by
 `escape_planUITests/GoldenPathRecordingUITests` — env-gated (`TEST_RUNNER_GOLDEN_PATH=1`,
 live backend required) so the normal suite stays hermetic.
+
+## 2026-07-22 — Device-acceptance pass (S2.2/S2.3/S3.4/S3.5 on-simulator) — P3
+
+- **How it was driven**: no XCUITest additions (no source edits allowed this session). Used
+  Facebook `idb` (`brew: facebook/fb/idb-companion` + `pip: fb-idb`) to send real HID
+  taps/swipes/text to a simulator, `simctl io` for screenshots/recordings. A first attempt at
+  window-level CGEvent clicking (pyobjc) was abandoned — a full-screen window from another app
+  kept focus and intercepted synthetic clicks; idb talks to the device directly and needs no
+  window focus. Toggle switches don't respond to idb taps — knob-drag swipes flip them.
+- **Isolation is mandatory**: the default 'iPhone 17 Pro' device and `.build-merge` derived
+  data are shared with concurrently running Claude sessions (an `xctrunner` from another lane
+  was live mid-pass). Symptoms: spontaneous device shutdowns, app data wiped, and a *different
+  lane's build* (with onboarding + the S4.1 date fix) silently replacing the one under test.
+  Fix: dedicated `p3-acceptance` device + private `-derivedDataPath .build-p3`.
+- **Backend**: local uvicorn (`BACKEND_BEARER_TOKEN=devtoken`, port 8000) because the Render
+  bearer token isn't available to sessions; APIClient's UserDefaults-backed
+  `baseURL`/`bearerToken` were written via `simctl spawn defaults write`. /routes + /score are
+  deterministic — acceptance did not need ANTHROPIC_API_KEY. Native phone-on-cellular timing
+  (S1.6) remains deferred as before.
+- **Fixture seeding**: no in-UI fixture loader exists — `schema/fixtures/{twostory,apartment}.json`
+  were copied straight into `<data-container>/Documents/Homes/<home_id>.homeplan.json`. On the
+  pre-S4.1 build this tripped the (since-fixed) HomeDocument date-strategy mismatch from both
+  directions (ISO fixture → "expected Double"; converted-to-Double → post-fix build says
+  "expected String"). Post-S4.1 code + raw ISO fixtures work. Confirms the S4.1 fix from the
+  consumer side.
+- **UI bugs found for P2** (all reproducible, screenshots in `artifacts/acceptance-2026-07-22/`):
+  1. `EditorScreen` toolbar state only re-renders on `revision` bumps; `store.selection` is not
+     observed. A plain tap-selection therefore never enables "Add Stairs" (and after undo clears
+     selection it stays stale the other way). Workaround used: drag-select then any
+     revision-bumping action (Add Room) → toolbar catches up. Suggested fix: bump revision (or
+     make the store observable) in the tap-selection path.
+  2. A redo tap issued ~2s after undo was dropped once (state showed correctly on a second
+     tap) — likely the same stale-render class.
+  3. Cosmetic: `highlight(_:)` clearing to `.none` doesn't repaint until the next commit
+     (`rendersContinuously=false`, no `setNeedsDisplay` on highlight-only changes), so a stale
+     yellow selection marker lingers.
+- **Scorecard**: S3.5 fully DONE; S2.3 + S3.4 observed except real-device 60fps (S2.3) and
+  key-blocked explanation text (S3.4); S2.2 observed except the real-converted-scan door-fix
+  criterion (needs S1.4/S1.5). Evidence + b-roll: `artifacts/acceptance-2026-07-22/`.
