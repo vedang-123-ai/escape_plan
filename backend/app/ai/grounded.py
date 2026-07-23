@@ -18,7 +18,7 @@ from functools import lru_cache
 from typing import Any, Optional
 
 import anthropic
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.config import CORPUS_DIR, get_settings
 from app.models import HomeModel, Profile
@@ -91,6 +91,11 @@ class ExplainResponse(BaseModel):
 EXPLAIN_TOOL: dict[str, Any] = {
     "name": "submit_explanation",
     "description": "Submit the structured route explanation and recommendations.",
+    # strict guarantees tool input validates against the schema server-side —
+    # added 2026-07-23 after a live run produced a stray "action_2" field that
+    # crashed model_validate (the schema already carries additionalProperties:
+    # false via extra="forbid", which strict mode requires).
+    "strict": True,
     "input_schema": ExplainResponse.model_json_schema(),
 }
 
@@ -252,11 +257,19 @@ def explain_routes(
         _log_cache_usage(response.usage, f"explain_routes attempt={attempt}")
 
         tool_use = next(b for b in response.content if b.type == "tool_use")
-        parsed = ExplainResponse.model_validate(tool_use.input)
-
-        last_problems = find_invalid_citations(parsed)
-        if not last_problems:
-            return parsed
+        try:
+            parsed = ExplainResponse.model_validate(tool_use.input)
+        except ValidationError as exc:
+            # strict=True on the tool should prevent this; belt-and-suspenders
+            # retry instead of a 500 if the schema guarantee ever slips.
+            last_problems = [
+                f"schema violation at {'.'.join(str(p) for p in e['loc'])}: {e['msg']}"
+                for e in exc.errors()
+            ]
+        else:
+            last_problems = find_invalid_citations(parsed)
+            if not last_problems:
+                return parsed
 
         logger.warning(
             "explain_routes attempt=%d rejected: %s", attempt, "; ".join(last_problems)
@@ -271,10 +284,11 @@ def explain_routes(
                         "tool_use_id": tool_use.id,
                         "is_error": True,
                         "content": (
-                            "Rejected — citation validation failed:\n- "
+                            "Rejected — validation failed:\n- "
                             + "\n- ".join(last_problems)
-                            + "\nEvery source_citation must be one of the source "
-                            "ids listed in your instructions. Resubmit."
+                            + "\nFollow the tool schema exactly (no extra fields) and "
+                            "every source_citation must be one of the source ids "
+                            "listed in your instructions. Resubmit."
                         ),
                     }
                 ],
@@ -282,7 +296,7 @@ def explain_routes(
         )
 
     raise GroundingError(
-        "citation validation failed after retries: " + "; ".join(last_problems)
+        "validation failed after retries: " + "; ".join(last_problems)
     )
 
 

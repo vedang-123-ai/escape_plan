@@ -81,7 +81,11 @@ def test_golden_explanations(case: str):
     plan_rooms = {r.room_id for r in plan.rooms}
     assert explained_rooms == plan_rooms, "every room in the plan gets an explanation"
     assert result.recommendations
-    assert latency < 30, f"latency {latency:.1f}s way over budget"
+    # Sanity ceiling against pathology (runaway retries, hangs) — NOT the
+    # playbook's p95 < 6s acceptance, which is unmet and tracked in TODO.md.
+    # Measured 2026-07-23 on claude-sonnet-5: warm p95 30.2s, normal range
+    # 23-50s, one 95s generation glitch observed; 30s flaked on variance.
+    assert latency < 90, f"latency {latency:.1f}s way over budget"
 
     GOLDEN_DIR.mkdir(exist_ok=True)
     snapshot_path = GOLDEN_DIR / f"{case}.json"
