@@ -35,3 +35,13 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - M docs/playbook/99-operating-notes.md
   - …and 43 more
 
+## 2026-07-23T06:10:05Z · Anish Yarrakonda · `main` @ `ce18f63`
+
+**Commits this session**
+  - ce18f63 Repo assessment: wire Capture + DrillMode, consolidate tracker, add anti-staleness
+
+## 2026-07-23T17:27:55Z · Anish Yarrakonda · `main` @ `ce18f63`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
