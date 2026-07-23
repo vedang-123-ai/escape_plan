@@ -235,3 +235,37 @@ device eyes-on pass + acceptance recording remain, same posture as S1.3. Decisio
 Tests: `escape_planTests/RoutePlanTests.swift` (14) + full suite green on the iPhone 17 Pro
 simulator. No new dependencies (SceneKit/URLSession only). Full writeup:
 `docs/tracker/notes/2026-07-22-s2-3-route-visualization.md`.
+
+## 2026-07-22 — S4.2 drill mode (guided walkthrough half)
+
+Built S4.2's independent half (P3) ahead of S4.1: the playbook lists S4.1 as prereq, but
+every building block the walkthrough needs was already merged (S2.3 tour, S3.4 profile-aware
+`/routes`, S3.5 practice checklist seam) — S4.1's golden path shares no code with it. All new
+code sits in `escape_plan/DrillMode/`; nothing else was edited. Decisions:
+
+- **Guided walkthrough, not quiz** (the playbook's recommended format). Select a family
+  member → step waypoint-by-waypoint along their primary route → cited instruction cards →
+  meeting-place card → "mark plan as practiced."
+- **Per-segment reuse of `RouteOverlay.startTour`**: the tour API is one continuous flight
+  with a single completion, and S4.2 may not edit it. Each "Next" flies a two-waypoint
+  `Route` slice of the fetched route's own waypoints — a camera path, not a computed route
+  (no new coordinates; `startTour` re-measures arc length itself). Floor crossings (paired
+  `stair` waypoints, same node_id) become card-only steps — no zero-length flight.
+- **"Mark plan as practiced" flips exactly `practice.drill_recent`** in
+  `ChecklistStateStore` (the id `backend/app/scoring/checklist.py` reserved for S4.2).
+  `practice.meeting_point` stays a manual ScoreScreen toggle — the drill can't verify a
+  family actually agreed on a spot. No client-side score math: ScoreScreen re-POSTs `/score`
+  with the updated state, so the number moves on its next appearance.
+- **Card safety copy is paraphrased from `backend/corpus/escape-planning-nfpa.md`** with
+  inline `[cite: nfpa-escape-planning]` / `[cite: usfa-escape-plans]` tags rendered verbatim
+  plus id chips (AssistantScreen precedent). Purely navigational lines carry no citation. A
+  unit test resolves every id in the copy against the real `sources.json`.
+- **Entry point deferred**: navigation is owned by the flow lane, so `DrillScreen.swift`
+  carries a `TODO(integration)` (mirror HomeScreen's Score/Profiles push) instead of touching
+  ContentView/HomeScreen.
+
+Tests: `escape_planTests/DrillModeTests.swift` (8: step derivation, stair crossings, clamping,
+citation resolution, practiced persistence) + full suite green on the iPhone 17 Pro simulator;
+EditorCore 128, backend 196, corpus valid. No new dependencies. Acceptance ("complete a drill
+for two profiles, score moves") is device-only and stays unchecked. Full writeup:
+`docs/tracker/notes/2026-07-22-s4-2-drill-walkthrough.md`.

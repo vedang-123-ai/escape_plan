@@ -140,10 +140,12 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 - [ ] Injected failures (kill backend mid-flow) degrade gracefully
 - [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (full-loop recording — demo skeleton)
 
-### S4.2 — Drill / practice mode — **BLOCKED (needs S4.1)** (P3 + P2) — **cut candidate #1**
-- [ ] Complete a drill for two different profiles
-- [ ] Practiced-state persists and moves the score
-- [ ] 📋 · [ ] 🔧 · [ ] 📦
+### S4.2 — Drill / practice mode — **walkthrough half CODE DONE 2026-07-22** (P3 + P2) — **cut candidate #1**
+- [ ] Complete a drill for two different profiles *(device-only — needs the entry point wired
+      (`TODO(integration)` in `DrillScreen.swift`) then a human run: twostory, Grandpa + Maya)*
+- [ ] Practiced-state persists and moves the score *(device-only — unit test covers the
+      `practice.drill_recent` persistence; a human must watch ScoreScreen move + survive relaunch)*
+- [x] 📋 (`notes/2026-07-22-s4-2-drill-walkthrough.md`) · [x] 🔧 (decisions.md; no new tools) · [ ] 📦 (drill run-through recording — after entry point lands)
 
 ### S4.3 — Real-home testing + bug bash — **BLOCKED (needs S4.1)** (all)
 - [ ] Golden path succeeds on 3/3 homes (editor-assisted fine)
