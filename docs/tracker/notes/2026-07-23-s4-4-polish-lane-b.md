@@ -2,7 +2,9 @@
 
 - **Who:** Lane B (Claude session, branch `lane/polish`)
 - **Date(s):** 2026-07-23
-- **Status when I stopped:** (updated at handoff — see Next steps)
+- **Status when I stopped:** committed as `8b8bf40` on `lane/polish` (NOT merged — Lane B
+  merges last). iOS suite 244 passed / 0 failed / 4 gated-skips (the gated drivers + golden
+  path, which was separately run live and passed). Before/after evidence committed.
 
 ## What happened
 
