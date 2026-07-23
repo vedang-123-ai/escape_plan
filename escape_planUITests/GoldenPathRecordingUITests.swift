@@ -30,7 +30,7 @@ final class GoldenPathRecordingUITests: XCTestCase {
         app.launch()
 
         // Step 1 — welcome.
-        let start = app.buttons["Start with the demo home"]
+        let start = app.buttons["Take the tour"]
         XCTAssertTrue(start.waitForExistence(timeout: 10))
         pause(2)
         start.tap()

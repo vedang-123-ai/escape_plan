@@ -104,7 +104,7 @@ struct DrillScreen: View {
                         Text(profile.name)
                         Spacer()
                         if !profile.tags.isEmpty {
-                            Text(profile.tags.map(\.rawValue).joined(separator: " · "))
+                            Text(profile.tags.map(\.displayName).joined(separator: " · "))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -208,7 +208,7 @@ struct DrillScreen: View {
         if isFetchingRoutes {
             HStack(spacing: 8) {
                 ProgressView()
-                Text("Planning routes… the first request can take ~30 s while the server wakes.")
+                Text("Getting the escape route ready… the first time can take about 30 seconds.")
                     .font(.caption)
             }
             .padding(10)
@@ -261,10 +261,10 @@ struct DrillScreen: View {
                 start(profile: profile, plan: plan)
             } catch is CancellationError {
             } catch APIClientError.unexpectedResponse(let statusCode) where statusCode == 401 {
-                routesError = "Backend rejected the request — check the bearer token in Settings."
+                routesError = "The server didn't accept the access token — check it in Settings."
             } catch {
                 guard !Task.isCancelled else { return }
-                routesError = "Couldn't fetch routes: \(error.localizedDescription)"
+                routesError = "Couldn't get the route — check your connection and try again. (\(error.localizedDescription))"
             }
         }
     }
@@ -290,12 +290,14 @@ struct DrillScreen: View {
         overlay.show(rooms: [room], home: homeModel, includeSecondary: false)
         sceneView?.setNeedsDisplay()
         session = drill
+        Haptics.begin()
     }
 
     private func stepForward() {
         guard var updated = session else { return }
         updated.advance()
         session = updated
+        Haptics.tick()
         if case .move(let segment, _) = updated.currentStep,
            let overlay, let view = sceneView {
             isFlying = true
@@ -322,7 +324,8 @@ struct DrillScreen: View {
         var state = stateStore.load(homeID: homeID)
         state["practice.drill_recent"] = true
         stateStore.save(state, homeID: homeID)
-        practiced = true
+        withAnimation(.spring(duration: 0.4)) { practiced = true }
+        Haptics.success()
     }
 }
 

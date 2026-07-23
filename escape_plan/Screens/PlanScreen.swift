@@ -77,12 +77,13 @@ struct PlanScreen: View {
     private var content: some View {
         if library.homes.isEmpty {
             ContentUnavailableView(
-                "No home to show",
+                "Your escape plan starts with a home",
                 systemImage: "figure.run",
-                description: Text("Build a home in the Editor tab first.")
+                description: Text("Add your home on the Home tab — scan it or build it — and "
+                                  + "the escape routes for every room will appear here.")
             )
         } else if let error = loadError {
-            ContentUnavailableView("Couldn't render home", systemImage: "exclamationmark.triangle",
+            ContentUnavailableView("Couldn't show this home", systemImage: "exclamationmark.triangle",
                                     description: Text(error))
         } else if let built {
             VStack(spacing: 0) {
@@ -112,7 +113,8 @@ struct PlanScreen: View {
         if isFetchingRoutes {
             HStack(spacing: 8) {
                 ProgressView()
-                Text("Planning routes… the first request can take ~30 s while the server wakes.")
+                Text("Planning your escape routes… the first time can take about 30 seconds "
+                     + "while the server wakes up.")
                     .font(.caption)
             }
             .padding(10)
@@ -185,6 +187,7 @@ struct PlanScreen: View {
                     Text(room.room_name).tag(Optional(room.room_id))
                 }
             }
+            .accessibilityIdentifier("plan.route.picker")
             .disabled(isTouring)
             .onChange(of: selectedRoomID) { _, _ in applyOverlay() }
 
@@ -198,6 +201,7 @@ struct PlanScreen: View {
                           systemImage: isTouring ? "stop.circle" : "play.circle")
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("plan.tour.button")
             } else if selectedRoomID == nil {
                 Text("Pick a room to tour").font(.caption2).foregroundStyle(.secondary)
             }
@@ -214,7 +218,7 @@ struct PlanScreen: View {
             }
         }
         if !overlayIssues.isEmpty {
-            Text("Some routes couldn't be drawn — see the log for details.")
+            Text("Some routes couldn't be drawn on the model.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -281,19 +285,20 @@ struct PlanScreen: View {
                     guard plan.home_id == homeModel.home_id else { return }
                     cachedPlanDate = nil
                     routePlan = plan
+                    Haptics.tick()
                 case .cached(let cached):
                     guard cached.plan.home_id == homeModel.home_id else { return }
                     cachedPlanDate = cached.savedAt
                     routePlan = cached.plan
-                    routesError = "Offline — showing the last saved plan from \(cached.savedAt.formatted(date: .abbreviated, time: .shortened))."
+                    routesError = "You're offline — showing your last saved routes from \(cached.savedAt.formatted(date: .abbreviated, time: .shortened))."
                 }
                 applyOverlay()
             } catch is CancellationError {
             } catch APIClientError.unexpectedResponse(let statusCode) where statusCode == 401 {
-                routesError = "Backend rejected the request — check the bearer token in Settings."
+                routesError = "The server didn't accept the access token — check it in Settings."
             } catch {
                 guard !Task.isCancelled else { return }
-                routesError = "Couldn't fetch routes: \(error.localizedDescription)"
+                routesError = "Couldn't get routes — check your connection and try again. (\(error.localizedDescription))"
             }
         }
     }
@@ -327,6 +332,7 @@ struct PlanScreen: View {
         explode = 0
         hiddenFloorIDs = []
         isTouring = true
+        Haptics.begin()
         overlay.startTour(along: route, in: view) { isTouring = false }
     }
 

@@ -37,15 +37,27 @@ struct OnboardingFlowView: View {
     private var welcome: some View {
         VStack(spacing: 16) {
             Spacer()
-            Image(systemName: "figure.run")
-                .font(.system(size: 56))
-                .foregroundStyle(.tint)
+            ZStack {
+                Circle()
+                    .fill(.tint.opacity(0.12))
+                    .frame(width: 148, height: 148)
+                Image(systemName: "house.fill")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.tint.opacity(0.35))
+                    .offset(y: -4)
+                Image(systemName: "figure.run")
+                    .font(.system(size: 44, weight: .semibold))
+                    .foregroundStyle(.tint)
+                    .offset(x: 26, y: 14)
+            }
+            .accessibilityHidden(true)
             Text("Escape Plan").font(.largeTitle.bold())
-            Text("Scan your home, review what the scan found, and get fire escape routes for every room — computed by a routing engine, explained with real safety guidance.")
-                .font(.callout)
+            Text("Map your home, and every room gets a way out. Practice it together, "
+                 + "before you ever need it.")
+                .font(.title3)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding(.horizontal, 32)
             Spacer()
             if let seedError = state.seedError {
                 // Seeding is fully local; this only fires if Documents itself is broken.
@@ -53,22 +65,24 @@ struct OnboardingFlowView: View {
                     .font(.caption)
                     .foregroundStyle(.red)
             }
-            Text("Real LiDAR scanning needs an iPhone Pro — this walkthrough uses a demo home captured ahead of time.")
-                .font(.caption2)
+            Text("Scanning with the camera needs an iPhone Pro — this tour uses a demo home "
+                 + "we prepared, so you can try everything right now.")
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding(.horizontal, 24)
             Button {
                 state.seedIfNeeded()
                 if state.seededHome != nil { state.step = .review }
             } label: {
-                Text("Start with the demo home")
+                Text("Take the tour")
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
             }
             .buttonStyle(.borderedProminent)
             .padding(.horizontal)
-            Button("Skip — I'll build my own home") { onFinished() }
-                .font(.caption)
+            Button("Skip — I'll map my own home") { onFinished() }
+                .font(.subheadline)
                 .padding(.bottom)
         }
     }

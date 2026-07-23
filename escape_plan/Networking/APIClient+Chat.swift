@@ -48,7 +48,7 @@ enum ChatError: LocalizedError {
         case .aiUnavailable:
             return "The assistant is unavailable right now — the server's AI isn't configured yet. Your escape routes on the Plan tab still work."
         case .unauthorized:
-            return "Not authorized — check the backend bearer token in Settings."
+            return "The server didn't accept the access token — check it in Settings."
         case .unexpectedStatus(let code, let detail):
             return "The assistant request failed (HTTP \(code))\(detail.map { ": \($0)" } ?? "")."
         }

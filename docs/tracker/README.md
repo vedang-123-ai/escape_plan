@@ -30,6 +30,10 @@ have, leave it there and say so — that honesty is what makes the rest of the f
 ## Conventions
 
 - Dates are absolute (`2026-07-22`), never "yesterday".
+- **Acceptance evidence**: `artifacts/` is gitignored (bulk output — logs, xcresult bundles,
+  recordings), so evidence that backs an acceptance claim goes in `docs/evidence/` instead — a
+  SMALL curated subset (screenshots <1 MB each, no videos over ~10 MB), one subdirectory per
+  session, each referenced from a session note or pairing doc. See `docs/evidence/README.md`.
 - Overlap with `docs/decisions.md` is fine: `decisions.md` is the formal deviation log, `notes/`
   is the informal scratchpad. Note it here first, promote real deviations at session end.
 - Claude Code reads this folder too — keeping it current means any session can be picked up by

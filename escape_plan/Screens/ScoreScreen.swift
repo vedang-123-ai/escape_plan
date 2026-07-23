@@ -39,11 +39,12 @@ struct ScoreScreen: View {
             ProgressView("Scoring…")
         } else if let errorMessage {
             ContentUnavailableView {
-                Label("Couldn't compute score", systemImage: "exclamationmark.triangle")
+                Label("Couldn't get your score", systemImage: "exclamationmark.triangle")
             } description: {
                 Text(errorMessage)
             } actions: {
-                Button("Retry") { refresh() }
+                Button("Try Again") { refresh() }
+                    .buttonStyle(.borderedProminent)
             }
         } else {
             ProgressView()
@@ -79,19 +80,31 @@ struct ScoreScreen: View {
     // MARK: - Score header
 
     private func scoreHeader(_ breakdown: ScoreBreakdown) -> some View {
-        VStack(spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("\(breakdown.score)")
-                    .font(.system(size: 64, weight: .bold, design: .rounded))
-                    .foregroundStyle(scoreTint(breakdown.score))
-                    .contentTransition(.numericText(value: Double(breakdown.score)))
-                if isUpdating {
-                    ProgressView()
+        VStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .stroke(scoreTint(breakdown.score).opacity(0.15), lineWidth: 12)
+                Circle()
+                    .trim(from: 0, to: max(0.02, Double(breakdown.score) / 100))
+                    .stroke(scoreTint(breakdown.score),
+                            style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .animation(.spring(duration: 0.8), value: breakdown.score)
+                VStack(spacing: 0) {
+                    Text("\(breakdown.score)")
+                        .font(.system(size: 52, weight: .bold, design: .rounded))
+                        .foregroundStyle(scoreTint(breakdown.score))
+                        .contentTransition(.numericText(value: Double(breakdown.score)))
+                    Text("of 100")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-            Text("out of 100")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            .frame(width: 148, height: 148)
+            .padding(.top, 4)
+            if isUpdating {
+                ProgressView()
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -206,6 +219,7 @@ struct ScoreScreen: View {
             set: { newValue in
                 checklistState[item.id] = newValue
                 stateStore.save(checklistState, homeID: homeID)
+                if newValue { Haptics.tick() }
                 refresh()
             }
         )
@@ -252,7 +266,7 @@ struct ScoreScreen: View {
             // A newer toggle superseded this request.
         } catch {
             guard !Task.isCancelled else { return }
-            errorMessage = "Score update failed: \(error)"
+            errorMessage = "The score couldn't update — check your connection and try again. (\(error.localizedDescription))"
         }
     }
 }
