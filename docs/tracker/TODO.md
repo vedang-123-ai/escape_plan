@@ -1,7 +1,7 @@
 # Everything still to do
 
-_Last verified: 2026-07-22 @ 2fef343 — reconciled against an observed run (backend up, app on
-simulator, full test gate green), not against what the old docs claimed._
+_Last verified: 2026-07-23 on `lane/editor` (../ep-editor worktree) — full gate re-run after
+the Lane A editor-completion session (openings feature + the four editor bugs)._
 
 This is the single source of truth for open work. It replaces the old `board.md` +
 `checklist.md`, which had drifted into contradicting each other.
@@ -18,8 +18,8 @@ This is the single source of truth for open work. It replaces the old `board.md`
 | Suite | Count | Command |
 |---|---|---|
 | Backend pytest | 196 pass, 11 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
-| EditorCore (SwiftPM) | 128 pass | `swift test --package-path tools/editorcore` |
-| iOS (unit + UI) | 242 pass, 1 skipped | `xcodebuild test -scheme escape_plan …` |
+| EditorCore (SwiftPM) | 146 pass | `swift test --package-path tools/editorcore` |
+| iOS (unit + UI) | 266 pass, 3 skipped (env-gated recording drivers) | `xcodebuild test -scheme escape_plan …` |
 | Corpus | 11 sources, 6 files | `python3 backend/corpus/validate.py` |
 
 ---
@@ -85,19 +85,21 @@ is unverified is the round-trip against a real scan.
 
 ## iOS — real code gaps
 
-- [ ] **`HomeModelPersisting` is declared but nothing conforms to it** and
-      `HomeLibrary.editor` is never assigned. Consequence: deleting a home that is open in
-      the editor does not close it or clear its undo history. Fix: conform `HomeModelStore`
-      and set `HomeLibrary.editor` when the editor opens. (S2.1/S2.4)
-- [ ] **Editor toolbar doesn't refresh after a tap-selection**, so "Add Stairs" stays
-      disabled until some other action bumps the revision and forces a re-render. Known
-      workaround only; see the 2026-07-22 device-acceptance entry in `decisions.md`. (S2.2)
-- [ ] **Redo occasionally needs a second tap** right after an undo — same stale-render
-      suspicion as above. Not blocking, but it will look bad on camera. (S2.2)
-- [ ] `SceneKitEditorBridge` gesture recognizers are still unwired (`TODO(integration)` in
-      the file's header block). (S2.1)
-- [ ] Add stairs between floors of a **hand-built** two-story home. Observed only on the
-      seeded fixture. (S2.2)
+_The four 2026-07-22 editor bugs (HomeModelPersisting unconformed, stale toolbar after
+tap-selection, second-tap redo, "unwired" bridge) are fixed and verified on `lane/editor` —
+see `notes/2026-07-23-lane-a-editor-completion.md`. Stairs on a hand-built two-story home
+verified in the recorded manual-build run. New follow-ups discovered in that session:_
+
+- [ ] `setOpeningWidth` exists in the reducer with tests but has **no UI entry point** — add a
+      width control (stepper/slider) to the opening inspector in `EditorScreen`. (Lane A)
+- [ ] The Editor *tab*'s standalone `EditorScreen()` has no `HomeLibrary`, so the
+      delete-under-editor seam only protects the HomeScreen→Editor push path. Cross-tab
+      delete while the Editor tab holds the same home is still unguarded — share one library
+      instance (or an app-level environment object) if that matters. (Lane A)
+- [ ] Selecting an opening or stairs draws no marker in the 3D view
+      (`EditorSceneController.highlightCenter` returns nil for both — deferred since S2.2).
+      The inspector bar makes the selection legible; a visible marker needs Lane B's renderer
+      touch. (S2.2/Lane B)
 - [ ] The deployed Render URL is not the app's default — `APIClient.developmentDefaultBaseURL`
       is `http://localhost:8000` and there is no prefilled bearer token, so a fresh install
       talks to nothing until someone types both into Settings. Decide whether the shipped

@@ -6,18 +6,13 @@
 import Combine
 import Foundation
 
-/// The narrow seam between persistence (S2.4) and the editor's store (S2.1).
+/// The narrow seam between persistence (S2.4) and the editor (S2.1).
 ///
-/// NOT YET WIRED (verified 2026-07-22). Nothing conforms to this protocol and
-/// `HomeLibrary.editor` is never assigned, so deleting a home that is currently open in the
-/// editor does not close it or clear its undo history. `HomeModelStore` does its own disk
-/// access via `HomeDocumentStore` directly rather than through this seam.
-///
-/// To finish it:
-///   1. Have `HomeModelStore` conform to `HomeModelPersisting`.
-///   2. Set `HomeLibrary.editor` to the store when the editor opens, so a home deleted from
-///      the list closes the editor and clears its undo history.
-/// Tracked in docs/tracker/TODO.md.
+/// Conformed to by `EditorSession` (the app-side wrapper around `HomeModelStore` +
+/// `UndoStack`): `EditorScreen` assigns `HomeLibrary.editor` to its session on open and
+/// clears it on close, so deleting a home from the list while it is open in the editor
+/// clears the editor's undo history and dismisses it.
+@MainActor
 protocol HomeModelPersisting: AnyObject {
     /// The home currently open in the editor, if any.
     var openHomeID: String? { get }
@@ -35,7 +30,7 @@ final class HomeLibrary: ObservableObject {
     @Published private(set) var loadError: String?
 
     let store: HomeDocumentStore
-    /// Never assigned today — see the `HomeModelPersisting` note above.
+    /// The session of the currently open editor, if any — see `HomeModelPersisting` above.
     weak var editor: HomeModelPersisting?
 
     init(store: HomeDocumentStore) {

@@ -10,10 +10,17 @@
 //  Pure except for the commit hooks. No I/O, no SceneKit, no SwiftUI — the SceneKit bridge and
 //  S2.2's undo/autosave layer sit on top of `onCommit`, they don't reach inside.
 //
+//  @Observable so SwiftUI re-renders on every model/selection change without manual revision
+//  counters (the pre-S2.2 `revision += 1` pattern missed tap-selection and redo — see
+//  docs/decisions.md). Observation is Foundation-family, so the core stays UIKit/SwiftUI-free
+//  and the macOS SwiftPM harness still compiles it (platform floor is macOS 14 for the macro).
+//
 //  Not thread-safe by design: it is main-actor UI state. Callers stay on the main thread.
 
 import Foundation
+import Observation
 
+@Observable
 final class HomeModelStore {
 
     /// Records one accepted mutation. S2.2's undo stack and autosave both subscribe here —
@@ -46,10 +53,10 @@ final class HomeModelStore {
 
     /// Called after every accepted mutation. S2.2 attaches undo-stack push + autosave here.
     /// Not called for `replaceModel` (undo itself must not push onto the undo stack).
-    var onCommit: ((Commit) -> Void)?
+    @ObservationIgnored var onCommit: ((Commit) -> Void)?
 
-    private let now: () -> Date
-    private let makeId: () -> String
+    @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private let makeId: () -> String
 
     // MARK: - Defaults
 
@@ -222,6 +229,26 @@ final class HomeModelStore {
             try dragOpening(&draft, openingId, t)
             return nil
 
+        case .addOpening(let roomId, let edgeIndex, let t, let kind):
+            try addOpening(&draft, roomId, edgeIndex, t, kind)
+            return nil
+
+        case .deleteOpening(let openingId):
+            try deleteOpening(&draft, openingId)
+            return nil
+
+        case .setOpeningKind(let openingId, let kind):
+            let (f, o) = try openingIndex(draft, openingId)
+            let defaults = OpeningPlacement.defaults(for: kind)
+            draft.floors[f].openings[o].kind = kind
+            draft.floors[f].openings[o].height_m = defaults.height_m
+            draft.floors[f].openings[o].sill_height_m = defaults.sill_height_m
+            return nil
+
+        case .setOpeningWidth(let openingId, let width_m):
+            try setOpeningWidth(&draft, openingId, width_m)
+            return nil
+
         case .addStairs(let fromFloorId, let fromRoomId, let toFloorId, let toRoomId,
                         let footprint, let kind):
             try addStairs(&draft, fromFloorId, fromRoomId, toFloorId, toRoomId, footprint, kind)
@@ -387,6 +414,69 @@ final class HomeModelStore {
         let newT1 = min(1, max(0, clampedT + halfWidthT))
         draft.floors[f].openings[o].wall_segment.t0 = newT0
         draft.floors[f].openings[o].wall_segment.t1 = newT1
+    }
+
+    /// Creates a door/window on the given wall. `room_ids` is derived from geometry (see
+    /// `OpeningPlacement.adjacentRoom`), never asked of the user: shared wall -> interior
+    /// opening, unshared wall -> EXTERIOR (an exterior door is thereby an exit).
+    private func addOpening(_ draft: inout HomeModel, _ roomId: String, _ edgeIndex: Int,
+                            _ t: Double, _ kind: OpeningKind) throws {
+        guard let located = draft.locateRoom(roomId) else {
+            throw ValidationIssue(.danglingReference, entityId: roomId, "no such room")
+        }
+        let f = draft.floorIndex(located.floorId)!
+        guard let edge = Geometry.edge(located.room.polygon, edgeIndex) else {
+            throw ValidationIssue(.openingPlacement, entityId: roomId,
+                                  "edge index \(edgeIndex) is out of range (\(located.room.polygon.count) edges)")
+        }
+
+        let defaults = OpeningPlacement.defaults(for: kind)
+        let edgeLength = Geometry.distance(edge.a, edge.b)
+        guard let span = OpeningPlacement.span(centerT: t, width_m: defaults.width_m,
+                                               edgeLength: edgeLength) else {
+            throw ValidationIssue(.openingPlacement, entityId: roomId,
+                                  "wall is too short (\(edgeLength) m) for a \(defaults.width_m) m \(kind.rawValue)")
+        }
+
+        let adjacent = OpeningPlacement.adjacentRoom(on: draft.floors[f], hostRoomId: roomId,
+                                                     edgeIndex: edgeIndex,
+                                                     t0: span.t0, t1: span.t1)
+        draft.floors[f].openings.append(
+            Opening(id: makeId(), kind: kind,
+                    room_ids: [roomId, adjacent?.id ?? EXTERIOR_ID],
+                    wall_segment: WallSegmentRef(room_id: roomId, edge_index: edgeIndex,
+                                                 t0: span.t0, t1: span.t1),
+                    width_m: defaults.width_m, height_m: defaults.height_m,
+                    sill_height_m: defaults.sill_height_m,
+                    egress: nil, source: .manual, confidence: nil))
+    }
+
+    private func deleteOpening(_ draft: inout HomeModel, _ openingId: String) throws {
+        let (f, o) = try openingIndex(draft, openingId)
+        draft.floors[f].openings.remove(at: o)
+        if case .opening(let id) = selection, id == openingId { selection = .none }
+    }
+
+    /// Re-centers the span around its current midpoint at the new width; the opening slides
+    /// inward if the wider span would hang off a wall end (same rule as placement).
+    private func setOpeningWidth(_ draft: inout HomeModel, _ openingId: String,
+                                 _ width_m: Double) throws {
+        let (f, o) = try openingIndex(draft, openingId)
+        let seg = draft.floors[f].openings[o].wall_segment
+        guard let host = draft.floors[f].room(seg.room_id),
+              let edge = Geometry.edge(host.polygon, seg.edge_index) else {
+            throw ValidationIssue(.danglingReference, entityId: openingId,
+                                  "opening's host wall no longer exists")
+        }
+        let edgeLength = Geometry.distance(edge.a, edge.b)
+        guard let span = OpeningPlacement.span(centerT: (seg.t0 + seg.t1) / 2, width_m: width_m,
+                                               edgeLength: edgeLength) else {
+            throw ValidationIssue(.openingDimensions, entityId: openingId,
+                                  "width \(width_m) m does not fit this \(edgeLength) m wall")
+        }
+        draft.floors[f].openings[o].width_m = width_m
+        draft.floors[f].openings[o].wall_segment.t0 = span.t0
+        draft.floors[f].openings[o].wall_segment.t1 = span.t1
     }
 
     // MARK: Stairs

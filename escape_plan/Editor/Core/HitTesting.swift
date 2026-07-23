@@ -97,6 +97,27 @@ enum HitTesting {
         return best?.0
     }
 
+    /// Resolves a tap to a position ON a wall — the placement query behind the Add Door /
+    /// Add Window tools. Same nearest-wall scan as `nearestWall`, but returns the parametric
+    /// (roomId, edgeIndex, t) the `addOpening` action wants instead of a Selection.
+    static func wallPoint(_ point: Point, floor: Floor,
+                          within radius: Double) -> (roomId: String, edgeIndex: Int, t: Double)? {
+        var best: ((roomId: String, edgeIndex: Int, t: Double), Double)?
+        for room in floor.rooms {
+            let n = room.polygon.count
+            guard n >= 3 else { continue }
+            for i in 0..<n {
+                let (_, t) = Geometry.closestPointOnSegment(point, room.polygon[i],
+                                                            room.polygon[(i + 1) % n])
+                let d = Geometry.distanceToSegment(point, room.polygon[i], room.polygon[(i + 1) % n])
+                if d <= radius, d < (best?.1 ?? .infinity) {
+                    best = ((roomId: room.id, edgeIndex: i, t: t), d)
+                }
+            }
+        }
+        return best?.0
+    }
+
     /// Scan-derived items the editor should badge for review (S2.2 renders the pulsing
     /// outline). Low-confidence items are flagged, never silently dropped — that rule is the
     /// reason `confidence` is required on scan items at all.

@@ -1,14 +1,24 @@
 //  EditorScreen.swift
 //  escape_plan
 //
-//  Real S2.1 editor screen, replacing the S1.3-pending placeholder. Loads (or creates) a
-//  HomeModel, drives it through a `HomeModelStore`, and renders it with `EditorSceneView`
-//  (the SceneKit top-down editor surface — see Editor/SceneKit/EditorSceneController.swift).
+//  The S2.1/S2.2 editor screen. Loads (or creates) a HomeModel into an `EditorSession`
+//  (HomeModelStore + UndoStack + the delete-under-editor seam) and renders it with
+//  `EditorSceneView` (the SceneKit top-down editor surface).
 //
-//  Autosaves through `HomeDocumentStore` on every accepted commit — the "S2.1's store should
-//  call store.save(model:) on autosave" seam from Persistence/HomeLibrary.swift.
+//  Rendering is reactive: `HomeModelStore` and `UndoStack` are @Observable, so every accepted
+//  mutation, selection change, and undo/redo re-renders whatever reads them — the pre-S2.2
+//  manual `revision += 1` bumps (which missed tap-selection and first-tap redo) are gone.
+//
+//  Autosaves through `HomeDocumentStore` on every accepted commit.
 
 import SwiftUI
+
+/// What a tap in the 3D view currently means. `.select` is the ordinary select/drag mode;
+/// `.placeOpening` is armed by Add Door / Add Window and disarms after one placement.
+enum EditorTool: Equatable {
+    case select
+    case placeOpening(OpeningKind)
+}
 
 struct EditorScreen: View {
     /// nil = start a brand-new home; otherwise open an existing saved one.
@@ -16,18 +26,29 @@ struct EditorScreen: View {
     /// Called after the editor creates or renames a home, so the caller (HomeScreen) can
     /// refresh its list without polling.
     var onModelChanged: (() -> Void)?
+    /// When the caller owns a `HomeLibrary`, the session registers as its open editor so a
+    /// home deleted from the list closes this screen and drops its undo history (the
+    /// `HomeModelPersisting` seam). The Editor-tab entry point has no library; that's fine.
+    var library: HomeLibrary?
 
-    @State private var store: HomeModelStore?
+    @State private var session: EditorSession?
     @State private var loadError: String?
-    @State private var revision = 0
     @State private var saveError: String?
-    @State private var undoStack = UndoStack()
     @State private var addStairsSheetPresented = false
+    @State private var tool: EditorTool = .select
+    /// The most recent rejected action's reasons — the editor's visible "that's not allowed".
+    @State private var rejection: String?
+
+    @State private var renameTarget: RenameTarget?
+    @State private var renameDraft = ""
+
+    @Environment(\.dismiss) private var dismiss
 
     private let documentStore: HomeDocumentStore?
 
-    init(homeID: String?, onModelChanged: (() -> Void)? = nil) {
+    init(homeID: String?, library: HomeLibrary? = nil, onModelChanged: (() -> Void)? = nil) {
         self.homeID = homeID
+        self.library = library
         self.onModelChanged = onModelChanged
         self.documentStore = try? HomeDocumentStore()
     }
@@ -38,20 +59,28 @@ struct EditorScreen: View {
         let documentStore = try? HomeDocumentStore()
         self.homeID = documentStore?.list().first?.id
         self.onModelChanged = nil
+        self.library = nil
         self.documentStore = documentStore
     }
 
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle(store?.model.name ?? "Editor")
+                .navigationTitle(session?.store.model.name ?? "Editor")
                 .toolbar { toolbarContent }
         }
         .task { loadIfNeeded() }
+        .onDisappear { unregisterFromLibrary() }
         .sheet(isPresented: $addStairsSheetPresented) {
-            if let store {
-                addStairsSheet(for: store)
+            if let session {
+                addStairsSheet(for: session.store)
             }
+        }
+        .alert(renameTarget?.title ?? "Rename", isPresented: renameAlertPresented,
+               presenting: renameTarget) { target in
+            TextField("Name", text: $renameDraft)
+            Button("Rename") { commitRename(target) }
+            Button("Cancel", role: .cancel) { renameTarget = nil }
         }
     }
 
@@ -60,10 +89,27 @@ struct EditorScreen: View {
         if let error = loadError {
             ContentUnavailableView("Couldn't open home", systemImage: "exclamationmark.triangle",
                                     description: Text(error))
-        } else if let store {
+        } else if let session {
+            let store = session.store
             VStack(spacing: 0) {
-                EditorSceneView(store: store, revision: revision, undoStack: undoStack)
+                EditorSceneView(store: store,
+                                model: store.model,
+                                activeFloorId: store.activeFloorId,
+                                selection: store.selection,
+                                tool: tool,
+                                undoStack: session.undoStack,
+                                onOpeningPlaced: { tool = .select })
+                if case .placeOpening(let kind) = tool {
+                    placementHint(kind: kind)
+                }
+                inspector(for: store)
                 floorPicker(for: store)
+                if let rejection {
+                    Text(rejection)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal)
+                }
                 if let saveError {
                     Text("Autosave failed: \(saveError)")
                         .font(.caption)
@@ -71,9 +117,112 @@ struct EditorScreen: View {
                         .padding(.horizontal)
                 }
             }
+            .onChange(of: session.wasDeletedExternally) { _, deleted in
+                if deleted { dismiss() }
+            }
         } else {
             ProgressView("Loading…")
         }
+    }
+
+    // MARK: Placement mode
+
+    @ViewBuilder
+    private func placementHint(kind: OpeningKind) -> some View {
+        HStack {
+            Image(systemName: kind == .door ? "door.left.hand.open" : "window.vertical.open")
+            Text("Tap a wall to place the \(kind.rawValue). Interior vs. exterior is automatic.")
+                .font(.caption)
+            Spacer()
+            Button("Cancel") { tool = .select }
+                .font(.caption.bold())
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .background(.thinMaterial)
+    }
+
+    // MARK: Inspector (selection-driven entry points)
+
+    @ViewBuilder
+    private func inspector(for store: HomeModelStore) -> some View {
+        switch store.selection {
+        case .room(let roomId):
+            if let (_, room) = store.model.locateRoom(roomId) {
+                inspectorBar {
+                    Button {
+                        beginRename(.room(roomId), currentName: room.name)
+                    } label: {
+                        Label(room.name, systemImage: "pencil")
+                            .labelStyle(.titleAndIcon)
+                            .lineLimit(1)
+                    }
+                    Picker("Type", selection: Binding(
+                        get: { room.type },
+                        set: { dispatch(.setRoomType(roomId: roomId, type: $0)) }
+                    )) {
+                        ForEach(RoomType.allCases, id: \.self) { type in
+                            Text(type.rawValue.capitalized).tag(type)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    Spacer()
+                    Button(role: .destructive) {
+                        dispatch(.deleteRoom(roomId: roomId))
+                    } label: {
+                        Label("Delete Room", systemImage: "trash")
+                            .labelStyle(.iconOnly)
+                    }
+                }
+            }
+        case .opening(let openingId):
+            if let opening = store.activeFloor.openings.first(where: { $0.id == openingId }) {
+                inspectorBar {
+                    Picker("Kind", selection: Binding(
+                        get: { opening.kind },
+                        set: { dispatch(.setOpeningKind(openingId: openingId, kind: $0)) }
+                    )) {
+                        ForEach(OpeningKind.allCases, id: \.self) { kind in
+                            Text(kind.rawValue.capitalized).tag(kind)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 180)
+                    Text(opening.isExit ? "Exterior" : "Interior")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button(role: .destructive) {
+                        dispatch(.deleteOpening(openingId: openingId))
+                    } label: {
+                        Label("Delete Opening", systemImage: "trash")
+                            .labelStyle(.iconOnly)
+                    }
+                }
+            }
+        case .stairs(let stairsId):
+            inspectorBar {
+                Label("Stairs", systemImage: "figure.stairs")
+                    .font(.caption)
+                Spacer()
+                Button(role: .destructive) {
+                    dispatch(.deleteStairs(stairsId: stairsId))
+                } label: {
+                    Label("Delete Stairs", systemImage: "trash")
+                        .labelStyle(.iconOnly)
+                }
+            }
+        case .none, .wall, .vertex:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private func inspectorBar<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        HStack(spacing: 12, content: content)
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial)
     }
 
     @ViewBuilder
@@ -81,7 +230,7 @@ struct EditorScreen: View {
         if store.model.floors.count > 1 {
             Picker("Floor", selection: Binding(
                 get: { store.activeFloorId },
-                set: { store.setActiveFloor($0); revision += 1 }
+                set: { store.setActiveFloor($0) }
             )) {
                 ForEach(store.model.floorsByLevel) { floor in
                     Text(floor.name.isEmpty ? "Level \(floor.level)" : floor.name).tag(floor.id)
@@ -92,6 +241,8 @@ struct EditorScreen: View {
         }
     }
 
+    // MARK: Toolbar
+
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarLeading) {
@@ -100,7 +251,7 @@ struct EditorScreen: View {
             } label: {
                 Label("Undo", systemImage: "arrow.uturn.backward")
             }
-            .disabled(!undoStack.canUndo)
+            .disabled(!(session?.undoStack.canUndo ?? false))
         }
         ToolbarItem(placement: .navigationBarLeading) {
             Button {
@@ -108,28 +259,77 @@ struct EditorScreen: View {
             } label: {
                 Label("Redo", systemImage: "arrow.uturn.forward")
             }
-            .disabled(!undoStack.canRedo)
+            .disabled(!(session?.undoStack.canRedo ?? false))
         }
         ToolbarItem(placement: .primaryAction) {
-            Button {
-                addRoom()
+            Menu {
+                Button {
+                    addRoom()
+                } label: {
+                    Label("Add Room", systemImage: "plus.square.on.square")
+                }
+                Button {
+                    tool = .placeOpening(.door)
+                } label: {
+                    Label("Add Door", systemImage: "door.left.hand.open")
+                }
+                Button {
+                    tool = .placeOpening(.window)
+                } label: {
+                    Label("Add Window", systemImage: "window.vertical.open")
+                }
+                Button {
+                    addStairsSheetPresented = true
+                } label: {
+                    Label("Add Stairs", systemImage: "figure.stairs")
+                }
+                .disabled(!canAddStairs)
+                Divider()
+                Button {
+                    addFloor(above: true)
+                } label: {
+                    Label("Add Floor Above", systemImage: "square.3.layers.3d.top.filled")
+                }
+                Button {
+                    addFloor(above: false)
+                } label: {
+                    Label("Add Floor Below", systemImage: "square.3.layers.3d.bottom.filled")
+                }
             } label: {
-                Label("Add Room", systemImage: "plus.square.on.square")
+                Label("Add", systemImage: "plus")
             }
-            .disabled(store == nil)
+            .disabled(session == nil)
         }
         ToolbarItem(placement: .primaryAction) {
-            Button {
-                addStairsSheetPresented = true
+            Menu {
+                Button {
+                    beginRename(.home, currentName: session?.store.model.name ?? "")
+                } label: {
+                    Label("Rename Home", systemImage: "pencil")
+                }
+                Button {
+                    guard let store = session?.store else { return }
+                    beginRename(.floor(store.activeFloorId), currentName: store.activeFloor.name)
+                } label: {
+                    Label("Rename Floor", systemImage: "pencil.line")
+                }
+                Button(role: .destructive) {
+                    guard let store = session?.store else { return }
+                    dispatch(.deleteFloor(floorId: store.activeFloorId))
+                } label: {
+                    Label("Delete This Floor", systemImage: "trash")
+                }
             } label: {
-                Label("Add Stairs", systemImage: "figure.stairs")
+                Label("More", systemImage: "ellipsis.circle")
             }
-            .disabled(!canAddStairs)
+            .disabled(session == nil)
         }
     }
 
+    // MARK: Loading & saving
+
     private func loadIfNeeded() {
-        guard store == nil, loadError == nil else { return }
+        guard session == nil, loadError == nil else { return }
         do {
             let model: HomeModel
             if let homeID, let documentStore, documentStore.exists(homeID: homeID) {
@@ -138,14 +338,13 @@ struct EditorScreen: View {
                 model = Self.blankHome()
             }
             let newStore = try HomeModelStore(model: model)
-            newStore.onCommit = { [documentStore, undoStack] commit in
-                // Every accepted mutation (including each step of a live drag) must repaint the
-                // 3D view — `HomeModelStore` isn't Observable, so nothing else triggers it.
-                undoStack.recordCommit(commit)
-                revision += 1
+            let newSession = EditorSession(store: newStore)
+            newStore.onCommit = { [documentStore] commit in
+                newSession.undoStack.recordCommit(commit)
                 autosave(newStore, documentStore: documentStore)
             }
-            store = newStore
+            session = newSession
+            library?.editor = newSession
             // A brand-new home has nothing on disk yet — write it immediately so it shows up
             // in the home list without waiting for the first edit.
             if homeID == nil {
@@ -153,6 +352,12 @@ struct EditorScreen: View {
             }
         } catch {
             loadError = "\(error)"
+        }
+    }
+
+    private func unregisterFromLibrary() {
+        if let library, library.editor === session {
+            library.editor = nil
         }
     }
 
@@ -166,13 +371,27 @@ struct EditorScreen: View {
         onModelChanged?()
     }
 
+    // MARK: Dispatch
+
+    /// Screen-level dispatch: forwards to the store and surfaces a rejection's reasons in the
+    /// UI (the store guarantees a rejected action left the model untouched).
+    private func dispatch(_ action: EditAction) {
+        guard let store = session?.store else { return }
+        switch store.dispatch(action) {
+        case .applied:
+            rejection = nil
+        case .rejected(let issues):
+            rejection = issues.first?.message
+        }
+    }
+
     private func addRoom() {
-        guard let store else { return }
+        guard let store = session?.store else { return }
         // Stagger new rooms so they don't land exactly on top of each other; not spatially
         // clever, just enough that the new room is visibly separate and grabbable.
         let count = store.activeFloor.rooms.count
         let offset = Double(count) * (HomeModelStore.defaultRoomSize.width + 0.5)
-        store.dispatch(.addRoom(
+        dispatch(.addRoom(
             floorId: store.activeFloorId,
             origin: Point(x: offset, y: 0),
             width_m: HomeModelStore.defaultRoomSize.width,
@@ -180,29 +399,70 @@ struct EditorScreen: View {
             type: .other,
             name: "New Room"
         ))
-        revision += 1
+    }
+
+    private func addFloor(above: Bool) {
+        guard let store = session?.store else { return }
+        dispatch(.addFloor(relativeTo: store.activeFloorId, above: above))
     }
 
     // MARK: Undo/redo
 
     private func undo() {
-        guard let store, undoStack.undo(on: store) else { return }
+        guard let session, session.undoStack.undo(on: session.store) else { return }
         // replaceModel does NOT fire onCommit (undoing must not push its own undo entry), so
-        // this mirrors addRoom()'s manual revision-bump + explicit autosave.
-        revision += 1
-        autosave(store, documentStore: documentStore)
+        // autosave explicitly.
+        autosave(session.store, documentStore: documentStore)
     }
 
     private func redo() {
-        guard let store, undoStack.redo(on: store) else { return }
-        revision += 1
-        autosave(store, documentStore: documentStore)
+        guard let session, session.undoStack.redo(on: session.store) else { return }
+        autosave(session.store, documentStore: documentStore)
+    }
+
+    // MARK: Rename
+
+    private enum RenameTarget: Equatable {
+        case home
+        case floor(String)
+        case room(String)
+
+        var title: String {
+            switch self {
+            case .home: return "Rename Home"
+            case .floor: return "Rename Floor"
+            case .room: return "Rename Room"
+            }
+        }
+    }
+
+    private var renameAlertPresented: Binding<Bool> {
+        Binding(
+            get: { renameTarget != nil },
+            set: { if !$0 { renameTarget = nil } }
+        )
+    }
+
+    private func beginRename(_ target: RenameTarget, currentName: String) {
+        renameDraft = currentName
+        renameTarget = target
+    }
+
+    private func commitRename(_ target: RenameTarget) {
+        let name = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        renameTarget = nil
+        guard !name.isEmpty else { return }
+        switch target {
+        case .home: dispatch(.setHomeName(name))
+        case .floor(let floorId): dispatch(.renameFloor(floorId: floorId, name: name))
+        case .room(let roomId): dispatch(.renameRoom(roomId: roomId, name: name))
+        }
     }
 
     // MARK: Stairs
 
     private var canAddStairs: Bool {
-        guard let store else { return false }
+        guard let store = session?.store else { return false }
         let hasFloorAbove = store.model.floors.contains { $0.level == store.activeFloor.level + 1 }
         return hasFloorAbove && store.selection.roomId != nil
     }
@@ -229,7 +489,7 @@ struct EditorScreen: View {
     }
 
     private func addStairs(toFloorId: String, toRoomId: String) {
-        guard let store, let fromRoomId = store.selection.roomId,
+        guard let store = session?.store, let fromRoomId = store.selection.roomId,
               let fromRoom = store.activeFloor.room(fromRoomId) else { return }
         let sum = fromRoom.polygon.reduce(Point(0, 0)) { Point($0.x + $1.x, $0.y + $1.y) }
         let centroid = Point(sum.x / Double(fromRoom.polygon.count), sum.y / Double(fromRoom.polygon.count))
@@ -239,10 +499,9 @@ struct EditorScreen: View {
             Point(centroid.x + 0.5, centroid.y + 0.5),
             Point(centroid.x - 0.5, centroid.y + 0.5)
         ]
-        store.dispatch(.addStairs(fromFloorId: store.activeFloorId, fromRoomId: fromRoomId,
-                                  toFloorId: toFloorId, toRoomId: toRoomId,
-                                  footprint: footprint, kind: .straight))
-        revision += 1
+        dispatch(.addStairs(fromFloorId: store.activeFloorId, fromRoomId: fromRoomId,
+                            toFloorId: toFloorId, toRoomId: toRoomId,
+                            footprint: footprint, kind: .straight))
         addStairsSheetPresented = false
     }
 

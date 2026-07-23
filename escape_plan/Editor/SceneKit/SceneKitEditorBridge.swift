@@ -1,29 +1,13 @@
 //  SceneKitEditorBridge.swift — the ONLY device-coupled file in the editor.
 //
-//  ============================ TODO(integration) — READ FIRST ============================
-//  S1.3 (the SceneKit renderer, owner P2) was built in a parallel lane and is NOT on this
-//  branch. This file therefore has no renderer to talk to yet, and is written against an
-//  explicit seam — the `EditorSceneAdapter` protocol below — rather than against S1.3's node
-//  graph, which nobody here has seen.
+//  Turns raw gestures into `EditAction`s against the `EditorSceneAdapter` seam below.
+//  `EditorSceneController` is the conformer (it owns the camera and the unprojection);
+//  `EditorSceneView` owns the gesture recognizers and routes them here. Everything else about
+//  editing — what a tap selects, what a drag does, whether a mutation is legal — lives in
+//  `Editor/Core/` and is unit-tested without a device; this file stays a thin translator.
 //
-//  On merge, S1.3's renderer conforms to `EditorSceneAdapter` and everything else here works
-//  unchanged. There are exactly three things to wire:
-//
-//    1. `worldPoint(from:)`  — unproject a screen touch onto the active floor's plane.
-//       S1.3 owns the camera, so S1.3 owns this. Everything below is in floor-local meters
-//       and does not care how the projection happens.
-//    2. `metersPerPoint()`   — how many meters one screen point covers at the current zoom.
-//       Drives touch tolerances; a fixed meter tolerance would be unusable at either extreme.
-//    3. `highlight(_:)`      — draw the selection (handles on a selected room, etc).
-//
-//  Everything ELSE about editing — what a tap selects, what a drag does, whether a mutation is
-//  legal — is already done, in `Editor/Core/`, and is unit-tested without a device. That split
-//  is deliberate: the untestable part of this session is this file and nothing else.
-//  ========================================================================================
-//
-//  Deferred to an on-device session (also blocked on S1.3, per the S2.1 handoff):
-//    - the "build the bungalow by hand in < 5 minutes" acceptance run and its recording
-//    - haptics tuning (the rejection buzz is wired below but has never been felt)
+//  Still open (device-only): haptics tuning — the rejection buzz is wired below but has only
+//  been exercised on the simulator, where haptics don't fire.
 
 import Foundation
 
@@ -90,7 +74,6 @@ final class SceneKitEditorBridge {
 
     // MARK: Tap
 
-    /// TODO(integration): call from a UITapGestureRecognizer on S1.3's SCNView.
     func handleTap(at screenPoint: CGPoint) {
         guard let scene, let world = scene.worldPoint(from: screenPoint) else { return }
 
@@ -101,10 +84,40 @@ final class SceneKitEditorBridge {
         if selection != .none { play(.selection) }
     }
 
+    // MARK: Placement
+
+    /// The Add Door / Add Window tap: resolves the touch to a parametric wall position and
+    /// dispatches `addOpening` (adjacency decides interior vs. EXTERIOR — see
+    /// `OpeningPlacement`). Returns whether an opening was actually added, so the caller can
+    /// disarm its one-shot placement tool. The new opening is selected on success; a miss or
+    /// a rejected placement (overlap, too-short wall) buzzes.
+    @discardableResult
+    func handlePlacementTap(at screenPoint: CGPoint, kind: OpeningKind) -> Bool {
+        guard let scene, let world = scene.worldPoint(from: screenPoint) else { return false }
+        guard let hit = HitTesting.wallPoint(world, floor: store.activeFloor,
+                                             within: tolerances().wallRadiusM) else {
+            play(.rejected)
+            return false
+        }
+        switch store.dispatch(.addOpening(roomId: hit.roomId, edgeIndex: hit.edgeIndex,
+                                          t: hit.t, kind: kind)) {
+        case .applied:
+            // The reducer appends to the active floor, so the new opening is `last`.
+            if let placed = store.activeFloor.openings.last {
+                let selection = Selection.opening(openingId: placed.id)
+                store.select(selection)
+                scene.highlight(selection)
+            }
+            play(.selection)
+            return true
+        case .rejected:
+            play(.rejected)
+            return false
+        }
+    }
+
     // MARK: Drag
 
-    /// TODO(integration): call from a UIPanGestureRecognizer on S1.3's SCNView.
-    ///
     /// One gesture = many dispatches. That is fine for the model (each is validated) but S2.2
     /// must coalesce them into ONE undo entry — see `EditAction.isContinuousDrag`.
     func handleDrag(_ state: UIGestureRecognizer.State, at screenPoint: CGPoint) {

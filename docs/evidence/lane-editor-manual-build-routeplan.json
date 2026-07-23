@@ -1,0 +1,397 @@
+{
+  "home_id": "14E8117E-6092-4158-A6BD-5E7AC86B8667",
+  "home_name": "New Home",
+  "constraints": {
+    "avoid_stairs": false,
+    "avoid_windows": false,
+    "max_sill_height_m": null,
+    "stair_penalty_m": 0.0,
+    "window_penalty_m": 0.0
+  },
+  "profile_id": null,
+  "rooms": [
+    {
+      "room_id": "room-73A819E4",
+      "room_name": "Room 1",
+      "floor_id": "floor-48FA3CB9",
+      "primary": {
+        "waypoints": [
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "room-73A819E4",
+            "kind": "room"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 0.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "231D0201-4517-4FE1-B40D-E3CF4A2C4C47",
+            "kind": "opening"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 0.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 1.5,
+        "uses_stairs": false,
+        "uses_window": false,
+        "exit_id": "231D0201-4517-4FE1-B40D-E3CF4A2C4C47"
+      },
+      "secondary": {
+        "waypoints": [
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "room-73A819E4",
+            "kind": "room"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 3.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "8B269870-AFC0-4C1B-8B57-3038654C432B",
+            "kind": "opening"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 3.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 1.5,
+        "uses_stairs": false,
+        "uses_window": true,
+        "exit_id": "8B269870-AFC0-4C1B-8B57-3038654C432B"
+      },
+      "findings": []
+    },
+    {
+      "room_id": "36A025AA-7B13-422B-93BF-9941628CADC4",
+      "room_name": "New Room",
+      "floor_id": "floor-48FA3CB9",
+      "primary": {
+        "waypoints": [
+          {
+            "x": 4.75,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "36A025AA-7B13-422B-93BF-9941628CADC4",
+            "kind": "room"
+          },
+          {
+            "x": 3.0,
+            "y": 1.5000005955094555,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "0CA7D89A-2BDA-49EA-9A41-0CA7AF11175E",
+            "kind": "opening"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "room-73A819E4",
+            "kind": "room"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 0.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "231D0201-4517-4FE1-B40D-E3CF4A2C4C47",
+            "kind": "opening"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 0.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 4.75,
+        "uses_stairs": false,
+        "uses_window": false,
+        "exit_id": "231D0201-4517-4FE1-B40D-E3CF4A2C4C47"
+      },
+      "secondary": {
+        "waypoints": [
+          {
+            "x": 4.75,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "36A025AA-7B13-422B-93BF-9941628CADC4",
+            "kind": "room"
+          },
+          {
+            "x": 6.5,
+            "y": 1.4970558876398814,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "FE2F8A7E-7FF3-4B86-9A14-D1959E10F070",
+            "kind": "opening"
+          },
+          {
+            "x": 6.5,
+            "y": 1.4970558876398814,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 1.75,
+        "uses_stairs": false,
+        "uses_window": true,
+        "exit_id": "FE2F8A7E-7FF3-4B86-9A14-D1959E10F070"
+      },
+      "findings": []
+    },
+    {
+      "room_id": "982E5607-8979-43FB-BD70-28F6E804B592",
+      "room_name": "Room",
+      "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+      "primary": {
+        "waypoints": [
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "982E5607-8979-43FB-BD70-28F6E804B592",
+            "kind": "room"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "27E93E83-4D0B-4AAB-8C2E-B42AFABF94BD",
+            "kind": "stair"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "27E93E83-4D0B-4AAB-8C2E-B42AFABF94BD",
+            "kind": "stair"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "room-73A819E4",
+            "kind": "room"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 0.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "231D0201-4517-4FE1-B40D-E3CF4A2C4C47",
+            "kind": "opening"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 0.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 7.5,
+        "uses_stairs": true,
+        "uses_window": false,
+        "exit_id": "231D0201-4517-4FE1-B40D-E3CF4A2C4C47"
+      },
+      "secondary": {
+        "waypoints": [
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "982E5607-8979-43FB-BD70-28F6E804B592",
+            "kind": "room"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "27E93E83-4D0B-4AAB-8C2E-B42AFABF94BD",
+            "kind": "stair"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "27E93E83-4D0B-4AAB-8C2E-B42AFABF94BD",
+            "kind": "stair"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "room-73A819E4",
+            "kind": "room"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 3.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "8B269870-AFC0-4C1B-8B57-3038654C432B",
+            "kind": "opening"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 3.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 7.5,
+        "uses_stairs": true,
+        "uses_window": true,
+        "exit_id": "8B269870-AFC0-4C1B-8B57-3038654C432B"
+      },
+      "findings": []
+    },
+    {
+      "room_id": "47D9DFCE-E174-4118-871F-F65203E657FB",
+      "room_name": "New Room",
+      "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+      "primary": {
+        "waypoints": [
+          {
+            "x": 4.75,
+            "y": 1.5,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "47D9DFCE-E174-4118-871F-F65203E657FB",
+            "kind": "room"
+          },
+          {
+            "x": 3.0,
+            "y": 1.496942400395456,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "BAF15EE5-67B0-458B-85A9-D31B49ECFD0C",
+            "kind": "opening"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "982E5607-8979-43FB-BD70-28F6E804B592",
+            "kind": "room"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "27E93E83-4D0B-4AAB-8C2E-B42AFABF94BD",
+            "kind": "stair"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "27E93E83-4D0B-4AAB-8C2E-B42AFABF94BD",
+            "kind": "stair"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "room-73A819E4",
+            "kind": "room"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 0.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "231D0201-4517-4FE1-B40D-E3CF4A2C4C47",
+            "kind": "opening"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 0.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 10.75,
+        "uses_stairs": true,
+        "uses_window": false,
+        "exit_id": "231D0201-4517-4FE1-B40D-E3CF4A2C4C47"
+      },
+      "secondary": {
+        "waypoints": [
+          {
+            "x": 4.75,
+            "y": 1.5,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "47D9DFCE-E174-4118-871F-F65203E657FB",
+            "kind": "room"
+          },
+          {
+            "x": 3.0,
+            "y": 1.496942400395456,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "BAF15EE5-67B0-458B-85A9-D31B49ECFD0C",
+            "kind": "opening"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "982E5607-8979-43FB-BD70-28F6E804B592",
+            "kind": "room"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+            "node_id": "27E93E83-4D0B-4AAB-8C2E-B42AFABF94BD",
+            "kind": "stair"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "27E93E83-4D0B-4AAB-8C2E-B42AFABF94BD",
+            "kind": "stair"
+          },
+          {
+            "x": 1.5,
+            "y": 1.5,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "room-73A819E4",
+            "kind": "room"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 3.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "8B269870-AFC0-4C1B-8B57-3038654C432B",
+            "kind": "opening"
+          },
+          {
+            "x": 1.5007750988006592,
+            "y": 3.0,
+            "floor_id": "floor-48FA3CB9",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 10.75,
+        "uses_stairs": true,
+        "uses_window": true,
+        "exit_id": "8B269870-AFC0-4C1B-8B57-3038654C432B"
+      },
+      "findings": []
+    }
+  ],
+  "bottlenecks": []
+}

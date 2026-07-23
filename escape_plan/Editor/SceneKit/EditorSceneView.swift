@@ -2,8 +2,12 @@
 //
 //  SwiftUI host for the on-device editor: a top-down SCNView driven by
 //  `EditorSceneController` (the `EditorSceneAdapter`) and `SceneKitEditorBridge` (gesture ->
-//  `EditAction` translation). This is the last piece of the S2.1/S1.3 integration seam described
-//  in SceneKitEditorBridge.swift's TODO(integration) header.
+//  `EditAction` translation).
+//
+//  `model`/`activeFloorId`/`selection` are passed BY VALUE alongside the store: the store is
+//  @Observable, so the parent body re-evaluates on every change, and the changed values here
+//  are what make SwiftUI call `updateUIView` (a reference-typed store alone would never look
+//  different to the representable's diff).
 
 import SwiftUI
 
@@ -13,10 +17,14 @@ import UIKit
 
 struct EditorSceneView: UIViewRepresentable {
     let store: HomeModelStore
-    /// Bumped by the screen after every accepted commit so `updateUIView` knows to rebuild —
-    /// `HomeModelStore` isn't `Observable`, so SwiftUI has nothing else to diff against.
-    var revision: Int
+    let model: HomeModel
+    let activeFloorId: String
+    let selection: Selection
+    var tool: EditorTool = .select
     let undoStack: UndoStack
+    /// Called after a `.placeOpening` tap successfully adds its opening, so the screen can
+    /// disarm the tool (placement is one-shot).
+    var onOpeningPlaced: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(store: store)
@@ -24,6 +32,10 @@ struct EditorSceneView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView()
+        // Lets UI automation (the manual-build recording driver) find the scene surface and
+        // convert floor-plan meters into tap coordinates.
+        view.isAccessibilityElement = true
+        view.accessibilityIdentifier = "editor.scene"
         let controller = EditorSceneController(scnView: view)
         context.coordinator.controller = controller
         context.coordinator.bridge = SceneKitEditorBridge(store: store, scene: controller, undoStack: undoStack)
@@ -40,6 +52,8 @@ struct EditorSceneView: UIViewRepresentable {
 
     func updateUIView(_ view: SCNView, context: Context) {
         guard let controller = context.coordinator.controller else { return }
+        context.coordinator.tool = tool
+        context.coordinator.onOpeningPlaced = onOpeningPlaced
         controller.currentHome = store.model
         // Cheap to rebuild unconditionally (see `DollhouseSceneBuilder.build` doc comment: it's
         // a pure function of the model) — the alternative is threading a fine-grained "what
@@ -54,6 +68,8 @@ struct EditorSceneView: UIViewRepresentable {
         let store: HomeModelStore
         var controller: EditorSceneController?
         var bridge: SceneKitEditorBridge?
+        var tool: EditorTool = .select
+        var onOpeningPlaced: (() -> Void)?
 
         init(store: HomeModelStore) {
             self.store = store
@@ -61,7 +77,14 @@ struct EditorSceneView: UIViewRepresentable {
 
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
             guard let view = recognizer.view else { return }
-            bridge?.handleTap(at: recognizer.location(in: view))
+            let location = recognizer.location(in: view)
+            if case .placeOpening(let kind) = tool {
+                if bridge?.handlePlacementTap(at: location, kind: kind) == true {
+                    onOpeningPlaced?()
+                }
+            } else {
+                bridge?.handleTap(at: location)
+            }
         }
 
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
@@ -77,8 +100,12 @@ struct EditorSceneView: UIViewRepresentable {
 /// the editor is iOS-only per CLAUDE.md's scope lock.
 struct EditorSceneView: View {
     let store: HomeModelStore
-    var revision: Int
+    let model: HomeModel
+    let activeFloorId: String
+    let selection: Selection
+    var tool: EditorTool = .select
     let undoStack: UndoStack
+    var onOpeningPlaced: (() -> Void)?
     var body: some View {
         Text("3D editor requires iOS/SceneKit.")
     }

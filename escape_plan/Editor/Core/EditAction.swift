@@ -45,6 +45,20 @@ enum EditAction: Equatable, Sendable {
     /// existing width_m, so the caller never computes wall-length itself.
     case dragOpening(openingId: String, t: Double)
 
+    // MARK: Openings
+    /// Places a door/window on wall `edgeIndex` of `roomId`, centered as close to `t` (the
+    /// tap's normalized position on that edge) as the wall allows. Width/height/sill come from
+    /// `OpeningPlacement.defaults(for:)`; `room_ids` is DERIVED — another room sharing that
+    /// stretch of wall makes it an interior opening, otherwise it faces EXTERIOR (a door there
+    /// is an exit). The user is never asked interior-vs-exterior.
+    case addOpening(roomId: String, edgeIndex: Int, t: Double, kind: OpeningKind)
+    case deleteOpening(openingId: String)
+    /// Door <-> window. Height and sill jump to the new kind's defaults (a door's 0-sill makes
+    /// no sense on a window and vice versa); width and position stay put.
+    case setOpeningKind(openingId: String, kind: OpeningKind)
+    /// Re-centers the existing span around its midpoint at the new width.
+    case setOpeningWidth(openingId: String, width_m: Double)
+
     // MARK: Stairs (S2.2)
     /// Connects `fromRoomId` on `fromFloorId` to `toRoomId` on another floor. `footprint` is a
     /// simple polygon in the FROM floor's local coordinates (the renderer/model draw stairs on
@@ -77,6 +91,11 @@ extension EditAction {
         case .dragEdge: return "Move Wall"
         case .dragRoom: return "Move Room"
         case .dragOpening: return "Move Opening"
+        case .addOpening(_, _, _, let kind):
+            return kind == .door ? "Add Door" : "Add Window"
+        case .deleteOpening: return "Delete Opening"
+        case .setOpeningKind: return "Change Opening Type"
+        case .setOpeningWidth: return "Resize Opening"
         case .addStairs: return "Add Stairs"
         case .deleteStairs: return "Delete Stairs"
         case .addProfile: return "Add Profile"

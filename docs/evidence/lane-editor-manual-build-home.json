@@ -1,0 +1,253 @@
+{
+  "floors" : [
+    {
+      "height_m" : 2.7,
+      "id" : "floor-48FA3CB9",
+      "level" : 0,
+      "name" : "Ground Floor",
+      "openings" : [
+        {
+          "height_m" : 2,
+          "id" : "0CA7D89A-2BDA-49EA-9A41-0CA7AF11175E",
+          "kind" : "door",
+          "room_ids" : [
+            "room-73A819E4",
+            "36A025AA-7B13-422B-93BF-9941628CADC4"
+          ],
+          "sill_height_m" : 0,
+          "source" : "manual",
+          "wall_segment" : {
+            "edge_index" : 1,
+            "room_id" : "room-73A819E4",
+            "t0" : 0.3500001985031518,
+            "t1" : 0.6500001985031518
+          },
+          "width_m" : 0.9
+        },
+        {
+          "height_m" : 2,
+          "id" : "231D0201-4517-4FE1-B40D-E3CF4A2C4C47",
+          "kind" : "door",
+          "room_ids" : [
+            "room-73A819E4",
+            "EXTERIOR"
+          ],
+          "sill_height_m" : 0,
+          "source" : "manual",
+          "wall_segment" : {
+            "edge_index" : 0,
+            "room_id" : "room-73A819E4",
+            "t0" : 0.35025836626688633,
+            "t1" : 0.6502583662668864
+          },
+          "width_m" : 0.9
+        },
+        {
+          "height_m" : 1.2,
+          "id" : "8B269870-AFC0-4C1B-8B57-3038654C432B",
+          "kind" : "window",
+          "room_ids" : [
+            "room-73A819E4",
+            "EXTERIOR"
+          ],
+          "sill_height_m" : 0.8,
+          "source" : "manual",
+          "wall_segment" : {
+            "edge_index" : 2,
+            "room_id" : "room-73A819E4",
+            "t0" : 0.3330749670664469,
+            "t1" : 0.6664083003997803
+          },
+          "width_m" : 1
+        },
+        {
+          "height_m" : 1.2,
+          "id" : "FE2F8A7E-7FF3-4B86-9A14-D1959E10F070",
+          "kind" : "window",
+          "room_ids" : [
+            "36A025AA-7B13-422B-93BF-9941628CADC4",
+            "EXTERIOR"
+          ],
+          "sill_height_m" : 0.8,
+          "source" : "manual",
+          "wall_segment" : {
+            "edge_index" : 1,
+            "room_id" : "36A025AA-7B13-422B-93BF-9941628CADC4",
+            "t0" : 0.33235196254662713,
+            "t1" : 0.6656852958799605
+          },
+          "width_m" : 1
+        }
+      ],
+      "rooms" : [
+        {
+          "id" : "room-73A819E4",
+          "name" : "Room 1",
+          "polygon" : [
+            [
+              0,
+              0
+            ],
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              0,
+              3
+            ]
+          ],
+          "source" : "manual",
+          "type" : "other"
+        },
+        {
+          "id" : "36A025AA-7B13-422B-93BF-9941628CADC4",
+          "name" : "New Room",
+          "polygon" : [
+            [
+              3,
+              0
+            ],
+            [
+              6.5,
+              0
+            ],
+            [
+              6.5,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "source" : "manual",
+          "type" : "other"
+        }
+      ]
+    },
+    {
+      "height_m" : 2.7,
+      "id" : "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+      "level" : 1,
+      "name" : "Second Floor",
+      "openings" : [
+        {
+          "height_m" : 2,
+          "id" : "BAF15EE5-67B0-458B-85A9-D31B49ECFD0C",
+          "kind" : "door",
+          "room_ids" : [
+            "982E5607-8979-43FB-BD70-28F6E804B592",
+            "47D9DFCE-E174-4118-871F-F65203E657FB"
+          ],
+          "sill_height_m" : 0,
+          "source" : "manual",
+          "wall_segment" : {
+            "edge_index" : 1,
+            "room_id" : "982E5607-8979-43FB-BD70-28F6E804B592",
+            "t0" : 0.34898080013181865,
+            "t1" : 0.6489808001318186
+          },
+          "width_m" : 0.9
+        }
+      ],
+      "rooms" : [
+        {
+          "id" : "982E5607-8979-43FB-BD70-28F6E804B592",
+          "name" : "Room",
+          "polygon" : [
+            [
+              0,
+              0
+            ],
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              0,
+              3
+            ]
+          ],
+          "source" : "manual",
+          "type" : "other"
+        },
+        {
+          "id" : "47D9DFCE-E174-4118-871F-F65203E657FB",
+          "name" : "New Room",
+          "polygon" : [
+            [
+              3,
+              0
+            ],
+            [
+              6.5,
+              0
+            ],
+            [
+              6.5,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "source" : "manual",
+          "type" : "other"
+        }
+      ]
+    }
+  ],
+  "home_id" : "14E8117E-6092-4158-A6BD-5E7AC86B8667",
+  "meta" : {
+    "created" : "2026-07-23T17:57:31Z",
+    "modified" : "2026-07-23T17:58:55Z"
+  },
+  "name" : "New Home",
+  "profiles" : [
+
+  ],
+  "schema_version" : "1.0",
+  "stairs" : [
+    {
+      "footprint" : [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "from" : {
+        "floor_id" : "floor-48FA3CB9",
+        "room_id" : "room-73A819E4"
+      },
+      "id" : "27E93E83-4D0B-4AAB-8C2E-B42AFABF94BD",
+      "kind" : "straight",
+      "source" : "manual",
+      "to" : {
+        "floor_id" : "B759134B-DAE7-4335-BEBF-FF8C8F99C197",
+        "room_id" : "982E5607-8979-43FB-BD70-28F6E804B592"
+      }
+    }
+  ]
+}

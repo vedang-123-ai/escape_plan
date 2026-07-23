@@ -35,3 +35,5 @@ artifacts/
 .build-merge/
 # private derived data for the 2026-07-22 device-acceptance pass (isolated from concurrent sessions)
 .build-p3/
+# Lane A (lane/editor) derived data — parallel-lane isolation
+.build-laneA/

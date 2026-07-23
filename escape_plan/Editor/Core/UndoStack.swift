@@ -1,9 +1,8 @@
 //  UndoStack.swift — undo/redo built on HomeModelStore's before/after Commit snapshots.
 //
-//  Not Observable (matches HomeModelStore's own non-reactive pattern — EditorScreen bumps its
-//  `revision` counter manually after calling undo()/redo(), same as it does for every other
-//  direct dispatch). Undo/redo never re-run a reducer: they call `store.replaceModel` with a
-//  captured snapshot, which is exactly why `Commit` carries both `before` and `after`.
+//  @Observable (like HomeModelStore) so canUndo/canRedo drive toolbar button state reactively.
+//  Undo/redo never re-run a reducer: they call `store.replaceModel` with a captured snapshot,
+//  which is exactly why `Commit` carries both `before` and `after`.
 //
 //  Continuous drags (dragVertex/dragEdge/dragRoom/dragOpening) dispatch on every gesture
 //  `.changed` event — one drag can be 100+ commits. Coalescing them by matching the action's
@@ -13,9 +12,11 @@
 //  covering the whole gesture (or nothing, if nothing actually changed).
 
 import Foundation
+import Observation
 
 // Not @MainActor-annotated, matching HomeModelStore's own convention: "main-actor UI state" by
 // documented contract, not enforced by the type system, so tests can call it synchronously.
+@Observable
 final class UndoStack {
 
     private var past: [HomeModelStore.Commit] = []
@@ -56,6 +57,15 @@ final class UndoStack {
         coalescing = nil
         guard let action = group.latestAction, group.before != group.latestAfter else { return }
         past.append(HomeModelStore.Commit(action: action, before: group.before, after: group.latestAfter))
+    }
+
+    /// Drops all history (both directions) and any in-progress coalescing group. Used when the
+    /// edited home is deleted out from under the editor — its snapshots describe a document
+    /// that no longer exists, so replaying them would resurrect it.
+    func reset() {
+        past.removeAll()
+        future.removeAll()
+        coalescing = nil
     }
 
     /// Applies the top of the undo stack via `store.replaceModel` and moves it to the redo stack.

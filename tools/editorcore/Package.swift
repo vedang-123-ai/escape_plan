@@ -22,7 +22,7 @@ import PackageDescription
 
 let package = Package(
     name: "EditorCore",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v14)],  // Observation (@Observable HomeModelStore/UndoStack) needs 14
     products: [
         .library(name: "EditorCore", targets: ["EditorCore"])
     ],

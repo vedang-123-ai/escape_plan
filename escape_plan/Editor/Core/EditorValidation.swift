@@ -143,7 +143,29 @@ enum EditorValidation {
         for opening in floor.openings {
             issues += validateOpening(opening, on: floor)
         }
+        issues += validateOpeningOverlaps(on: floor)
         return issues
+    }
+
+    /// Two openings on the same wall edge must not overlap in t (touching endpoints are fine).
+    /// Same-edge only: an opening hosted on an adjacent room's coincident edge is a different
+    /// wall_segment and can't collide parametrically.
+    private static func validateOpeningOverlaps(on floor: Floor) -> [ValidationIssue] {
+        var issues: [ValidationIssue] = []
+        var byEdge: [String: [Opening]] = [:]
+        for opening in floor.openings {
+            let seg = opening.wall_segment
+            byEdge["\(seg.room_id)#\(seg.edge_index)", default: []].append(opening)
+        }
+        for group in byEdge.values where group.count > 1 {
+            let sorted = group.sorted { $0.wall_segment.t0 < $1.wall_segment.t0 }
+            for (a, b) in zip(sorted, sorted.dropFirst())
+            where a.wall_segment.t1 > b.wall_segment.t0 + Geometry.epsilon {
+                issues.append(.init(.openingPlacement, entityId: b.id,
+                                    "overlaps opening '\(a.id)' on the same wall (t \(a.wall_segment.t0)…\(a.wall_segment.t1) vs \(b.wall_segment.t0)…\(b.wall_segment.t1))"))
+            }
+        }
+        return issues.sorted { $0.entityId ?? "" < $1.entityId ?? "" }
     }
 
     private static func validateRoom(_ room: Room) -> [ValidationIssue] {
