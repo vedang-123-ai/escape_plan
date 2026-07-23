@@ -269,3 +269,45 @@ citation resolution, practiced persistence) + full suite green on the iPhone 17 
 EditorCore 128, backend 196, corpus valid. No new dependencies. Acceptance ("complete a drill
 for two profiles, score moves") is device-only and stays unchecked. Full writeup:
 `docs/tracker/notes/2026-07-22-s4-2-drill-walkthrough.md`.
+
+## 2026-07-22 — S4.1 onboarding flow backbone (device-independent half)
+
+Golden-path loop built against the bundled twostory fixture (real scans wait on S1.4/S1.5);
+the two acceptance boxes stay unchecked as device-only. Decisions:
+
+- **Demo seed is a flagged COPY of twostory** — `Onboarding/FixtureSeeder` re-marks 3 items
+  (top-floor first room + first two openings) as `source: scan`, `confidence: 0.4` under a
+  fresh home_id, because every fixture is all-manual and "N items need review" would be
+  vacuously 0. Fixture files and the drift-guard are untouched; N uses the editor's own
+  `HitTesting.needsReview`, so onboarding and the pulsing badges always agree.
+- **`Networking/APIClient+Analyze.swift`** — /analyze joins the per-endpoint extension
+  pattern; `Models/AnalyzeModels.swift` mirrors the wire contract (same stance as
+  RoutePlan/ScoreModels; the tool trace is deliberately not decoded — the app doesn't
+  render it).
+- **Last-good RoutePlan cache** (`Networking/APIClient+Cache.swift`) —
+  `<Documents>/RouteCache/<home_id>.routeplan.json`, atomic; only connection-class URLErrors
+  fall back to it (server answers like 401/422 rethrow — a stale plan must not mask a config
+  problem). `PlanScreen.fetchRoutes` routes through it and shows a dated offline banner —
+  the one pre-agreed touch outside the session's owned files.
+- **Onboarding shows once** (`@AppStorage "onboarding.completed"`, full-screen cover from
+  `ContentView`); every backend call in the flow renders an explicit
+  loading/loaded/failed/offline `LoadState` — the dead-end kill list is tabulated in the
+  session note.
+- **Persistence bug fix (out-of-surface, flagged for P2 review)** —
+  `HomeDocument.init(model:)`/`decode(as:)` used default JSONEncoder/Decoder date handling
+  (Doubles) while `touched()` stamps ISO-8601 strings, so any HomeModel saved via
+  `save(model:)` failed to load back (`meta.modified` type mismatch). S2.4's stub-model test
+  couldn't see it; the S4.1 seeding test caught it. Both coders now use `.iso8601` per the
+  schema. Pre-fix autosaved documents (Double `meta.created`) were unloadable before and
+  after — delete and rebuild, or add a SchemaMigrator normalization if real ones surface.
+
+Tests: `escape_planTests/OnboardingTests.swift` (9) + full suite green; EditorCore 128.
+No new dependencies. Full writeup: `docs/tracker/notes/2026-07-22-s4-1-onboarding-flow.md`.
+
+Addendum (same session, while producing the handoff recording): fixed a second latent dead
+end — `PlanScreen` never called `reload()` when homes existed at first appearance
+(`onChange(of: library.homes)` doesn't fire for the initial value), leaving an infinite
+"Loading…" spinner; one-line `.task` fix. Handoff recording lives at
+`docs/demo/broll/s41-golden-path-simulator.mp4` (b-roll contract dir), driven by
+`escape_planUITests/GoldenPathRecordingUITests` — env-gated (`TEST_RUNNER_GOLDEN_PATH=1`,
+live backend required) so the normal suite stays hermetic.

@@ -23,6 +23,8 @@ struct PlanScreen: View {
     @State private var routePlan: RoutePlan?
     @State private var routesError: String?
     @State private var isFetchingRoutes = false
+    /// S4.1: set when the shown plan came from the last-good cache instead of a live fetch.
+    @State private var cachedPlanDate: Date?
     /// nil = "Everyone": primary routes + badges for the whole house.
     @State private var selectedRoomID: String?
     /// S3.4 integration: nil means the whole-house plan with no profile constraints. Changing
@@ -57,7 +59,12 @@ struct PlanScreen: View {
                     }
                 }
         }
-        .task { library.refresh() }
+        .task {
+            library.refresh()
+            // S4.1: homes loaded during init never fire onChange, which left the screen on
+            // an infinite "Loading…" spinner when a home already existed at first appearance.
+            if built == nil { reload() }
+        }
         .onChange(of: library.homes) { _, homes in
             if selectedHomeID == nil { selectedHomeID = homes.first?.id }
             reload()
@@ -242,6 +249,7 @@ struct PlanScreen: View {
             explode = 0
             hiddenFloorIDs = []
             routePlan = nil
+            cachedPlanDate = nil
             selectedRoomID = nil
             selectedProfileID = nil
             overlayIssues = []
@@ -263,10 +271,22 @@ struct PlanScreen: View {
         routesTask = Task {
             defer { isFetchingRoutes = false }
             do {
-                let plan = try await apiClient.fetchRoutes(home: homeModel,
-                                                          profileID: selectedProfileID)
-                guard !Task.isCancelled, plan.home_id == homeModel.home_id else { return }
-                routePlan = plan
+                // S4.1: successful fetches update the last-good cache; connection-class
+                // failures fall back to it (server errors like 401 never do).
+                let result = try await apiClient.fetchRoutesCached(home: homeModel,
+                                                                   profileID: selectedProfileID)
+                guard !Task.isCancelled else { return }
+                switch result {
+                case .live(let plan):
+                    guard plan.home_id == homeModel.home_id else { return }
+                    cachedPlanDate = nil
+                    routePlan = plan
+                case .cached(let cached):
+                    guard cached.plan.home_id == homeModel.home_id else { return }
+                    cachedPlanDate = cached.savedAt
+                    routePlan = cached.plan
+                    routesError = "Offline — showing the last saved plan from \(cached.savedAt.formatted(date: .abbreviated, time: .shortened))."
+                }
                 applyOverlay()
             } catch is CancellationError {
             } catch APIClientError.unexpectedResponse(let statusCode) where statusCode == 401 {

@@ -23,15 +23,22 @@ struct HomeDocument: Equatable, Sendable {
         self.body = try JSONDecoder().decode(JSONValue.self, from: data)
     }
 
-    /// Encodes any Codable HomeModel (S2.1's type, once it lands) into a document.
+    /// Encodes any Codable HomeModel into a document. Dates are ISO-8601 strings — the
+    /// schema's `date-time` format and what `reidentified`/`touched` stamp — NOT
+    /// JSONEncoder's default Double, which produced documents this same type couldn't
+    /// decode back (caught by S4.1's seeding test).
     init<Model: Encodable>(model: Model) throws {
-        let data = try JSONEncoder().encode(model)
-        try self.init(data: data)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try self.init(data: encoder.encode(model))
     }
 
-    /// Decodes the document into a Codable HomeModel.
+    /// Decodes the document into a Codable HomeModel (ISO-8601 dates, matching the schema
+    /// and every committed fixture).
     func decode<Model: Decodable>(as type: Model.Type) throws -> Model {
-        try JSONDecoder().decode(type, from: serialized())
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(type, from: serialized())
     }
 
     /// Canonical on-disk / export bytes: pretty-printed, key-sorted, stable.

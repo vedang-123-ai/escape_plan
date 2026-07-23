@@ -135,10 +135,10 @@ Phase targets: P0 → Jul 20 · P1 → Aug 17 · P2 → Sep 7 · P3 → Sep 28 �
 
 ## Phase 4 — Integration & product
 
-### S4.1 — Golden path end-to-end — **BLOCKED (needs S1.5 + S2.3 + S3.1)** (P2 lead, all)
-- [ ] One person, one real home, full loop without touching Xcode
-- [ ] Injected failures (kill backend mid-flow) degrade gracefully
-- [ ] 📋 · [ ] 🔧 · [ ] 📦 handoff (full-loop recording — demo skeleton)
+### S4.1 — Golden path end-to-end — **flow backbone CODE DONE 2026-07-22 (P3, fixture-driven); real-home + live-injection half remains (device/key)** (P2 lead, all)
+- [ ] One person, one real home, full loop without touching Xcode (device-only — needs S1.4/S1.5 real scan)
+- [ ] Injected failures (kill backend mid-flow) degrade gracefully (device-only live pass; every state exists in code + unit-tested — see note's failure-state table)
+- [x] 📋 · [x] 🔧 · [x] 📦 handoff (full-loop simulator recording delivered: `docs/demo/broll/s41-golden-path-simulator.mp4`, driven by `GoldenPathRecordingUITests` — re-runnable unattended)
 
 ### S4.2 — Drill / practice mode — **walkthrough half CODE DONE 2026-07-22** (P3 + P2) — **cut candidate #1**
 - [ ] Complete a drill for two different profiles *(device-only — needs the entry point wired

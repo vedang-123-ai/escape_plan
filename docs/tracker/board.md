@@ -1,8 +1,23 @@
 # Board — where we are right now
 
-_Last updated: 2026-07-22 (by P3/Claude — five-lane integration pass: S2.2 + S2.3 + S3.3 + S3.4 + S3.5 all landed and verified together). Update this whenever a session flips status._
+_Last updated: 2026-07-22 (by P3/Claude — S4.1 onboarding-flow backbone landed). Update this whenever a session flips status._
 
-## 🆕 2026-07-22 (latest) — test-coverage lane: +42 unit tests for the merged code (P3)
+## 🆕 2026-07-22 (latest) — S4.1 golden-path backbone CODE DONE, device half remains (P3)
+
+The onboarding loop now stitches everything together on the twostory fixture: first launch →
+seeded demo home with 3 flagged low-confidence items → "N items need review" (Review-in-Editor
+or confirm) → Plan step with live routes + background /analyze findings + /score chip → done.
+Every backend call has explicit loading/failed/offline states; /routes now falls back to a
+last-good cached plan (`RouteCache/`, atomic JSON) when offline. New: `Onboarding/`,
+`APIClient+Analyze`, `APIClient+Cache`, `Models/AnalyzeModels`; minimal pre-agreed touches to
+`ContentView` + `PlanScreen`. **Also fixed two latent bugs:** homes saved via `save(model:)`
+could never load back (date-strategy mismatch in `HomeDocument`), and `PlanScreen` spun on
+"Loading…" forever when a home already existed at first appearance — @P2 please review both.
+Suite: 238 iOS unit tests + UI tests green, EditorCore 128. The two S4.1 acceptance boxes
+(real home, live failure injection) are **device-only and stay unchecked**; simulator
+recording is the handoff. Details: `docs/tracker/notes/2026-07-22-s4-1-onboarding-flow.md`.
+
+## 🆕 2026-07-22 — test-coverage lane: +42 unit tests for the merged code (P3)
 
 Pure test-authoring pass over the five-lane merge, no source edits. First-ever coverage for
 `ScoreModels` and `ChecklistStateStore`, RoutePlan decode-error paths, ConversationStore
@@ -104,7 +119,7 @@ replaced with the real `Models/`/`Screens/`/`Networking/` layer. Your one human 
 ## ⏸ BLOCKED
 
 - S2.3 route viz CODE DONE 2026-07-22 (device recording ← S1.3-style device pass) · S1.5 calibration ← S1.4 device fixtures
-- S4.1 golden path ← S1.5 + S2.3 + S3.1 · S4.2's walkthrough half CODE DONE 2026-07-22 ahead of S4.1 (independent — see table above); rest of S4.x after S4.1 · S5.1 **v1 DELIVERED 2026-07-22** (script-v1 + storyboard-v1 w/ b-roll path contract in docs/demo/) — remaining: team table-read + P1 accuracy pass; re-read once S4.1 runs
+- S4.1 golden path **flow backbone CODE DONE 2026-07-22** (fixture-driven; the real-home + live failure-injection half still ← S1.5 + S3.1 device/key steps) · S4.2's walkthrough half CODE DONE 2026-07-22 ahead of S4.1 (independent — see table above); rest of S4.x after S4.1 · S5.1 **v1 DELIVERED 2026-07-22** (script-v1 + storyboard-v1 w/ b-roll path contract in docs/demo/) — remaining: team table-read + P1 accuracy pass; re-read once S4.1 runs
 
 ## 🔑 Critical path to the Oct 5 demo milestone
 

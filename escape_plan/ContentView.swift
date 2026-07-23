@@ -1,13 +1,17 @@
 //  ContentView.swift
 //  escape_plan
 //
-//  Tab shell: Home / Editor / Plan / Assistant / Settings. Home/Editor/Plan are wired to real
-//  content (S2.1 editor, S2.4 persistence, S1.3 renderer); Assistant stays a placeholder until
-//  the AI backend has a live API key (S3.1-S3.3).
+//  Tab shell: Home / Editor / Plan / Assistant / Settings, plus the S4.1 onboarding flow on
+//  first launch — seed a demo home from the twostory fixture, review low-confidence items,
+//  then land on routes + inspection. Finishing (or skipping) marks onboarding done; the flow
+//  never reappears on its own after that.
 
 import SwiftUI
 
 struct ContentView: View {
+    @AppStorage("onboarding.completed") private var onboardingCompleted = false
+    @State private var showingOnboarding = false
+
     var body: some View {
         TabView {
             HomeScreen()
@@ -24,6 +28,15 @@ struct ContentView: View {
 
             SettingsScreen()
                 .tabItem { Label("Settings", systemImage: "gear") }
+        }
+        .onAppear {
+            if !onboardingCompleted { showingOnboarding = true }
+        }
+        .fullScreenCover(isPresented: $showingOnboarding) {
+            OnboardingFlowView {
+                onboardingCompleted = true
+                showingOnboarding = false
+            }
         }
     }
 }
