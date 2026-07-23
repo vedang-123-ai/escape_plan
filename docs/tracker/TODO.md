@@ -1,7 +1,8 @@
 # Everything still to do
 
-_Last verified: 2026-07-22 @ 2fef343 — reconciled against an observed run (backend up, app on
-simulator, full test gate green), not against what the old docs claimed._
+_Last verified: 2026-07-23 @ lane/backend f39d9f6 — backend + corpus re-verified live (real
+ANTHROPIC_API_KEY, all live suites run and green); EditorCore/iOS counts below are from the
+2026-07-22 pass and untouched by this lane._
 
 This is the single source of truth for open work. It replaces the old `board.md` +
 `checklist.md`, which had drifted into contradicting each other.
@@ -17,7 +18,8 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 | Suite | Count | Command |
 |---|---|---|
-| Backend pytest | 196 pass, 11 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
+| Backend pytest | 207 pass, 11 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
+| Backend live suites | 6 + 2 + chat smoke, all pass | `python3 -m pytest backend/tests/ -m "" ` (needs key; latency bounds can flake on API variance) |
 | EditorCore (SwiftPM) | 128 pass | `swift test --package-path tools/editorcore` |
 | iOS (unit + UI) | 242 pass, 1 skipped | `xcodebuild test -scheme escape_plan …` |
 | Corpus | 11 sources, 6 files | `python3 backend/corpus/validate.py` |
@@ -26,25 +28,23 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 ## Blocked on a real API key
 
-Nothing here is a code problem. `ANTHROPIC_API_KEY` is unset both locally and on Render, so
-every AI endpoint returns a clean 502 today (verified 2026-07-22 — the failure is graceful,
-not a crash).
+2026-07-23 (Lane C): a real key was used locally — the entire live battery below was run and
+hand-reviewed; goldens are committed in `backend/tests/golden/`. What remains here is only
+what a dev machine cannot close.
 
 - [ ] Set `ANTHROPIC_API_KEY` in the Render dashboard so the deployed backend's AI endpoints
-      work at all. Until this happens `/explain`, `/analyze`, and `/chat` 502 in production. (S1.6)
-- [ ] Run the live grounded-explanation suite and hand-review the snapshots it writes:
-      `cd backend && ANTHROPIC_API_KEY=… python3 -m pytest tests/test_ai_live.py -m live -v`,
-      then review + commit `tests/golden/`. (S3.1)
-- [ ] Run the live agent suite the same way (`tests/test_agent_live.py`), hand-review
-      `tests/golden/agent_*.json`. Confirms the apartment single-exit finding and the
-      `w_kids` undersized-window path come back cited and evidence-linked. (S3.2)
-- [ ] Confirm p95 `/explain` latency < 6s with prompt caching on (caching is implemented and
-      cache hits are logged; the number gets recorded into the golden snapshots). (S3.1)
-- [ ] Chat: ask a smoke-detector question, confirm a cited, house-specific answer. (S3.3)
-- [ ] Chat: ask an out-of-corpus question, confirm graceful deferral rather than invented
-      advice. (S3.3)
-- [ ] Profiles: confirm the explanation text actually reflects the selected profile
-      (route switching itself is already verified — this is only the `/explain` prose). (S3.4)
+      work at all. Until this happens `/explain`, `/analyze`, and `/chat` 502 in production.
+      Exact steps: dashboard → `escape-plan-backend` service → Environment → add
+      `ANTHROPIC_API_KEY` → save (auto-redeploys). Then verify: `/health` 200, one
+      token-authed `/explain` on a fixture returns 200 with resolving citations. (S1.6)
+- [ ] **p95 `/explain` < 6s is UNMET and needs a team decision** — measured 2026-07-23 on
+      claude-sonnet-5, cache hits confirmed on every request: warm mean 26.3s, p95 30.2s
+      (haiku-4-5 comparison ~18.5s). Output-bound (~2k output tokens/whole-home explanation),
+      so caching can't fix it. Options: terser output, per-room explain calls, streaming UX,
+      faster model, or revise the target. See decisions.md 2026-07-23. (S3.1)
+- [ ] One transient garbled-generation glitch observed (95s run, corrupted prose that still
+      passed citation validation). Decide whether /explain needs a server-side coherence
+      retry or the app tolerates the rare bad response. (S3.1)
 
 ## Needs real LiDAR hardware
 
@@ -105,15 +105,13 @@ is unverified is the round-trip against a real scan.
 
 ## Backend
 
-- [ ] Agent findings have no stable id, so `checklist.py` keys done-state positionally
-      (`agent_finding.<index>`). A re-analysis that reorders findings mis-keys saved
-      checkmarks. Non-scoring, so the blast radius is a stale checkmark, not a wrong score. (S3.2/S3.5)
-- [ ] `app.ai.agent.Finding` and `app.scoring.findings.Finding` are field-identical
-      duplicates, kept separate on purpose (scoring must not import the Anthropic SDK). They
-      have to be changed in lockstep by hand — no test currently fails if they drift apart.
-      Consider a test that asserts the two field sets match. (S3.2/S3.5)
 - [ ] Phone-on-cellular timing against the deployed backend was never measured natively.
       Warm curl from a dev machine was ~0.27–0.39s, well under the 2s bar. (S1.6)
+- [ ] TODO(integration): `/analyze` findings now carry a stable server-stamped `id`
+      (2026-07-23); Swift's `AgentFinding` ignores it and `ChecklistStateStore` still sees
+      positional `agent_finding.<index>` keys via the fallback. Thread the `id` through the
+      Swift decode (add to CodingKeys) and key checkmarks on `agent_finding.<id>` — old
+      positional checkmarks are deliberately orphaned (see decisions.md 2026-07-23). (S3.2/S3.5)
 
 ## Demo & submission
 
