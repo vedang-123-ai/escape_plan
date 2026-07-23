@@ -27,6 +27,7 @@ from app.models import HomeModel
 from app.routing.egress import EgressThresholds, check_egress
 from app.routing.engine import compute_route_plan
 from app.routing.plan import RoutePlan, RoutingConstraints
+from app.scoring.findings import finding_id
 
 logger = logging.getLogger("app.ai.agent")
 
@@ -52,6 +53,10 @@ CORPUS_DOC_FILES = [
 class Finding(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    id: str = Field(
+        default="",
+        description="Leave empty — assigned server-side (content hash; see app.scoring.findings.finding_id).",
+    )
     severity: Literal["high", "med", "low"]
     room_ids: list[str] = Field(default_factory=list)
     finding: str = Field(description="What's wrong, in plain language.")
@@ -391,6 +396,9 @@ def _validate_findings(
         if problems:
             dropped.append(f"[{f.finding[:60]!r}] " + "; ".join(problems))
         else:
+            # Stamp the stable content-derived id here, overwriting anything the
+            # model put in the field — ids are server-assigned, never model-chosen.
+            f.id = finding_id(f.severity, f.room_ids, f.finding)
             kept.append(f)
     return kept, dropped
 

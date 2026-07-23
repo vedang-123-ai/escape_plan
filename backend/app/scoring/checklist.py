@@ -186,24 +186,31 @@ def finding_items(
     driven by the findings the agent reports, so points return when a re-run of
     /analyze stops reporting the issue — not when the user ticks a box.
 
-    Ids are positional (`agent_finding.<index>`), which is stable for a given
-    findings list. S3.2 shipped without a stable per-finding id (see
-    app.ai.agent.Finding), so this remains positional: a re-analysis that reorders
-    findings will mis-key done-state. Non-scoring, so the blast radius is a stale
-    checkmark rather than a wrong score. Tracked in docs/tracker/TODO.md.
+    Ids key on the finding's server-stamped content hash
+    (`agent_finding.<finding.id>`, see app.scoring.findings.finding_id), so a
+    re-analysis that reorders findings keeps checkmarks on the right rows. For
+    findings without an id (requests predating the id scheme), the key falls
+    back to the old positional `agent_finding.<index>` — the pre-id status quo.
+    Checkmarks saved under positional keys are orphaned once ids arrive; see
+    docs/decisions.md (2026-07-23).
     """
-    return [
-        ChecklistItem(
-            id=f"agent_finding.{index}",
-            category="agent_finding",
-            title=finding.finding,
-            detail=finding.recommendation,
-            done=state.get(f"agent_finding.{index}", False),
-            source_citation=finding.citation,
-            scoring=False,
+    items: list[ChecklistItem] = []
+    for index, finding in enumerate(findings):
+        item_id = (
+            f"agent_finding.{finding.id}" if finding.id else f"agent_finding.{index}"
         )
-        for index, finding in enumerate(findings)
-    ]
+        items.append(
+            ChecklistItem(
+                id=item_id,
+                category="agent_finding",
+                title=finding.finding,
+                detail=finding.recommendation,
+                done=state.get(item_id, False),
+                source_citation=finding.citation,
+                scoring=False,
+            )
+        )
+    return items
 
 
 def build_checklist(

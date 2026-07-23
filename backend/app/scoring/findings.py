@@ -14,20 +14,42 @@ here would drag the Anthropic SDK into the deterministic scoring path and break
 the project's division of labor (scoring never depends on the AI layer).
 
 The cost is that the two must be kept in lockstep by hand. If either changes,
-change both; `test_scoring.py` and `test_agent.py` both pin the field set.
+change both; `test_finding_lockstep.py` fails on any field-set drift, and
+`test_scoring.py` / `test_agent.py` pin behavior on each side.
 Points of drift to watch:
   - severity spelling ("med" vs "medium") — SEVERITY_DEDUCTIONS keys must follow
   - `evidence` element type (opaque tool_call ref strings)
-  - whether findings carry an id (the checklist synthesizes one; see checklist.py)
+  - `id` semantics: server-stamped content hash (see finding_id below)
+
+`finding_id` lives here rather than in app.ai.agent so the id scheme stays
+importable from the deterministic scoring path; the agent imports it from here
+(AI may depend on scoring, never the reverse).
 """
 
 from __future__ import annotations
 
-from typing import Literal
+import hashlib
+import re
+from typing import Literal, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
 Severity = Literal["high", "med", "low"]
+
+
+def finding_id(severity: str, room_ids: Sequence[str], finding: str) -> str:
+    """Deterministic content-derived id for an agent finding.
+
+    Hashes severity + sorted room ids + a normalized slug of the finding text,
+    so the same issue keeps the same id across re-analyses regardless of the
+    order findings are reported in. Wording changes to the finding text DO
+    change the id — that is inherent to content addressing and acceptable: the
+    stale checkmark simply orphans, which was already the failure mode of the
+    positional ids this replaces.
+    """
+    slug = " ".join(re.findall(r"[a-z0-9]+", finding.lower()))
+    basis = "|".join([severity, ",".join(sorted(room_ids)), slug])
+    return hashlib.sha256(basis.encode("utf-8")).hexdigest()[:12]
 
 
 class Finding(BaseModel):
@@ -41,6 +63,11 @@ class Finding(BaseModel):
     # Stays "ignore" (not "forbid", which is what app.ai.agent.Finding uses): scoring is the
     # consumer here, and a field added on the agent side should not 422 the score endpoint.
     model_config = ConfigDict(extra="ignore")
+
+    id: str = ""
+    """Stable content-derived id, stamped server-side by /analyze (finding_id).
+    Empty when the caller predates ids; the checklist then falls back to
+    positional keying (the pre-id status quo)."""
 
     severity: Severity
     room_ids: list[str] = Field(default_factory=list)

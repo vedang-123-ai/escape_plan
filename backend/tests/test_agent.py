@@ -182,6 +182,22 @@ def test_validate_findings_drops_fabricated_citation():
     assert "citation" in dropped[0]
 
 
+def test_validate_findings_stamps_stable_server_side_ids():
+    from app.scoring.findings import finding_id
+
+    trace = [ToolCallRecord(id="toolu_1", tool_name="check_egress", input={}, output={})]
+    submitted = _finding(["toolu_1"])
+    submitted.id = "model-chose-this"  # server must overwrite, never trust the model
+    kept, _ = _validate_findings([submitted], trace)
+    assert kept[0].id == finding_id(
+        submitted.severity, submitted.room_ids, submitted.finding
+    )
+    assert kept[0].id != "model-chose-this"
+    # Deterministic: validating an identical finding again yields the same id.
+    again, _ = _validate_findings([_finding(["toolu_1"])], trace)
+    assert again[0].id == kept[0].id
+
+
 # --- full agent loop (scripted client) --------------------------------------
 
 

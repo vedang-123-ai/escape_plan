@@ -20,8 +20,8 @@ from app.ai.grounded import GroundingError, Recommendation
 from app.main import app
 from app.models import HomeModel
 from app.routing.engine import compute_route_plan
-from app.scoring.checklist import build_checklist
-from app.scoring.findings import Finding
+from app.scoring.checklist import build_checklist, finding_items
+from app.scoring.findings import Finding, finding_id
 from app.scoring.recommend import _map_recommendations
 from app.scoring.score import ScoreBreakdown, compute_score
 
@@ -282,6 +282,73 @@ def test_done_state_round_trips(bungalow: dict):
     result = _scored(bungalow, state={"alarm.test_monthly": True})
     done = {i.id for i in result.checklist if i.done}
     assert done == {"alarm.test_monthly"}
+
+
+# --- stable agent-finding ids (2026-07-23) -----------------------------------
+# Content-derived ids replace the positional agent_finding.<index> keys, so a
+# re-analysis that reorders findings no longer mis-keys saved checkmarks.
+
+
+def _stamped(severity: str, room_id: str, text: str) -> Finding:
+    return Finding(
+        id=finding_id(severity, [room_id], text),
+        severity=severity,
+        room_ids=[room_id],
+        finding=text,
+        evidence=["tool_call_3"],
+        recommendation="Fix it.",
+        citation="irc-2021-r310",
+    )
+
+
+def test_finding_ids_stable_under_reordering():
+    a = _stamped("high", "r_bed1", "Bedroom has no second way out.")
+    b = _stamped("med", "r_kitchen", "Kitchen exit door is narrow.")
+    forward = {i.id for i in finding_items([a, b], {})}
+    reversed_ = {i.id for i in finding_items([b, a], {})}
+    assert forward == reversed_
+    assert len(forward) == 2
+
+
+def test_checklist_keying_survives_reordering():
+    a = _stamped("high", "r_bed1", "Bedroom has no second way out.")
+    b = _stamped("med", "r_kitchen", "Kitchen exit door is narrow.")
+    a_key = f"agent_finding.{a.id}"
+    state = {a_key: True}
+    done_forward = {i.id for i in finding_items([a, b], state) if i.done}
+    done_reversed = {i.id for i in finding_items([b, a], state) if i.done}
+    assert done_forward == done_reversed == {a_key}
+
+
+def test_distinct_findings_get_distinct_ids():
+    base = ("high", ["r_bed1"], "Bedroom has no second way out.")
+    variants = [
+        ("med", ["r_bed1"], "Bedroom has no second way out."),
+        ("high", ["r_bed2"], "Bedroom has no second way out."),
+        ("high", ["r_bed1"], "Bedroom window sill is too high."),
+    ]
+    ids = {finding_id(*base)} | {finding_id(*v) for v in variants}
+    assert len(ids) == 4
+
+
+def test_finding_id_ignores_room_order_and_text_punctuation():
+    assert finding_id("high", ["r_a", "r_b"], "No way out!") == finding_id(
+        "high", ["r_b", "r_a"], "no way out"
+    )
+
+
+def test_idless_findings_fall_back_to_positional_keys():
+    legacy = Finding(
+        severity="high",
+        room_ids=["r_bed1"],
+        finding="Bedroom has no second way out.",
+        evidence=["tool_call_3"],
+        recommendation="Add an egress window.",
+        citation="irc-2021-r310",
+    )
+    items = finding_items([legacy], {"agent_finding.0": True})
+    assert items[0].id == "agent_finding.0"
+    assert items[0].done is True
 
 
 # --- grounded recommendations (mocked) --------------------------------------
