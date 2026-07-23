@@ -33,12 +33,10 @@ RenderOrder ledger, tour fix) landed 2026-07-23 — see `notes/2026-07-23-revamp
 
 - [ ] A1 follow-up: device-acceptance pass on gesture feel (orbit sensitivity, pinch anchor)
       before A3 deletes the old camera stack.
-- [ ] A2: editing in the unified view — pure `GestureArbiter` (edit-drag only on current
-      selection), `EditorSceneAdapter.worldPoint(from:onPlaneY:)` + perspective
-      `metersPerPoint()`, `UnifiedSceneController` conformer, wall-drag edge-normal
-      projection, migrate `ManualBuildRecordingUITests` tap driver off the ortho assumption.
-- [ ] A3: merge PlanScreen+EditorScreen into `HouseScreen`; delete `EditorSceneView`,
-      `EditorSceneController`, `DollhouseSceneView`; full gate + device acceptance.
+- [ ] A3: merge PlanScreen+EditorScreen into `HouseScreen`; delete `EditorSceneController`,
+      `DollhouseSceneView`, old screens; full gate + device acceptance.
+      (A2 landed 2026-07-23 — arbitrated editing in the unified view, driver passing live;
+      see `notes/2026-07-23-revamp-a2-unified-editing.md`.)
 - [ ] B1: schema v1.1 — `floor.objects` (box primitives, no room_id) + `source: ai_plan`;
       three-way lockstep + SchemaMigrator + planted-obstacle fixtures. Own PR.
 - [ ] B2: objects rendered (RenderOrder band 5) + editable (EditActions, rotated-rect
