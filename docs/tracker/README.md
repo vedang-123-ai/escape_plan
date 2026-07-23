@@ -1,43 +1,39 @@
-# docs/tracker/ — team progress tracker & notes
+# docs/tracker/
 
-The single place to see **what's done, what's unblocked, and who's on what** — without
-re-reading the whole playbook. Three pieces:
+Three files, and they have deliberately opposite jobs.
 
 | File | What it is | Who touches it |
 |---|---|---|
-| `checklist.md` | Master checklist: every session S0.1–S5.3 with checkboxes for acceptance criteria and end-of-session bookkeeping | Whoever finishes work checks boxes |
-| `board.md` | The "right now" view: what's DONE, what each person can start today, what's blocked and on what | Update whenever a session flips to DONE |
-| `notes/` | One markdown note per session (or per work day) — decisions made mid-flight, surprises, questions for teammates | Whoever did the work |
+| `TODO.md` | **The** source of truth for open work: everything not yet done, grouped by area, each line naming its next action | Anyone finishing work removes what they finished and adds what they discovered |
+| `activity-log.md` | Append-only and **machine-written** — a Stop hook adds an entry whenever a session changes files | Nobody by hand; the hook owns it |
+| `notes/` | Append-only session notes, one per work session (copy `_TEMPLATE.md`) — the "why we did it this way" record and the project's process evidence | Whoever ran the session, at the end |
 
-## How to use it (30 seconds)
+`TODO.md` shrinks as work lands. `activity-log.md` and `notes/` only ever grow. That asymmetry
+is the point: a list of open work that grows forever stops being read, and a history that gets
+edited stops being trustworthy.
 
-1. **Starting work?** Open `board.md`, pick something from your "can start now" list,
-   read the session file in `docs/playbook/S<x>-<y>.md` first (that's rule #1).
-2. **While working**, jot anything worth remembering into a note:
-   copy `notes/_TEMPLATE.md` → `notes/S<x>.<y>-<slug>.md` (e.g. `notes/S1.3-renderer.md`).
-   Fragments are fine; this is a lab notebook, not documentation.
-3. **Finishing a session?** In `checklist.md`, check off each acceptance criterion
-   **only after you actually verified it** (run the test, watch the recording, click the thing).
-   Then do the end-of-session boxes — they mirror the project protocol:
-   decisions.md updated · tools-used.md updated · handoff artifact posted.
-   A session with unchecked end-of-session boxes is NOT done, even if the code works.
-4. Flip the session's status line in `checklist.md` and move it on `board.md`.
-   That's what unblocks your teammates — do it immediately, not "later."
+## Working here
 
-## Status vocabulary
+1. **Starting work?** Open `TODO.md` and pick something. Read `docs/playbook/S<x>-<y>.md` for
+   the session tag on that line before you start.
+2. **While working**, jot anything worth remembering into a note — copy `notes/_TEMPLATE.md` to
+   `notes/<YYYY-MM-DD>-<slug>.md`. Fragments are fine; it's a lab notebook, not documentation.
+3. **Finishing work?** Remove the lines you actually completed, and only those. Add whatever you
+   discovered, each with a concrete next action. Then write the session note.
+4. Update the `_Last verified:_` stamp at the top of `TODO.md` when you reconcile it against a
+   real run, and run `/verify-docs` to check nothing else drifted.
 
-- `DONE` — every acceptance box checked AND all three end-of-session boxes checked
-- `IN PROGRESS (Px)` — someone is actively on it
-- `READY` — all prerequisites DONE, nobody has picked it up
-- `BLOCKED (needs S<x>.<y>)` — don't start; see rule #2 in CLAUDE.md
-- `AT RISK / CUT CANDIDATE` — flagged per the cut order (S4.2 → S3.3 → S3.5 → camera tour → simplified agent)
+**Removing a line you didn't personally verify is the failure mode this file exists to prevent.**
+"The code exists" is not verification. If something needs a device or a real API key you don't
+have, leave it there and say so — that honesty is what makes the rest of the file trustworthy.
 
 ## Conventions
 
-- Checkboxes are the record; don't delete criteria you skipped — leave them unchecked and
-  write why in a note. Overlap with `docs/decisions.md` is fine: decisions.md is the formal
-  deviation log, notes/ is the informal scratchpad. When in doubt, note it here first and
-  promote real deviations to decisions.md at session end.
-- Dates: write them absolute (`2026-07-10`), never "yesterday."
-- Claude Code (P3) reads this folder too — keeping it current means any session can be
-  picked up by anyone (or by Claude) with zero re-explaining.
+- Dates are absolute (`2026-07-22`), never "yesterday".
+- Overlap with `docs/decisions.md` is fine: `decisions.md` is the formal deviation log, `notes/`
+  is the informal scratchpad. Note it here first, promote real deviations at session end.
+- Claude Code reads this folder too — keeping it current means any session can be picked up by
+  anyone with zero re-explaining.
+
+Run `/tracker` for a read-only status summary, `/handoff <id>` for the full end-of-session
+protocol, and `/verify-docs` to audit these docs against the actual repo.

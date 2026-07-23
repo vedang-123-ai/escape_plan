@@ -19,11 +19,11 @@ not just an assertion the model made up.
 ## What it shows
 
 - Single-point-of-failure detection: the agent calls `compute_routes`, sees the
-  engine's own bottleneck output (`d_entry` disconnects all 5 rooms), and files
-  a `high`-severity finding citing that exact tool call as evidence.
+ engine's own bottleneck output (`d_entry` disconnects all 5 rooms), and files
+ a `high`-severity finding citing that exact tool call as evidence.
 - Server-side enforcement: `run_agent_analysis` would have dropped this finding
-  had `evidence` pointed at a nonexistent tool call, or had `citation` not been
-  a real `sources.json` id — see `backend/tests/test_agent.py::test_agent_drops_findings_with_bad_evidence`.
+ had `evidence` pointed at a nonexistent tool call, or had `citation` not been
+ a real `sources.json` id — see `backend/tests/test_agent.py::test_agent_drops_findings_with_bad_evidence`.
 
 ## A related, more subtle case (twostory.json)
 

@@ -1,9 +1,15 @@
 # skills/
 
-Reusable prompt-based capabilities, each a kebab-case folder with a `SKILL.md` (frontmatter
-`name` + `description`, then instructions).
+Repeatable multi-step capabilities, invoked by name or by a slash command.
 
-None yet — the session protocol lives in `/session` (commands/) and the standing rules in
-`rules/`. Add a skill when a repeatable, multi-step capability emerges that isn't a slash
-command (likely candidates as the project grows: fixture-authoring, prompt-file authoring for
-the AI layer, demo b-roll capture checklist). Clone `_TEMPLATE/SKILL.md` to start.
+| Skill | Use when |
+|---|---|
+| `verify-all` | Running the full green gate — EditorCore, iOS simulator, backend pytest, corpus. Backs `/verify`. |
+| `end-of-session-handoff` | Closing out a session: acceptance, decisions, tools-used, tracker, note. Backs `/handoff`. |
+| `device-acceptance` | Walking acceptance criteria on a simulator or real device, checking off only what was observed. |
+| `parallel-lanes` | Splitting work across several worktrees and integrating the results. Backs `/lanes`. |
+
+`_TEMPLATE/` is the scaffold for new skills — copy it, don't invoke it.
+
+Add a skill when a multi-step procedure gets repeated and its details are worth encoding
+(especially the hard-won ones: which simulator, which derived-data path, which flag).

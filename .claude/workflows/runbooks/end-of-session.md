@@ -21,10 +21,9 @@ Root `CLAUDE.md`: **no note, no DONE.** This phase is not optional.
 
 1. Write a session note in `docs/tracker/notes/` — copy `_TEMPLATE.md`, name it
    `YYYY-MM-DD-s<x>-<y>-<slug>.md`.
-2. Update `docs/tracker/board.md` — flip this session's status and any it unblocked.
-3. Update `docs/tracker/checklist.md` — check only genuinely-passing criteria; leave device-only
-   ones unchecked with a note on what's needed. Never check a box for something not observed on
-   hardware.
+2. Update `docs/tracker/TODO.md` — remove only what genuinely passed, and add anything you
+   discovered, each with a concrete next action. Leave device-only and key-blocked items in
+   place with a note on what's needed. Never remove a line for something not actually observed.
 
 ## Phase 4 — Hand off
 
@@ -34,6 +33,6 @@ Root `CLAUDE.md`: **no note, no DONE.** This phase is not optional.
 
 ## Done criteria
 
-All four phases complete — including the Phase 3 tracker note/board/checklist. A session without a
+All four phases complete — including the Phase 3 tracker note/TODO.md. A session without a
 handoff and a tracker note didn't happen. The `end-of-session-handoff` skill / `/handoff` command
 runs this whole runbook.

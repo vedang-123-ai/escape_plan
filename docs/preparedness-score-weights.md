@@ -140,7 +140,7 @@ box as truth, and the breakdown screen says so.
 ## Component 5 — Plan agreed and practiced (10)
 
 ```
-earned = 10 × (confirmed practice items ÷ 2)     → 5.00 points each
+earned = 10 × (confirmed practice items ÷ 2) → 5.00 points each
 ```
 
 | Item id | Claim |
@@ -154,14 +154,14 @@ is what makes the score move on its own during the demo.
 ## What deliberately does *not* score
 
 - **Grounded AI recommendations.** `/score` with `include_recommendations: true`
-  asks the S3.1 layer for cited suggestions and appends them to the checklist as
-  `scoring: false` items. The AI advises; it never moves the number. This is the
-  same division of labour as the rest of the app, and it is the honest answer to
-  "isn't the score just the AI's opinion?" — no, and here is the arithmetic.
+ asks the S3.1 layer for cited suggestions and appends them to the checklist as
+ `scoring: false` items. The AI advises; it never moves the number. This is the
+ same division of labour as the rest of the app, and it is the honest answer to
+ "isn't the score just the AI's opinion?" — no, and here is the arithmetic.
 - **Route findings and agent-finding checklist items.** Both are `scoring: false`.
-  They are fixed by changing the home and re-running the engine (or re-running
-  `/analyze`), which moves components 1–3 on its own. If ticking the box *also*
-  paid out, the same fix would be counted twice.
+ They are fixed by changing the home and re-running the engine (or re-running
+ `/analyze`), which moves components 1–3 on its own. If ticking the box *also*
+ paid out, the same fix would be counted twice.
 
 So of the checklist, only the smoke-alarm and practice items are scoring items —
 together the 25 points a family can earn without touching the floor plan.
@@ -234,21 +234,21 @@ Check one alarm item: 75 + 2.142857 = 77.142857 → **77**.
 ## Notes for reviewers
 
 - The score is computed against the RoutePlan **the user is looking at**,
-  including profile constraints. Scoring the two-story under Grandpa's
-  `mobility_limited` profile (`avoid_stairs`) strands the upstairs rooms and the
-  score drops below 75 — correct behaviour: the home is genuinely less ready for
-  him than for the rest of the household.
+ including profile constraints. Scoring the two-story under Grandpa's
+ `mobility_limited` profile (`avoid_stairs`) strands the upstairs rooms and the
+ score drops below 75 — correct behaviour: the home is genuinely less ready for
+ him than for the rest of the household.
 - Weights are constants at the top of `backend/app/scoring/score.py`. Changing
-  one means changing this page and the assertions in `test_scoring.py` together
-  — that pairing is what keeps "reproducible by hand" true rather than aspirational.
+ one means changing this page and the assertions in `test_scoring.py` together
+ — that pairing is what keeps "reproducible by hand" true rather than aspirational.
 
 ## Remaining work
 
 - **iOS score screen and count-up animation (P2, out of scope for S3.5's backend
-  half).** The breakdown is already shaped for it: `ScoreBreakdown.components`
-  is an ordered list of tappable rows, each carrying `earned_points`,
-  `max_points`, a plain-language `detail`, and the `rationale` above.
+ half).** The breakdown is already shaped for it: `ScoreBreakdown.components`
+ is an ordered list of tappable rows, each carrying `earned_points`,
+ `max_points`, a plain-language `detail`, and the `rationale` above.
 - **S3.2 merge:** reconcile `app/scoring/findings.py` with the real agent models.
 - **S4.2 drill mode:** write `practice.drill_recent` on drill completion.
 - **S2.4 persistence:** `checklist_state` (item id → done) is a flat
-  `dict[str, bool]` on the home document; ids are stable per home.
+ `dict[str, bool]` on the home document; ids are stable per home.

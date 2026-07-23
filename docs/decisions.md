@@ -34,10 +34,10 @@ Running log of deviations from playbook defaults, and why. Newest first.
 | 2026-07-16 | S3.4 | Split the tag mapping into **hard** constraints (remove the edge) vs **soft** penalties. Added two additive `RoutingConstraints` fields — `stair_penalty_m`, `window_penalty_m` (both default 0.0 = exact pre-S3.4 behaviour). `mobility_limited` → hard `avoid_stairs`+`avoid_windows`; `elderly` → soft `stair_penalty_m=10.0` + `max_sill_height_m` read from the corpus thresholds; `child` → soft `window_penalty_m=20.0`; `pet` → nothing. Tags compose strictest-wins. Table: `backend/app/routing/profiles.py`, rationale: `docs/profile-constraint-mappings.md` | Corpus distinguishes "not usable routes" (wheelchair + stairs → must disappear; showing an unusable route is worse than showing none) from "prefer stair-free **where available**" (older adults → must only cost more; a hard ban would manufacture a false no-viable-route flag). The penalty magnitudes are documented as engineering choices, NOT dressed up with a citation — the corpus gives no number for "prefer" and we won't invent one and attribute it to NFPA. |
 | 2026-07-16 | S3.4 | **Known limitation, deliberately documented not hidden:** the `child` window penalty changes **zero** routes on all three fixtures — the engine's universal `WINDOW_EXIT_PENALTY` (12.0) already dominates every door/window choice those homes offer. Locked by `test_child_penalty_is_a_no_op_on_the_current_fixtures`. `elderly` and `mobility_limited` both demonstrably change twostory outcomes | The mapping encodes the corpus's intent and would bite in a home with a closer call, but the `child` tag's real effect today is the S3.1 explanation phrasing, not the geometry. A test that asserts the no-op stops anyone quietly overclaiming it in the demo video. |
 | 2026-07-16 | S3.4 | `/routes` gains optional `profile_id` (resolved against `home.profiles`); `RoutePlan` gains nullable `profile_id`. Both additive — pre-S3.4 requests are byte-identical. `profile_id` + explicit `constraints` together → **422**, unknown `profile_id` → **404**; `compute_route_plan` raises `ValueError` on both-args | Fail loudly rather than fall back: silently letting explicit constraints override the derived table would void the guarantee the mappings doc makes to judges, and falling back to unconstrained routing on a typo'd id would hand a mobility-limited user a staircase. Client sends an id, not constraints, so the mapping table stays server-side and un-forkable. |
-| 2026-07-16 | S3.5 | **Approved deviation: built S3.5's backend half before its S3.2 prerequisite** (parallel-lane direction). Agent findings are consumed through an explicit interface transcribed from `docs/playbook/S3-2.md` — `backend/app/scoring/findings.py`, marked `TODO(integration)`. Scoring reads only `severity` off a finding, so the merge risk is narrow: severity spelling (`"med"` vs `"medium"`) and whether findings carry a stable id (the checklist currently synthesizes positional ids). **S3.5 is not fully DONE:** the iOS score screen + count-up animation (P2) remain, and the findings component has never seen a real `/analyze` payload | S3.2 is in a teammate's worktree; the scoring engine is a pure function of routes + findings + checklist state and needs none of S3.2's implementation, only its output shape. Keeps both lanes moving; the interface file is the merge checklist. |
+| 2026-07-16 | S3.5 | **Approved deviation: built S3.5's backend half before its S3.2 prerequisite** (parallel-lane direction). Agent findings are consumed through an explicit interface transcribed from `docs/playbook/S3-2.md` — `backend/app/scoring/findings.py`, marked `TODO(integration)`. Scoring reads only `severity` off a finding, so the merge risk is narrow: severity spelling (`"med"` vs `"medium"`) and whether findings carry a stable id (the checklist currently synthesizes positional ids). **S3.5 is not fully DONE:** the iOS score screen + count-up animation remain, and the findings component has never seen a real `/analyze` payload | S3.2 is in a teammate's worktree; the scoring engine is a pure function of routes + findings + checklist state and needs none of S3.2's implementation, only its output shape. Keeps both lanes moving; the interface file is the merge checklist. |
 | 2026-07-16 | S3.5 | Score weights per the playbook (30 primary / 25 secondary / 20 findings / 15 alarms / 10 practice), with two deviations: (a) primary/secondary are **proportional** (`30 × rooms_with_route/total`), not all-or-nothing; (b) the findings component **deducts per finding** (high 10 / med 4 / low 1, floored at 0) instead of the playbook's binary "no high-severity findings". The total rounds **half-up**, not Python's banker's rounding. All arithmetic hand-reproducible from `docs/preparedness-score-weights.md`; `backend/tests/test_scoring.py` asserts every worked example on that page | Partial credit makes the score actionable — fixing one trapped bedroom must visibly move the number, and one low-severity note must not read like a bedroom with no egress. Banker's rounding would round 77.5 up but 76.5 down, silently making the published hand-calculations wrong. |
 | 2026-07-16 | S3.5 | Only smoke-alarm and practice checklist items are **scoring**; route findings, agent findings, and grounded AI recommendations are all `scoring: false`. Absent findings → findings component sits at **full** marks, not zero. `/score` is a thin wrapper that recomputes the RoutePlan from `home` + `constraints` so the score always matches the plan on screen (profile constraints included); `include_recommendations: true` is the only AI path, appends non-scoring items only, mapped from S3.1 with citations re-validated at the boundary (`GroundingError` → 502, matching `/explain`) | Route/agent items are fixed by changing the home and re-running the engine, which moves components 1–3 on its own — paying out for the tick as well would double-count. Full marks with no findings means the score reports what's known rather than penalising a household for not yet running an inspection. Keeping AI items non-scoring is the honest answer to "isn't the score just the AI's opinion?". |
-| 2026-07-16 | S5.1 (draft) | **Approved deviation: drafted S5.1's demo script + storyboard before its S4.1 prerequisite** (P1 direction), as an explicitly-marked draft v0 (`docs/demo/script-v0.md`, `docs/demo/storyboard-v0.md`). **S5.1 is NOT done** — every visual claim is tagged `[PENDING: S<x>.<y>]` against the session that must ship it, and the whole draft is re-read when S5.1 formally starts. Docs only; no code. Beat 2's playbook-supplied "80%" scan-quality figure is flagged as a characterization, not a sourced statistic — S1.5's calibration replaces it with a real number or it gets reworded | A script written in October from zero is a script written under deadline. Drafting now turns S5.1 into an edit pass and, more usefully, surfaces the b-roll shot list early enough that each session can record its own footage as it lands instead of restaging it. |
+| 2026-07-16 | S5.1 (draft) | **Approved deviation: drafted S5.1's demo script + storyboard before its S4.1 prerequisite**, as an explicitly-marked draft v0 (`docs/demo/script-v0.md`, `docs/demo/storyboard-v0.md`). **S5.1 is NOT done** — every visual claim is tagged `[PENDING: S<x>.<y>]` against the session that must ship it, and the whole draft is re-read when S5.1 formally starts. Docs only; no code. Beat 2's playbook-supplied "80%" scan-quality figure is flagged as a characterization, not a sourced statistic — S1.5's calibration replaces it with a real number or it gets reworded | A script written in October from zero is a script written under deadline. Drafting now turns S5.1 into an edit pass and, more usefully, surfaces the b-roll shot list early enough that each session can record its own footage as it lands instead of restaging it. |
 | 2026-07-16 | S1.3 | **Approved deviation: built S1.3 before its S0.3 prerequisite is on this branch** (parallel-lane direction). Wrote a minimal HomeModel Codable layer at `escape_plan/Models/Generated/HomeModel.swift`, mirroring the schema field-for-field but with no validation and no store/undo plumbing — marked `TODO(integration): replace wholesale with S0.3's model layer on merge`. S0.3 is being built in a separate worktree | The renderer needs *a* decoded model, not *the* model layer; both are written against the same schema, so the swap should be delete-and-rebuild rather than a rewrite. Front-loading the visual core keeps the S1.3 lane unblocked while S0.3 lands. |
 | 2026-07-16 | S1.3 | Renderer stayed on **SceneKit** (playbook default; RealityKit not evaluated). `escape_plan/Renderer/` splits into a pure-geometry module (`DollhouseGeometry` — no SceneKit node construction, unit-tested) and a node builder (`DollhouseSceneBuilder`) — the same pure-function split the backend uses for routing | The editor (S2.x) mutates the model constantly and must rebuild scenes cheaply; a pure `HomeModel → scene` function with no hidden state makes rebuilds safe and the geometry testable without a renderer or a device. |
 | 2026-07-16 | S1.3 | Renderer conventions, all fixed in `DollhouseGeometry`: plan (x, y) → scene **(x, −z)** with +y up; floors stack by `level` (not array order) on accumulated `height_m`; shared walls **deduplicated** by unordered rounded endpoint pair; opening markers centered on the **midpoint of [t0, t1]** and sized by **`width_m`** (schema: the t-range is placement, not size), clamped to the host edge; stair `kind` L/U render as a straight-flight proxy across the footprint's long axis | Adjacent rooms each own the shared wall in their own polygon — rendering both puts two coplanar transparent boxes in one place and z-fights. Clamping means bad `width_m` data can't overhang a wall. The schema stores a footprint + kind for proxy geometry only, so an L-shaped proxy would be inventing geometry the model doesn't carry. |
@@ -60,10 +60,10 @@ Running log of deviations from playbook defaults, and why. Newest first.
 | 2026-07-16 | S0.3 | Replaced the stock "App with Core Data" template wholesale: deleted `Persistence.swift` + `escape_plan.xcdatamodeld`; added `Models/` (Codable structs mirroring `schema/homemodel.schema.json` field-for-field — snake_case property names, same optionality/defaults as the schema, not Swift naming convention), `Screens/` (TabView shell: Home/Editor/Plan/Assistant/Settings), `Networking/APIClient.swift`. Xcode project confirmed staying at repo root (not `ios/`) — moving it was never revisited since S0.1 and doing so now would still break the open Xcode session for no benefit before Phase 2 | Matches the playbook default (local JSON persistence, not Core Data) and the S0.1 flag left for this session. Root-vs-`ios/` was a live decision point per that flag; kept root to avoid churn. |
 | 2026-07-16 | S0.3 | Swift's `Stairs.from`/`.to` use the JSON field names directly with no `CodingKeys` alias — `from` isn't a reserved word in Swift (unlike Python, where `backend/app/models.py` needed `from_` + an alias). `Point` is a custom `Codable` type that (de)serializes as a bare 2-element JSON array, not a `{x, y}` object, to match `$defs/point` exactly. Fields the schema marks `"default": []` (`HomeModel.stairs/profiles`, `Floor.openings`, `Profile.tags`) get hand-written `init(from:)` with `decodeIfPresent(...) ?? []` so a document omitting the key still decodes, even though all 3 committed fixtures include it explicitly today | "Codable structs mirroring the schema exactly — field names, enums, optionality" (swift.md). Worth flagging for P1: the Swift mirror is more defensive about omitted-default-array keys than the current fixtures require — no drift risk today, but the pydantic side should double check it treats an omitted `stairs`/`profiles`/`openings` key the same way if S1.5 or the editor ever emits one. |
 | 2026-07-16 | S0.3 | Round-trip test (`escape_planTests/HomeModelRoundTripTests.swift`) does decode → encode → decode → `Equatable` compare on the decoded model graphs, run against all 3 fixtures (bungalow/apartment/twostory), not a literal byte/string diff of the two JSON blobs | `JSONEncoder` doesn't guarantee key order/whitespace matches the source file's formatting even when content is identical, so a byte-literal compare would be a false-negative machine. Struct `Equatable` (all stored properties, synthesized) is the correct "semantic" compare for a decode→encode round trip. |
-| 2026-07-16 | S0.3 | `schema/fixtures/*.json` copied into `escape_plan/Fixtures/` as real files (not a symlink) so Xcode's `PBXFileSystemSynchronizedRootGroup` bundles them as app resources; a small `Bundle(for:)` token type shares the app bundle lookup with the test target via `@testable import`. **Known drift risk, flagged for P1/P2**: these are copies, not the single source of truth — if `schema/fixtures/` changes, `escape_plan/Fixtures/` needs a manual re-copy until a build-phase script or symlink is added (not attempted this session — lower risk to just copy given the `.pbxproj` uses the newer synchronized-group format and its symlink-following behavior for resource bundling wasn't verified) | Simplest reliable path to a bundled resource under this project's file-system-synchronized (Xcode 16+) group format; explicitly deferred a build-script solution rather than risk a `.pbxproj` edit this session. |
+| 2026-07-16 | S0.3 | `schema/fixtures/*.json` copied into `escape_plan/Fixtures/` as real files (not a symlink) so Xcode's `PBXFileSystemSynchronizedRootGroup` bundles them as app resources; a small `Bundle(for:)` token type shares the app bundle lookup with the test target via `@testable import`. **Known drift risk, flagged for we**: these are copies, not the single source of truth — if `schema/fixtures/` changes, `escape_plan/Fixtures/` needs a manual re-copy until a build-phase script or symlink is added (not attempted this session — lower risk to just copy given the `.pbxproj` uses the newer synchronized-group format and its symlink-following behavior for resource bundling wasn't verified) | Simplest reliable path to a bundled resource under this project's file-system-synchronized (Xcode 16+) group format; explicitly deferred a build-script solution rather than risk a `.pbxproj` edit this session. |
 | 2026-07-16 | S0.3 | `APIClient` base URL/bearer token are runtime-configurable via `UserDefaults`, edited from the Settings tab (not hardcoded, not `Info.plist`); default is `http://localhost:8000`. Acceptance box "runs on a real device" stays open — needs a human with the physical device; xcodebuild build+test both ran clean against iOS Simulator (iPhone 17, iOS 26.5) | Base URL needs to flip from local dev to the deployed Render URL (S1.6 human step) without a rebuild; `UserDefaults` is the lightest mechanism that supports that pre-S2.4 (before real persistence lands). |
 | 2026-07-16 | S0.3 | `xcodebuild test` (unscoped) reports `** TEST FAILED **` only because of the *stock* `escape_planUITests.testLaunchPerformance()` (unmodified this session, pre-existing since the S0.1 template) timing out (~525s) with `FBSOpenApplicationServiceErrorDomain … RequestDenied` in this sandboxed dev environment — a simulator app-foregrounding limitation, not a regression. All 4 `HomeModelRoundTripTests` (including the decode→encode→decode round trip on all 3 fixtures) pass; `-only-testing:escape_planTests` reports `** TEST SUCCEEDED **` | Distinguishing "acceptance-relevant test failure" from "sandboxed-simulator UI-automation flakiness" — the S0.3 acceptance criterion is the round-trip test, which is green. Documented rather than silently deleting/skipping the stock UI test. |
-| 2026-07-13 | S1.5 (prep) | **Approved deviation: started S1.5's device-independent half before its S1.4 prerequisite** (P1 direction). Built `backend/app/convert/` as a pure module against an ASSUMED RoomPlan export format (documented in `backend/app/convert/README.md`: column-major simd transforms, `{"high": {}}` confidence objects, per-room surface arrays, shared doors appearing in both rooms), validated only on 3 synthetic fixtures (`schema/fixtures/scans/`, generated by `backend/scripts/gen_scan_fixtures.py`). **S1.5 is NOT done** — real S1.4 exports must be diffed against the README's assumptions first. `/convert` endpoint deliberately not wired (S1.6 lane owns FastAPI) | Playbook calls S1.5 "the hardest single module"; the polygon/mapping pipeline needs no device. Front-loading it means S1.4→S1.5 becomes a validate-and-calibrate step instead of a build step. |
+| 2026-07-13 | S1.5 (prep) | **Approved deviation: started S1.5's device-independent half before its S1.4 prerequisite**. Built `backend/app/convert/` as a pure module against an ASSUMED RoomPlan export format (documented in `backend/app/convert/README.md`: column-major simd transforms, `{"high": {}}` confidence objects, per-room surface arrays, shared doors appearing in both rooms), validated only on 3 synthetic fixtures (`schema/fixtures/scans/`, generated by `backend/scripts/gen_scan_fixtures.py`). **S1.5 is NOT done** — real S1.4 exports must be diffed against the README's assumptions first. `/convert` endpoint deliberately not wired (S1.6 lane owns FastAPI) | Playbook calls S1.5 "the hardest single module"; the polygon/mapping pipeline needs no device. Front-loading it means S1.4→S1.5 becomes a validate-and-calibrate step instead of a build step. |
 | 2026-07-13 | S1.5 (prep) | Converter behavior choices: shared doors paired by identifier first, then geometric coincidence (≤0.35 m, parallel); unpaired doors/windows → `[room, EXTERIOR]`; RoomPlan `openings` (doorless passages) emitted as doors (schema has no passage kind); opening >0.5 m from every wall edge kept but demoted to confidence ≤0.25; degenerate room geometry falls back to a bounding box at confidence ×0.3 (never crash/drop); one floor per scan session; all output ids uuid5-derived from input identifiers so conversion is idempotent | "80% right + flagged uncertainty" per the playbook — the Phase-2 editor is the corrector. Deterministic ids make idempotency testable and diffs stable. Known failure modes listed in the module README for the S1.4 calibration pass. |
 | 2026-07-13 | S3.1 | Golden tests assert structural stability (same rooms explained, ≥1 valid overlapping citation) against committed snapshots rather than exact-text equality; live-API tests live behind a `live` pytest marker excluded by default (`pytest.ini` addopts), run via `ANTHROPIC_API_KEY=... python3 -m pytest tests/test_ai_live.py -m live -v` from backend/. First run writes the snapshot for hand review | Model wording isn't deterministic even at temperature 0.2 — exact-text snapshots would be permanently flaky; the safety-relevant invariants (coverage + citations) are what must not drift. Marker keeps the default suite hermetic and free. |
 | 2026-07-13 | S3.1 | Citable ids = exactly the `sources` array of sources.json (compilation primary ids like `fire-facts-stats` are NOT citable); uncited/fabricated citations rejected server-side and retried up to 2× by feeding an `is_error` tool_result back; still bad → `GroundingError` → HTTP 502. Red-team deferral goes through `answer_grounded_question()`, a plain-text helper sharing the same cached system prompt (reused by S3.3 chat later) | Matches the S0.4 corpus rule that compilation docs only cite underlying sources; tool_result feedback is the idiomatic Anthropic retry channel; 502 (not 500) tells the app the upstream AI output was rejected, deterministic routes remain available. |
@@ -74,8 +74,8 @@ Running log of deviations from playbook defaults, and why. Newest first.
 | 2026-07-10 | S0.2 | Schema strictness choices: ids globally unique across ALL entity kinds (not per-type); `room_ids` always exactly 2 entries (interior = 2 rooms, exit = room + `EXTERIOR`); `additionalProperties: false` everywhere; `confidence` required only when `source: "scan"`; `egress` is a computed-only field absent until the S1.1 annotator runs | Global uniqueness makes every id a valid graph-node key with no namespacing; a closed schema catches typos at the contract boundary; version bumps handle future additions. |
 | 2026-07-10 | S0.2 | Both validators are the contract: JSON Schema (shape) AND pydantic (geometry/cross-refs). CLI `python3 -m app.validate` runs both. Added `backend/requirements.txt` early (pydantic, jsonschema, pytest, matplotlib) ahead of S1.6's full scaffold | JSON Schema can't express CCW/self-intersection/reference checks; S0.3's Swift round-trip test should treat pydantic-valid fixtures as ground truth. |
 | 2026-07-10 | S0.2 | Broken-fixture acceptance implemented as `schema/fixtures/invalid/` (3 files: dangling room ref, CW polygon, duplicate ids) exercised by pytest | One "broken fixture" per failure class gives clearer regression coverage than a single kitchen-sink file. |
-| 2026-07-10 | tooling | Built out a committed `.claude/` control center (rules, hooks, commands, agents, workflows) and changed `.gitignore` to ignore only `.claude/settings.local.json` instead of all of `.claude/` | So P1/P2's Claude sessions load the same project rules, `/session` protocol, and guardrails (schema-edit confirmation hook, API-key pre-commit scan). Root CLAUDE.md now @-references `.claude/rules/global/`; iOS-side CLAUDE.md stub added at `escape_plan/`. No new dependencies (hooks are bash + python3 stdlib). |
-| 2026-07-10 | S0.4 | Marked complete ahead of P1's corpus review (P3 decision) | Self-verifiable criteria pass (citation traceability + thresholds validation, enforced by validate.py). P1's "sufficient for S3.1" sign-off recorded as done at P3's direction — P1 should still read docs/corpus-summary.md and reopen S0.4 if the corpus is insufficient. |
+| 2026-07-10 | tooling | Built out a committed `.claude/` control center (rules, hooks, commands, agents, workflows) and changed `.gitignore` to ignore only `.claude/settings.local.json` instead of all of `.claude/` | So we's Claude sessions load the same project rules, `/session` protocol, and guardrails (schema-edit confirmation hook, API-key pre-commit scan). Root CLAUDE.md now @-references `.claude/rules/global/`; iOS-side CLAUDE.md stub added at `escape_plan/`. No new dependencies (hooks are bash + python3 stdlib). |
+| 2026-07-10 | S0.4 | Marked complete ahead of P1's corpus review | Self-verifiable criteria pass (citation traceability + thresholds validation, enforced by validate.py). P1's "sufficient for S3.1" sign-off recorded as done at P3's direction — P1 should still read docs/corpus-summary.md and reopen S0.4 if the corpus is insufficient. |
 | 2026-07-10 | S0.3 (flag for P2) | Current Xcode scaffold is the stock "App with Core Data" template — left untouched on purpose | S0.3 can't start until S0.2 (schema) is done. Note for P2: playbook default persistence is local JSON via FileManager, Core Data only if P2 prefers — expect to replace the template's Persistence.swift/ContentView.swift wholesale, and decide whether the project moves under `ios/`. |
 | 2026-07-10 | S0.4 | Corpus is ~8 dense pages, under the playbook's 15–25 page target | Dense structured guidance beats padded prose for prompt grounding; every planned topic is covered. Expand in S3.1 if explanation quality demands it. |
 | 2026-07-10 | S0.4 | Added `validate.py` (stdlib-only) in `backend/corpus/` | "Thresholds file validates" acceptance needs a checkable definition; stdlib-only because the Python env isn't scaffolded until S1.6. Checks source resolution, front-matter, inline `[cite:]` tags, and imperial↔metric consistency (1% tolerance). |
@@ -86,6 +86,23 @@ Running log of deviations from playbook defaults, and why. Newest first.
 
 ---
 
+## 2026-07-22 — Repo assessment, entry-point wiring, doc consolidation
+
+| Decision | Why |
+|---|---|
+| `docs/tracker/board.md` + `checklist.md` collapsed into one `docs/tracker/TODO.md` | The two contradicted each other in ~9 places (S2.3 blocked on one and fully checked on the other, same day; three sections each labelled "(latest)"; test counts disagreeing three ways). Two status files means two things to keep in sync, and neither was. One file listing only open work, each line naming its next action. |
+| `docs/plan.md` deleted | 40,429 bytes vs `cat docs/playbook/*.md` = 40,599 — the same document pre-split, orphaned since 2026-07-10, linked from nowhere. A silent second source of truth. |
+| P1/P2/P3 lane labels stripped from live docs; `docs/tracker/notes/` deliberately untouched | Owner lanes had stopped matching who actually did the work. Notes are a dated append-only archive and the project's process evidence — rewriting them retroactively would falsify the record rather than clean it. ~20 files retain prose mentions needing a hand rewrite; tracked in TODO.md. |
+| Anti-staleness is four stacked mechanisms, not a convention | Stop hook auto-writes `activity-log.md` (machine-written, cannot be forgotten); `/verify-docs` + `doc-auditor` agent; freshness stamps; pre-commit **warn**. Blocking commits over docs teaches people to bypass the hook, so that one warns only. |
+| Capture + DrillMode entry points wired into `HomeScreen` | Both modules were complete, tested, and referenced by zero app code. LiDAR scan is the scope-locked headline feature and was unreachable. Required a new `APIClient+Convert.swift` — no `/convert` client existed in Swift at all. |
+| Scan blob carried as `JSONValue`, not a typed Swift struct | The raw RoomPlan export format is the converter's contract (`backend/app/convert/README.md`). A Swift mirror of it would be a second copy that drifts; the app hands the bytes over untouched and the backend is the only thing that interprets them. |
+| `app.ai.agent.Finding` and `app.scoring.findings.Finding` stay duplicated | The old TODO said to merge them post-S3.2. `agent.py` imports `anthropic` at module level, so re-exporting would drag the SDK into the deterministic scoring path and break the division of labor. Duplication is correct here; the lockstep risk is tracked instead. |
+| Shared Xcode scheme committed | `xcshareddata/` was absent — `xcodebuild -scheme escape_plan` worked only on one machine. |
+| `rules/vendors/anthropic.md` globs fixed | Pointed at `backend/app/api/**`, which does not exist. The Anthropic grounding rules were silently never loading when editing the actual endpoint code (`main.py`, `api_chat.py`). |
+
+Measured state (settles prior contradictions): backend **196** tests, EditorCore **128**, iOS **242** (238 unit + 4 UI), corpus 11 sources / 6 files. `/chat` and `/analyze` degrade to a clean 502 without a key — verified, not assumed.
+
+
 ## S2.4 — Persistence manual test checklist
 
 Automated coverage (`./scripts/verify_export_validates.sh`, 17 tests) proves the store's
@@ -95,13 +112,13 @@ to `HomeDocumentStore` (see the `TODO(integration)` notes in `escape_plan/Persis
 
 **Kill and relaunch → everything persists**
 - [ ] Save a home, force-quit from the app switcher (not just background), relaunch → the home
-      is in the list with the same name, floor count, room count.
+ is in the list with the same name, floor count, room count.
 - [ ] Open it → the editor shows the same rooms/openings; nothing silently reset to defaults.
 - [ ] Edit a room, force-quit *without* leaving the editor, relaunch → the edit is there
-      (this is the autosave contract, and is S2.1's to honour — persistence only stores what
-      it's handed).
+ (this is the autosave contract, and is S2.1's to honour — persistence only stores what
+ it's handed).
 - [ ] Relaunch with the device in Airplane Mode → the list still loads (nothing here is
-      network-dependent).
+ network-dependent).
 
 **Two homes coexist**
 - [ ] Save two homes with different names → both listed, correct floor/room counts each.
@@ -116,19 +133,19 @@ to `HomeDocumentStore` (see the `TODO(integration)` notes in `escape_plan/Persis
 **Export / share**
 - [ ] Export → share sheet appears; send to Files/Mail/AirDrop → a `.json` lands.
 - [ ] Open the exported file in a text editor → it's a HomeModel document, readable, not an
-      app-private wrapper.
+ app-private wrapper.
 - [ ] Run `cd backend && python3 -m app.validate <exported file>` → OK.
 - [ ] Re-import the exported file → it appears as a *second* home; the original is untouched.
 
 **Schema version**
 - [ ] Hand-edit a saved document's `schema_version` to `"2.0"` (via the export/import path or
-      a debug build), open the list → the home is refused with the "newer version" message,
-      the app does not crash, other homes still list, and the file is left on disk unmodified.
+ a debug build), open the list → the home is refused with the "newer version" message,
+ the app does not crash, other homes still list, and the file is left on disk unmodified.
 
 **Storage hygiene / privacy**
 - [ ] Delete the app → homes are gone (scope lock: local only, no accounts, no cloud copy).
 - [ ] Confirm the device id is a random UUID in UserDefaults (`escape_plan.device_id`) — not
-      `identifierForVendor`, no name/email/account anywhere in the document.
+ `identifierForVendor`, no name/email/account anywhere in the document.
 
 ## 2026-07-22 — Tab screens wired to real S1.3/S2.1/S2.4 code
 
@@ -148,27 +165,27 @@ dependency changes.
 The S3.5 backend was already DONE; this lands the iOS screen. Decisions:
 
 - **Score lives under Home, not a sixth tab.** The TabView already has five tabs (a sixth
-  overflows into iOS's "More" list), and the score is per-home data — so it's a per-home push
-  from the homes list (leading swipe "Score" / context menu), exactly how the editor and the
-  S3.4 profiles screen are reached.
+ overflows into iOS's "More" list), and the score is per-home data — so it's a per-home push
+ from the homes list (leading swipe "Score" / context menu), exactly how the editor and the
+ S3.4 profiles screen are reached.
 - **No client-side score math.** Every checklist toggle persists locally then re-POSTs
-  `/score` with the updated `checklist_state`; the displayed number and breakdown are always
-  the backend's, so "score matches documented backend math" holds by construction. Verified
-  against `docs/preparedness-score-weights.md`: bungalow 75 → 80 (`practice.meeting_point`)
-  → 100 (all items); twostory 75 → 77 (one alarm item, +15/7 half-up).
+ `/score` with the updated `checklist_state`; the displayed number and breakdown are always
+ the backend's, so "score matches documented backend math" holds by construction. Verified
+ against `docs/preparedness-score-weights.md`: bungalow 75 → 80 (`practice.meeting_point`)
+ → 100 (all items); twostory 75 → 77 (one alarm item, +15/7 half-up).
 - **Checklist done-state persists in UserDefaults** (`checklistState.<home_id>`), NOT on the
-  home document: the schema is frozen (no checklist field without a version bump) and
-  `HomeDocumentStore` files are exactly HomeModel JSON by design (export is the stored file).
-  This deviates from `backend/app/scoring/checklist.py`'s "persisted on the home document"
-  docstring; consequence: checklist state does not travel with export/import, and deleting a
-  home leaves a tiny orphaned defaults entry.
+ home document: the schema is frozen (no checklist field without a version bump) and
+ `HomeDocumentStore` files are exactly HomeModel JSON by design (export is the stored file).
+ This deviates from `backend/app/scoring/checklist.py`'s "persisted on the home document"
+ docstring; consequence: checklist state does not travel with export/import, and deleting a
+ home leaves a tiny orphaned defaults entry.
 - **Request sends only `home` + `checklist_state`.** `findings`, `constraints`, `profile`,
-  and `include_recommendations` are omitted (server defaults) until /analyze (S3.2 wiring)
-  and recommendations land — so the findings component reads 20/20 for now, as designed.
+ and `include_recommendations` are omitted (server defaults) until /analyze (S3.2 wiring)
+ and recommendations land — so the findings component reads 20/20 for now, as designed.
 - **`APIClient+Score.swift` uses `URLSession.shared`**: `session` is `private` (file-scoped)
-  in `APIClient.swift`, which this session was forbidden to edit; the default init uses
-  `.shared` anyway, so behavior is identical. This file establishes the
-  `APIClient+<Endpoint>.swift` extension pattern for future endpoints.
+ in `APIClient.swift`, which this session was forbidden to edit; the default init uses
+ `.shared` anyway, so behavior is identical. This file establishes the
+ `APIClient+<Endpoint>.swift` extension pattern for future endpoints.
 
 No new dependencies (SwiftUI + URLSession only). Full writeup:
 `docs/tracker/notes/2026-07-22-s3-5-score-ios.md`.
@@ -178,22 +195,22 @@ No new dependencies (SwiftUI + URLSession only). Full writeup:
 The S3.4 backend was already DONE; this lands the profile CRUD UI. Decisions:
 
 - **Profiles are edited per-home from the Homes list, not from Settings.** Profiles live
-  inside the HomeModel document (`HomeModel.profiles`), so the UI is a per-home push from
-  the homes list (leading swipe "Profiles" / context menu → `ProfilesScreen`), sharing the
-  entry-point pattern with the S3.5 score screen. Settings stays app-global config only.
+ inside the HomeModel document (`HomeModel.profiles`), so the UI is a per-home push from
+ the homes list (leading swipe "Profiles" / context menu → `ProfilesScreen`), sharing the
+ entry-point pattern with the S3.5 score screen. Settings stays app-global config only.
 - **Profile mutations go through new append-only `EditAction` cases**
-  (`addProfile` / `updateProfile` / `deleteProfile`) reduced in `HomeModelStore` — so they
-  get validation, the commit hook (undo + autosave), and the "rejected actions leave the
-  model untouched" guarantee for free. No new validation code was needed:
-  `EditorValidation.validate` already enforced every profile invariant since S2.1.
+ (`addProfile` / `updateProfile` / `deleteProfile`) reduced in `HomeModelStore` — so they
+ get validation, the commit hook (undo + autosave), and the "rejected actions leave the
+ model untouched" guarantee for free. No new validation code was needed:
+ `EditorValidation.validate` already enforced every profile invariant since S2.1.
 - **Bedroom picker shows ALL rooms grouped by floor** (bedroom-typed rooms hinted with a
-  bed icon), not filtered to `type == .bedroom` — fresh editor homes default rooms to
-  `.other`, and the schema allows any room id as a bedroom, so filtering would dead-end.
+ bed icon), not filtered to `type == .bedroom` — fresh editor homes default rooms to
+ `.other`, and the schema allows any room id as a bedroom, so filtering would dead-end.
 - **`ProfileTag.displayName` lives in `Screens/ProfileEditorView.swift`**, not
-  `Models/Enums.swift` — Models/ stays a pure schema mirror.
+ `Models/Enums.swift` — Models/ stays a pure schema mirror.
 - **Live route re-fetch on profile switch is deliberately NOT built** — it needs S2.3's
-  route overlay on PlanScreen (untouched this session). Marked with `TODO(integration)` in
-  `ProfilesScreen.swift`; the remaining S3.4 acceptance boxes stay open until then.
+ route overlay on PlanScreen (untouched this session). Marked with `TODO(integration)` in
+ `ProfilesScreen.swift`; the remaining S3.4 acceptance boxes stay open until then.
 
 Tests: `escape_planTests/EditorCore/ProfileActionsTests.swift` (11 tests via the SwiftPM
 harness). No schema, backend, or dependency changes. Full writeup:
@@ -205,32 +222,32 @@ Full overlay code landed (P3, on top of the same-day PlanScreen/dollhouse integr
 device eyes-on pass + acceptance recording remain, same posture as S1.3. Decisions:
 
 - **`Models/RoutePlan.swift` mirrors `backend/app/routing/plan.py`**, not the homemodel
-  schema — same snake_case wire-mirror stance as `ScoreModels.swift`. Backend-defaulted keys
-  (`findings`, `bottlenecks`, S3.4 penalty constraints) decode leniently so the pre-S3.4
-  committed samples in `docs/route-samples/` all decode. `RoutesRequest` omits nil
-  `constraints`/`profile_id` keys entirely (backend 422s when both arrive).
+ schema — same snake_case wire-mirror stance as `ScoreModels.swift`. Backend-defaulted keys
+ (`findings`, `bottlenecks`, S3.4 penalty constraints) decode leniently so the pre-S3.4
+ committed samples in `docs/route-samples/` all decode. `RoutesRequest` omits nil
+ `constraints`/`profile_id` keys entirely (backend 422s when both arrive).
 - **S2.3 sends no `profile_id`** — the playbook's "default profile" has no counterpart in
-  the app (nothing selects one), so the fetch is the base whole-house plan; `fetchRoutes`
-  is parameterized so S3.4's live-switch TODO(integration) is UI-only work now.
+ the app (nothing selects one), so the fetch is the base whole-house plan; `fetchRoutes`
+ is parameterized so S3.4's live-switch TODO(integration) is UI-only work now.
 - **Route tubes live in per-floor `"routes:<floorID>"` containers** under the builder's
-  floor nodes: exploded view and floor hiding apply with zero overlay code. Floor crossings
-  render as paired glowing stubs (one per floor, floor-local) instead of a cross-floor tube,
-  which would need per-frame recompute under explode.
+ floor nodes: exploded view and floor hiding apply with zero overlay code. Floor crossings
+ render as paired glowing stubs (one per floor, floor-local) instead of a cross-floor tube,
+ which would need per-frame recompute under explode.
 - **Custom tube geometry with arc-length-normalized UVs**; the primary's pulse is a
-  fragment shader modifier on `u_time` (bands travel room → exit at constant speed), so
-  `DollhouseSceneView` gained `wantsContinuousRendering` (continuous redraw only while
-  routes are shown). Secondary dashes are alpha-zero in the shader, not `discard` —
-  SceneKit's GLSL→Metal transpile of discard is unreliable across OS versions.
+ fragment shader modifier on `u_time` (bands travel room → exit at constant speed), so
+ `DollhouseSceneView` gained `wantsContinuousRendering` (continuous redraw only while
+ routes are shown). Secondary dashes are alpha-zero in the shader, not `discard` —
+ SceneKit's GLSL→Metal transpile of discard is unreliable across OS versions.
 - **"Everyone" mode draws primaries + badges only**; both routes render once a single room
-  is picked — a whole-house overlay with every secondary was unreadable.
+ is picked — a whole-house overlay with every secondary was unreadable.
 - **Warning badges render engine findings verbatim** (`no_secondary_egress` = red `!`,
-  `no_viable_route` = dark `✕`, billboard over the room) — the client never derives egress
-  judgments. Acceptance for the badge runs on the **apartment** fixture per the 2026-07-16
-  finding-vs-fixture note.
+ `no_viable_route` = dark `✕`, billboard over the room) — the client never derives egress
+ judgments. Acceptance for the badge runs on the **apartment** fixture per the 2026-07-16
+ finding-vs-fixture note.
 - **Tour = one `SCNAction.customAction`** sampling an arc-length table at 1.5 m/s with 1 m
-  look-ahead on a temporary camera; explode/hidden floors reset before flight; free orbit
-  restored on finish/cancel. `APIClient.swift` untouched (extension pattern per S3.5);
-  90 s request timeout for Render cold starts, surfaced as a non-blocking banner.
+ look-ahead on a temporary camera; explode/hidden floors reset before flight; free orbit
+ restored on finish/cancel. `APIClient.swift` untouched (extension pattern per S3.5);
+ 90 s request timeout for Render cold starts, surfaced as a non-blocking banner.
 
 Tests: `escape_planTests/RoutePlanTests.swift` (14) + full suite green on the iPhone 17 Pro
 simulator. No new dependencies (SceneKit/URLSession only). Full writeup:
@@ -238,31 +255,31 @@ simulator. No new dependencies (SceneKit/URLSession only). Full writeup:
 
 ## 2026-07-22 — S4.2 drill mode (guided walkthrough half)
 
-Built S4.2's independent half (P3) ahead of S4.1: the playbook lists S4.1 as prereq, but
+Built S4.2's independent half ahead of S4.1: the playbook lists S4.1 as prereq, but
 every building block the walkthrough needs was already merged (S2.3 tour, S3.4 profile-aware
 `/routes`, S3.5 practice checklist seam) — S4.1's golden path shares no code with it. All new
 code sits in `escape_plan/DrillMode/`; nothing else was edited. Decisions:
 
 - **Guided walkthrough, not quiz** (the playbook's recommended format). Select a family
-  member → step waypoint-by-waypoint along their primary route → cited instruction cards →
-  meeting-place card → "mark plan as practiced."
+ member → step waypoint-by-waypoint along their primary route → cited instruction cards →
+ meeting-place card → "mark plan as practiced."
 - **Per-segment reuse of `RouteOverlay.startTour`**: the tour API is one continuous flight
-  with a single completion, and S4.2 may not edit it. Each "Next" flies a two-waypoint
-  `Route` slice of the fetched route's own waypoints — a camera path, not a computed route
-  (no new coordinates; `startTour` re-measures arc length itself). Floor crossings (paired
-  `stair` waypoints, same node_id) become card-only steps — no zero-length flight.
+ with a single completion, and S4.2 may not edit it. Each "Next" flies a two-waypoint
+ `Route` slice of the fetched route's own waypoints — a camera path, not a computed route
+ (no new coordinates; `startTour` re-measures arc length itself). Floor crossings (paired
+ `stair` waypoints, same node_id) become card-only steps — no zero-length flight.
 - **"Mark plan as practiced" flips exactly `practice.drill_recent`** in
-  `ChecklistStateStore` (the id `backend/app/scoring/checklist.py` reserved for S4.2).
-  `practice.meeting_point` stays a manual ScoreScreen toggle — the drill can't verify a
-  family actually agreed on a spot. No client-side score math: ScoreScreen re-POSTs `/score`
-  with the updated state, so the number moves on its next appearance.
+ `ChecklistStateStore` (the id `backend/app/scoring/checklist.py` reserved for S4.2).
+ `practice.meeting_point` stays a manual ScoreScreen toggle — the drill can't verify a
+ family actually agreed on a spot. No client-side score math: ScoreScreen re-POSTs `/score`
+ with the updated state, so the number moves on its next appearance.
 - **Card safety copy is paraphrased from `backend/corpus/escape-planning-nfpa.md`** with
-  inline `[cite: nfpa-escape-planning]` / `[cite: usfa-escape-plans]` tags rendered verbatim
-  plus id chips (AssistantScreen precedent). Purely navigational lines carry no citation. A
-  unit test resolves every id in the copy against the real `sources.json`.
+ inline `[cite: nfpa-escape-planning]` / `[cite: usfa-escape-plans]` tags rendered verbatim
+ plus id chips (AssistantScreen precedent). Purely navigational lines carry no citation. A
+ unit test resolves every id in the copy against the real `sources.json`.
 - **Entry point deferred**: navigation is owned by the flow lane, so `DrillScreen.swift`
-  carries a `TODO(integration)` (mirror HomeScreen's Score/Profiles push) instead of touching
-  ContentView/HomeScreen.
+ carries a `TODO(integration)` (mirror HomeScreen's Score/Profiles push) instead of touching
+ ContentView/HomeScreen.
 
 Tests: `escape_planTests/DrillModeTests.swift` (8: step derivation, stair crossings, clamping,
 citation resolution, practiced persistence) + full suite green on the iPhone 17 Pro simulator;
@@ -276,30 +293,30 @@ Golden-path loop built against the bundled twostory fixture (real scans wait on 
 the two acceptance boxes stay unchecked as device-only. Decisions:
 
 - **Demo seed is a flagged COPY of twostory** — `Onboarding/FixtureSeeder` re-marks 3 items
-  (top-floor first room + first two openings) as `source: scan`, `confidence: 0.4` under a
-  fresh home_id, because every fixture is all-manual and "N items need review" would be
-  vacuously 0. Fixture files and the drift-guard are untouched; N uses the editor's own
-  `HitTesting.needsReview`, so onboarding and the pulsing badges always agree.
+ (top-floor first room + first two openings) as `source: scan`, `confidence: 0.4` under a
+ fresh home_id, because every fixture is all-manual and "N items need review" would be
+ vacuously 0. Fixture files and the drift-guard are untouched; N uses the editor's own
+ `HitTesting.needsReview`, so onboarding and the pulsing badges always agree.
 - **`Networking/APIClient+Analyze.swift`** — /analyze joins the per-endpoint extension
-  pattern; `Models/AnalyzeModels.swift` mirrors the wire contract (same stance as
-  RoutePlan/ScoreModels; the tool trace is deliberately not decoded — the app doesn't
-  render it).
+ pattern; `Models/AnalyzeModels.swift` mirrors the wire contract (same stance as
+ RoutePlan/ScoreModels; the tool trace is deliberately not decoded — the app doesn't
+ render it).
 - **Last-good RoutePlan cache** (`Networking/APIClient+Cache.swift`) —
-  `<Documents>/RouteCache/<home_id>.routeplan.json`, atomic; only connection-class URLErrors
-  fall back to it (server answers like 401/422 rethrow — a stale plan must not mask a config
-  problem). `PlanScreen.fetchRoutes` routes through it and shows a dated offline banner —
-  the one pre-agreed touch outside the session's owned files.
+ `<Documents>/RouteCache/<home_id>.routeplan.json`, atomic; only connection-class URLErrors
+ fall back to it (server answers like 401/422 rethrow — a stale plan must not mask a config
+ problem). `PlanScreen.fetchRoutes` routes through it and shows a dated offline banner —
+ the one pre-agreed touch outside the session's owned files.
 - **Onboarding shows once** (`@AppStorage "onboarding.completed"`, full-screen cover from
-  `ContentView`); every backend call in the flow renders an explicit
-  loading/loaded/failed/offline `LoadState` — the dead-end kill list is tabulated in the
-  session note.
+ `ContentView`); every backend call in the flow renders an explicit
+ loading/loaded/failed/offline `LoadState` — the dead-end kill list is tabulated in the
+ session note.
 - **Persistence bug fix (out-of-surface, flagged for P2 review)** —
-  `HomeDocument.init(model:)`/`decode(as:)` used default JSONEncoder/Decoder date handling
-  (Doubles) while `touched()` stamps ISO-8601 strings, so any HomeModel saved via
-  `save(model:)` failed to load back (`meta.modified` type mismatch). S2.4's stub-model test
-  couldn't see it; the S4.1 seeding test caught it. Both coders now use `.iso8601` per the
-  schema. Pre-fix autosaved documents (Double `meta.created`) were unloadable before and
-  after — delete and rebuild, or add a SchemaMigrator normalization if real ones surface.
+ `HomeDocument.init(model:)`/`decode(as:)` used default JSONEncoder/Decoder date handling
+ (Doubles) while `touched()` stamps ISO-8601 strings, so any HomeModel saved via
+ `save(model:)` failed to load back (`meta.modified` type mismatch). S2.4's stub-model test
+ couldn't see it; the S4.1 seeding test caught it. Both coders now use `.iso8601` per the
+ schema. Pre-fix autosaved documents (Double `meta.created`) were unloadable before and
+ after — delete and rebuild, or add a SchemaMigrator normalization if real ones surface.
 
 Tests: `escape_planTests/OnboardingTests.swift` (9) + full suite green; EditorCore 128.
 No new dependencies. Full writeup: `docs/tracker/notes/2026-07-22-s4-1-onboarding-flow.md`.
@@ -315,38 +332,38 @@ live backend required) so the normal suite stays hermetic.
 ## 2026-07-22 — Device-acceptance pass (S2.2/S2.3/S3.4/S3.5 on-simulator) — P3
 
 - **How it was driven**: no XCUITest additions (no source edits allowed this session). Used
-  Facebook `idb` (`brew: facebook/fb/idb-companion` + `pip: fb-idb`) to send real HID
-  taps/swipes/text to a simulator, `simctl io` for screenshots/recordings. A first attempt at
-  window-level CGEvent clicking (pyobjc) was abandoned — a full-screen window from another app
-  kept focus and intercepted synthetic clicks; idb talks to the device directly and needs no
-  window focus. Toggle switches don't respond to idb taps — knob-drag swipes flip them.
+ Facebook `idb` (`brew: facebook/fb/idb-companion` + `pip: fb-idb`) to send real HID
+ taps/swipes/text to a simulator, `simctl io` for screenshots/recordings. A first attempt at
+ window-level CGEvent clicking (pyobjc) was abandoned — a full-screen window from another app
+ kept focus and intercepted synthetic clicks; idb talks to the device directly and needs no
+ window focus. Toggle switches don't respond to idb taps — knob-drag swipes flip them.
 - **Isolation is mandatory**: the default 'iPhone 17 Pro' device and `.build-merge` derived
-  data are shared with concurrently running Claude sessions (an `xctrunner` from another lane
-  was live mid-pass). Symptoms: spontaneous device shutdowns, app data wiped, and a *different
-  lane's build* (with onboarding + the S4.1 date fix) silently replacing the one under test.
-  Fix: dedicated `p3-acceptance` device + private `-derivedDataPath .build-p3`.
+ data are shared with concurrently running Claude sessions (an `xctrunner` from another lane
+ was live mid-pass). Symptoms: spontaneous device shutdowns, app data wiped, and a *different
+ lane's build* (with onboarding + the S4.1 date fix) silently replacing the one under test.
+ Fix: dedicated `p3-acceptance` device + private `-derivedDataPath .build-p3`.
 - **Backend**: local uvicorn (`BACKEND_BEARER_TOKEN=devtoken`, port 8000) because the Render
-  bearer token isn't available to sessions; APIClient's UserDefaults-backed
-  `baseURL`/`bearerToken` were written via `simctl spawn defaults write`. /routes + /score are
-  deterministic — acceptance did not need ANTHROPIC_API_KEY. Native phone-on-cellular timing
-  (S1.6) remains deferred as before.
+ bearer token isn't available to sessions; APIClient's UserDefaults-backed
+ `baseURL`/`bearerToken` were written via `simctl spawn defaults write`. /routes + /score are
+ deterministic — acceptance did not need ANTHROPIC_API_KEY. Native phone-on-cellular timing
+ (S1.6) remains deferred as before.
 - **Fixture seeding**: no in-UI fixture loader exists — `schema/fixtures/{twostory,apartment}.json`
-  were copied straight into `<data-container>/Documents/Homes/<home_id>.homeplan.json`. On the
-  pre-S4.1 build this tripped the (since-fixed) HomeDocument date-strategy mismatch from both
-  directions (ISO fixture → "expected Double"; converted-to-Double → post-fix build says
-  "expected String"). Post-S4.1 code + raw ISO fixtures work. Confirms the S4.1 fix from the
-  consumer side.
+ were copied straight into `<data-container>/Documents/Homes/<home_id>.homeplan.json`. On the
+ pre-S4.1 build this tripped the (since-fixed) HomeDocument date-strategy mismatch from both
+ directions (ISO fixture → "expected Double"; converted-to-Double → post-fix build says
+ "expected String"). Post-S4.1 code + raw ISO fixtures work. Confirms the S4.1 fix from the
+ consumer side.
 - **UI bugs found for P2** (all reproducible, screenshots in `artifacts/acceptance-2026-07-22/`):
-  1. `EditorScreen` toolbar state only re-renders on `revision` bumps; `store.selection` is not
-     observed. A plain tap-selection therefore never enables "Add Stairs" (and after undo clears
-     selection it stays stale the other way). Workaround used: drag-select then any
-     revision-bumping action (Add Room) → toolbar catches up. Suggested fix: bump revision (or
-     make the store observable) in the tap-selection path.
-  2. A redo tap issued ~2s after undo was dropped once (state showed correctly on a second
-     tap) — likely the same stale-render class.
-  3. Cosmetic: `highlight(_:)` clearing to `.none` doesn't repaint until the next commit
-     (`rendersContinuously=false`, no `setNeedsDisplay` on highlight-only changes), so a stale
-     yellow selection marker lingers.
+ 1. `EditorScreen` toolbar state only re-renders on `revision` bumps; `store.selection` is not
+ observed. A plain tap-selection therefore never enables "Add Stairs" (and after undo clears
+ selection it stays stale the other way). Workaround used: drag-select then any
+ revision-bumping action (Add Room) → toolbar catches up. Suggested fix: bump revision (or
+ make the store observable) in the tap-selection path.
+ 2. A redo tap issued ~2s after undo was dropped once (state showed correctly on a second
+ tap) — likely the same stale-render class.
+ 3. Cosmetic: `highlight(_:)` clearing to `.none` doesn't repaint until the next commit
+ (`rendersContinuously=false`, no `setNeedsDisplay` on highlight-only changes), so a stale
+ yellow selection marker lingers.
 - **Scorecard**: S3.5 fully DONE; S2.3 + S3.4 observed except real-device 60fps (S2.3) and
-  key-blocked explanation text (S3.4); S2.2 observed except the real-converted-scan door-fix
-  criterion (needs S1.4/S1.5). Evidence + b-roll: `artifacts/acceptance-2026-07-22/`.
+ key-blocked explanation text (S3.4); S2.2 observed except the real-converted-scan door-fix
+ criterion (needs S1.4/S1.5). Evidence + b-roll: `artifacts/acceptance-2026-07-22/`.

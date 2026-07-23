@@ -1,6 +1,6 @@
 ---
 description: Rules for all Claude/Anthropic API integration code
-globs: ["backend/app/ai/**", "backend/app/api/**"]
+globs: ["backend/app/ai/**", "backend/app/api_chat.py", "backend/app/main.py"]
 alwaysApply: false
 ---
 

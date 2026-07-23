@@ -26,7 +26,7 @@ xcrun simctl launch 'iPhone 17 Pro' cac.Escape-Plan
 
 ## The pass
 
-For the session under test, read its acceptance criteria in `docs/tracker/checklist.md` and walk
+For the session under test, read its acceptance criteria in `docs/tracker/TODO.md` and walk
 each on-screen. Current device-blocked items across the merged lanes:
 
 - **S2.2 editor:** drag an opening along a wall; place stairs between two floors; undo/redo a drag.
@@ -44,6 +44,6 @@ handoff artifact.
 ## Reporting
 
 For each criterion: OBSERVED (with the evidence file) → check the box; NOT OBSERVED → leave it
-unchecked and say why. Update `docs/tracker/checklist.md` and `board.md` only for what you saw.
+unchecked and say why. Update `docs/tracker/TODO.md` only for what you saw.
 A criterion you couldn't reach (needs a real LiDAR phone, needs the API key) stays a documented
 blocker, not a check.

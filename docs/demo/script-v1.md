@@ -117,15 +117,15 @@ orbit + secondary-route reveal.
 **Resolved from v0 — true now, with two accuracy rails (keep both, judges check):**
 
 1. **Say "that window is too small to climb out of" — never "no second way out."** The
-   engine's `no_secondary_egress` finding does *not* trip for the twostory kids' room (the
-   house-level router legitimately routes out a different downstairs door); what's true is the
-   window itself fails IRC R310 egress — 0.4 m wide vs the 0.508 m minimum, 0.4 m² vs 0.53 m²
-   — caught by the agent's `check_egress` tool (`docs/decisions.md`, S3.2 entry). The VO above
-   is worded to match exactly what the build reports.
+ engine's `no_secondary_egress` finding does *not* trip for the twostory kids' room (the
+ house-level router legitimately routes out a different downstairs door); what's true is the
+ window itself fails IRC R310 egress — 0.4 m wide vs the 0.508 m minimum, 0.4 m² vs 0.53 m²
+ — caught by the agent's `check_egress` tool (`docs/decisions.md`, S3.2 entry). The VO above
+ is worded to match exactly what the build reports.
 2. **The profile that changes routes on camera is `mobility_limited` (grandmother), and
-   the switch is one continuous take.** `mobility_limited` (hard avoid-stairs/avoid-windows)
-   and `elderly` demonstrably change twostory routes; the `child` profile changes **zero**
-   routes on all three fixtures — locked by a test — so we never claim it does.
+ the switch is one continuous take.** `mobility_limited` (hard avoid-stairs/avoid-windows)
+ and `elderly` demonstrably change twostory routes; the `child` profile changes **zero**
+ routes on all three fixtures — locked by a test — so we never claim it does.
 
 S3.2 (agent loop, 6 tools, evidence validated server-side), S3.4 (profiles end-to-end: the
 PlanScreen "Who" picker re-fetches `/routes` live), and S2.3 are code-complete.
@@ -215,16 +215,16 @@ containment checks (decisions.md S2.2) — keep on-camera edits to normal drags.
 ## Table read / acceptance — NEEDS THE TEAM, not self-checkable
 
 - [ ] **Table-read under 3:15** — 436 words ≈ 2:54 at 150 wpm on paper, but the gate is a real
-  read-aloud with the team. Recount on every edit; the montage and hook are where words creep in.
+ read-aloud with the team. Recount on every edit; the montage and hook are where words creep in.
 - [ ] **P1 tech-accuracy pass** — every claim above verified against the shipped build by P1
-  (S5.1's designated reviewer), especially rows 10–11 of the truth ledger.
+ (S5.1's designated reviewer), especially rows 10–11 of the truth ledger.
 
 ## Open questions for the team (carried from v0, still open)
 
 1. Whose home do we scan? Real clutter beats staged — but the family has to be comfortable
-   putting it on the internet.
+ putting it on the internet.
 2. Show a scan failure on camera (Beat 2's honesty) or just say it? Showing is braver and
-   probably scores better with judges.
+ probably scores better with judges.
 3. Beat 5's kids'-room finding: seeded `twostory` fixture or the real scanned home? Real is
-   more affecting — but only if it actually has a finding.
+ more affecting — but only if it actually has a finding.
 4. On-camera team or voice-over only? Beat 7 lands harder with faces.

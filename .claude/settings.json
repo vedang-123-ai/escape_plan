@@ -34,6 +34,20 @@
           {
             "type": "command",
             "command": ".claude/hooks/pre-commit/secrets-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-commit/tracker-warn.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-session/activity-log.sh"
           }
         ]
       }

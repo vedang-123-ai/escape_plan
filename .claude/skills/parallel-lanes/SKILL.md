@@ -12,7 +12,7 @@ integration disciplined.
 
 ## Launching lanes
 
-1. **Pick genuinely independent sessions.** Check `docs/tracker/board.md` and the dependency map
+1. **Pick genuinely independent sessions.** Check `docs/tracker/TODO.md` and the dependency map
    (`docs/playbook/03-sessions-intro.md`). Never start a session whose prereqs aren't DONE.
 2. **Assign non-overlapping file ownership** and state each lane's do-not-touch list explicitly in
    its prompt (e.g. "don't touch PlanScreen.swift or Editor/"). Shared files that must be edited by
@@ -38,6 +38,6 @@ Dispatch the `lane-integrator` agent, or do its checklist yourself:
 - After the merges: `grep -rn "TODO(integration)" escape_plan/` and close any whose blocking lane
   has now landed.
 - Run the full gate (`verify-all` skill) once at the end.
-- Reconcile the five docs appends (decisions/board/checklist/tools-used) into one coherent state.
+- Reconcile the five docs appends (decisions/TODO.md/tools-used) into one coherent state.
 - Write ONE integration session note plus confirm each lane wrote its own.
 - **Leave every device-only acceptance box unchecked.**

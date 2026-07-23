@@ -187,8 +187,10 @@ def finding_items(
     /analyze stops reporting the issue — not when the user ticks a box.
 
     Ids are positional (`agent_finding.<index>`), which is stable for a given
-    findings list. TODO(integration): if S3.2 gives findings a stable id, key on
-    that instead so done-state survives a re-analysis that reorders findings.
+    findings list. S3.2 shipped without a stable per-finding id (see
+    app.ai.agent.Finding), so this remains positional: a re-analysis that reorders
+    findings will mis-key done-state. Non-scoring, so the blast radius is a stale
+    checkmark rather than a wrong score. Tracked in docs/tracker/TODO.md.
     """
     return [
         ChecklistItem(

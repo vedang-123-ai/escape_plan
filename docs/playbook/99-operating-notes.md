@@ -21,7 +21,7 @@ Prompt caching + capped agent iterations; expect small-dollar totals at your usa
 Hours crunch when school starts (Sept)
 Phases 0–2 are deliberately front-loaded into summer — protect July/August throughput
 Only one LiDAR device
-Converter tests run on committed scan exports, so P1/P3 never need the device
+Converter tests run on committed scan exports, so we never need the device
 
 The one rule
 Every session ends with: acceptance criteria verified, decisions.md updated, tools-used.md updated, handoff artifact posted. A session without a handoff didn't happen.

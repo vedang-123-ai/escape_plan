@@ -3,10 +3,10 @@ import Foundation
 /// The three project-wide test homes from `schema/fixtures/`, bundled so the renderer demo can
 /// load them without a backend.
 ///
-/// TODO(integration): the copies in `escape_plan/Resources/Fixtures/` are duplicated from
-/// `schema/fixtures/` — the app bundle can't reach out of its own resources at runtime. They are
-/// verbatim copies; `FixtureLibraryTests` fails if they drift from the originals. Once S2.4
-/// (persistence) lands, real homes come from disk and these stay demo-only seeds.
+/// The copies in `escape_plan/Fixtures/` are verbatim duplicates of `schema/fixtures/` because
+/// the app bundle can't reach out of its own resources at runtime; `FixtureLibraryTests` fails
+/// if they drift from the originals. Since S2.4 (persistence) landed, real homes come from disk
+/// and these are demo-only seeds — used by the renderer demo and by S4.1's onboarding seeder.
 enum Fixture: String, CaseIterable, Identifiable {
     case bungalow
     case apartment

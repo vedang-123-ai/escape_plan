@@ -2,7 +2,7 @@
 
 Report project status from the tracker. Do not guess — read the files.
 
-1. Read `docs/tracker/board.md` and `docs/tracker/checklist.md`.
+1. Read `docs/tracker/TODO.md`.
 2. Summarize, grouped:
    - **DONE** — sessions fully complete (including device/human steps).
    - **CODE DONE — needs verification** — code + tests pass, but an acceptance step remains.

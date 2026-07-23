@@ -1,11 +1,16 @@
 # commands/
 
-Custom slash commands. Each `.md` file is a command body; `$ARGUMENTS` receives what the user
-typed after the command name.
+Slash commands. Most are thin wrappers that delegate to a skill or an agent — the logic lives
+there, so it stays invocable both ways.
 
-- `/session <id>` — run a playbook session end-to-end with the handoff protocol (prereq check,
-  plan, execute, acceptance verification, decisions/tools-used updates, handoff artifact).
-- `/validate-corpus` — run the corpus validator and fix failures.
+| Command | Does |
+|---|---|
+| `/session <id>` | Runs a playbook session end to end: prereq gate, plan, execute, acceptance, handoff |
+| `/handoff <id>` | The end-of-session protocol alone (→ `end-of-session-handoff` skill) |
+| `/verify` | Full green gate (→ `verify-all` skill) |
+| `/verify-docs` | Audits docs against the real repo (→ `doc-auditor` agent) |
+| `/tracker` | Read-only status summary from `docs/tracker/TODO.md` |
+| `/lanes` | Plan, launch, and integrate parallel worktree sessions (→ `parallel-lanes`) |
+| `/validate-corpus` | Runs `backend/corpus/validate.py` and fixes failures |
 
-Scripts backing a command (if any) live in `bash/`, `node/`, or `python/` subfolders. See
-`_TEMPLATE.md` for the shape.
+`_TEMPLATE.md` is the scaffold — copy it, don't invoke it.

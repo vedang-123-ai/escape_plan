@@ -7,11 +7,17 @@ docs/playbook/S3-2.md: each finding is
 `{severity: high|med|low, room_ids, finding, evidence: [tool_call_refs],
 recommendation, citation}`.
 
-TODO(integration): reconcile with S3.2's actual models on merge. If S3.2 defines
-an equivalent model, delete this one and re-export theirs from here so the
-scoring engine's import path is unchanged. Points of likely drift:
+Reconciled with S3.2 post-merge (2026-07-22): `app.ai.agent.Finding` is
+field-for-field identical to this one. The duplication is deliberate and stays —
+`app.ai.agent` imports `anthropic` at module level, so re-exporting its model
+here would drag the Anthropic SDK into the deterministic scoring path and break
+the project's division of labor (scoring never depends on the AI layer).
+
+The cost is that the two must be kept in lockstep by hand. If either changes,
+change both; `test_scoring.py` and `test_agent.py` both pin the field set.
+Points of drift to watch:
   - severity spelling ("med" vs "medium") — SEVERITY_DEDUCTIONS keys must follow
-  - `evidence` element type (opaque tool_call ref strings assumed here)
+  - `evidence` element type (opaque tool_call ref strings)
   - whether findings carry an id (the checklist synthesizes one; see checklist.py)
 """
 
@@ -32,7 +38,9 @@ class Finding(BaseModel):
     finding is emitted; scoring trusts that and only reads severity here.
     """
 
-    model_config = ConfigDict(extra="ignore")  # tolerate extra S3.2 fields pre-merge
+    # Stays "ignore" (not "forbid", which is what app.ai.agent.Finding uses): scoring is the
+    # consumer here, and a field added on the agent side should not 422 the score endpoint.
+    model_config = ConfigDict(extra="ignore")
 
     severity: Severity
     room_ids: list[str] = Field(default_factory=list)

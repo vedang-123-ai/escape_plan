@@ -8,15 +8,16 @@ import Foundation
 
 /// The narrow seam between persistence (S2.4) and the editor's store (S2.1).
 ///
-/// TODO(integration) — S2.1's `HomeModelStore` should conform to this and call
-/// `HomeLibrary` for all disk access; persistence deliberately knows nothing
-/// about the store, undo/redo, or SwiftUI. When `HomeModel` lands:
+/// NOT YET WIRED (verified 2026-07-22). Nothing conforms to this protocol and
+/// `HomeLibrary.editor` is never assigned, so deleting a home that is currently open in the
+/// editor does not close it or clear its undo history. `HomeModelStore` does its own disk
+/// access via `HomeDocumentStore` directly rather than through this seam.
 ///
-///   1. Have `HomeModelStore` call `store.save(model:)` on autosave and
-///      `store.load(homeID:as: HomeModel.self)` on open — both generic entry
-///      points already exist on `HomeDocumentStore`.
-///   2. Set `HomeLibrary.editor` to the store so a home deleted from the list
-///      closes the editor and clears its undo history.
+/// To finish it:
+///   1. Have `HomeModelStore` conform to `HomeModelPersisting`.
+///   2. Set `HomeLibrary.editor` to the store when the editor opens, so a home deleted from
+///      the list closes the editor and clears its undo history.
+/// Tracked in docs/tracker/TODO.md.
 protocol HomeModelPersisting: AnyObject {
     /// The home currently open in the editor, if any.
     var openHomeID: String? { get }
@@ -34,7 +35,7 @@ final class HomeLibrary: ObservableObject {
     @Published private(set) var loadError: String?
 
     let store: HomeDocumentStore
-    /// TODO(integration) — set by S2.1's store once it exists.
+    /// Never assigned today — see the `HomeModelPersisting` note above.
     weak var editor: HomeModelPersisting?
 
     init(store: HomeDocumentStore) {

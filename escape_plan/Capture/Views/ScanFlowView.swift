@@ -5,10 +5,10 @@
 //  The scan flow: instructions → scanning → per-room checkpoint → processing →
 //  review. Entry point for the whole Capture module.
 //
-//  Integration: S0.3's app shell presents `ScanFlowView(onFinished:)`. The
-//  closure hands back the artifacts on disk; the caller (S1.5/S2.x) uploads
-//  `artifacts.rawJSON` to `/convert` and opens the resulting HomeModel in the
-//  editor. TODO(integration): wire to the shell's navigation once S0.3 lands.
+//  Integration: HomeScreen presents this as a `fullScreenCover` (toolbar "Scan",
+//  and the empty state's "Scan a Home"). `onFinished` hands back the artifacts on
+//  disk; HomeScreen uploads `artifacts.rawJSON` via `APIClient.convertScan(at:homeName:)`,
+//  saves the returned HomeModel, and opens it in the editor for review.
 //
 
 import SwiftUI

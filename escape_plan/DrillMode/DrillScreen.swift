@@ -10,12 +10,9 @@
 //  Routes are server truth from /routes (fetched with profile_id — constraints are derived
 //  server-side); this screen never computes, extends, or invents a route or a safety judgment.
 //
-//  TODO(integration) — S4.2: the navigation entry point belongs to the flow owner
-//  (ContentView / HomeScreen, Worktree 1). To wire it in, mirror how Score & Profiles are
-//  reached (HomeScreen's per-home swipe/context menu + `.navigationDestination(item:)`):
-//    1. Add a "Practice drill" action alongside "Score" / "Profiles" in HomeScreen.
-//    2. Push `DrillScreen(homeID: home.id)` from it.
-//  A button in PlanScreen's routeControls is an acceptable alternative entry.
+//  Reached from HomeScreen: per-home leading swipe ("Drill") or context menu
+//  ("Practice Drill") → `.navigationDestination(item: $drillHomeID)`, mirroring how Score and
+//  Profiles are reached.
 
 import SceneKit
 import SwiftUI

@@ -13,18 +13,12 @@ iOS app that builds a structured 3D model of the user's home (via a full 3D edit
 - `EXTERIOR` is a reserved pseudo-room id; an opening with `room_ids: [room, "EXTERIOR"]` is an exit
 - Scan-derived items carry `source` + `confidence`; low-confidence items are flagged for editor review, never silently dropped
 
-## Team & roles
-
-- **P1** (human): backend, ML, routing engine, agentic AI, scan converter
-- **P2** (human): iOS/SwiftUI, SceneKit 3D renderer + editor, RoomPlan capture
-- **P3** (**Claude Code — that's you**): grounding corpus (S0.4), backend scaffold + deploy (S1.6), persistence (S2.4), chat assistant backend (S3.3), family profiles (S3.4), preparedness score (S3.5), drill mode (S4.2), demo script (S5.1), plus S1.5 support and testing throughout
-
 ## Repo layout
 
 Target monorepo layout (per playbook §2.3): `schema/`, `backend/` (Python 3.11+/FastAPI/pytest), `ios/`, `docs/`. **Current deviation:** the Xcode project lives at the repo root (`escape_plan/`, `escape_plan.xcodeproj`) instead of under `ios/` — moving it would break the open Xcode session; see `docs/decisions.md`.
 
 - `docs/playbook/` — the full execution playbook, one file per session (`S0-1.md` … `S5-3.md`). **Read the session file before starting any session.**
-- `docs/tracker/` — team progress tracker: `board.md` (DONE / READY / BLOCKED right now), `checklist.md` (per-session acceptance checkboxes), `notes/` (session notes). **Check `board.md` before picking work; update it when a session flips status. Writing a session note in `notes/` (copy `_TEMPLATE.md`) is MANDATORY for every work session — no note, no DONE.** How-to: `docs/tracker/README.md`.
+- `docs/tracker/` — **the source of truth for status.** `TODO.md` is everything still to do, grouped by area, each line naming its next action; `notes/` is the append-only per-session record; `activity-log.md` is machine-written by a Stop hook. **Read `TODO.md` before picking up work. Update it in the same session the work happens — remove only what you personally verified, and add whatever you discovered.** Writing a session note in `notes/` (copy `_TEMPLATE.md`) is MANDATORY for every work session — no note, no DONE. How-to: `docs/tracker/README.md`.
 - `docs/decisions.md` — running log of deviations from playbook defaults. Update it every session.
 - `docs/tools-used.md` — every library/API/tool with version and purpose. **Required for CAC originality documentation.** Update whenever a dependency is added.
 - `schema/fixtures/` — synthetic test homes (bungalow, apartment, twostory) built in S0.2
@@ -35,7 +29,7 @@ Work is organized into checkpointed sessions (S0.1–S5.3) with owners, prerequi
 
 1. Never start a session whose prerequisites aren't done
 2. A session is DONE only when all acceptance criteria pass
-3. Every session ends with: acceptance verified, `decisions.md` updated, `tools-used.md` updated, handoff artifact posted, session note written in `docs/tracker/notes/` and `docs/tracker/` board/checklist updated (mandatory)
+3. Every session ends with: acceptance verified, `decisions.md` updated, `tools-used.md` updated, handoff artifact posted, session note written in `docs/tracker/notes/` and `docs/tracker/` TODO.md updated (mandatory)
 4. If behind schedule, cut in this order: S4.2 drill → S3.3 chat → S3.5 score → camera tour → simplified agent. **Never cut scan→editor→3D routes→profile switch.**
 
 ## Conventions
@@ -55,9 +49,49 @@ Work is organized into checkpointed sessions (S0.1–S5.3) with owners, prerequi
 
 Scoped rules load on demand via frontmatter globs: `rules/languages/` (python, swift), `rules/paths/` (schema, corpus), `rules/vendors/anthropic.md`.
 
+## Nested guidance
+
+`backend/CLAUDE.md` and `escape_plan/CLAUDE.md` carry the details for each half — read the one
+covering the code you're touching.
+
+## Logging (non-negotiable)
+
+**Every session that changes a file gets logged.** A Stop hook
+(`.claude/hooks/post-session/activity-log.sh`) appends timestamp, author, branch, commit, and
+the real changed-file list to `docs/tracker/activity-log.md` automatically — you do not write
+that file by hand, and you do not need to remember to.
+
+What the hook cannot do is interpret. So in the same session, you must also:
+
+1. Update `docs/tracker/TODO.md` — remove only what you personally verified, add what you found.
+2. Write a session note in `docs/tracker/notes/` (copy `_TEMPLATE.md`).
+3. Update `docs/decisions.md` for any deviation, and `docs/tools-used.md` for any new dependency.
+
+The tracker previously contradicted itself in nine places because this was a habit rather than a
+mechanism. It is now a mechanism. Don't route around it.
+
 ## Working here
 
-- `/session <id>` — run a playbook session with the full handoff protocol (prereq check → plan → execute → acceptance → decisions/tools-used → handoff).
+Commands:
+
+- `/session <id>` — run a playbook session with the full handoff protocol (prereq check → plan → execute → acceptance → decisions/tools-used → tracker → handoff).
+- `/handoff <id>` — the end-of-session protocol on its own.
+- `/verify` — the full green gate (EditorCore, iOS, backend, corpus).
+- `/verify-docs` — audit the docs against the repo that actually exists.
+- `/tracker` — read-only status summary.
+- `/lanes` — plan/launch/integrate parallel worktree sessions.
 - `/validate-corpus` — run `backend/corpus/validate.py` and fix failures.
-- `session-auditor` agent — evidence-based audit before declaring any session DONE; end-of-session checklist in `.claude/workflows/runbooks/end-of-session.md`.
-- Hooks (auto): editing an existing `schema/homemodel.schema.json` requires explicit confirmation; `git commit` is blocked if staged changes contain Anthropic key material.
+
+Skills: `verify-all`, `end-of-session-handoff`, `device-acceptance`, `parallel-lanes`.
+
+Agents: `session-auditor` (acceptance evidence before declaring DONE), `doc-auditor` (doc drift),
+`schema-contract-guardian` (schema ↔ pydantic ↔ Swift lockstep), `grounding-auditor` (citations,
+no invented guidance, AI never routes), `swift-scenekit-reviewer`, `lane-integrator`.
+
+Hooks (automatic): editing an existing `schema/homemodel.schema.json` asks for confirmation;
+`git commit` is **blocked** if staged changes contain Anthropic key material; committing code
+without touching `docs/tracker/` prints a warning (never blocks); every file-changing session
+appends to `docs/tracker/activity-log.md`.
+
+**SourceKit and VS Code cannot index this project** — they report errors that do not exist.
+Trust `xcodebuild`, never the editor's diagnostics.

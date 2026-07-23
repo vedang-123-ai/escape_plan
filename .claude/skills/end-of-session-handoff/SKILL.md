@@ -30,10 +30,9 @@ unit tests passing ≠ a device-acceptance box checked.
 - Write a session note in `docs/tracker/notes/` — copy `_TEMPLATE.md`, name it
   `YYYY-MM-DD-s<x>-<y>-<slug>.md`. Fragments are fine; capture what happened, surprises, and the
   next step.
-- Update `docs/tracker/board.md` — flip the session's status (CAN START / CODE DONE / DONE) and,
-  if it moved others, their blocked/ready state.
-- Update `docs/tracker/checklist.md` — check the criteria that genuinely pass; leave device-only
-  ones unchecked with a note on what's needed.
+- Update `docs/tracker/TODO.md` — remove only the lines that genuinely passed, and add anything
+  you discovered, each with a concrete next action. Leave device-only and key-blocked items in
+  place with a note on what's needed. Refresh the `_Last verified:_` stamp at the top.
 
 ## 4. Hand off & commit
 
