@@ -1,0 +1,83 @@
+{
+  "case": "twostory_no_stairs",
+  "latency_s": 18.85,
+  "output": {
+    "summary": "This plan was computed with \"no stairs, no windows\" constraints \u2014 the settings needed for Grandpa, who has a mobility limitation. Under those rules, every ground-floor room has a clear way outside, but the entire upstairs (Landing, Master Bedroom, Kids' Bedroom, Upstairs Bathroom) has no usable escape route at all, because the only way down is the stairs and the only other option is a window. This is a serious gap that needs attention right away.",
+    "room_explanations": [
+      {
+        "room_id": "r_hall1",
+        "room_name": "Entry Hall",
+        "primary_explanation": "From the Entry Hall, walk straight to the Front Door and go outside. This is the most direct way out.",
+        "secondary_explanation": "If the Front Door is not usable, go through the door to the Kitchen and out the Back Door instead."
+      },
+      {
+        "room_id": "r_living",
+        "room_name": "Living Room",
+        "primary_explanation": "From the Living Room, go through the door into the Entry Hall, then straight out the Front Door.",
+        "secondary_explanation": "As a backup, go from the Living Room into the Entry Hall, then into the Kitchen, and out the Back Door."
+      },
+      {
+        "room_id": "r_kitchen",
+        "room_name": "Kitchen",
+        "primary_explanation": "From the Kitchen, go straight out the Back Door.",
+        "secondary_explanation": "If the Back Door is blocked, go through the door into the Entry Hall and out the Front Door instead."
+      },
+      {
+        "room_id": "r_landing",
+        "room_name": "Landing",
+        "primary_explanation": "The route planner could not find any safe way out of the Landing under the current rules (no stairs, no windows). Right now the Landing connects only to the bedrooms, the bathroom, and the stairs down \u2014 with stairs ruled out and no window in the Landing itself, there is no way out. This needs to be fixed.",
+        "secondary_explanation": null
+      },
+      {
+        "room_id": "r_bed_master",
+        "room_name": "Master Bedroom",
+        "primary_explanation": "The route planner found no safe way out of the Master Bedroom under these rules. The only paths from this room are the Landing (which requires the stairs) and the bedroom window, but this plan is set to avoid both stairs and windows. This room needs an accessible escape solution \u2014 please see the recommendations below.",
+        "secondary_explanation": null
+      },
+      {
+        "room_id": "r_bed_kids",
+        "room_name": "Kids' Bedroom",
+        "primary_explanation": "The route planner found no safe way out of the Kids' Bedroom under these rules, for the same reason as the other upstairs rooms: the only paths are the stairs (through the Landing) or the bedroom window, and both are excluded here.",
+        "secondary_explanation": null
+      },
+      {
+        "room_id": "r_bath2",
+        "room_name": "Upstairs Bathroom",
+        "primary_explanation": "The route planner found no safe way out of the Upstairs Bathroom under these rules. Its only connections are the Landing (via stairs) or its small window, both excluded here.",
+        "secondary_explanation": null
+      }
+    ],
+    "recommendations": [
+      {
+        "claim": "For someone with a mobility limitation, stairs and window egress are generally not usable escape routes, and no viable route should be silently shown if none exists.",
+        "action": "The whole upstairs currently has no usable escape route for Grandpa. Talk with your local fire department about options \u2014 consider having Grandpa sleep in a ground-floor room near an accessible exit instead of the upstairs Master Bedroom.",
+        "source_citation": "usfa-disabilities"
+      },
+      {
+        "claim": "People with mobility limitations should sleep near an accessible exit, ideally on the ground floor, to shorten and simplify the escape route.",
+        "action": "Consider moving Grandpa's bedroom to the ground floor (for example, converting the Living Room or another ground-floor space) so he has a short, stair-free, window-free path outside.",
+        "source_citation": "usfa-disabilities"
+      },
+      {
+        "claim": "Residential fire sprinklers give people with mobility limitations significantly more time to escape and are strongly recommended where feasible.",
+        "action": "Ask a fire protection professional whether adding residential sprinklers is feasible for this home, especially given the upstairs accessibility gap.",
+        "source_citation": "nfpa-evacuation-disabilities"
+      },
+      {
+        "claim": "Involve the person with the mobility limitation in planning, since they know their own capabilities and needs best.",
+        "action": "Sit down with Grandpa to talk through the upstairs escape gap and decide together on a workable plan, whether that's a room change, sprinklers, or another accommodation from the fire department.",
+        "source_citation": "nfpa-evacuation-disabilities"
+      },
+      {
+        "claim": "Two ways out of every room matter because the first way can be blocked by smoke or flames.",
+        "action": "For Maya's Kids' Bedroom and the other upstairs rooms, work with your fire department on getting at least one truly usable second way out, in addition to solving the accessible-route gap for Grandpa.",
+        "source_citation": "nfpa-escape-planning"
+      },
+      {
+        "claim": "If a household situation isn't covered by the guidance (such as specific accessibility construction needs), the assistant should say so and recommend consulting the local fire department, which offers home safety visits.",
+        "action": "Because this home currently has no computed accessible route from any upstairs room, contact your local fire department for a home safety visit to get hands-on, situation-specific advice.",
+        "source_citation": "nfpa-evacuation-disabilities"
+      }
+    ]
+  }
+}

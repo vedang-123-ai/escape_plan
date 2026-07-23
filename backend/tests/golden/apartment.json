@@ -1,0 +1,71 @@
+{
+  "case": "apartment",
+  "latency_s": 16.87,
+  "output": {
+    "summary": "Right now, every room in Apartment 4B \u2014 the Hallway, both bedrooms, the Living Room, and the Kitchen \u2014 only escapes through one path: the front entry door. There is no working second way out from any room, so if smoke or fire blocks that entry door, everyone would be trapped. This is the most urgent thing to fix in this plan.",
+    "room_explanations": [
+      {
+        "room_id": "r_hall",
+        "room_name": "Hallway",
+        "primary_explanation": "From the Hallway, the only route out goes straight to the front entry door and outside. The routing engine found no second way out of the Hallway \u2014 every path depends on that same entry door.",
+        "secondary_explanation": null
+      },
+      {
+        "room_id": "r_bed1",
+        "room_name": "Bedroom 1",
+        "primary_explanation": "From Bedroom 1 (Sam's room), the route goes out the bedroom door into the Hallway, then to the front entry door and outside. Bedroom 1 has a window, but the routing engine did not use it as an escape route.",
+        "secondary_explanation": null
+      },
+      {
+        "room_id": "r_bed2",
+        "room_name": "Bedroom 2",
+        "primary_explanation": "From Bedroom 2, the route goes out the bedroom door into the Hallway, then to the front entry door and outside. Bedroom 2 also has a window, but the engine did not use it as a second way out.",
+        "secondary_explanation": null
+      },
+      {
+        "room_id": "r_living",
+        "room_name": "Living Room",
+        "primary_explanation": "From the Living Room, the route goes through the Hallway to the front entry door and outside. There is a window in the Living Room, but it is not being used as a second route.",
+        "secondary_explanation": null
+      },
+      {
+        "room_id": "r_kitchen",
+        "room_name": "Kitchen",
+        "primary_explanation": "From the Kitchen, the route goes through the Hallway to the front entry door and outside. There is no second route out of the Kitchen.",
+        "secondary_explanation": null
+      }
+    ],
+    "recommendations": [
+      {
+        "claim": "Every room should have two ways out, since the first path (often a door) can be blocked by smoke or fire.",
+        "action": "Because every room in this apartment funnels through the single front entry door, work with your household to identify and set up a genuine second way out \u2014 for example, confirming the bedroom and living room windows can serve as emergency exits \u2014 so no single blocked door traps everyone.",
+        "source_citation": "nfpa-escape-planning"
+      },
+      {
+        "claim": "The routing engine found that the front entry door is a bottleneck: it is the only exit connecting every room to the outside, with no secondary route computed for any room.",
+        "action": "Take this finding seriously: if the entry door is blocked or on fire, right now nobody in Apartment 4B has an alternate way out. Prioritize creating a working second exit before anything else in this plan.",
+        "source_citation": "nfpa-escape-planning"
+      },
+      {
+        "claim": "Every sleeping room is required to have at least one operable emergency escape and rescue opening, and a window can only count as a valid escape route if it meets minimum size and maximum sill height requirements.",
+        "action": "Check Bedroom 1 and Bedroom 2's windows: confirm they open fully from the inside without tools, and have an adult measure the sill height and opening size against code minimums, since a window that looks usable may not meet the clear-opening or sill-height requirements.",
+        "source_citation": "irc-2021-r310"
+      },
+      {
+        "claim": "Escape routes must be checked to make sure they can truly be used by everyone in the household \u2014 windows must open, and any bars or screens must be removable from the inside.",
+        "action": "Physically test the Bedroom 1, Bedroom 2, and Living Room windows with the whole household to confirm they open easily and any screens can be removed quickly in an emergency.",
+        "source_citation": "nfpa-escape-planning"
+      },
+      {
+        "claim": "Households should draw their escape plan and practice it at least twice a year, including varying conditions like a blocked primary exit.",
+        "action": "Once a second way out is confirmed, walk through both the entry-door route and the window routes with everyone in the home, and practice the full plan at least twice a year.",
+        "source_citation": "redcross-escape-plan"
+      },
+      {
+        "claim": "Every bedroom and separate sleeping area, plus every level of the home, should have a working smoke alarm, tested monthly.",
+        "action": "Make sure Bedroom 1 and Bedroom 2 each have a smoke alarm, with one in the Hallway too, and test them monthly so the household gets an early warning while there's still time to use these routes.",
+        "source_citation": "usfa-smoke-alarms"
+      }
+    ]
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "case": "bungalow",
+  "latency_s": 16.88,
+  "output": {
+    "summary": "This one-story bungalow has clear escape routes from every room, each with a primary door route and a backup window route. But the Kitchen and Bathroom both depend entirely on passing through the Living Room doorway to get out \u2014 if that doorway gets blocked by fire or smoke, those two rooms lose all their routes. Fix the smoke alarms, check the bathroom window, and clear a path through the shared doorway to make this plan solid.",
+    "room_explanations": [
+      {
+        "room_id": "r_living",
+        "room_name": "Living Room",
+        "primary_explanation": "From the Living Room, walk straight to the Front Door \u2014 it's only about 2 meters away, the shortest route in the house.",
+        "secondary_explanation": "If the Front Door is blocked, the backup plan is to climb out the Living Room window on the far wall, about 2.5 meters away."
+      },
+      {
+        "room_id": "r_kitchen",
+        "room_name": "Kitchen",
+        "primary_explanation": "From the Kitchen, go through the doorway into the Living Room, then straight out the Front Door.",
+        "secondary_explanation": "The backup route also goes through the Living Room first, then out the Living Room window instead of the Front Door. Both the primary and backup routes from the Kitchen pass through the same Living Room doorway \u2014 there's no way out of the Kitchen that avoids it."
+      },
+      {
+        "room_id": "r_bedroom",
+        "room_name": "Bedroom",
+        "primary_explanation": "From the Bedroom, go through the doorway into the Living Room, then out the Front Door.",
+        "secondary_explanation": "As a backup, the Bedroom has its own window leading straight outside \u2014 a short, independent second way out that doesn't depend on any other room."
+      },
+      {
+        "room_id": "r_bath",
+        "room_name": "Bathroom",
+        "primary_explanation": "From the Bathroom, go through the Kitchen, then through the Living Room, then out the Front Door. This is the longest route in the home.",
+        "secondary_explanation": "The backup route also goes through the Kitchen and Living Room, just using the Living Room window instead of the Front Door. Like the Kitchen, every route out of the Bathroom passes through that same Living Room doorway \u2014 if it's blocked, the Bathroom has no other way out."
+      }
+    ],
+    "recommendations": [
+      {
+        "claim": "Every room should have two usable ways out, since the first path could be blocked by smoke or flames.",
+        "action": "The Kitchen and Bathroom currently share one single 'pinch point' \u2014 the doorway between the Living Room and Kitchen. If that doorway is blocked, neither room has another way out. Consider adding a direct window or door to the outside from the Kitchen (and keeping the Bathroom window as viable as possible) so these rooms don't depend entirely on one doorway.",
+        "source_citation": "nfpa-escape-planning"
+      },
+      {
+        "claim": "Escape routes must be usable by everyone \u2014 windows need to actually open, and any bars or screens must be removable from inside.",
+        "action": "The Bathroom window is mounted 1.3 m above the floor and is only 0.6 m x 0.6 m \u2014 check it against your local code before counting on it as a real escape route, and have a family member confirm it opens easily from inside.",
+        "source_citation": "irc-2021-r310"
+      },
+      {
+        "claim": "Escape paths must be kept clear of clutter and furniture so they can be used quickly in an emergency.",
+        "action": "Since the Kitchen and Bathroom both route entirely through the Living Room doorway and Living Room floor space, keep that doorway and the path across the Living Room completely clear of furniture and clutter at all times.",
+        "source_citation": "usfa-escape-plans"
+      },
+      {
+        "claim": "Install smoke alarms inside every bedroom, outside sleeping areas, and on every level of the home.",
+        "action": "Make sure there's a working smoke alarm inside the Bedroom and one in the hallway/area just outside it, so everyone gets an early warning before the escape routes above need to be used.",
+        "source_citation": "usfa-smoke-alarms"
+      },
+      {
+        "claim": "Pick one outside meeting place a safe distance from the home and practice the full plan at least twice a year, aiming for an escape in under two minutes.",
+        "action": "Choose a meeting spot outside (like a neighbor's driveway or a tree) and walk through both the primary and backup routes for each room with the whole family, timing yourselves to see if you can get out in under two minutes.",
+        "source_citation": "redcross-two-minutes"
+      }
+    ]
+  }
+}

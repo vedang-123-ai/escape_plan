@@ -1,0 +1,83 @@
+{
+  "case": "twostory",
+  "latency_s": 22.62,
+  "output": {
+    "summary": "This two-story home has good escape options downstairs, but every upstairs room relies on the same single staircase for both its primary and secondary route \u2014 there's no separate second way out for the second floor. The Kids' Bedroom and Master Bedroom do have windows, but the routing engine didn't use them as the second path; we recommend checking those windows since a second way out matters if the stairs are ever blocked by smoke or fire.",
+    "room_explanations": [
+      {
+        "room_id": "r_hall1",
+        "room_name": "Entry Hall",
+        "primary_explanation": "From the Entry Hall, walk straight out the Front Door \u2014 it's right there, about 4 meters away.",
+        "secondary_explanation": "If the Front Door isn't usable, go through the doorway into the Kitchen and out the Back Door instead."
+      },
+      {
+        "room_id": "r_living",
+        "room_name": "Living Room",
+        "primary_explanation": "From the Living Room, go through the doorway into the Entry Hall, then out the Front Door.",
+        "secondary_explanation": "As a second way out, the Living Room window can be opened to climb outside directly. This is a short, direct backup path."
+      },
+      {
+        "room_id": "r_kitchen",
+        "room_name": "Kitchen",
+        "primary_explanation": "From the Kitchen, go straight out the Back Door.",
+        "secondary_explanation": "If the Back Door is blocked, go through the doorway into the Entry Hall and out the Front Door."
+      },
+      {
+        "room_id": "r_landing",
+        "room_name": "Landing",
+        "primary_explanation": "From the Landing, go down the main stairs to the Entry Hall on the ground floor, then out the Front Door.",
+        "secondary_explanation": "The engine's second route also uses the main stairs down to the Entry Hall, then through the Kitchen and out the Back Door. Both routes for the Landing depend on the same staircase \u2014 there isn't an independent second way down from upstairs."
+      },
+      {
+        "room_id": "r_bed_master",
+        "room_name": "Master Bedroom",
+        "primary_explanation": "From the Master Bedroom, go through the door to the Landing, down the main stairs, through the Entry Hall, and out the Front Door.",
+        "secondary_explanation": "The Master Bedroom also has a window that leads directly outside as a backup \u2014 a short path if the stairs are not usable."
+      },
+      {
+        "room_id": "r_bed_kids",
+        "room_name": "Kids' Bedroom",
+        "primary_explanation": "From the Kids' Bedroom, go through the door to the Landing, down the main stairs, through the Entry Hall, and out the Front Door. An adult should accompany a child on this route.",
+        "secondary_explanation": "The backup route the engine found also goes down the same main stairs, then through the Kitchen and out the Back Door \u2014 so both routes depend on the stairs being clear. This room does have a window, but it's small, so it may not work as a true second way out; it's worth checking against local window-size rules."
+      },
+      {
+        "room_id": "r_bath2",
+        "room_name": "Upstairs Bathroom",
+        "primary_explanation": "From the Upstairs Bathroom, go through the door to the Landing, down the main stairs, through the Entry Hall, and out the Front Door.",
+        "secondary_explanation": "The backup route also goes down the same main stairs, then through the Kitchen and out the Back Door \u2014 again, both routes rely on the same staircase, so there's no separate second way out of this room."
+      }
+    ],
+    "recommendations": [
+      {
+        "claim": "Every room should have two ways out in case the first path is blocked by smoke or flames.",
+        "action": "For the Landing, Kids' Bedroom, and Upstairs Bathroom, both computed routes go down the same main staircase. Work with your household to find and verify a true second way out for these rooms \u2014 for bedrooms, that likely means the window.",
+        "source_citation": "nfpa-escape-planning"
+      },
+      {
+        "claim": "Every sleeping room must have at least one operable emergency escape and rescue opening, and windows must meet minimum size and sill-height rules to count as a real way out.",
+        "action": "Have someone check the Kids' Bedroom window (currently only 0.4 m wide) and confirm whether it can open fully, has a low enough sill, and is large enough to climb through. If it doesn't meet these basics, treat the stairs as the only way out of that room and plan accordingly.",
+        "source_citation": "irc-2021-r310"
+      },
+      {
+        "claim": "Routes must be checked to make sure every household member can actually use them \u2014 windows should open, screens should be removable, and any bars should release from inside.",
+        "action": "Test the Master Bedroom and Living Room windows now to confirm they open easily and any screens can be removed quickly, since these are relied on as secondary escape paths.",
+        "source_citation": "nfpa-escape-planning"
+      },
+      {
+        "claim": "For someone with mobility limitations, check that every exit is passable and know which exit is realistically usable; stairs and windows are often not viable for a wheelchair or walker user.",
+        "action": "Since Grandpa (mobility_limited) sleeps in the Master Bedroom on the upper floor and his routes rely on the stairs, discuss with him whether the stairs are truly usable in an emergency, and consider whether a ground-floor sleeping location would give him a shorter, more reliable escape route.",
+        "source_citation": "usfa-disabilities"
+      },
+      {
+        "claim": "Plan for an adult to be assigned to help a young child escape, since children may not wake to a smoke alarm and should master the plan in daytime practice first.",
+        "action": "Assign a specific adult to help Maya (child, Kids' Bedroom) out during an escape, and practice her route with her during the day before doing any nighttime drills.",
+        "source_citation": "nfpa-escape-planning"
+      },
+      {
+        "claim": "Households should pick one outside meeting place a safe distance from the home and practice the full escape plan at least twice a year.",
+        "action": "Choose a meeting spot outside (like a neighbor's driveway or a tree) for everyone in this home to gather, and run a practice drill twice a year, including a version where the stairs are treated as blocked.",
+        "source_citation": "redcross-escape-plan"
+      }
+    ]
+  }
+}

@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from app import config
 from app.ai import agent
 from app.ai.agent import (
+    MAX_SUBMIT_RETRIES,
     AgentError,
     AnalysisResult,
     Finding,
@@ -283,32 +284,65 @@ def test_agent_flags_kids_room_undersized_window_via_check_egress(
     assert egress_call.output["viable"] is False
 
 
-def test_agent_drops_findings_with_bad_evidence(apartment_home_and_thresholds):
-    home, thresholds = apartment_home_and_thresholds
-    turns = [
-        [_tool_use("toolu_1", "get_home_summary", {})],
-        [
-            _tool_use(
-                "toolu_2",
-                "submit_findings",
+def _bad_submission(call_id: str):
+    return _tool_use(
+        call_id,
+        "submit_findings",
+        {
+            "findings": [
                 {
-                    "findings": [
-                        {
-                            "severity": "low",
-                            "room_ids": ["r_hall"],
-                            "finding": "Unsubstantiated claim.",
-                            "evidence": ["toolu_does_not_exist"],
-                            "recommendation": "N/A",
-                            "citation": "nfpa-escape-planning",
-                        }
-                    ]
-                },
-            )
-        ],
+                    "severity": "low",
+                    "room_ids": ["r_hall"],
+                    "finding": "Unsubstantiated claim.",
+                    "evidence": ["toolu_does_not_exist"],
+                    "recommendation": "N/A",
+                    "citation": "nfpa-escape-planning",
+                }
+            ]
+        },
+    )
+
+
+def test_agent_drops_findings_with_bad_evidence_after_retries(
+    apartment_home_and_thresholds,
+):
+    """A submission that never fixes its evidence is bounced MAX_SUBMIT_RETRIES
+    times, then returned as-is with the findings dropped (graceful partial)."""
+    home, thresholds = apartment_home_and_thresholds
+    turns = [[_tool_use("toolu_1", "get_home_summary", {})]] + [
+        [_bad_submission(f"toolu_submit_{i}")] for i in range(1 + MAX_SUBMIT_RETRIES)
     ]
     result = run_agent_analysis(home, thresholds, client=ScriptedClient(turns))
     assert result.findings == []
     assert len(result.dropped) == 1
+    assert result.truncated is False
+
+
+def test_agent_rejected_submission_can_be_corrected_on_resubmit(
+    apartment_home_and_thresholds,
+):
+    """Invalid evidence refs get one corrective round-trip instead of silently
+    gutting the result — the corrected resubmission is accepted."""
+    home, thresholds = apartment_home_and_thresholds
+    good_finding = {
+        "severity": "high",
+        "room_ids": ["r_hall"],
+        "finding": "Every room depends on the single entry door d_entry.",
+        "evidence": ["toolu_1"],
+        "recommendation": "Establish a second exterior exit.",
+        "citation": "nfpa-escape-planning",
+    }
+    bad_finding = dict(good_finding, evidence=["compute_routes:bottlenecks"])
+    turns = [
+        [_tool_use("toolu_1", "compute_routes", {})],
+        [_tool_use("toolu_2", "submit_findings", {"findings": [bad_finding]})],
+        [_tool_use("toolu_3", "submit_findings", {"findings": [good_finding]})],
+    ]
+    result = run_agent_analysis(home, thresholds, client=ScriptedClient(turns))
+    assert len(result.findings) == 1
+    assert result.findings[0].evidence == ["toolu_1"]
+    assert result.dropped == []
+    assert result.truncated is False
 
 
 def test_agent_truncates_at_iteration_cap(apartment_home_and_thresholds):

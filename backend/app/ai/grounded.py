@@ -26,7 +26,12 @@ from app.routing.plan import RoutePlan
 
 logger = logging.getLogger("app.ai.grounded")
 
-TEMPERATURE = 0.2
+# No sampling params: claude-sonnet-5 rejects non-default temperature/top_p/top_k
+# with a 400 ("`temperature` is deprecated for this model"). Output stability comes
+# from schema-enforced tool use + citation validation, not sampling.
+# Thinking explicitly disabled: claude-sonnet-5 defaults to adaptive thinking when
+# the param is omitted, which pushed /explain latency past the p95 < 6s budget.
+THINKING = {"type": "disabled"}
 MAX_TOKENS = 4096
 MAX_CITATION_RETRIES = 2
 
@@ -238,7 +243,7 @@ def explain_routes(
         response = client.messages.create(
             model=settings.anthropic_model,
             max_tokens=MAX_TOKENS,
-            temperature=TEMPERATURE,
+            thinking=THINKING,
             system=build_system_blocks(),
             tools=[EXPLAIN_TOOL],
             tool_choice={"type": "tool", "name": "submit_explanation"},
@@ -294,7 +299,7 @@ def answer_grounded_question(
     response = client.messages.create(
         model=settings.anthropic_model,
         max_tokens=1024,
-        temperature=TEMPERATURE,
+        thinking=THINKING,
         system=build_system_blocks(),
         messages=[{"role": "user", "content": question}],
     )

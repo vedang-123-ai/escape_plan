@@ -1,0 +1,61 @@
+{
+  "case": "apartment",
+  "latency_s": 39.86,
+  "findings": [
+    {
+      "id": "f97e9895fd49",
+      "severity": "high",
+      "room_ids": [],
+      "finding": "Every room in the apartment (Hallway, Bedroom 1, Bedroom 2, Living Room, Kitchen) has no secondary means of egress \u2014 the routing engine shows all escape routes funnel through the single exterior door 'd_entry'. If that door is blocked by fire or smoke, no room has an alternate way out.",
+      "evidence": [
+        "toolu_01LPDXqgkNyYDFtf4ei27DbR"
+      ],
+      "recommendation": "Provide a genuine second egress path for each room (e.g., a compliant, operable egress window with sill height at or below code maximum) so that no single point of failure exists. Prioritize bedrooms and the kitchen, which currently have no viable alternate exit at all.",
+      "citation": "nfpa-escape-planning"
+    },
+    {
+      "id": "68673dec4485",
+      "severity": "high",
+      "room_ids": [],
+      "finding": "Bedroom 1, Bedroom 2, and the Living Room each have a window intended to serve as secondary egress, but all three (w_bed1, w_bed2, w_living) fail the egress check: sill height is 1.4m, exceeding the 1.118m maximum allowed by IRC. This means these windows cannot legally or practically serve as an emergency exit, leaving these rooms with zero viable secondary egress.",
+      "evidence": [
+        "toolu_015FJwsT9j4BgmXTm8B5Naz4",
+        "toolu_01QNfvh5GjrHVWY21c5m4Kfi",
+        "toolu_0171Pg6FC8XUTr689NN8C9je"
+      ],
+      "recommendation": "Lower the sill height of bedroom and living room windows to 44 in (1.118 m) or less above the finished floor, or install a fixed step/platform to effectively reduce the escape sill height, per IRC 2021 R310 egress window requirements.",
+      "citation": "irc-2021-r310"
+    },
+    {
+      "id": "c9936f04953c",
+      "severity": "high",
+      "room_ids": [],
+      "finding": "The Kitchen has only one opening \u2014 a single interior door to the Hallway (d_hall_kitchen) \u2014 with no window and no other exterior opening. Its only path out relies entirely on the hallway and the single entry door, confirmed by the routing engine's no_secondary_egress finding for r_kitchen.",
+      "evidence": [
+        "toolu_01LPDXqgkNyYDFtf4ei27DbR"
+      ],
+      "recommendation": "Add a second egress path from the kitchen, such as a code-compliant egress window, so occupants are not trapped if the hallway or entry door becomes impassable.",
+      "citation": "nfpa-escape-planning"
+    },
+    {
+      "id": "438f73138810",
+      "severity": "med",
+      "room_ids": [],
+      "finding": "The single exterior entry door 'd_entry' is a bottleneck opening: the routing engine identifies it as disconnecting all five rooms (r_bed1, r_bed2, r_hall, r_kitchen, r_living) if it becomes unusable, since it is the only viable exit for the entire dwelling.",
+      "evidence": [
+        "toolu_01LPDXqgkNyYDFtf4ei27DbR"
+      ],
+      "recommendation": "Treat the entry door as critical infrastructure: keep it unobstructed at all times, and prioritize creating viable window egress in each room as a redundant path, per two-ways-out best practice.",
+      "citation": "nfpa-escape-planning"
+    }
+  ],
+  "dropped": [],
+  "tools_used": [
+    "check_egress",
+    "compute_routes",
+    "get_home_summary",
+    "get_room",
+    "list_openings",
+    "search_corpus"
+  ]
+}

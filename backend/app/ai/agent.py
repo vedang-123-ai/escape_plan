@@ -31,10 +31,21 @@ from app.scoring.findings import finding_id
 
 logger = logging.getLogger("app.ai.agent")
 
-TEMPERATURE = 0.2
+# No sampling params: claude-sonnet-5 rejects non-default temperature (400).
+# Thinking is explicitly disabled: claude-sonnet-5 runs adaptive thinking when the
+# param is omitted, which blew the S3.2 <60s latency budget (71s measured) across
+# the 15-iteration loop. The prescriptive system prompt keeps tool use reliable.
+THINKING = {"type": "disabled"}
 MAX_TOKENS = 4096
 MAX_ITERATIONS = 15
 """Cap per playbook S3.2: bounds both latency (<60s acceptance) and API cost."""
+
+MAX_SUBMIT_RETRIES = 2
+"""How many times a submit_findings call that fails evidence/citation validation
+is bounced back for correction before we return the gutted result as-is. Added
+2026-07-23: with thinking disabled, claude-sonnet-5 sometimes writes descriptive
+evidence refs ('check_egress:w_kids') instead of literal toolu_ ids; one
+corrective round-trip reliably fixes it."""
 
 CORPUS_DOC_FILES = [
     "escape-planning-nfpa.md",
@@ -61,7 +72,11 @@ class Finding(BaseModel):
     room_ids: list[str] = Field(default_factory=list)
     finding: str = Field(description="What's wrong, in plain language.")
     evidence: list[str] = Field(
-        description="tool_use_id(s) from this conversation's trace that support this finding."
+        description=(
+            "The literal id(s) of tool_use blocks from this conversation that "
+            "support this finding, copied verbatim (they start with 'toolu_'). "
+            "Never invent descriptive names like 'check_egress:w_kids'."
+        )
     )
     recommendation: str
     citation: str = Field(description="A corpus source id from the provided source list.")
@@ -210,7 +225,10 @@ Hard rules:
    opening that looks marginal (small windows, high sills).
 3. A finding without a real tool call behind it is worthless and will be \
    discarded — always call the tool, look at its actual output, THEN write \
-   the finding, and reference the exact tool_use_id(s) you used as evidence.
+   the finding, and reference the exact tool_use_id(s) you used as evidence. \
+   Evidence entries are the literal ids of your own tool_use blocks, copied \
+   verbatim — they start with 'toolu_'. Never write descriptive labels like \
+   'check_egress:w_kids' or 'compute_routes:avoid_stairs=true'.
 4. Report findings at the severity the evidence supports: high = no viable \
    route or no secondary egress from an occupied room; med = marginal egress \
    (fails a threshold) or a bottleneck opening; low = best-practice gaps \
@@ -435,12 +453,13 @@ def run_agent_analysis(
         }
     ]
     trace: list[ToolCallRecord] = []
+    resubmits_left = MAX_SUBMIT_RETRIES
 
     for _ in range(max_iterations):
         response = client.messages.create(
             model=settings.anthropic_model,
             max_tokens=MAX_TOKENS,
-            temperature=TEMPERATURE,
+            thinking=THINKING,
             system=AGENT_SYSTEM_PROMPT,
             tools=TOOLS,
             messages=messages,
@@ -451,14 +470,43 @@ def run_agent_analysis(
         if not tool_uses:
             break
 
-        submit_call = next((t for t in tool_uses if t.name == "submit_findings"), None)
-        if submit_call is not None:
-            submission = AnalysisSubmission.model_validate(submit_call.input)
-            kept, dropped = _validate_findings(submission.findings, trace)
-            return AnalysisResult(findings=kept, trace=trace, truncated=False, dropped=dropped)
-
         tool_results: list[dict[str, Any]] = []
         for tu in tool_uses:
+            if tu.name == "submit_findings":
+                submission = AnalysisSubmission.model_validate(tu.input)
+                kept, dropped = _validate_findings(submission.findings, trace)
+                if not dropped or resubmits_left == 0:
+                    return AnalysisResult(
+                        findings=kept, trace=trace, truncated=False, dropped=dropped
+                    )
+                # Some findings failed evidence/citation validation. Rather than
+                # silently returning a gutted result, reject the submission and
+                # let the model resubmit with corrected references — bounded so
+                # a model that can't fix them still returns gracefully.
+                resubmits_left -= 1
+                logger.warning(
+                    "submit_findings rejected (%d invalid), asking for resubmit: %s",
+                    len(dropped), "; ".join(dropped),
+                )
+                valid_ids = ", ".join(t.id for t in trace) or "(none yet)"
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tu.id,
+                        "is_error": True,
+                        "content": (
+                            "Submission rejected — these findings failed validation:\n- "
+                            + "\n- ".join(dropped)
+                            + "\nEach evidence entry must be the LITERAL id of a tool_use "
+                            "block from this conversation, copied verbatim (they start "
+                            "with 'toolu_'). Never invent names like 'check_egress:x'. "
+                            f"Valid ids so far: {valid_ids}. Each citation must be a "
+                            "source id returned by search_corpus. Resubmit your FULL "
+                            "findings list with corrected evidence and citations."
+                        ),
+                    }
+                )
+                continue
             output = _dispatch_tool(tu.name, tu.input, home, thresholds)
             trace.append(ToolCallRecord(id=tu.id, tool_name=tu.name, input=tu.input, output=output))
             tool_results.append(

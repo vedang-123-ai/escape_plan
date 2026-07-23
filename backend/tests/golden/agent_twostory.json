@@ -1,0 +1,57 @@
+{
+  "case": "twostory",
+  "latency_s": 41.95,
+  "findings": [
+    {
+      "id": "74e9e40e68c9",
+      "severity": "high",
+      "room_ids": [
+        "r_landing",
+        "r_bed_master",
+        "r_bed_kids",
+        "r_bath2"
+      ],
+      "finding": "For a mobility-limited occupant (stairs avoided), every upstairs room (Landing, Master Bedroom, Kids' Bedroom, Upstairs Bathroom) has no secondary egress at all \u2014 the routing engine shows all four rooms' only route funnels through the single Master Bedroom window (w_master). If that window is blocked, smoke-filled, or unusable, occupants in the Kids' Bedroom or Bathroom who cannot use stairs have no way out.",
+      "evidence": [
+        "toolu_01NGk3La218538vvDXZ7Ku2x"
+      ],
+      "recommendation": "Provide an accessible ground-floor sleeping option or ramp-based emergency exit for mobility-limited occupants, per fire-safety guidance to sleep near an accessible exit; consider installing a residential fire sprinkler system, which significantly increases available escape time for those who cannot use stairs or windows.",
+      "citation": "usfa-disabilities"
+    },
+    {
+      "id": "6ef61931e826",
+      "severity": "med",
+      "room_ids": [
+        "r_bed_kids"
+      ],
+      "finding": "The Kids' Bedroom window (w_kids) fails code egress requirements: width is 0.40m (required minimum 0.508m/20in) and clear opening area is 0.40m\u00b2, below the required 0.53m\u00b2 (5.7 sq ft). This is the room's only alternate way out besides the door/landing/stairs route.",
+      "evidence": [
+        "toolu_01LMTH4p2eRenrkoKv7UfUen"
+      ],
+      "recommendation": "Replace the Kids' Bedroom window with a code-compliant egress window (minimum 20 in x 24 in clear opening, net clear area \u2265 5.7 sq ft, operable from inside without tools) so the room has a genuine second way out if the door/hallway route is blocked by fire or smoke.",
+      "citation": "irc-2021-r310"
+    },
+    {
+      "id": "0a4338a8a29a",
+      "severity": "med",
+      "room_ids": [
+        "r_bath2"
+      ],
+      "finding": "The Upstairs Bathroom window (w_bath2) fails egress on three counts: height 0.60m (< 0.61m minimum), clear opening area 0.36m\u00b2 (< 0.53m\u00b2 required), and sill height 1.20m above floor (> 1.118m/44in maximum). It cannot serve as an emergency exit.",
+      "evidence": [
+        "toolu_018qEcUaDn1EucJ59U4TenvD"
+      ],
+      "recommendation": "If feasible, upsize the bathroom window and lower the sill to meet IRC R310 egress minimums, or ensure occupants know this window is not a viable escape route and rely on the door/landing/stairs path instead.",
+      "citation": "irc-2021-r310"
+    }
+  ],
+  "dropped": [],
+  "tools_used": [
+    "check_egress",
+    "compute_routes",
+    "get_home_summary",
+    "get_room",
+    "list_openings",
+    "search_corpus"
+  ]
+}

@@ -32,7 +32,10 @@ from app.routing.plan import RoutePlan
 
 logger = logging.getLogger("app.ai.chat")
 
-TEMPERATURE = 0.2
+# No sampling params: claude-sonnet-5 rejects non-default temperature (400).
+# Thinking explicitly disabled for chat responsiveness (adaptive is the Sonnet 5
+# default when omitted; see grounded.py / agent.py for the latency evidence).
+THINKING = {"type": "disabled"}
 MAX_TOKENS = 1024
 MAX_CITATION_RETRIES = 2
 
@@ -186,7 +189,7 @@ def chat(
         response = client.messages.create(
             model=settings.anthropic_model,
             max_tokens=MAX_TOKENS,
-            temperature=TEMPERATURE,
+            thinking=THINKING,
             system=system,
             messages=messages,
         )
