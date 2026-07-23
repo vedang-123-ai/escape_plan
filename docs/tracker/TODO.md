@@ -1,7 +1,8 @@
 # Everything still to do
 
-_Last verified: 2026-07-23 on `lane/editor` (../ep-editor worktree) — full gate re-run after
-the Lane A editor-completion session (openings feature + the four editor bugs)._
+_Last verified: 2026-07-23 on `lane/editor` (../ep-editor worktree) — revamp A1 session:
+editorcore 158 pass, iOS **unit** suite green (UI tests not re-run — no editor-path change);
+full gate before that was the Lane A editor-completion session._
 
 This is the single source of truth for open work. It replaces the old `board.md` +
 `checklist.md`, which had drifted into contradicting each other.
@@ -23,6 +24,32 @@ This is the single source of truth for open work. It replaces the old `board.md`
 | Corpus | 11 sources, 6 files | `python3 backend/corpus/validate.py` |
 
 ---
+
+## 3D revamp (approved 2026-07-23 — spec/plan: `~/.claude/plans/i-want-you-to-tender-flask.md`)
+
+One free-camera translucent dollhouse = viewer + editor; objects block routes; agentic LLM
+house builder behind forced review. Order A → B → C. A1 (camera rig, unified read-only view,
+RenderOrder ledger, tour fix) landed 2026-07-23 — see `notes/2026-07-23-revamp-a1-camera-rig.md`.
+
+- [ ] A1 follow-up: device-acceptance pass on gesture feel (orbit sensitivity, pinch anchor)
+      before A3 deletes the old camera stack.
+- [ ] A2: editing in the unified view — pure `GestureArbiter` (edit-drag only on current
+      selection), `EditorSceneAdapter.worldPoint(from:onPlaneY:)` + perspective
+      `metersPerPoint()`, `UnifiedSceneController` conformer, wall-drag edge-normal
+      projection, migrate `ManualBuildRecordingUITests` tap driver off the ortho assumption.
+- [ ] A3: merge PlanScreen+EditorScreen into `HouseScreen`; delete `EditorSceneView`,
+      `EditorSceneController`, `DollhouseSceneView`; full gate + device acceptance.
+- [ ] B1: schema v1.1 — `floor.objects` (box primitives, no room_id) + `source: ai_plan`;
+      three-way lockstep + SchemaMigrator + planted-obstacle fixtures. Own PR.
+- [ ] B2: objects rendered (RenderOrder band 5) + editable (EditActions, rotated-rect
+      hit-testing, inspector).
+- [ ] B3: within-room pathfinding — 0.1 m occupancy grid + clearance transform +
+      deterministic A* in `backend/app/routing/`; blocked opening ⇒ edge omitted ⇒ room-level
+      re-plan + `blocked_opening` finding; golden updates in their own commit.
+- [ ] C1: `backend/app/builder/actions.py` + `ai/builder.py` agent loop (no routing tools,
+      everything `source=ai_plan`) + `POST /build` with hard validation.
+- [ ] C2: iOS plan-import (text + floor-plan image, PDF rasterized client-side) + forced
+      review gate (`needsReview` from any `ai_plan` source; routes disabled until confirmed).
 
 ## Blocked on a real API key
 

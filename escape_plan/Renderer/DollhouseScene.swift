@@ -45,6 +45,13 @@ final class DollhouseScene {
         floors.first(where: { $0.id == id })?.node.isHidden = !visible
     }
 
+    /// Fade a floor without hiding it (floor-spotlight in the unified view). Uses node
+    /// opacity — it multiplies down the subtree and never touches the hand-tuned materials
+    /// the translucency effect depends on.
+    func setFloorFade(_ id: String, opacity: Double) {
+        floors.first(where: { $0.id == id })?.node.opacity = CGFloat(min(max(opacity, 0), 1))
+    }
+
     func isFloorVisible(_ id: String) -> Bool {
         guard let node = floors.first(where: { $0.id == id })?.node else { return false }
         return !node.isHidden
@@ -175,7 +182,7 @@ enum DollhouseSceneBuilder {
         let textNode = SCNNode(geometry: text)
         // renderingOrder is per-node and does not inherit, so it belongs on the node that
         // actually carries the geometry, not on the billboarded holder.
-        textNode.renderingOrder = 100
+        textNode.renderingOrder = RenderOrder.labels
         // SCNText is laid out in points; scale it into meters and re-center on its own bounds so
         // the label sits over the room's centroid rather than starting there.
         let scale: Float = 0.018
@@ -209,7 +216,7 @@ enum DollhouseSceneBuilder {
         node.position = DollhouseGeometry.scenePoint(spec.midpoint, y: height / 2)
         node.eulerAngles.y = Float(spec.yaw)
         // Drawn after the opaque interior so alpha blends over it in the right order.
-        node.renderingOrder = 10
+        node.renderingOrder = RenderOrder.walls
         return node
     }
 

@@ -235,6 +235,31 @@ final class DollhouseRendererTests: XCTestCase {
         XCTAssertTrue(dollhouse.isFloorVisible(upper.id))
     }
 
+    /// The see-through look depends on draw order (translucent surfaces don't write depth), so
+    /// every geometry node must sit in a RenderOrder band — and translucency must line up with
+    /// order: anything that doesn't write depth must draw after the opaque interior. A stray
+    /// hand-set renderingOrder is the kind of regression that only shows up as "walls look
+    /// wrong from some angles".
+    func testEveryNodeSitsInItsRenderOrderBand() throws {
+        let knownBands: Set<Int> = [RenderOrder.opaque, RenderOrder.objects, RenderOrder.walls,
+                                    RenderOrder.glow, RenderOrder.routes, RenderOrder.labels,
+                                    RenderOrder.badges, RenderOrder.badgeGlyphs]
+        for fixture in Fixture.allCases {
+            let home = try FixtureLibrary.load(fixture)
+            let built = DollhouseSceneBuilder.build(home)
+            built.dollhouse.scene.rootNode.enumerateHierarchy { node, _ in
+                guard let geometry = node.geometry else { return }
+                XCTAssertTrue(knownBands.contains(node.renderingOrder),
+                              "\(fixture.rawValue): geometry node '\(node.name ?? "unnamed")' has renderingOrder \(node.renderingOrder), which is not a RenderOrder band")
+                // Depth-write-off translucency only works when the node draws after opaque.
+                if let material = geometry.firstMaterial, !material.writesToDepthBuffer {
+                    XCTAssertGreaterThan(node.renderingOrder, RenderOrder.opaque,
+                                         "\(fixture.rawValue): '\(node.name ?? "unnamed")' is translucent (no depth write) but draws in the opaque band")
+                }
+            }
+        }
+    }
+
     func testSingleFloorFixturesHaveExactlyOneFloor() throws {
         for fixture in [Fixture.bungalow, .apartment] {
             let home = try FixtureLibrary.load(fixture)

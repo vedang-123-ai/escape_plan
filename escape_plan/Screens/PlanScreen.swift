@@ -35,6 +35,7 @@ struct PlanScreen: View {
     @State private var isTouring = false
     @State private var routesTask: Task<Void, Never>?
     @State private var sceneView: SCNView?
+    @State private var cameraRig: OrbitCameraRig?
 
     init() {
         _library = StateObject(wrappedValue: HomeLibrary(store: try! HomeDocumentStore()))
@@ -84,16 +85,20 @@ struct PlanScreen: View {
         } else if let error = loadError {
             ContentUnavailableView("Couldn't render home", systemImage: "exclamationmark.triangle",
                                     description: Text(error))
-        } else if let built {
+        } else if let built, let homeModel {
             VStack(spacing: 0) {
                 ZStack(alignment: .top) {
-                    DollhouseSceneView(
+                    UnifiedSceneView(
                         dollhouse: built.dollhouse,
+                        home: homeModel,
                         explode: explode,
                         hiddenFloorIDs: hiddenFloorIDs,
                         wantsContinuousRendering: routePlan != nil,
                         isTouring: isTouring,
-                        onViewReady: { sceneView = $0 }
+                        onViewReady: { view, rig in
+                            sceneView = view
+                            cameraRig = rig
+                        }
                     )
                     .ignoresSafeArea(edges: .bottom)
                     routesBanner
@@ -327,7 +332,7 @@ struct PlanScreen: View {
         explode = 0
         hiddenFloorIDs = []
         isTouring = true
-        overlay.startTour(along: route, in: view) { isTouring = false }
+        overlay.startTour(along: route, in: view, restoreTo: cameraRig?.node) { isTouring = false }
     }
 
     private func stopTour() {

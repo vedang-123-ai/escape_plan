@@ -371,3 +371,29 @@ live backend required) so the normal suite stays hermetic.
 - **Scorecard**: S3.5 fully DONE; S2.3 + S3.4 observed except real-device 60fps (S2.3) and
  key-blocked explanation text (S3.4); S2.2 observed except the real-converted-scan door-fix
  criterion (needs S1.4/S1.5). Evidence + b-roll: `artifacts/acceptance-2026-07-22/`.
+
+## 2026-07-23 — Revamp A1: hand-rolled orbit camera replaces `allowsCameraControl`
+
+Approved revamp (grilled spec, saved plan): one free-camera translucent dollhouse that is
+simultaneously viewer and editor, objects that block routes (schema v1.1 + within-room grid
+pathfinding), and an agentic LLM house builder behind a forced human-review gate. Sequencing
+A (unified view) → B (objects/routing) → C (builder). This session shipped A1:
+
+- **`allowsCameraControl` replaced** by `CameraRigModel` (pure Foundation, editorcore-tested)
+  + `OrbitCameraRig` (SceneKit binding). Why: pinch must zoom toward the pinch point (the
+  stock controller zooms at the scene center), and A2's editing drags need to share gesture
+  arbitration with the camera — impossible against the black-box default controller.
+  Zoom-to-point math: `d' = d/s`, `pivot' = anchor + (pivot − anchor)/s`.
+- **The rig node is owned by the view layer** and re-attached across scene rebuilds, so the
+  editor's rebuild-on-every-edit strategy no longer resets the camera (pre-req for A2).
+- **`RenderOrder` ledger** (`Renderer/RenderOrder.swift`): all `renderingOrder` magic numbers
+  centralized into spaced bands (opaque 0 / objects 5 / walls 10 / glow 20 / routes 30 /
+  labels 100+); route tubes now explicitly draw after the translucent shell. A renderer test
+  asserts every geometry node sits in a known band and that depth-write-off materials never
+  draw in the opaque band.
+- **Tour teardown** now restores `pointOfView` to a caller-supplied node instead of flipping
+  `allowsCameraControl` back on (RouteOverlay.startTour gained `restoreTo:`).
+- `DollhouseScene.setFloorFade(_:opacity:)` added (node.opacity only — materials stay
+  untouched) for the coming floor-spotlight chips.
+- `DollhouseSceneView` is superseded by `UnifiedSceneView` but not yet deleted — PlanScreen
+  now uses the unified view; deletion happens in A3 after the editor migrates (A2).
