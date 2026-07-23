@@ -72,6 +72,16 @@ final class SceneKitEditorBridge {
         self.scene = scene
     }
 
+    // MARK: Arbitration
+
+    /// Decides at `.began` whether a one-finger pan is an edit-drag or belongs to the camera.
+    /// The caller latches the answer for the whole gesture (`GestureArbiter` doc).
+    func dragIntent(at screenPoint: CGPoint) -> GestureArbiter.DragIntent {
+        guard let scene, let world = scene.worldPoint(from: screenPoint) else { return .camera }
+        let hit = HitTesting.hitTest(world, floor: store.activeFloor, tolerances: tolerances())
+        return GestureArbiter.intent(hit: hit, current: store.selection)
+    }
+
     // MARK: Tap
 
     func handleTap(at screenPoint: CGPoint) {
@@ -170,6 +180,13 @@ final class SceneKitEditorBridge {
             // Corners are absolute: the vertex goes where the finger is (then snaps).
             return .dragVertex(roomId: roomId, vertexIndex: index, to: target)
         case .wall(let roomId, let edgeIndex):
+            // Walls slide along their own normal; the along-edge component of the finger's
+            // delta would skew the room, which no wall drag ever means.
+            if let room = store.activeFloor.room(roomId),
+               let edge = Geometry.edge(room.polygon, edgeIndex) {
+                return .dragEdge(roomId: roomId, edgeIndex: edgeIndex,
+                                 by: Geometry.projectOntoEdgeNormal(delta, edgeFrom: edge.a, to: edge.b))
+            }
             return .dragEdge(roomId: roomId, edgeIndex: edgeIndex, by: delta)
         case .room(let roomId):
             return .dragRoom(roomId: roomId, by: delta)

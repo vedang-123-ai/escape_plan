@@ -1,8 +1,10 @@
 //  EditorSceneView.swift
 //
-//  SwiftUI host for the on-device editor: a top-down SCNView driven by
-//  `EditorSceneController` (the `EditorSceneAdapter`) and `SceneKitEditorBridge` (gesture ->
-//  `EditAction` translation).
+//  SwiftUI host for the unified editor: the free-orbit perspective dollhouse
+//  (`UnifiedSceneController` + `OrbitCameraRig`) with editing driven through
+//  `SceneKitEditorBridge`. There is no edit mode: `GestureArbiter` decides at .began whether
+//  a one-finger pan edits (it landed on the current selection) or orbits, and the answer is
+//  latched for the whole gesture. Two-finger pan trucks, pinch zooms toward the pinch point.
 //
 //  `model`/`activeFloorId`/`selection` are passed BY VALUE alongside the store: the store is
 //  @Observable, so the parent body re-evaluates on every change, and the changed values here
@@ -36,14 +38,23 @@ struct EditorSceneView: UIViewRepresentable {
         // convert floor-plan meters into tap coordinates.
         view.isAccessibilityElement = true
         view.accessibilityIdentifier = "editor.scene"
-        let controller = EditorSceneController(scnView: view)
+        let controller = UnifiedSceneController(scnView: view, home: store.model)
         context.coordinator.controller = controller
         context.coordinator.bridge = SceneKitEditorBridge(store: store, scene: controller, undoStack: undoStack)
 
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
-        let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         view.addGestureRecognizer(tap)
+
+        // ONE pan for both fingers-counts, branched at .began — a `maximumNumberOfTouches`
+        // split into two recognizers silently swallowed XCUITest's synthesized press-drags
+        // (the pan never left .possible), and a single unconstrained pan is also what the old
+        // editor shipped with.
+        let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         view.addGestureRecognizer(pan)
+
+        let pinch = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
+        pinch.delegate = context.coordinator
+        view.addGestureRecognizer(pinch)
 
         controller.currentHome = store.model
         controller.rebuild(home: store.model, activeFloorId: store.activeFloorId)
@@ -56,20 +67,24 @@ struct EditorSceneView: UIViewRepresentable {
         context.coordinator.onOpeningPlaced = onOpeningPlaced
         controller.currentHome = store.model
         // Cheap to rebuild unconditionally (see `DollhouseSceneBuilder.build` doc comment: it's
-        // a pure function of the model) — the alternative is threading a fine-grained "what
-        // changed" signal through every EditAction, which the editor core deliberately doesn't
-        // expose (rules/languages/swift.md: the store is the only source of truth).
+        // a pure function of the model). The camera survives: the rig node is re-attached, not
+        // rebuilt.
         controller.rebuild(home: store.model, activeFloorId: store.activeFloorId)
         controller.highlight(store.selection)
     }
 
     @MainActor
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         let store: HomeModelStore
-        var controller: EditorSceneController?
+        var controller: UnifiedSceneController?
         var bridge: SceneKitEditorBridge?
         var tool: EditorTool = .select
         var onOpeningPlaced: (() -> Void)?
+
+        /// What the in-flight pan is doing, decided at .began and held until it ends — no
+        /// mid-gesture reassignment even if a second finger lands.
+        private enum PanMode { case edit, orbit, truck }
+        private var panMode: PanMode = .orbit
 
         init(store: HomeModelStore) {
             self.store = store
@@ -88,8 +103,52 @@ struct EditorSceneView: UIViewRepresentable {
         }
 
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
-            guard let view = recognizer.view else { return }
-            bridge?.handleDrag(recognizer.state, at: recognizer.location(in: view))
+            guard let view = recognizer.view as? SCNView, let controller else { return }
+            let location = recognizer.location(in: view)
+
+            if recognizer.state == .began {
+                if recognizer.numberOfTouches >= 2 {
+                    panMode = .truck
+                } else if case .placeOpening = tool {
+                    // A pan while a placement tool is armed never edits — placement is tap-only.
+                    panMode = .orbit
+                } else {
+                    panMode = bridge?.dragIntent(at: location) == .edit ? .edit : .orbit
+                }
+            }
+
+            switch panMode {
+            case .edit:
+                bridge?.handleDrag(recognizer.state, at: location)
+            case .orbit:
+                let delta = recognizer.translation(in: view)
+                recognizer.setTranslation(.zero, in: view)
+                controller.rig.orbit(byScreenDelta: delta, in: view)
+                view.setNeedsDisplay()
+            case .truck:
+                let delta = recognizer.translation(in: view)
+                recognizer.setTranslation(.zero, in: view)
+                controller.rig.truck(byScreenDelta: delta, in: view)
+                view.setNeedsDisplay()
+            }
+        }
+
+        @objc func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
+            guard let view = recognizer.view as? SCNView, let controller else { return }
+            controller.rig.pinch(scale: recognizer.scale, centroid: recognizer.location(in: view), in: view)
+            recognizer.scale = 1
+            view.setNeedsDisplay()
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            // Pinch + pan run together so two-finger zoom and truck combine naturally (a real
+            // pinch drifts, a real two-finger pan scales a little). Editing is unaffected:
+            // edit-drags are single-finger, and the mode latch never reassigns mid-gesture.
+            let pair = [gestureRecognizer, other]
+            let hasPinch = pair.contains { $0 is UIPinchGestureRecognizer }
+            let hasPan = pair.contains { $0 is UIPanGestureRecognizer }
+            return hasPinch && hasPan
         }
     }
 }

@@ -9,11 +9,16 @@
 // must never gate the normal suite. Backend + token come from MANUAL_BUILD_BASE_URL /
 // MANUAL_BUILD_TOKEN (defaults match backend/README.md's local run).
 //
-// How taps find geometry: the editor camera is a fixed top-down orthographic frame over the
-// active floor (EditorSceneController.frame(on:home:) — bbox + 1.5 m padding, scale =
-// max(width, depth) / 2). That math is deterministic, so this test tracks the room rectangles
-// it has built and inverts the projection to turn floor-plan meters into normalized offsets
-// on the scene view (accessibility id "editor.scene").
+// How taps find geometry: the unified editor normally runs a free perspective orbit camera,
+// which is not invertible from outside the app — so this driver launches with
+// `-editor.topDownCamera YES`, which pins the old deterministic top-down orthographic frame
+// (UnifiedSceneController.applyTopDownFrame — bbox + 1.5 m padding, scale =
+// max(width, depth) / 2). The test tracks the room rectangles it has built and inverts that
+// projection to turn floor-plan meters into normalized offsets on the scene view
+// (accessibility id "editor.scene").
+//
+// Drags must land on the CURRENT SELECTION to edit (GestureArbiter — anything else orbits),
+// so every corner-drag below is preceded by a tap selecting its room.
 
 import XCTest
 
@@ -34,11 +39,15 @@ final class ManualBuildRecordingUITests: XCTestCase {
         let baseURL = env["MANUAL_BUILD_BASE_URL"] ?? "http://localhost:8001"
         let token = env["MANUAL_BUILD_TOKEN"] ?? "dev-local-token"
 
+        // The synthesized-event → window coordinate conversion is only trustworthy when the
+        // device orientation and the app's interface orientation agree; pin both to portrait.
+        XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
         app.launchArguments = [
             "-onboarding.completed", "YES",
             "-APIClient.baseURL", baseURL,
             "-APIClient.bearerToken", token,
+            "-editor.topDownCamera", "YES",
         ]
         app.launch()
 
@@ -59,7 +68,10 @@ final class ManualBuildRecordingUITests: XCTestCase {
         pause(1)
 
         // Join: drag the new room's left corners onto Room 1's right corners (vertex snap
-        // lands them exactly — that shared wall is what makes the door INTERIOR).
+        // lands them exactly — that shared wall is what makes the door INTERIOR). Select the
+        // room first: unselected geometry orbits the camera instead of dragging.
+        tapWorld(5.0, 1.5)
+        pause(1)
         dragWorld(from: (3.5, 0), to: (3.02, 0.02))
         rooms[1] = CGRect(x: 3, y: 0, width: 3.5, height: 3)   // left edge now at x=3 (bottom)
         dragWorld(from: (3.5, 3), to: (3.02, 2.98))
@@ -98,6 +110,8 @@ final class ManualBuildRecordingUITests: XCTestCase {
 
         addMenuTap("Add Room")
         rooms.append(CGRect(x: 3.5, y: 0, width: 3, height: 3))
+        pause(1)
+        tapWorld(5.0, 1.5)                                     // select before dragging
         pause(1)
         dragWorld(from: (3.5, 0), to: (3.02, 0.02))
         rooms[1] = CGRect(x: 3, y: 0, width: 3.5, height: 3)

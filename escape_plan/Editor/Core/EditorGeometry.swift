@@ -120,6 +120,17 @@ enum Geometry {
         polygon.count >= 3 && isSimple(polygon) && isCounterClockwise(polygon)
     }
 
+    /// Component of `delta` perpendicular to the edge a→b. Wall drags are constrained to
+    /// slide along their own normal — the along-edge component of a finger drag is noise
+    /// that would skew the room. Degenerate edges pass the delta through untouched.
+    static func projectOntoEdgeNormal(_ delta: Point, edgeFrom a: Point, to b: Point) -> Point {
+        let e = subtract(b, a)
+        let len = length(e)
+        guard len > epsilon else { return delta }
+        let normal = Point(e.y / len, -e.x / len)
+        return scale(normal, dot(delta, normal))
+    }
+
     static func translate(_ polygon: [Point], by delta: Point) -> [Point] {
         polygon.map { add($0, delta) }
     }

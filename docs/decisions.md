@@ -397,3 +397,28 @@ A (unified view) → B (objects/routing) → C (builder). This session shipped A
   untouched) for the coming floor-spotlight chips.
 - `DollhouseSceneView` is superseded by `UnifiedSceneView` but not yet deleted — PlanScreen
   now uses the unified view; deletion happens in A3 after the editor migrates (A2).
+
+## 2026-07-23 — Revamp A2: editing in the unified free-camera view
+
+- **Arbitration-by-selection**: a one-finger pan edits ONLY when it begins on the current
+  selection (or a vertex/wall of the selected room) — decided once at `.began` by the pure
+  `GestureArbiter` and latched for the whole gesture. Anything else orbits. Worst case is one
+  extra tap; there is no mode switch.
+- **One pan recognizer, branched on touch count** (1 = edit/orbit, 2 = truck), pinch runs
+  simultaneously with pan. An earlier split into per-touch-count recognizers was scrapped.
+- **`UnifiedSceneController` replaces `EditorSceneController`** as the `EditorSceneAdapter`:
+  whole house visible while editing, unprojection onto the active floor's *presentation* Y
+  (works mid-explode), `metersPerPoint()` measured by probing the drag plane (perspective-
+  correct tolerances). `EditorSceneController` is now dead code — deleted in A3.
+- **Wall drags slide along their normal**: `Geometry.projectOntoEdgeNormal` strips the
+  along-edge component before `.dragEdge` dispatch.
+- **UI-automation camera**: the manual-build recording driver can't invert a free perspective
+  camera, so `-editor.topDownCamera YES` pins the old deterministic ortho frame (same math,
+  verbatim). Driver updated: selects a room before dragging its corners, and **pins portrait
+  orientation** — the driver's failures during this session were ultimately a simulator left
+  in landscape while the device reported portrait, which silently breaks synthesized drags
+  (taps survive). Documented here because it looks exactly like an app bug and cost a debug
+  cycle: check orientation FIRST when synthesized drags do nothing.
+- New simulator test `UnifiedEditorPipelineTests` drives SCNView projection → controller →
+  arbiter → bridge → store end-to-end (perspective AND top-down modes), so the join-rooms
+  regression class is caught in seconds instead of the 2-minute env-gated UI run.

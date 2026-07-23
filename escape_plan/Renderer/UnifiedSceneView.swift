@@ -104,39 +104,33 @@ struct UnifiedSceneView: UIViewRepresentable {
             self.view = view
             self.rig = rig
 
-            let orbit = UIPanGestureRecognizer(target: self, action: #selector(handleOrbit(_:)))
-            orbit.minimumNumberOfTouches = 1
-            orbit.maximumNumberOfTouches = 1
-            view.addGestureRecognizer(orbit)
+            // ONE pan, branched on touch count at .began (1 = orbit, 2 = truck) — mirrors the
+            // editor's gesture shape (EditorSceneView) so both surfaces feel identical.
+            let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+            pan.delegate = self
+            view.addGestureRecognizer(pan)
 
-            let truck = UIPanGestureRecognizer(target: self, action: #selector(handleTruck(_:)))
-            truck.minimumNumberOfTouches = 2
-            truck.maximumNumberOfTouches = 2
-            view.addGestureRecognizer(truck)
-
+            // Pinch and pan run together: a real pinch usually drifts, and a real two-finger
+            // pan usually scales a little — requiring exclusivity makes both feel broken.
             let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
             pinch.delegate = self
             view.addGestureRecognizer(pinch)
-
-            // Pinch and two-finger pan run together: a real pinch usually drifts, and a real
-            // two-finger pan usually scales a little — requiring exclusivity makes both feel
-            // broken. Zoom-toward-point plus simultaneous truck is the expected combined feel.
-            truck.delegate = self
         }
 
-        @objc private func handleOrbit(_ g: UIPanGestureRecognizer) {
-            guard gesturesEnabled, let view, let rig else { return }
-            let delta = g.translation(in: view)
-            g.setTranslation(.zero, in: view)
-            rig.orbit(byScreenDelta: delta, in: view)
-            view.setNeedsDisplay()
-        }
+        private var panIsTruck = false
 
-        @objc private func handleTruck(_ g: UIPanGestureRecognizer) {
+        @objc private func handlePan(_ g: UIPanGestureRecognizer) {
             guard gesturesEnabled, let view, let rig else { return }
+            if g.state == .began {
+                panIsTruck = g.numberOfTouches >= 2
+            }
             let delta = g.translation(in: view)
             g.setTranslation(.zero, in: view)
-            rig.truck(byScreenDelta: delta, in: view)
+            if panIsTruck {
+                rig.truck(byScreenDelta: delta, in: view)
+            } else {
+                rig.orbit(byScreenDelta: delta, in: view)
+            }
             view.setNeedsDisplay()
         }
 
@@ -149,11 +143,11 @@ struct UnifiedSceneView: UIViewRepresentable {
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                                shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
-            // Only pinch + two-finger truck combine; orbit stays exclusive.
+            // Pinch + pan combine (two-finger zoom-and-truck); everything else is exclusive.
             let pair = [gestureRecognizer, other]
             let hasPinch = pair.contains { $0 is UIPinchGestureRecognizer }
-            let hasTruck = pair.contains { ($0 as? UIPanGestureRecognizer)?.minimumNumberOfTouches == 2 }
-            return hasPinch && hasTruck
+            let hasPan = pair.contains { $0 is UIPanGestureRecognizer }
+            return hasPinch && hasPan
         }
     }
 }
