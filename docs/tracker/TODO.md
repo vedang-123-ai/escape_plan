@@ -18,9 +18,9 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 | Suite | Count | Command |
 |---|---|---|
-| Backend pytest | 196 pass, 11 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
-| EditorCore (SwiftPM) | 146 pass | `swift test --package-path tools/editorcore` |
-| iOS (unit + UI) | 266 pass, 3 skipped (env-gated recording drivers) | `xcodebuild test -scheme escape_plan …` |
+| Backend pytest | 227 pass, 12 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
+| EditorCore (SwiftPM) | 186 pass | `swift test --package-path tools/editorcore` |
+| iOS (unit + UI) | all pass, 2 skipped (env-gated recording drivers) | `xcodebuild test -scheme escape_plan …` |
 | Corpus | 11 sources, 6 files | `python3 backend/corpus/validate.py` |
 
 ---
@@ -108,13 +108,14 @@ see `notes/2026-07-23-lane-a-editor-completion.md`. Stairs on a hand-built two-s
 verified in the recorded manual-build run. New follow-ups discovered in that session:_
 
 - [ ] `setOpeningWidth` exists in the reducer with tests but has **no UI entry point** — add a
-      width control (stepper/slider) to the opening inspector in `EditorScreen`. (Lane A)
-- [ ] The Editor *tab*'s standalone `EditorScreen()` has no `HomeLibrary`, so the
+      width control (stepper/slider) to the opening inspector in `HouseScreen` (EditorScreen
+      was merged into it in revamp A3). (Lane A)
+- [ ] The House *tab*'s standalone `HouseScreen()` has no `HomeLibrary`, so the
       delete-under-editor seam only protects the HomeScreen→Editor push path. Cross-tab
       delete while the Editor tab holds the same home is still unguarded — share one library
       instance (or an app-level environment object) if that matters. (Lane A)
 - [ ] Selecting an opening or stairs draws no marker in the 3D view
-      (`EditorSceneController.highlightCenter` returns nil for both — deferred since S2.2).
+      (`UnifiedSceneController.highlightCenter` returns nil for both — deferred since S2.2).
       The inspector bar makes the selection legible; a visible marker needs Lane B's renderer
       touch. (S2.2/Lane B)
 - [ ] The deployed Render URL is not the app's default — `APIClient.developmentDefaultBaseURL`
