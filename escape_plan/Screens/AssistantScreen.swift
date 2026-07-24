@@ -88,13 +88,20 @@ struct AssistantScreen: View {
                     ForEach(messages) { message in
                         MessageBubble(message: message)
                             .id(message.id)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .bottom).combined(with: .opacity),
+                                removal: .opacity
+                            ))
                     }
                     if isSending {
                         typingIndicator.id("typing")
+                            .transition(.opacity)
                     }
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 12)
+                .animation(.spring(duration: 0.35), value: messages.count)
+                .animation(.easeInOut(duration: 0.2), value: isSending)
             }
             .onChange(of: messages.count) {
                 if let last = messages.last {
@@ -113,7 +120,9 @@ struct AssistantScreen: View {
         ContentUnavailableView {
             Label("Ask about your escape plan", systemImage: "bubble.left.and.bubble.right")
         } description: {
-            Text("Answers are grounded in FEMA, NFPA, and Red Cross guidance and cite their sources. Routes always come from the deterministic engine, not the AI.")
+            Text("Ask anything about your family's escape plan — why a route goes the way it "
+                 + "does, what to practice, what to fix first. Answers come from FEMA, NFPA, "
+                 + "and Red Cross guidance, with sources shown.")
         }
         .padding(.top, 40)
     }
@@ -233,8 +242,9 @@ struct AssistantScreen: View {
                 persist()
             } catch {
                 errorMessage = (error as? LocalizedError)?.errorDescription
-                    ?? "The assistant request failed. Check your connection and the backend URL in Settings."
+                    ?? "The assistant couldn't answer — check your connection and try again."
                 canRetry = true
+                Haptics.warning()
             }
             isSending = false
         }

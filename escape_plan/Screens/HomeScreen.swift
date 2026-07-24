@@ -111,16 +111,16 @@ struct HomeScreen: View {
 
     private func scanFailureMessage(for error: Error) -> String {
         guard case APIClientError.unexpectedResponse(let statusCode) = error else {
-            return "\(error.localizedDescription) Check the backend URL in Settings."
+            return "\(error.localizedDescription) Check your connection, or the server address in Settings."
         }
         switch statusCode {
         case 422:
             return "The scan couldn't be turned into a floor plan — it may be incomplete. "
                 + "Try scanning again, walking the full perimeter of each room."
         case 401, 403:
-            return "The backend rejected the request. Check the bearer token in Settings."
+            return "The server didn't accept the access token — check it in Settings."
         default:
-            return "The backend returned an error (\(statusCode)). Check the URL in Settings."
+            return "The server had a problem (\(statusCode)). Please try again in a moment."
         }
     }
 
@@ -131,12 +131,14 @@ struct HomeScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if library.homes.isEmpty {
             ContentUnavailableView {
-                Label("No homes yet", systemImage: "house")
+                Label("Let's map your home", systemImage: "house")
             } description: {
-                Text("Tap + to build one in the 3D editor, or capture one with a LiDAR scan.")
+                Text("Scan it with your iPhone's camera, or build it by hand in the 3D editor. "
+                     + "Once it's here, you'll get escape routes for every room.")
             } actions: {
-                Button("New Home") { showingNewHome = true }
-                Button("Scan a Home") { showingScan = true }
+                Button("Scan My Home") { showingScan = true }
+                    .buttonStyle(.borderedProminent)
+                Button("Build It Myself") { showingNewHome = true }
             }
         } else {
             List {

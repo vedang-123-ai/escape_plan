@@ -123,7 +123,7 @@ final class ConversationStoreTests: XCTestCase {
 
     func testChatErrorMessagesMatchWhatTheScreenShows() {
         XCTAssertEqual(ChatError.unauthorized.errorDescription,
-                       "Not authorized — check the backend bearer token in Settings.")
+                       "The server didn't accept the access token — check it in Settings.")
 
         let unavailable = ChatError.aiUnavailable(statusCode: 500).errorDescription ?? ""
         XCTAssertTrue(unavailable.contains("assistant is unavailable"),

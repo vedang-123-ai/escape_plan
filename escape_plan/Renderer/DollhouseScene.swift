@@ -149,7 +149,8 @@ enum DollhouseSceneBuilder {
         guard let path = DollhouseGeometry.path(for: room.polygon) else { return nil }
         let shape = SCNShape(path: UIBezierPath(cgPath: path), extrusionDepth: CGFloat(slabThicknessM))
         shape.firstMaterial = material(
-            DollhousePalette.accent(for: room.type).blended(with: DollhousePalette.slab, amount: 0.72)
+            DollhousePalette.accent(for: room.type)
+                .blended(with: DollhousePalette.slab, amount: 1 - DollhousePalette.roomAccentStrength)
         )
 
         let node = SCNNode(geometry: shape)
@@ -197,8 +198,11 @@ enum DollhouseSceneBuilder {
     private static func makeWall(_ spec: DollhouseGeometry.WallSpec, height: Double) -> SCNNode {
         let box = SCNBox(width: CGFloat(spec.length), height: CGFloat(height),
                          length: CGFloat(wallThicknessM), chamferRadius: 0)
-        let mat = material(DollhousePalette.wall)
-        mat.transparency = DollhousePalette.wallOpacity
+        // Exterior shell keeps more body than interior partitions so the house reads as an
+        // object while the floor plan inside stays legible.
+        let mat = material(spec.isExterior ? DollhousePalette.exteriorWall : DollhousePalette.wall)
+        mat.transparency = spec.isExterior
+            ? DollhousePalette.exteriorWallOpacity : DollhousePalette.wallOpacity
         mat.isDoubleSided = true
         // Transparent surfaces that write depth hide whatever is drawn behind them afterwards —
         // which for a see-through dollhouse is exactly the content you want to see.
@@ -210,6 +214,8 @@ enum DollhouseSceneBuilder {
         node.eulerAngles.y = Float(spec.yaw)
         // Drawn after the opaque interior so alpha blends over it in the right order.
         node.renderingOrder = 10
+        // Translucent walls throwing hard shadows would read as solid slabs on the floor.
+        node.castsShadow = false
         return node
     }
 
@@ -303,25 +309,35 @@ enum DollhouseSceneBuilder {
     }
 
     private static func addLighting(to scene: SCNScene) {
+        // Warm key + cool fill + warm ambient: afternoon-light diorama, not a CAD viewport.
         let ambient = SCNNode()
         ambient.light = SCNLight()
         ambient.light?.type = .ambient
-        ambient.light?.intensity = 480
-        ambient.light?.color = UIColor(white: 1.0, alpha: 1.0)
+        ambient.light?.intensity = 420
+        ambient.light?.color = UIColor(red: 1.0, green: 0.97, blue: 0.92, alpha: 1.0)
         scene.rootNode.addChildNode(ambient)
 
         let key = SCNNode()
         key.light = SCNLight()
         key.light?.type = .directional
-        key.light?.intensity = 780
-        key.light?.castsShadow = false
+        key.light?.intensity = 900
+        key.light?.color = UIColor(red: 1.0, green: 0.956, blue: 0.878, alpha: 1.0)
+        // Soft contact shadows ground the model. Deferred mode keeps them off the translucent
+        // walls (which don't cast — see makeWall) and cheap enough for 60fps on device.
+        key.light?.castsShadow = true
+        key.light?.shadowMode = .deferred
+        key.light?.shadowMapSize = CGSize(width: 1024, height: 1024)
+        key.light?.shadowRadius = 8
+        key.light?.shadowColor = UIColor(white: 0, alpha: 0.28)
+        key.light?.automaticallyAdjustsShadowProjection = true
         key.eulerAngles = SCNVector3(-Float.pi / 3, Float.pi / 5, 0)
         scene.rootNode.addChildNode(key)
 
         let fill = SCNNode()
         fill.light = SCNLight()
         fill.light?.type = .directional
-        fill.light?.intensity = 300
+        fill.light?.intensity = 260
+        fill.light?.color = UIColor(red: 0.90, green: 0.94, blue: 1.0, alpha: 1.0)
         fill.eulerAngles = SCNVector3(-Float.pi / 6, -Float.pi * 0.7, 0)
         scene.rootNode.addChildNode(fill)
     }

@@ -22,8 +22,12 @@ final class APIClient {
     private static let baseURLDefaultsKey = "APIClient.baseURL"
     private static let bearerTokenDefaultsKey = "APIClient.bearerToken"
 
-    /// Local dev default; swap for the deployed Render URL once available (Settings screen).
-    static let developmentDefaultBaseURL = URL(string: "http://localhost:8000")!
+    /// The deployed backend — what a fresh install talks to with zero setup (S4.4 decision;
+    /// see docs/decisions.md). The URL is public knowledge; the bearer token is not and is
+    /// never in source — see `bundledBearerToken()`.
+    static let deployedDefaultBaseURL = URL(string: "https://escape-plan-backend.onrender.com")!
+    /// Local dev server, one tap away in Settings' developer section (DEBUG builds only).
+    static let localDevBaseURL = URL(string: "http://localhost:8000")!
 
     private let session: URLSession
     private let defaults: UserDefaults
@@ -43,9 +47,24 @@ final class APIClient {
            let url = URL(string: stored) {
             baseURL = url
         } else {
-            baseURL = Self.developmentDefaultBaseURL
+            baseURL = Self.deployedDefaultBaseURL
         }
-        bearerToken = defaults.string(forKey: Self.bearerTokenDefaultsKey) ?? ""
+        bearerToken = defaults.string(forKey: Self.bearerTokenDefaultsKey)
+            ?? Self.bundledBearerToken()
+            ?? ""
+    }
+
+    /// The shared bearer token ships via `escape_plan/BackendConfig.local.json` — a gitignored
+    /// file a teammate drops in before archiving (`{"bearer_token": "..."}`); the synchronized
+    /// project group bundles it automatically. Absent file → empty token → Settings prompts.
+    /// This keeps the secret out of source and out of git while letting a demo build work
+    /// out of the box.
+    private static func bundledBearerToken() -> String? {
+        guard let url = Bundle.main.url(forResource: "BackendConfig.local", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        return object["bearer_token"] as? String
     }
 
     /// Hits the unauthenticated /health endpoint (S1.6) as a connectivity check.

@@ -98,10 +98,15 @@ is unverified is the round-trip against a real scan.
       the file's header block). (S2.1)
 - [ ] Add stairs between floors of a **hand-built** two-story home. Observed only on the
       seeded fixture. (S2.2)
-- [ ] The deployed Render URL is not the app's default — `APIClient.developmentDefaultBaseURL`
-      is `http://localhost:8000` and there is no prefilled bearer token, so a fresh install
-      talks to nothing until someone types both into Settings. Decide whether the shipped
-      default should be the Render URL. (S1.6)
+- [ ] Custom launch screen (branded color/image instead of the generated blank): needs a
+      pbxproj edit (storyboard ref or physical Info.plist), deliberately deferred to the
+      integration window while Lane A holds the project file — decisions.md 2026-07-23. (S4.4)
+- [ ] Real-device check of the S4.4 renderer work: 60fps on all three fixtures on a physical
+      phone, and haptics feel (simulator can't verify either). (S4.4)
+- [ ] Drop the real shared bearer token into `escape_plan/BackendConfig.local.json`
+      (`{"bearer_token": "..."}`, gitignored) on the build machine before any demo/device
+      build — without it a fresh install reaches the Render URL but gets 401s until the
+      token is typed in Settings. Mechanism + decision: decisions.md 2026-07-23. (S4.4)
 
 ## Backend
 
@@ -119,18 +124,24 @@ is unverified is the round-trip against a real scan.
       150 wpm, but the box means an actual read-aloud. (S5.1)
 - [ ] Tech-accuracy pass: verify every claim in `docs/demo/script-v1.md` against the shipped
       build. The script's truth-ledger appendix is a self-audit, not an independent check. (S5.1)
-- [ ] Golden path succeeds on 3/3 homes, zero crashes on the demo path. (S4.3)
-- [ ] Polish pass: side-by-side before/after that everyone prefers. (S4.4)
+- [ ] Golden path on a **real device** — the simulator half is done (2026-07-23, Lane B):
+      onboarding loop green live against the local backend, routes rendered on 3/3 fixtures,
+      plan/chat/score/drill walked with backend up AND pointed at a dead port (graceful
+      banners, zero crashes; `S44BackendDownUITests` + `docs/evidence/s44-after/offline-*`).
+      Remaining: same pass on a phone. (S4.3)
+- [ ] Polish pass: the before/after artifact is built and committed
+      (`docs/evidence/s44-before-after.md` + `s44-before/` + `s44-after/`, 2026-07-23) —
+      remaining: the team actually looks at it and prefers the after. (S4.4)
 - [ ] Film + edit; three non-team viewers name the wow moment unprompted. (S5.2)
 - [ ] Submit, save the confirmation screenshot in the repo, finish `tools-used.md`, and write
       the app description + "what we learned" answers. (S5.3)
 
 ## Process & repo hygiene
 
-- [ ] **Acceptance evidence is untracked.** `artifacts/` is gitignored wholesale
-      (`git ls-files artifacts` returns 0), so the ~45 MB of screenshots and recordings cited
-      as the S2.2/S2.3/S3.4/S3.5 handoffs exists only on one machine. Either commit a small
-      curated subset or stop citing untracked paths as evidence.
+- [ ] Backfill curated evidence for the S2.2/S2.3/S3.4/S3.5 handoffs (their ~45 MB of
+      screenshots/recordings still live only in one machine's gitignored `artifacts/`).
+      The convention + home for it now exists: `docs/evidence/` (see its README; S4.4's
+      before/after sets are the first committed example). (process)
 - [ ] `docs/demo/broll/s41-golden-path-simulator.mp4` (19 MB) is committed to git history.
       Removing it needs a history rewrite. At minimum, gitignore future broll.
 - [ ] Corpus sign-off: someone other than the author should actually read

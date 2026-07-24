@@ -17,6 +17,8 @@ build/
 # Secrets
 .env
 .env.*
+# Shared backend bearer token bundled into demo builds — never committed (see APIClient.swift)
+escape_plan/BackendConfig.local.json
 
 # Python
 __pycache__/
@@ -26,6 +28,7 @@ __pycache__/
 
 # Build artifacts: S2.4 export acceptance, SwiftPM harnesses (tools/editorcore), xcodebuild CLI output
 .build/
+.build-*/
 build/
 
 # S1.3 acceptance run artifacts (screenshots + test logs) — regenerate via scripts/s13-acceptance.sh

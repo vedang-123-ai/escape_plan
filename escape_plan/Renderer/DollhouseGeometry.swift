@@ -138,12 +138,25 @@ enum DollhouseGeometry {
         var length: Double
         var yaw: Double
         var midpoint: Point
+        /// True when only one room's polygon owns this edge — the building's outer shell (or a
+        /// boundary to unmodeled space, which renders the same way). Shared edges are interior
+        /// partitions.
+        var isExterior: Bool = true
     }
 
     /// Deduplicated walls for a floor. Adjacent rooms each own the shared wall in their own
     /// polygon; rendering both would put two coplanar transparent boxes in the same place and
-    /// z-fight. Keying on the rounded, unordered endpoint pair collapses them to one.
+    /// z-fight. Keying on the rounded, unordered endpoint pair collapses them to one, and the
+    /// occurrence count is what separates exterior shell from interior partition.
     static func walls(for floor: Floor) -> [WallSpec] {
+        var occurrences: [String: Int] = [:]
+        for room in floor.rooms {
+            for i in 0..<room.polygon.count {
+                guard let e = edge(room.polygon, i) else { continue }
+                occurrences[wallKey(e.a, e.b), default: 0] += 1
+            }
+        }
+
         var seen = Set<String>()
         var specs: [WallSpec] = []
         for room in floor.rooms {
@@ -159,7 +172,8 @@ enum DollhouseGeometry {
                     b: e.b,
                     length: len,
                     yaw: sceneYaw(from: e.a, to: e.b),
-                    midpoint: Point(x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2)
+                    midpoint: Point(x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2),
+                    isExterior: occurrences[key, default: 1] == 1
                 ))
             }
         }

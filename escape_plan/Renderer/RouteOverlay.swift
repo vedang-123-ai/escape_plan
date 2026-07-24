@@ -14,10 +14,14 @@ final class RouteOverlay {
         case primary
         case secondary
 
-        var radius: Float { self == .primary ? 0.06 : 0.045 }
+        var radius: Float { self == .primary ? 0.10 : 0.055 }
         var color: UIColor { self == .primary ? DollhousePalette.routePrimary : DollhousePalette.routeSecondary }
         /// Secondary rides slightly higher so shared corridor stretches don't z-fight.
-        var extraLift: Float { self == .primary ? 0 : 0.06 }
+        var extraLift: Float { self == .primary ? 0 : 0.08 }
+        /// Above the walls' renderingOrder (10): with depth reads off, routes draw x-ray
+        /// through every wall — the S4.4 fix for tubes vanishing behind stacked translucent
+        /// surfaces. Primary sits above secondary where they share a corridor.
+        var renderingOrder: Int { self == .primary ? 55 : 50 }
     }
 
     /// Fragment modifier for the primary tube: a bright band travels start → exit. `u` is
@@ -46,6 +50,9 @@ final class RouteOverlay {
     private var tourNode: SCNNode?
     private weak var tourView: SCNView?
     private var tourCompletion: (() -> Void)?
+    /// Room-name labels hidden while the tour owns the camera — at eye level a billboarded
+    /// label fills the whole frame.
+    private var tourHiddenLabels: [SCNNode] = []
 
     init(dollhouse: DollhouseScene) {
         self.dollhouse = dollhouse
@@ -69,6 +76,11 @@ final class RouteOverlay {
                 draw(primary, style: .primary, label: room.room_id,
                      knownFloorIDs: knownFloorIDs, issues: &issues)
                 addExitGlow(exitID: primary.exit_id, issues: &issues)
+                // "You start here": only when a single room is shown — one dot per house
+                // would be noise, one dot per selected route is orientation.
+                if rooms.count == 1 {
+                    addStartMarker(for: primary, knownFloorIDs: knownFloorIDs)
+                }
             }
             if includeSecondary, let secondary = room.secondary {
                 draw(secondary, style: .secondary, label: room.room_id,
@@ -102,6 +114,8 @@ final class RouteOverlay {
                 geometry.firstMaterial = tubeMaterial(style)
                 let node = SCNNode(geometry: geometry)
                 node.name = "route:\(label):\(run.floorID)"
+                node.renderingOrder = style.renderingOrder
+                node.castsShadow = false
                 container.addChildNode(node)
             }
             // Where the route crosses floors, a glowing stub on each side marks "continues via
@@ -136,6 +150,9 @@ final class RouteOverlay {
         material.emission.contents = style.color
         material.isDoubleSided = true
         material.writesToDepthBuffer = false
+        // X-ray: the route must never disappear behind a wall — it's the one thing the
+        // screen exists to show.
+        material.readsFromDepthBuffer = false
         material.blendMode = .alpha
         switch style {
         case .primary:
@@ -152,10 +169,41 @@ final class RouteOverlay {
         material.lightingModel = .constant
         material.diffuse.contents = style.color
         material.emission.contents = style.color
+        material.readsFromDepthBuffer = false
+        material.writesToDepthBuffer = false
         cone.firstMaterial = material
         let node = SCNNode(geometry: cone)
         node.position = SCNVector3(point.x, point.y + 0.2, point.z)
+        node.renderingOrder = style.renderingOrder
+        node.castsShadow = false
         return node
+    }
+
+    /// Pulsing "you start here" dot at the route's first waypoint, floor-local like the tubes
+    /// so explode / floor toggles carry it along.
+    private func addStartMarker(for route: Route, knownFloorIDs: Set<String>) {
+        guard let first = route.waypoints.first,
+              knownFloorIDs.contains(first.floor_id),
+              let container = container(forFloor: first.floor_id) else { return }
+        let sphere = SCNSphere(radius: 0.16)
+        let material = SCNMaterial()
+        material.lightingModel = .constant
+        material.diffuse.contents = DollhousePalette.routePrimary
+        material.emission.contents = DollhousePalette.routePrimary
+        material.readsFromDepthBuffer = false
+        material.writesToDepthBuffer = false
+        sphere.firstMaterial = material
+        let node = SCNNode(geometry: sphere)
+        node.name = "routeStart"
+        node.position = DollhouseGeometry.scenePoint(Point(x: first.x, y: first.y),
+                                                     y: RouteGeometry.routeLiftM)
+        node.renderingOrder = 56
+        node.castsShadow = false
+        node.runAction(.repeatForever(.sequence([
+            .scale(to: 1.5, duration: 0.6),
+            .scale(to: 1.0, duration: 0.6),
+        ])))
+        container.addChildNode(node)
     }
 
     // MARK: - Exit glow
@@ -183,13 +231,16 @@ final class RouteOverlay {
         material.emission.contents = DollhousePalette.exitGlow
         material.transparency = 0.55
         material.writesToDepthBuffer = false
+        // The way out must be findable from any camera angle, walls or not.
+        material.readsFromDepthBuffer = false
         shell.firstMaterial = material
 
         let node = SCNNode(geometry: shell)
         node.name = glowName
         node.position = opening.position
         node.eulerAngles = opening.eulerAngles
-        node.renderingOrder = 20
+        node.renderingOrder = 52
+        node.castsShadow = false
         node.runAction(.repeatForever(.sequence([
             .fadeOpacity(to: 0.35, duration: 0.7),
             .fadeOpacity(to: 0.9, duration: 0.7),
@@ -283,6 +334,8 @@ final class RouteOverlay {
         }
 
         let camera = (dollhouse.cameraNode.camera?.copy() as? SCNCamera) ?? SCNCamera()
+        // Wider lens for interiors: at 50° a hallway is all wall; at 65° the room reads.
+        camera.fieldOfView = 65
         let node = SCNNode()
         node.name = "tourCamera"
         node.camera = camera
@@ -295,16 +348,29 @@ final class RouteOverlay {
         view.pointOfView = node
         view.allowsCameraControl = false
 
+        tourHiddenLabels = []
+        dollhouse.scene.rootNode.enumerateChildNodes { child, _ in
+            if child.name?.hasPrefix("label:") == true, !child.isHidden {
+                child.isHidden = true
+                tourHiddenLabels.append(child)
+            }
+        }
+
         let speed: Float = 1.5 // m/s — brisk walk, slow enough to read the house
         let duration = TimeInterval(total / speed)
         let fly = SCNAction.customAction(duration: duration) { node, elapsed in
             let s = Float(elapsed) / Float(duration) * total
             node.position = RouteGeometry.point(at: s, along: path, arcs: arcs)
-            let ahead = RouteGeometry.point(at: min(s + 1.0, total), along: path, arcs: arcs)
+            // Gaze slightly downward at the path ahead so the glowing route (not blank wall)
+            // fills the frame.
+            var ahead = RouteGeometry.point(at: min(s + 1.2, total), along: path, arcs: arcs)
+            ahead.y -= 0.45
             if SCNVector3EqualToVector3(node.position, ahead) == false {
                 node.look(at: ahead)
             }
         }
+        // Walk, don't teleport: ease into the first step and settle at the exit.
+        fly.timingMode = .easeInEaseOut
         let finish = SCNAction.run { [weak self] _ in
             DispatchQueue.main.async { self?.finishTour() }
         }
@@ -323,6 +389,8 @@ final class RouteOverlay {
         guard let node = tourNode else { return }
         node.removeFromParentNode()
         tourNode = nil
+        for label in tourHiddenLabels { label.isHidden = false }
+        tourHiddenLabels = []
         if let view = tourView, let dollhouse {
             view.pointOfView = dollhouse.cameraNode
             view.allowsCameraControl = true

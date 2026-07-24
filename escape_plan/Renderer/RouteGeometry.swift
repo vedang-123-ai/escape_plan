@@ -10,8 +10,9 @@ import SceneKit
 /// meshes with arc-length UVs — the `u` coordinate is what makes the pulse shader directional.
 enum RouteGeometry {
 
-    /// Height above the slab top at which route tubes float.
-    static let routeLiftM = 0.22
+    /// Height above the slab top at which route tubes float. High enough to clear slab
+    /// shadows and read from a three-quarter camera, low enough to still hug the floor.
+    static let routeLiftM = 0.30
 
     /// One drawable stretch of a route confined to a single floor.
     struct FloorRun {
