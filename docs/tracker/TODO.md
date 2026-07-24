@@ -1,8 +1,8 @@
 # Everything still to do
 
-_Last verified: 2026-07-23 on `lane/editor` (../ep-editor worktree) — revamp A1 session:
-editorcore 158 pass, iOS **unit** suite green (UI tests not re-run — no editor-path change);
-full gate before that was the Lane A editor-completion session._
+_Last verified: 2026-07-23 on `lane/editor` (../ep-editor worktree) — full gate at the end
+of the six-phase revamp session: backend 227 pass (12 live-deselected), editorcore 186,
+iOS unit+UI suite green, corpus valid, manual-build recording driver passing live._
 
 This is the single source of truth for open work. It replaces the old `board.md` +
 `checklist.md`, which had drifted into contradicting each other.
@@ -27,25 +27,19 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 ## 3D revamp (approved 2026-07-23 — spec/plan: `~/.claude/plans/i-want-you-to-tender-flask.md`)
 
-One free-camera translucent dollhouse = viewer + editor; objects block routes; agentic LLM
-house builder behind forced review. Order A → B → C. A1 (camera rig, unified read-only view,
-RenderOrder ledger, tour fix) landed 2026-07-23 — see `notes/2026-07-23-revamp-a1-camera-rig.md`.
+**ALL SIX PHASES LANDED 2026-07-23** (A1–A3 unified free-camera HouseScreen; B1–B3 schema
+v1.1 objects + obstacle-aware grid routing; C1–C2 LLM house builder + forced review gate).
+Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
+`-a3-housescreen.md`, `-b-c-objects-routing-builder.md`. Remaining follow-ups:
 
-- [ ] Project A follow-up: device-acceptance pass on the unified HouseScreen (gesture feel,
-      orbit sensitivity, pinch anchor, dock height on small screens, tour). A1+A2+A3 all
-      landed 2026-07-23 (see `notes/2026-07-23-revamp-a3-housescreen.md`) — simulator +
-      recording-driver verified; real-device feel is the open item.
-- [ ] B1: schema v1.1 — `floor.objects` (box primitives, no room_id) + `source: ai_plan`;
-      three-way lockstep + SchemaMigrator + planted-obstacle fixtures. Own PR.
-- [ ] B2: objects rendered (RenderOrder band 5) + editable (EditActions, rotated-rect
-      hit-testing, inspector).
-- [ ] B3: within-room pathfinding — 0.1 m occupancy grid + clearance transform +
-      deterministic A* in `backend/app/routing/`; blocked opening ⇒ edge omitted ⇒ room-level
-      re-plan + `blocked_opening` finding; golden updates in their own commit.
-- [ ] C1: `backend/app/builder/actions.py` + `ai/builder.py` agent loop (no routing tools,
-      everything `source=ai_plan`) + `POST /build` with hard validation.
-- [ ] C2: iOS plan-import (text + floor-plan image, PDF rasterized client-side) + forced
-      review gate (`needsReview` from any `ai_plan` source; routes disabled until confirmed).
+- [ ] Device-acceptance pass on the whole revamp: unified HouseScreen gesture feel (orbit
+      sensitivity, pinch anchor, dock height on small screens), object editing, plan-import
+      flow + review gate, tour. Simulator + recording-driver verified; real-device feel and
+      real-photo floor plans are the open items.
+- [ ] Live builder golden (`backend/tests/test_builder_live.py -m live`) — blocked on the
+      same `ANTHROPIC_API_KEY` as every other live suite (see section above).
+- [ ] Consider surfacing `blocked_opening` findings in /score and the S3.2 agent
+      (deliberately not wired during the revamp).
 
 ## Blocked on a real API key
 
