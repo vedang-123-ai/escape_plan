@@ -41,8 +41,8 @@ ScanFlowView(
   setting) and a LiDAR device. `RoomCaptureController.isSupported` is false on
   Simulator and on non-LiDAR hardware; the UI degrades to an explanatory screen
   rather than offering a scanner that cannot start.
-- TODO(integration): wire `onFinished` to the shell's navigation and the
-  `/convert` client once S0.3 and the API client land.
+- `onFinished` is wired: `HomeScreen` presents the capture flow and hands the
+  artifacts to the `/convert` client (landed with the capture wiring session).
 
 ## On-disk layout
 
