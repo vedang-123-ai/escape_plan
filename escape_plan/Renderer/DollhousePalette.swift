@@ -11,9 +11,16 @@ import UIKit
 /// route colors hot enough to read from across the room.
 enum DollhousePalette {
 
-    /// Warm paper backdrop — reads as a diorama table, not a void.
-    static let background = UIColor(red: 0.957, green: 0.937, blue: 0.902, alpha: 1.0)
-    /// Slab top: pale warm oak.
+    /// Dark stage, not a cream page (2026-07-24). The cream backdrop was chosen when the
+    /// renderer was viewed on its own; inside the shipped app it butts against black chrome
+    /// on all four sides and reads as a hole cut in the UI. Going dark makes the model a lit
+    /// object on a stage — and, more usefully, gives the hot orange route the contrast it was
+    /// designed for. Floor plates stay pale (below), so the house still glows.
+    static let background = UIColor(red: 0.055, green: 0.055, blue: 0.067, alpha: 1.0)
+    /// Slightly lifted stage tone used for the backdrop gradient's horizon.
+    static let backgroundHorizon = UIColor(red: 0.129, green: 0.125, blue: 0.145, alpha: 1.0)
+    /// Slab top: pale warm oak. Deliberately still light — the plates are the "paper" the
+    /// plan is drawn on, and dark labels have to stay readable on them.
     static let slab = UIColor(red: 0.914, green: 0.875, blue: 0.812, alpha: 1.0)
     /// Interior partitions: light warm plaster.
     static let wall = UIColor(red: 0.851, green: 0.816, blue: 0.769, alpha: 1.0)
@@ -21,6 +28,35 @@ enum DollhousePalette {
     static let exteriorWall = UIColor(red: 0.639, green: 0.557, blue: 0.494, alpha: 1.0)
     static let stairs = UIColor(red: 0.706, green: 0.627, blue: 0.545, alpha: 1.0)
     static let label = UIColor(red: 0.216, green: 0.192, blue: 0.161, alpha: 1.0)
+
+    /// Room labels ride a billboarded plate instead of floating as bare glyphs: a label that
+    /// crosses a pale slab, a translucent wall and the dark stage in one orbit has no single
+    /// text color that stays legible. The plate gives it a constant background to sit on.
+    static let labelText = UIColor(red: 0.965, green: 0.957, blue: 0.937, alpha: 1.0)
+    static let labelPlate = UIColor(red: 0.086, green: 0.082, blue: 0.098, alpha: 0.82)
+
+    /// Vertical stage gradient for `scene.background.contents` — darker at the top so the
+    /// eye settles on the model rather than the void above it.
+    static func stageBackdrop(size: CGSize = CGSize(width: 8, height: 512)) -> UIImage {
+        UIGraphicsImageRenderer(size: size).image { ctx in
+            let colors = [background.cgColor, backgroundHorizon.cgColor] as CFArray
+            guard let gradient = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: colors,
+                locations: [0.0, 1.0]
+            ) else {
+                background.setFill()
+                ctx.fill(CGRect(origin: .zero, size: size))
+                return
+            }
+            ctx.cgContext.drawLinearGradient(
+                gradient,
+                start: .zero,
+                end: CGPoint(x: 0, y: size.height),
+                options: []
+            )
+        }
+    }
 
     /// Interior walls stay airy so the floor plan (and the routes on it) read from outside…
     static let wallOpacity: CGFloat = 0.18

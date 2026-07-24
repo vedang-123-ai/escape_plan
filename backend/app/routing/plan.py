@@ -61,6 +61,10 @@ class RouteFinding(BaseModel):
     kind: Literal["no_secondary_egress", "no_viable_route", "blocked_opening"]
     room_id: str
     detail: str
+    object_ids: list[str] = Field(default_factory=list)
+    """Objects the obstruction analysis blamed for a `blocked_opening`, so the app
+    can highlight them and the advice can say WHICH thing to move. Additive and
+    defaulted — an older client simply ignores it."""
 
 
 class RoomRoutePlan(BaseModel):

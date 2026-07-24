@@ -1,10 +1,10 @@
 # Everything still to do
 
-_Last verified: 2026-07-23 on `integrate/2026-07-23` — full gate after merging all three
-lanes (backend live-AI, editor revamp, S4.4 polish): backend 238 pass, editorcore 186 pass,
-iOS unit+UI TEST SUCCEEDED (0 failures; 6 env-gated recording/screenshot drivers skipped),
-corpus valid. Lane C's live suites (real ANTHROPIC_API_KEY) were run and green on
-`lane/backend` before the merge._
+_Last verified: 2026-07-24 on `main` — backend 248 pass (10 new obstruction tests),
+editorcore 186 pass, iOS unit TEST SUCCEEDED, corpus valid. The full iOS **UI** suite was
+green earlier the same session but NOT re-run after the last Swift edits — re-run `/verify`
+before trusting it. Lane C's live suites (real ANTHROPIC_API_KEY) were last run green on
+`lane/backend` 2026-07-23; the key is no longer set anywhere on this machine._
 
 This is the single source of truth for open work. It replaces the old `board.md` +
 `checklist.md`, which had drifted into contradicting each other.
@@ -20,13 +20,27 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 | Suite | Count | Command |
 |---|---|---|
-| Backend pytest | 238 pass, 12 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
+| Backend pytest | 248 pass, 12 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
 | Backend live suites | 6 + 2 + chat smoke, all pass (pre-merge, lane/backend) | `python3 -m pytest backend/tests/ -m ""` (needs key; latency bounds can flake on API variance) |
 | EditorCore (SwiftPM) | 186 pass | `swift test --package-path tools/editorcore` |
 | iOS (unit + UI) | TEST SUCCEEDED, 0 failures (6 env-gated drivers skipped) | `xcodebuild test -scheme escape_plan …` |
 | Corpus | 11 sources, 6 files | `python3 backend/corpus/validate.py` |
 
 ---
+
+## BLOCKER — escape routes do not render in the House tab (found 2026-07-24)
+
+The app's core visual is missing. Ruled out already: the backend returns real geometry
+(Kids' Bedroom = 8 waypoints, 14.2 m); `routePlan` is non-nil (the route controls only draw
+inside `if let routePlan` and they appear); `attach(_:)`→`onRebuild`→`applyOverlay()` and
+`fetchRoutes`→`applyOverlay()` are both wired, so the obvious races are handled; route
+materials are x-ray (`readsFromDepthBuffer = false`, order 55 > walls 10), so walls aren't
+hiding them.
+
+- [ ] Next action: check whether `RouteOverlay.show` is returning issues and drawing nothing —
+      specifically `RouteGeometry.floorRuns` dropping runs whose `floor_id` isn't in
+      `knownFloorIDs`, and where `overlayIssues` actually surfaces in the UI. Use
+      systematic-debugging; don't guess. Evidence: `docs/tracker/notes/2026-07-24-*.md`.
 
 ## 3D revamp (approved 2026-07-23 — spec/plan: `~/.claude/plans/i-want-you-to-tender-flask.md`)
 
@@ -41,8 +55,13 @@ Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
       real-photo floor plans are the open items.
 - [ ] Live builder golden (`backend/tests/test_builder_live.py -m live`) — blocked on the
       same `ANTHROPIC_API_KEY` as every other live suite (see section above).
-- [ ] Consider surfacing `blocked_opening` findings in /score and the S3.2 agent
-      (deliberately not wired during the revamp).
+- [x] ~~Surface `blocked_opening` in /score~~ — done 2026-07-24, and went further per Anish:
+      `app/routing/obstructions.py` names WHICH object blocks (counterfactual attribution)
+      and how far to move it (measured), surfaced in `RouteFinding.detail` + `object_ids`
+      and as a `usfa-escape-plans`-cited checklist item. 10 tests.
+- [ ] Still open from that item: give the S3.2 **agent** a `check_obstructions` tool so the
+      AI can phrase the move as cited advice and flag hazards conversationally. The
+      deterministic layer it would call is built and tested; only the tool wiring is left.
 
 ## Blocked on a real API key
 
@@ -50,19 +69,24 @@ Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
 hand-reviewed; goldens are committed in `backend/tests/golden/`. What remains here is only
 what a dev machine cannot close.
 
+- [ ] `ANTHROPIC_API_KEY` is not persisted ANYWHERE on this machine (checked 2026-07-24:
+      not in `~/.zshrc`, `~/.zshenv`, or any `.env`). Last session's key lived only in that
+      shell, so every live suite and every local AI call is dark until it's re-exported.
+      Decide where it lives for a demo build.
 - [ ] Set `ANTHROPIC_API_KEY` in the Render dashboard so the deployed backend's AI endpoints
       work at all. Until this happens `/explain`, `/analyze`, and `/chat` 502 in production.
       Exact steps: dashboard → `escape-plan-backend` service → Environment → add
       `ANTHROPIC_API_KEY` → save (auto-redeploys). Then verify: `/health` 200, one
       token-authed `/explain` on a fixture returns 200 with resolving citations. (S1.6)
-- [ ] **p95 `/explain` < 6s is UNMET and needs a team decision** — measured 2026-07-23 on
+- [ ] **p95 `/explain` < 6s is UNMET — DEFERRED 2026-07-24**, not resolved. Anish's call: the
+      submission is an edited video, so a slow call can be cut around; revisit only if the
+      app is ever judged live. The criterion stays formally unmet. Original measurement — measured 2026-07-23 on
       claude-sonnet-5, cache hits confirmed on every request: warm mean 26.3s, p95 30.2s
       (haiku-4-5 comparison ~18.5s). Output-bound (~2k output tokens/whole-home explanation),
       so caching can't fix it. Options: terser output, per-room explain calls, streaming UX,
       faster model, or revise the target. See decisions.md 2026-07-23. (S3.1)
-- [ ] One transient garbled-generation glitch observed (95s run, corrupted prose that still
-      passed citation validation). Decide whether /explain needs a server-side coherence
-      retry or the app tolerates the rare bad response. (S3.1)
+- [x] ~~Garbled-generation glitch: decide retry vs tolerate~~ — Anish chose **tolerate +
+      document**, 2026-07-24. See decisions.md. No code; revisit only if it recurs more often.
 
 ## Needs real LiDAR hardware
 
@@ -102,6 +126,12 @@ is unverified is the round-trip against a real scan.
 - [ ] Confirm practiced-state persists and moves the preparedness score across a relaunch. (S4.2)
 
 ## iOS — real code gaps
+
+_2026-07-24: three closed. The three demo homes now seed on first launch
+(`FixtureSeeder.seedStarterHomes`) — nothing created them before, which is why the screenshot
+driver silently skipped the profile-switch shot. The House tab got its visual pass (dark
+stage backdrop, plate-backed legible labels, dock 240→200 pt). The stale "Plan tab" copy in
+the assistant banner + onboarding is now "House tab"._
 
 _The four 2026-07-22 editor bugs (HomeModelPersisting unconformed, stale toolbar after
 tap-selection, second-tap redo, "unwired" bridge) are fixed and verified on `lane/editor` —

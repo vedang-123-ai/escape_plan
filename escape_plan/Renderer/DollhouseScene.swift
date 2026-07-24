@@ -84,7 +84,7 @@ enum DollhouseSceneBuilder {
     static func build(_ home: HomeModel) -> Result {
         var issues: [BuildIssue] = []
         let scene = SCNScene()
-        scene.background.contents = DollhousePalette.background
+        scene.background.contents = DollhousePalette.stageBackdrop()
 
         let baseHeights = DollhouseGeometry.floorBaseHeights(of: home)
         let orderedFloors = home.floorsByLevel
@@ -181,9 +181,9 @@ enum DollhouseSceneBuilder {
 
     private static func makeLabel(_ room: Room, floorHeight: Double) -> SCNNode {
         let text = SCNText(string: room.name, extrusionDepth: 0)
-        text.font = UIFont.systemFont(ofSize: 12, weight: .medium)
+        text.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
         text.flatness = 0.1
-        let labelMaterial = material(DollhousePalette.label, lighting: .constant)
+        let labelMaterial = material(DollhousePalette.labelText, lighting: .constant)
         // Labels are UI, not geometry — they stay legible through a wall.
         labelMaterial.writesToDepthBuffer = false
         labelMaterial.readsFromDepthBuffer = false
@@ -192,16 +192,33 @@ enum DollhouseSceneBuilder {
         let textNode = SCNNode(geometry: text)
         // renderingOrder is per-node and does not inherit, so it belongs on the node that
         // actually carries the geometry, not on the billboarded holder.
-        textNode.renderingOrder = RenderOrder.labels
+        textNode.renderingOrder = RenderOrder.labelText
         // SCNText is laid out in points; scale it into meters and re-center on its own bounds so
         // the label sits over the room's centroid rather than starting there.
-        let scale: Float = 0.018
+        let scale: Float = 0.020
         textNode.scale = SCNVector3(scale, scale, scale)
         let (minB, maxB) = text.boundingBox
         textNode.pivot = SCNMatrix4MakeTranslation((minB.x + maxB.x) / 2, (minB.y + maxB.y) / 2, 0)
 
+        // Plate sized from the glyph bounds, so a long room name never overflows it.
+        let padX: Float = 9, padY: Float = 5
+        let plate = SCNPlane(
+            width: CGFloat((maxB.x - minB.x + 2 * padX) * scale),
+            height: CGFloat((maxB.y - minB.y + 2 * padY) * scale)
+        )
+        plate.cornerRadius = plate.height / 2
+        let plateMaterial = material(DollhousePalette.labelPlate, lighting: .constant)
+        plateMaterial.writesToDepthBuffer = false
+        plateMaterial.readsFromDepthBuffer = false
+        plate.firstMaterial = plateMaterial
+        let plateNode = SCNNode(geometry: plate)
+        plateNode.renderingOrder = RenderOrder.labelPlate
+        // Behind the glyphs by a hair; both are depth-independent, so ordering does the work.
+        plateNode.position = SCNVector3(0, 0, -0.001)
+
         let holder = SCNNode()
         holder.name = "label:\(room.id)"
+        holder.addChildNode(plateNode)
         holder.addChildNode(textNode)
         let c = DollhouseGeometry.centroid(room.polygon)
         holder.position = DollhouseGeometry.scenePoint(c, y: floorHeight * 0.55)

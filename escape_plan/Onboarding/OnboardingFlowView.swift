@@ -272,7 +272,7 @@ struct OnboardingFlowView: View {
             Text("You're set").font(.largeTitle.bold())
             VStack(alignment: .leading, spacing: 8) {
                 Label("Your home lives in the Home tab", systemImage: "house")
-                Label("Escape routes are on the Plan tab", systemImage: "figure.run")
+                Label("Escape routes are on the House tab", systemImage: "figure.run")
                 Label("Ask questions in the Assistant tab", systemImage: "bubble.left.and.bubble.right")
                 if state.score.value != nil {
                     Label("Track your preparedness score from a home's swipe menu",

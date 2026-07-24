@@ -113,6 +113,29 @@ struct RouteFinding: Codable, Equatable {
     var kind: FindingKind
     var room_id: String
     var detail: String
+    /// Objects the server blamed for a `blocked_opening`, so the app can point at the
+    /// thing to move. Defaulted rather than optional: the server omits it for every
+    /// other finding kind, and an empty list is the honest reading of "nothing blamed".
+    var object_ids: [String] = []
+
+    private enum CodingKeys: String, CodingKey {
+        case kind, room_id, detail, object_ids
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try container.decode(FindingKind.self, forKey: .kind)
+        room_id = try container.decode(String.self, forKey: .room_id)
+        detail = try container.decode(String.self, forKey: .detail)
+        object_ids = try container.decodeIfPresent([String].self, forKey: .object_ids) ?? []
+    }
+
+    init(kind: FindingKind, room_id: String, detail: String, object_ids: [String] = []) {
+        self.kind = kind
+        self.room_id = room_id
+        self.detail = detail
+        self.object_ids = object_ids
+    }
 
     enum FindingKind: String, Codable {
         case no_secondary_egress

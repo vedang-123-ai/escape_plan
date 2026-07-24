@@ -157,12 +157,24 @@ def route_items(plan: RoutePlan, state: ChecklistState) -> list[ChecklistItem]:
     items: list[ChecklistItem] = []
     for room in plan.rooms:
         for finding in room.findings:
-            item_id = f"routes.{finding.kind}.{room.room_id}"
-            title = (
-                f"Add a second way out of {room.room_name}"
-                if finding.kind == "no_secondary_egress"
-                else f"{room.room_name} has no usable way out"
-            )
+            if finding.kind == "no_secondary_egress":
+                title = f"Add a second way out of {room.room_name}"
+                item_id = f"routes.{finding.kind}.{room.room_id}"
+                citation = "nfpa-escape-planning"
+            elif finding.kind == "blocked_opening":
+                # A room can have more than one blocked doorway, so the id has to
+                # carry what is blocked — keying on the room alone silently
+                # collapsed two findings onto one checkbox.
+                blocked = "-".join(finding.object_ids) or "obstruction"
+                item_id = f"routes.{finding.kind}.{room.room_id}.{blocked}"
+                title = f"Clear the way out of {room.room_name}"
+                # Keeping exits clear is its own corpus claim, not a generic
+                # escape-planning one.
+                citation = "usfa-escape-plans"
+            else:
+                title = f"{room.room_name} has no usable way out"
+                item_id = f"routes.{finding.kind}.{room.room_id}"
+                citation = "nfpa-escape-planning"
             items.append(
                 ChecklistItem(
                     id=item_id,
@@ -170,7 +182,7 @@ def route_items(plan: RoutePlan, state: ChecklistState) -> list[ChecklistItem]:
                     title=title,
                     detail=finding.detail,
                     done=state.get(item_id, False),
-                    source_citation="nfpa-escape-planning",
+                    source_citation=citation,
                     scoring=False,
                 )
             )

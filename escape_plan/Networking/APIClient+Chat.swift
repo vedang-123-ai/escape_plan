@@ -46,7 +46,7 @@ enum ChatError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .aiUnavailable:
-            return "The assistant is unavailable right now — the server's AI isn't configured yet. Your escape routes on the Plan tab still work."
+            return "The assistant is unavailable right now — the server's AI isn't configured yet. Your escape routes on the House tab still work."
         case .unauthorized:
             return "The server didn't accept the access token — check it in Settings."
         case .unexpectedStatus(let code, let detail):

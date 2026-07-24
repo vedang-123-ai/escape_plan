@@ -128,7 +128,7 @@ final class ConversationStoreTests: XCTestCase {
         let unavailable = ChatError.aiUnavailable(statusCode: 500).errorDescription ?? ""
         XCTAssertTrue(unavailable.contains("assistant is unavailable"),
                       "5xx must read as 'assistant down', not a raw status code: \(unavailable)")
-        XCTAssertTrue(unavailable.contains("Plan tab still work"),
+        XCTAssertTrue(unavailable.contains("House tab still work"),
                       "the message must reassure that deterministic routes are unaffected")
 
         XCTAssertEqual(ChatError.unexpectedStatus(statusCode: 422, detail: "history must end with a user message").errorDescription,

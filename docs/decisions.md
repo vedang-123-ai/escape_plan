@@ -556,3 +556,52 @@ pydantic / Swift Codable (+ round-trip tests green):
   in HomeScreen's toolbar next to Scan.
 - This is also the fast test path the revamp wanted: describe a home → draft → review →
   routes, no LiDAR and no manual building required.
+
+## 2026-07-24 — Look-and-feel pass, starter data, and obstruction attribution
+
+Session goal was Anish's question, not a playbook session: *does the app work, and does it
+look good?* All four suites were green before any change (EditorCore 186, backend 238,
+corpus valid, iOS TEST SUCCEEDED). Looking at it on the simulator produced four findings,
+three of which are fixed here.
+
+- **The dollhouse backdrop goes dark.** `DollhousePalette.background` was a cream "diorama
+  table" chosen when the renderer was viewed on its own. Inside the shipped app it butts
+  against black chrome on all four sides and reads as a hole cut in the UI. It is now a
+  near-black stage with a subtle vertical gradient (`stageBackdrop()`), which also gives the
+  hot-orange route the contrast it was designed for. **Floor slabs stay pale on purpose** —
+  they are the paper the plan is drawn on, and dark room labels have to stay readable on them.
+- **Room labels ride a billboarded plate.** A label crossing a pale slab, a translucent wall
+  and the dark stage within one orbit has no single text color that stays legible, so the
+  glyphs went near-white on a rounded translucent plate sized from the text bounds. Adds two
+  RenderOrder bands (`labelPlate` 100 / `labelText` 101); the renderer band test asserts the
+  set, so it was widened in the same commit.
+- **The three demo homes are now seeded on first launch** (`FixtureSeeder.seedStarterHomes`,
+  called from `escape_planApp.init`). Nothing previously created Bungalow / Apartment 4B /
+  Two-Story House: onboarding seeded only a degraded "Demo Home (scanned)" copy, so the demo
+  path depended on hand-built data. Seeding happens at launch rather than inside onboarding
+  because skipping the tour must not leave the demo with nothing to demo, is guarded by a
+  defaults flag so a deliberately deleted home is never resurrected, and saves each fixture
+  under its OWN `home_id` so a re-run overwrites rather than accumulating copies. Evidence
+  that this mattered: before the change the S4.4 screenshot driver skipped four steps
+  (including the profile-switch money shot) because it addresses those homes by name; after,
+  it skips two and renders the tour and profile-switch shots.
+- **`blocked_opening` findings now name the object and the distance.** New
+  `app/routing/obstructions.py` attributes a blocked doorway to the specific furniture by
+  **counterfactual re-rasterization** — an object is a culprit when removing it restores the
+  leg — rather than by proximity, so a sofa near a door is never blamed for a doorway a
+  wardrobe actually blocks. The move distance is measured (bisection on the clearance the
+  leg tolerates), not invented: "move the wardrobe about 0.85 m" instead of "an object blocks
+  the doorway". The same probe at two clearances separates a blockage from a squeeze.
+  `RouteFinding.object_ids` is additive and defaulted (Swift decodes it with
+  `decodeIfPresent`), so nothing older breaks.
+- **Checklist id collision fixed on the way past**: `routes.<kind>.<room_id>` collapsed two
+  blocked doorways in one room onto a single checkbox, and gave them the wrong title
+  ("has no usable way out"). Blocked-opening items now key on the blamed objects and cite
+  `usfa-escape-plans` ("keep exits clear"), which is the claim they actually make.
+- **Garbled-generation glitch: tolerated, not retried** (Anish's call, 2026-07-24). The
+  one-in-twelve corrupted-but-cited `/explain` response observed 2026-07-23 gets no
+  server-side coherence gate. Accepted as API variance; the user-visible mitigation is
+  re-asking. Revisit only if it recurs at a higher rate.
+- **`/explain` p95 deferred, not decided.** Anish's reasoning: the submission is an edited
+  video, so a slow call can be cut around. The acceptance criterion stays formally UNMET and
+  is still in TODO.md — this is a scheduling decision, not a resolution.

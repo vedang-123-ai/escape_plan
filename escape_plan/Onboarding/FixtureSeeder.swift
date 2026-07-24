@@ -55,6 +55,40 @@ enum FixtureSeeder {
         try store.save(model: seeded)
         return seeded
     }
+
+    // MARK: - Starter library
+
+    /// Set once the three starter homes have been installed, so a home the user
+    /// deleted on purpose is never resurrected on the next launch.
+    static let starterSeedDefaultsKey = "fixtures.starterHomesSeeded.v1"
+
+    /// Installs Bungalow, Apartment 4B, and Two-Story House verbatim on a fresh
+    /// install, so the demo path exists without anyone hand-building it.
+    ///
+    /// Seeded verbatim on purpose — each fixture keeps its own `home_id`, which
+    /// makes a re-run overwrite the same three documents instead of piling up
+    /// copies (the failure mode that left this simulator with fourteen homes all
+    /// called "New Home"). The names the app shows are the fixtures' own, so the
+    /// screenshot drivers and the demo script can address them by name.
+    ///
+    /// Separate from `seedDemoHome`: that one deliberately degrades a copy to
+    /// look scan-derived so onboarding's review step has something to review.
+    /// These three are the clean article.
+    @discardableResult
+    static func seedStarterHomes(
+        into store: HomeDocumentStore,
+        defaults: UserDefaults = .standard
+    ) throws -> [HomeModel] {
+        guard !defaults.bool(forKey: starterSeedDefaultsKey) else { return [] }
+        var seeded: [HomeModel] = []
+        for fixture in HomeFixture.allCases {
+            let model = try FixtureLoader.load(fixture)
+            try store.save(model: model)
+            seeded.append(model)
+        }
+        defaults.set(true, forKey: starterSeedDefaultsKey)
+        return seeded
+    }
 }
 
 // MARK: - Review rows

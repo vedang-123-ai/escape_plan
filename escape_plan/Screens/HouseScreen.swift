@@ -157,7 +157,7 @@ struct HouseScreen: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(height: 240)
+                .frame(height: 200)
                 .background(.regularMaterial)
             }
             .onChange(of: session.wasDeletedExternally) { _, deleted in

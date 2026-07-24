@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from app.models import EXTERIOR_ID, HomeModel, Opening, OpeningKind, Profile
 from app.routing.egress import EgressThresholds
 from app.routing.graph import Edge, EdgeKind, NavGraph, NodeKind, build_graph, polygon_centroid
+from app.routing.obstructions import Obstruction, analyze_obstructions
 from app.routing.profiles import constraints_for_profile
 from app.routing.plan import (
     Bottleneck,
@@ -274,6 +275,14 @@ def compute_route_plan(
     constraints = constraints or RoutingConstraints()
     graph = build_graph(home, thresholds)
     openings = _openings_by_id(home)
+    # Only pay for attribution when something is actually blocked; the analysis
+    # re-rasterizes rooms, and the overwhelmingly common case has no blockage.
+    obstructions_by_opening: dict[tuple[str, str], Obstruction] = {}
+    if graph.blocked_openings:
+        for obstruction in analyze_obstructions(home, thresholds):
+            obstructions_by_opening[(obstruction.room_id, obstruction.opening_id)] = (
+                obstruction
+            )
 
     room_plans: list[RoomRoutePlan] = []
     for floor in home.floors:
@@ -283,15 +292,25 @@ def compute_route_plan(
             secondary_route = None
 
             for opening_id in graph.blocked_openings.get(room.id, []):
+                # Name the culprit when the counterfactual can identify one — "move
+                # the wardrobe 0.85 m" is advice; "an object blocks the doorway" is
+                # a shrug. Falls back to the generic wording when the obstruction is
+                # the room's geometry rather than its furniture.
+                blamed = obstructions_by_opening.get((room.id, opening_id))
                 findings.append(
                     RouteFinding(
                         kind="blocked_opening",
                         room_id=room.id,
                         detail=(
-                            f"Opening '{opening_id}' can't be reached from inside "
-                            f"'{room.name}' — an object blocks the doorway or "
-                            "narrows its approach below the egress clearance."
+                            blamed.detail
+                            if blamed is not None
+                            else (
+                                f"Opening '{opening_id}' can't be reached from inside "
+                                f"'{room.name}' — an object blocks the doorway or "
+                                "narrows its approach below the egress clearance."
+                            )
                         ),
+                        object_ids=list(blamed.object_ids) if blamed else [],
                     )
                 )
 

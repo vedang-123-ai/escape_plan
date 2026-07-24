@@ -18,6 +18,10 @@ enum RenderOrder {
     static let routes = 30
     /// Billboarded room labels (no depth test — UI, not geometry).
     static let labels = 100
+    /// The label's backing plate, then its glyphs. Both are depth-independent, so their
+    /// stacking is decided here rather than by position.
+    static let labelPlate = 100
+    static let labelText = 101
     /// Warning badge discs.
     static let badges = 110
     /// Badge glyphs, on top of their discs.
