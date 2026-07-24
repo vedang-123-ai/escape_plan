@@ -487,3 +487,28 @@ pydantic / Swift Codable (+ round-trip tests green):
   while selected, like every non-room entity.
 - HouseScreen: Add Object drops a default box at the selected room's centroid, pre-selected
   for immediate dragging; inspector = category picker + rotate-45° + delete.
+
+## 2026-07-23 — Revamp B3: within-room grid pathfinding (obstacle-aware routing)
+
+- **Grid over navmesh, per ROOM not per floor**: a room ↔ opening leg is by definition
+  within one room, so each object-bearing room gets its own 0.1 m occupancy grid — no wall
+  bands, no opening punch-through, and rooms WITHOUT objects keep the literal pre-B3
+  straight-line legs (`grid is None` fast path). Zero golden churn on the existing fixtures,
+  asserted by `test_object_free_fixtures_keep_straight_legs`.
+- **Determinism recipe**: integer cells, integer step costs (10/14), heap tie-break
+  (f, h, row, col), chamfer 3-4 distance transform in scaled ints, ring-then-row-then-col
+  endpoint landing, greedy supercover-Bresenham smoothing. Byte-equality asserted.
+- **Clearance = door_min_width_m / 2 from the corpus thresholds** (metric authoritative,
+  loaded never hardcoded): an object that shrinks a passage below the egress width blocks
+  the leg even without touching a wall.
+- **Endpoint landing radii differ on purpose**: a START (room centroid) lands generously
+  (1.5 m — a centroid can sit inside the bed; the person starts beside it), a GOAL (doorway
+  midpoint) must land AT the doorway (max(width/2, 0.6 m)) or the wardrobe in front of the
+  door would be "reached" by standing next to it. This distinction is what makes
+  blocked-doorway detection work at all.
+- **Room-graph architecture kept**: blocked leg ⇒ edge omitted ⇒ existing Dijkstra re-plans
+  with zero new logic; `blocked_opening` finding (additive) surfaces why. Grid work happens
+  once per room in `build_graph`; `find_bottlenecks` stays graph-only. Cached grid waypoints
+  splice into routes as `kind: "path"` (additive; Swift decodes both new kinds, drill cards
+  treat path like room). Evidence sample: `docs/route-samples/bungalow-blocked.json` (40
+  curve points + the finding).

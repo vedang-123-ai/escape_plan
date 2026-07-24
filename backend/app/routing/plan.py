@@ -38,7 +38,9 @@ class Waypoint(BaseModel):
     y: float
     floor_id: str
     node_id: str
-    kind: Literal["room", "opening", "stair", "exterior"]
+    kind: Literal["room", "opening", "stair", "exterior", "path"]
+    """"path" (revamp B3) = an intermediate within-room point where the leg
+    curves around an object — node_id is the opening the leg approaches."""
 
 
 class Route(BaseModel):
@@ -56,7 +58,7 @@ class RouteFinding(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["no_secondary_egress", "no_viable_route"]
+    kind: Literal["no_secondary_egress", "no_viable_route", "blocked_opening"]
     room_id: str
     detail: str
 

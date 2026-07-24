@@ -16,6 +16,45 @@ final class RoutePlanDecodeErrorTests: XCTestCase {
         try HomeModel.decoder.decode(RoutePlan.self, from: Data(json.utf8))
     }
 
+    /// v1.1 revamp: the engine now emits "path" waypoints (within-room curve
+    /// points around objects) and "blocked_opening" findings — both must decode.
+    func testV11PathWaypointAndBlockedOpeningFindingDecode() throws {
+        let json = """
+        {
+          "home_id": "home-1",
+          "home_name": "Bungalow",
+          "constraints": { "avoid_stairs": false, "avoid_windows": false },
+          "rooms": [
+            {
+              "room_id": "r_living",
+              "room_name": "Living Room",
+              "floor_id": "f1",
+              "primary": {
+                "waypoints": [
+                  { "x": 1.0, "y": 2.0, "floor_id": "f1", "node_id": "r_living", "kind": "room" },
+                  { "x": 1.6, "y": 1.2, "floor_id": "f1", "node_id": "d_front", "kind": "path" },
+                  { "x": 2.5, "y": 0.0, "floor_id": "f1", "node_id": "d_front", "kind": "opening" },
+                  { "x": 2.5, "y": 0.0, "floor_id": "f1", "node_id": "EXTERIOR", "kind": "exterior" }
+                ],
+                "length_m": 3.1,
+                "uses_stairs": false,
+                "uses_window": false,
+                "exit_id": "d_front"
+              },
+              "findings": [
+                { "kind": "blocked_opening", "room_id": "r_living",
+                  "detail": "Opening 'd_side' can't be reached from inside 'Living Room'." }
+              ]
+            }
+          ]
+        }
+        """
+        let plan = try decodePlan(json)
+        let room = try XCTUnwrap(plan.rooms.first)
+        XCTAssertEqual(room.primary?.waypoints[1].kind, .path)
+        XCTAssertEqual(room.findings.first?.kind, .blocked_opening)
+    }
+
     /// A minimal valid plan; tests mutate one aspect at a time.
     private let minimalPlan = """
     {
