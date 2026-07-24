@@ -1,9 +1,10 @@
 # Everything still to do
 
 _Last verified: 2026-07-23 on `integrate/2026-07-23` — full gate after merging all three
-lanes (backend live-AI, editor revamp, S4.4 polish). Lane C's live suites (real
-ANTHROPIC_API_KEY) were run and green on `lane/backend` before the merge; counts below are
-from the post-merge gate._
+lanes (backend live-AI, editor revamp, S4.4 polish): backend 238 pass, editorcore 186 pass,
+iOS unit+UI TEST SUCCEEDED (0 failures; 6 env-gated recording/screenshot drivers skipped),
+corpus valid. Lane C's live suites (real ANTHROPIC_API_KEY) were run and green on
+`lane/backend` before the merge._
 
 This is the single source of truth for open work. It replaces the old `board.md` +
 `checklist.md`, which had drifted into contradicting each other.
@@ -22,7 +23,7 @@ This is the single source of truth for open work. It replaces the old `board.md`
 | Backend pytest | 227 pass, 12 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
 | Backend live suites | 6 + 2 + chat smoke, all pass (pre-merge, lane/backend) | `python3 -m pytest backend/tests/ -m ""` (needs key; latency bounds can flake on API variance) |
 | EditorCore (SwiftPM) | 186 pass | `swift test --package-path tools/editorcore` |
-| iOS (unit + UI) | all pass, skipped = env-gated recording/screenshot drivers | `xcodebuild test -scheme escape_plan …` |
+| iOS (unit + UI) | TEST SUCCEEDED, 0 failures (6 env-gated drivers skipped) | `xcodebuild test -scheme escape_plan …` |
 | Corpus | 11 sources, 6 files | `python3 backend/corpus/validate.py` |
 
 ---
