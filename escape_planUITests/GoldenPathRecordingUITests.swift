@@ -62,7 +62,7 @@ final class GoldenPathRecordingUITests: XCTestCase {
         finish.tap()
 
         // Landed in the tab shell.
-        XCTAssertTrue(app.tabBars.buttons["Plan"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.tabBars.buttons["House"].waitForExistence(timeout: 10))
         pause(2)
     }
 

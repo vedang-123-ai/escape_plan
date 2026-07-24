@@ -140,10 +140,8 @@ final class ManualBuildRecordingUITests: XCTestCase {
         app.buttons["Redo"].tap()
         pause(2)
 
-        // ---- Plan tab: the deterministic engine routes the hand-built home. ----
-        app.navigationBars.buttons.element(boundBy: 0).tap()   // back to the home list
-        pause(1)
-        app.tabBars.buttons["Plan"].tap()
+        // ---- Routes: same screen — the unified HouseScreen re-fetches after every edit
+        // burst, so the deterministic engine's plan appears in place. ----
 
         // routeControls only render once a RoutePlan arrived from /routes.
         let routeHint = app.staticTexts["Pick a room to tour"]

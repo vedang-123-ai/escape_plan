@@ -82,6 +82,25 @@ final class SceneKitEditorBridge {
         return GestureArbiter.intent(hit: hit, current: store.selection)
     }
 
+    /// Compact dump of the active floor's polygons for UI-automation debugging.
+    func debugPolygons() -> String {
+        store.activeFloor.rooms.map { room in
+            let pts = room.polygon.map { String(format: "%.2f,%.2f", $0.x, $0.y) }
+                .joined(separator: " ")
+            return "\(room.name)[\(pts)]"
+        }.joined(separator: " | ")
+    }
+
+    /// Compact diagnostic for UI-automation debugging (read back via accessibilityValue).
+    func debugProbe(at screenPoint: CGPoint) -> String {
+        guard let scene else { return "noscene" }
+        guard let world = scene.worldPoint(from: screenPoint) else { return "noworld" }
+        let t = tolerances()
+        let hit = HitTesting.hitTest(world, floor: store.activeFloor, tolerances: t)
+        return String(format: "w=%.2f,%.2f tol=%.2f hit=%@ sel=%@", world.x, world.y,
+                      t.vertexRadiusM, "\(hit)", "\(store.selection)")
+    }
+
     // MARK: Tap
 
     func handleTap(at screenPoint: CGPoint) {

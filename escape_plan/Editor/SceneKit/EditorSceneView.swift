@@ -16,6 +16,27 @@ import SwiftUI
 #if canImport(SceneKit) && canImport(UIKit)
 import SceneKit
 import UIKit
+import UIKit.UIGestureRecognizerSubclass
+
+/// A pan that remembers where the touch actually went down. By the time a pan RECOGNIZES,
+/// the finger has moved ~10 pt, and `translation` does not fully cover that slop — so
+/// `location − translation` is NOT the press point. Arbitration and edit-drag anchoring need
+/// the true one: at typical zooms 10 pt is enough to cross to a neighboring room's vertex.
+final class InitialPointPanGestureRecognizer: UIPanGestureRecognizer {
+    private(set) var initialTouchPoint: CGPoint?
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        if initialTouchPoint == nil, let touch = touches.first, let view {
+            initialTouchPoint = touch.location(in: view)
+        }
+        super.touchesBegan(touches, with: event)
+    }
+
+    override func reset() {
+        initialTouchPoint = nil
+        super.reset()
+    }
+}
 
 struct EditorSceneView: UIViewRepresentable {
     let store: HomeModelStore
@@ -23,10 +44,15 @@ struct EditorSceneView: UIViewRepresentable {
     let activeFloorId: String
     let selection: Selection
     var tool: EditorTool = .select
+    /// False while the camera tour owns `pointOfView` — gestures and edits pause.
+    var interactionEnabled: Bool = true
     let undoStack: UndoStack
     /// Called after a `.placeOpening` tap successfully adds its opening, so the screen can
     /// disarm the tool (placement is one-shot).
     var onOpeningPlaced: (() -> Void)?
+    /// Hands the live controller to the owner (async, once) — HouseScreen hangs the route
+    /// overlay and camera tour off it.
+    var onControllerReady: ((UnifiedSceneController) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(store: store)
@@ -49,7 +75,7 @@ struct EditorSceneView: UIViewRepresentable {
         // split into two recognizers silently swallowed XCUITest's synthesized press-drags
         // (the pan never left .possible), and a single unconstrained pan is also what the old
         // editor shipped with.
-        let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
+        let pan = InitialPointPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         view.addGestureRecognizer(pan)
 
         let pinch = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
@@ -58,12 +84,16 @@ struct EditorSceneView: UIViewRepresentable {
 
         controller.currentHome = store.model
         controller.rebuild(home: store.model, activeFloorId: store.activeFloorId)
+        if let onControllerReady {
+            DispatchQueue.main.async { onControllerReady(controller) }
+        }
         return view
     }
 
     func updateUIView(_ view: SCNView, context: Context) {
         guard let controller = context.coordinator.controller else { return }
         context.coordinator.tool = tool
+        context.coordinator.interactionEnabled = interactionEnabled
         context.coordinator.onOpeningPlaced = onOpeningPlaced
         controller.currentHome = store.model
         // Cheap to rebuild unconditionally (see `DollhouseSceneBuilder.build` doc comment: it's
@@ -79,7 +109,19 @@ struct EditorSceneView: UIViewRepresentable {
         var controller: UnifiedSceneController?
         var bridge: SceneKitEditorBridge?
         var tool: EditorTool = .select
+        var interactionEnabled = true
         var onOpeningPlaced: (() -> Void)?
+        /// Rolling gesture-event log surfaced via accessibilityValue for UI-automation
+        /// debugging (see decisions.md 2026-07-23: log streams can't reach the cloned test
+        /// simulator, but the test process can read this back). Only active under the
+        /// automation camera flag — VoiceOver must never announce it.
+        private let debugLogEnabled = UserDefaults.standard.bool(forKey: "editor.topDownCamera")
+        private var debugEvents: [String] = []
+        private func logDebug(_ event: String, on view: UIView) {
+            guard debugLogEnabled else { return }
+            debugEvents.append(event)
+            view.accessibilityValue = debugEvents.suffix(5).joined(separator: " ;; ")
+        }
 
         /// What the in-flight pan is doing, decided at .began and held until it ends — no
         /// mid-gesture reassignment even if a second finger lands.
@@ -91,8 +133,9 @@ struct EditorSceneView: UIViewRepresentable {
         }
 
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
-            guard let view = recognizer.view else { return }
+            guard interactionEnabled, let view = recognizer.view else { return }
             let location = recognizer.location(in: view)
+            logDebug("tap@\(Int(location.x)),\(Int(location.y)) \(bridge?.debugProbe(at: location) ?? "")", on: view)
             if case .placeOpening(let kind) = tool {
                 if bridge?.handlePlacementTap(at: location, kind: kind) == true {
                     onOpeningPlaced?()
@@ -103,23 +146,40 @@ struct EditorSceneView: UIViewRepresentable {
         }
 
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
-            guard let view = recognizer.view as? SCNView, let controller else { return }
+            guard interactionEnabled, let view = recognizer.view as? SCNView, let controller else { return }
             let location = recognizer.location(in: view)
 
             if recognizer.state == .began {
+                // The pan only recognizes after ~10 pt of travel, so `location` has already
+                // drifted off whatever the finger went down on — enough, at typical zooms, to
+                // cross to a neighboring vertex and misroute the whole gesture. Arbitrate and
+                // begin the edit at the TRUE touch-down point.
+                let start = (recognizer as? InitialPointPanGestureRecognizer)?.initialTouchPoint
+                    ?? location
                 if recognizer.numberOfTouches >= 2 {
                     panMode = .truck
                 } else if case .placeOpening = tool {
                     // A pan while a placement tool is armed never edits — placement is tap-only.
                     panMode = .orbit
                 } else {
-                    panMode = bridge?.dragIntent(at: location) == .edit ? .edit : .orbit
+                    panMode = bridge?.dragIntent(at: start) == .edit ? .edit : .orbit
+                }
+                logDebug("pan=\(panMode)@\(Int(start.x)),\(Int(start.y)) \(bridge?.debugProbe(at: start) ?? "")", on: view)
+                if panMode == .edit {
+                    bridge?.handleDrag(.began, at: start)
+                    // Feed the recognition drift as the first movement so the geometry
+                    // catches up to where the finger actually is.
+                    bridge?.handleDrag(.changed, at: location)
+                    return
                 }
             }
 
             switch panMode {
             case .edit:
                 bridge?.handleDrag(recognizer.state, at: location)
+                if recognizer.state == .ended {
+                    logDebug("end " + (bridge?.debugPolygons() ?? ""), on: view)
+                }
             case .orbit:
                 let delta = recognizer.translation(in: view)
                 recognizer.setTranslation(.zero, in: view)
@@ -134,7 +194,7 @@ struct EditorSceneView: UIViewRepresentable {
         }
 
         @objc func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
-            guard let view = recognizer.view as? SCNView, let controller else { return }
+            guard interactionEnabled, let view = recognizer.view as? SCNView, let controller else { return }
             controller.rig.pinch(scale: recognizer.scale, centroid: recognizer.location(in: view), in: view)
             recognizer.scale = 1
             view.setNeedsDisplay()

@@ -17,11 +17,8 @@ struct ContentView: View {
             HomeScreen()
                 .tabItem { Label("Home", systemImage: "house") }
 
-            EditorScreen()
-                .tabItem { Label("Editor", systemImage: "pencil.and.ruler") }
-
-            PlanScreen()
-                .tabItem { Label("Plan", systemImage: "figure.run") }
+            HouseScreen()
+                .tabItem { Label("House", systemImage: "cube.transparent") }
 
             AssistantScreen()
                 .tabItem { Label("Assistant", systemImage: "bubble.left.and.bubble.right") }

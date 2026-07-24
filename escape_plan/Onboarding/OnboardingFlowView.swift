@@ -26,7 +26,7 @@ struct OnboardingFlowView: View {
                 }
             }
             .navigationDestination(item: $editingHomeID) { homeID in
-                EditorScreen(homeID: homeID) { state.reloadSeededHome() }
+                HouseScreen(homeID: homeID) { state.reloadSeededHome() }
             }
         }
         .onDisappear { state.cancelWork() }
@@ -149,9 +149,9 @@ struct OnboardingFlowView: View {
 
     private var plan: some View {
         VStack(spacing: 0) {
-            // The real Plan screen: fetches /routes itself, with its own cold-start banner,
-            // retry, and (S4.1) cached-plan offline fallback.
-            PlanScreen()
+            // The real unified house screen: fetches /routes itself, with its own cold-start
+            // banner, retry, and (S4.1) cached-plan offline fallback.
+            HouseScreen()
             inspectionPanel
             Button {
                 state.step = .done

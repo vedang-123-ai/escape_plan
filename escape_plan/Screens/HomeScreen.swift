@@ -76,10 +76,10 @@ struct HomeScreen: View {
                     Text(scanError ?? "")
                 }
                 .navigationDestination(item: $openHomeID) { homeID in
-                    EditorScreen(homeID: homeID, library: library) { library.refresh() }
+                    HouseScreen(homeID: homeID, library: library) { library.refresh() }
                 }
                 .navigationDestination(isPresented: $showingNewHome) {
-                    EditorScreen(homeID: nil, library: library) { library.refresh() }
+                    HouseScreen(homeID: nil, library: library) { library.refresh() }
                 }
                 .navigationDestination(item: $scoreHomeID) { homeID in
                     ScoreScreen(homeID: homeID)

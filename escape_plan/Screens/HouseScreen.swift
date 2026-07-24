@@ -1,16 +1,16 @@
-//  EditorScreen.swift
+//  HouseScreen.swift
 //  escape_plan
 //
-//  The S2.1/S2.2 editor screen. Loads (or creates) a HomeModel into an `EditorSession`
-//  (HomeModelStore + UndoStack + the delete-under-editor seam) and renders it with
-//  `EditorSceneView` (the SceneKit top-down editor surface).
+//  THE house screen — the revamp's unified experience. One free-orbit translucent dollhouse
+//  that is simultaneously the editor (rooms, openings, stairs, undo/redo — everything the old
+//  EditorScreen did) and the route viewer (animated primary/secondary escape paths fetched
+//  from the backend /routes engine, camera tour, profile picker — everything the old
+//  PlanScreen did). Routes are NEVER computed client-side; any accepted edit invalidates the
+//  shown plan and re-fetches from the engine.
 //
-//  Rendering is reactive: `HomeModelStore` and `UndoStack` are @Observable, so every accepted
-//  mutation, selection change, and undo/redo re-renders whatever reads them — the pre-S2.2
-//  manual `revision += 1` bumps (which missed tap-selection and first-tap redo) are gone.
-//
-//  Autosaves through `HomeDocumentStore` on every accepted commit.
+//  Replaces EditorScreen + PlanScreen (deleted in the same change).
 
+import SceneKit
 import SwiftUI
 
 /// What a tap in the 3D view currently means. `.select` is the ordinary select/drag mode;
@@ -20,29 +20,56 @@ enum EditorTool: Equatable {
     case placeOpening(OpeningKind)
 }
 
-struct EditorScreen: View {
+struct HouseScreen: View {
     /// nil = start a brand-new home; otherwise open an existing saved one.
     let homeID: String?
     /// Called after the editor creates or renames a home, so the caller (HomeScreen) can
     /// refresh its list without polling.
     var onModelChanged: (() -> Void)?
     /// When the caller owns a `HomeLibrary`, the session registers as its open editor so a
-    /// home deleted from the list closes this screen and drops its undo history (the
-    /// `HomeModelPersisting` seam). The Editor-tab entry point has no library; that's fine.
+    /// home deleted from the list closes this screen and drops its undo history.
     var library: HomeLibrary?
+
+    @Environment(APIClient.self) private var apiClient
+    @Environment(\.dismiss) private var dismiss
 
     @State private var session: EditorSession?
     @State private var loadError: String?
     @State private var saveError: String?
     @State private var addStairsSheetPresented = false
     @State private var tool: EditorTool = .select
-    /// The most recent rejected action's reasons — the editor's visible "that's not allowed".
     @State private var rejection: String?
-
     @State private var renameTarget: RenameTarget?
     @State private var renameDraft = ""
 
-    @Environment(\.dismiss) private var dismiss
+    // Unified-view state.
+    @State private var controller: UnifiedSceneController?
+    @State private var explode: Double = 0
+    /// Non-nil = spotlight this floor: everything else fades back.
+    @State private var spotlightFloorID: String?
+
+    /// Overlay lives in a stable class box, NOT directly in @State: `onRebuild` fires inside
+    /// `updateUIView`, and reassigning an @State var there invalidates the view from within
+    /// its own update — an endless rebuild loop that starves gesture handling.
+    @MainActor
+    private final class RouteOverlayHolder {
+        var overlay: RouteOverlay?
+    }
+
+    // Route layer (server truth — S2.3 semantics preserved).
+    @State private var overlayHolder = RouteOverlayHolder()
+    @State private var routePlan: RoutePlan?
+    @State private var routesError: String?
+    @State private var isFetchingRoutes = false
+    @State private var cachedPlanDate: Date?
+    /// nil = "Everyone": primary routes + badges for the whole house.
+    @State private var selectedRoomID: String?
+    @State private var selectedProfileID: String?
+    @State private var overlayIssues: [String] = []
+    @State private var isTouring = false
+    @State private var routesTask: Task<Void, Never>?
+    /// Debounces the re-fetch while the user is mid-editing-burst.
+    @State private var refetchDebounce: Task<Void, Never>?
 
     private let documentStore: HomeDocumentStore?
 
@@ -53,8 +80,8 @@ struct EditorScreen: View {
         self.documentStore = try? HomeDocumentStore()
     }
 
-    /// Editor tab entry point (no specific home chosen via the Home list): resumes the most
-    /// recently modified saved home, or starts a new one if there isn't one yet.
+    /// House tab entry point: resumes the most recently modified saved home, or starts a new
+    /// one if there isn't one yet.
     init() {
         let documentStore = try? HomeDocumentStore()
         self.homeID = documentStore?.list().first?.id
@@ -66,11 +93,15 @@ struct EditorScreen: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle(session?.store.model.name ?? "Editor")
+                .navigationTitle(session?.store.model.name ?? "House")
                 .toolbar { toolbarContent }
         }
         .task { loadIfNeeded() }
-        .onDisappear { unregisterFromLibrary() }
+        .onDisappear {
+            routesTask?.cancel()
+            refetchDebounce?.cancel()
+            unregisterFromLibrary()
+        }
         .sheet(isPresented: $addStairsSheetPresented) {
             if let session {
                 addStairsSheet(for: session.store)
@@ -91,31 +122,43 @@ struct EditorScreen: View {
                                     description: Text(error))
         } else if let session {
             let store = session.store
+            // The scene sits above a FIXED-HEIGHT dock. Chrome (inspector, placement hint,
+            // route controls) appears and vanishes inside the dock, so the scene view's frame
+            // never changes — a mid-gesture resize would shift the world under the user's
+            // finger and break any in-flight drag — and nothing overlays the scene where it
+            // could swallow touches.
             VStack(spacing: 0) {
-                EditorSceneView(store: store,
-                                model: store.model,
-                                activeFloorId: store.activeFloorId,
-                                selection: store.selection,
-                                tool: tool,
-                                undoStack: session.undoStack,
-                                onOpeningPlaced: { tool = .select })
-                if case .placeOpening(let kind) = tool {
-                    placementHint(kind: kind)
+                ZStack(alignment: .top) {
+                    EditorSceneView(store: store,
+                                    model: store.model,
+                                    activeFloorId: store.activeFloorId,
+                                    selection: store.selection,
+                                    tool: tool,
+                                    interactionEnabled: !isTouring,
+                                    undoStack: session.undoStack,
+                                    onOpeningPlaced: { tool = .select },
+                                    onControllerReady: { attach($0) })
+                    routesBanner
                 }
-                inspector(for: store)
-                floorPicker(for: store)
-                if let rejection {
-                    Text(rejection)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .padding(.horizontal)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        if case .placeOpening(let kind) = tool {
+                            placementHint(kind: kind)
+                        }
+                        inspector(for: store)
+                        if let rejection {
+                            Text(rejection).font(.caption).foregroundStyle(.orange).padding(.horizontal)
+                        }
+                        if let saveError {
+                            Text("Autosave failed: \(saveError)").font(.caption).foregroundStyle(.red)
+                                .padding(.horizontal)
+                        }
+                        viewControls(for: store)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                if let saveError {
-                    Text("Autosave failed: \(saveError)")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .padding(.horizontal)
-                }
+                .frame(height: 240)
+                .background(.regularMaterial)
             }
             .onChange(of: session.wasDeletedExternally) { _, deleted in
                 if deleted { dismiss() }
@@ -125,7 +168,271 @@ struct EditorScreen: View {
         }
     }
 
-    // MARK: Placement mode
+    // MARK: - Unified-view wiring
+
+    /// Called once per created scene view: hook the rebuild cycle so the route overlay and
+    /// view state (explode, spotlight) survive the editor's rebuild-on-every-commit strategy.
+    private func attach(_ controller: UnifiedSceneController) {
+        self.controller = controller
+        controller.onRebuild = { dollhouse in
+            overlayHolder.overlay = RouteOverlay(dollhouse: dollhouse)
+            applyViewState(to: dollhouse)
+            applyOverlay()
+        }
+        if let dollhouse = controller.dollhouse {
+            controller.onRebuild?(dollhouse)
+        }
+    }
+
+    private func applyViewState(to dollhouse: DollhouseScene) {
+        dollhouse.setExplode(explode)
+        for floor in dollhouse.floors {
+            let faded = spotlightFloorID != nil && floor.id != spotlightFloorID
+            dollhouse.setFloorFade(floor.id, opacity: faded ? 0.22 : 1.0)
+        }
+    }
+
+    private func reapplyViewState() {
+        guard let dollhouse = controller?.dollhouse else { return }
+        applyViewState(to: dollhouse)
+        controller?.scnView.setNeedsDisplay()
+    }
+
+    // MARK: - View controls (explode, spotlight, routes)
+
+    @ViewBuilder
+    private func viewControls(for store: HomeModelStore) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            let floors = store.model.floorsByLevel
+            if floors.count > 1 {
+                HStack(spacing: 10) {
+                    Text("Explode").font(.caption).foregroundStyle(.secondary)
+                    Slider(value: Binding(
+                        get: { explode },
+                        set: { explode = $0; reapplyViewState() }
+                    ), in: 0...1)
+                    .disabled(isTouring)
+                }
+                HStack {
+                    // Edit target + spotlight in one row of chips: tap picks the floor you're
+                    // editing; the sparkle toggles fading everything else back.
+                    ForEach(floors) { floor in
+                        let isActive = store.activeFloorId == floor.id
+                        Button {
+                            store.setActiveFloor(floor.id)
+                        } label: {
+                            Text(floor.name.isEmpty ? "Level \(floor.level)" : floor.name)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(isActive ? .accentColor : .secondary)
+                        .disabled(isTouring)
+                    }
+                    Button {
+                        spotlightFloorID = spotlightFloorID == store.activeFloorId
+                            ? nil : store.activeFloorId
+                        reapplyViewState()
+                    } label: {
+                        Label("Spotlight floor",
+                              systemImage: spotlightFloorID == nil ? "lightbulb" : "lightbulb.fill")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isTouring)
+                }
+            }
+            if let routePlan {
+                routeControls(for: routePlan)
+            }
+        }
+        .padding()
+    }
+
+    /// Non-blocking status strip over the scene — the house stays fully interactive while
+    /// routes are fetched (server cold starts can take ~30 s) or after a failure.
+    @ViewBuilder
+    private var routesBanner: some View {
+        if isFetchingRoutes {
+            HStack(spacing: 8) {
+                ProgressView()
+                Text("Planning routes…").font(.caption)
+            }
+            .padding(10)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .padding(.top, 8)
+        } else if let routesError {
+            HStack(spacing: 8) {
+                Image(systemName: "wifi.exclamationmark")
+                Text(routesError).font(.caption)
+                Button("Retry") { fetchRoutes() }.font(.caption.bold())
+            }
+            .padding(10)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .padding(.top, 8)
+        }
+    }
+
+    @ViewBuilder
+    private func routeControls(for plan: RoutePlan) -> some View {
+        // Picking a family member re-runs the engine with that profile's constraints
+        // (server-side) and jumps to their bedroom. The client sends profile_id, nothing else.
+        let model = session?.store.model
+        if let model, !model.profiles.isEmpty {
+            Picker("Who", selection: $selectedProfileID) {
+                Text("Everyone").tag(String?.none)
+                ForEach(model.profiles) { profile in
+                    Text(profile.name).tag(Optional(profile.id))
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(isTouring || isFetchingRoutes)
+            .onChange(of: selectedProfileID) { _, newValue in
+                selectedRoomID = newValue.flatMap { id in
+                    model.profiles.first { $0.id == id }?.bedroom_room_id
+                }
+                fetchRoutes()
+            }
+        }
+
+        HStack {
+            Picker("Route", selection: $selectedRoomID) {
+                Text("Everyone").tag(String?.none)
+                ForEach(plan.rooms) { room in
+                    Text(room.room_name).tag(Optional(room.room_id))
+                }
+            }
+            .disabled(isTouring)
+            .onChange(of: selectedRoomID) { _, _ in applyOverlay() }
+
+            Spacer()
+
+            if let room = selectedRoom(in: plan), let primary = room.primary {
+                Button {
+                    isTouring ? stopTour() : startTour(along: primary)
+                } label: {
+                    Label(isTouring ? "Stop" : "Tour",
+                          systemImage: isTouring ? "stop.circle" : "play.circle")
+                }
+                .buttonStyle(.borderedProminent)
+            } else if selectedRoomID == nil {
+                Text("Pick a room to tour").font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+
+        let findings = shownFindings(in: plan)
+        if !findings.isEmpty {
+            // Warning text comes verbatim from the engine's findings — the app never writes
+            // its own safety judgments.
+            ForEach(findings.indices, id: \.self) { i in
+                Label(findings[i].detail, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(Color(DollhousePalette.warningBadge))
+            }
+        }
+        if !overlayIssues.isEmpty {
+            Text("Some routes couldn't be drawn — see the log for details.")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Routes (server truth)
+
+    private func fetchRoutes() {
+        routesTask?.cancel()
+        guard let model = session?.store.model else { return }
+        routesError = nil
+        isFetchingRoutes = true
+        routesTask = Task {
+            defer { isFetchingRoutes = false }
+            do {
+                let result = try await apiClient.fetchRoutesCached(home: model,
+                                                                   profileID: selectedProfileID)
+                guard !Task.isCancelled else { return }
+                switch result {
+                case .live(let plan):
+                    guard plan.home_id == model.home_id else { return }
+                    cachedPlanDate = nil
+                    routePlan = plan
+                case .cached(let cached):
+                    guard cached.plan.home_id == model.home_id else { return }
+                    cachedPlanDate = cached.savedAt
+                    routePlan = cached.plan
+                    routesError = "Offline — showing the last saved plan from \(cached.savedAt.formatted(date: .abbreviated, time: .shortened))."
+                }
+                applyOverlay()
+            } catch is CancellationError {
+            } catch APIClientError.unexpectedResponse(let statusCode) where statusCode == 401 {
+                routesError = "Backend rejected the request — check the bearer token in Settings."
+            } catch {
+                guard !Task.isCancelled else { return }
+                routesError = "Couldn't fetch routes: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// An accepted edit means the shown plan no longer matches the model: drop it and
+    /// re-fetch once the editing burst settles.
+    private func invalidateRoutes() {
+        routesTask?.cancel()
+        routePlan = nil
+        overlayIssues = []
+        overlayHolder.overlay?.clear()
+        controller?.scnView.rendersContinuously = false
+        refetchDebounce?.cancel()
+        refetchDebounce = Task {
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            guard !Task.isCancelled else { return }
+            fetchRoutes()
+        }
+    }
+
+    private func applyOverlay() {
+        guard let overlay = overlayHolder.overlay, let routePlan,
+              let model = session?.store.model else { return }
+        let rooms = selectedRoomID.map { id in routePlan.rooms.filter { $0.room_id == id } }
+            ?? routePlan.rooms
+        // "Everyone" draws primaries + badges only; both routes appear once a room is picked.
+        let issues = overlay.show(rooms: rooms, home: model,
+                                  includeSecondary: selectedRoomID != nil)
+        // May run inside updateUIView (via onRebuild): only touch @State when the value
+        // actually changed, or the view invalidates itself from within its own update forever.
+        if issues != overlayIssues {
+            overlayIssues = issues
+        }
+        // The pulse shader animates on u_time, which only advances while the view redraws.
+        controller?.scnView.rendersContinuously = true
+        controller?.scnView.setNeedsDisplay()
+    }
+
+    private func selectedRoom(in plan: RoutePlan) -> RoomRoutePlan? {
+        guard let selectedRoomID else { return nil }
+        return plan.rooms.first { $0.room_id == selectedRoomID }
+    }
+
+    private func shownFindings(in plan: RoutePlan) -> [RouteFinding] {
+        let rooms = selectedRoomID.map { id in plan.rooms.filter { $0.room_id == id } } ?? plan.rooms
+        return rooms.flatMap(\.findings)
+    }
+
+    // MARK: - Tour
+
+    private func startTour(along route: Route) {
+        guard let overlay = overlayHolder.overlay, let controller else { return }
+        // The tour flies the stacked house; explode/spotlight would put the camera in empty
+        // space or inside faded geometry.
+        explode = 0
+        spotlightFloorID = nil
+        reapplyViewState()
+        isTouring = true
+        overlay.startTour(along: route, in: controller.scnView,
+                          restoreTo: controller.rig.node) { isTouring = false }
+    }
+
+    private func stopTour() {
+        overlayHolder.overlay?.cancelTour()
+        isTouring = false
+    }
+
+    // MARK: - Placement hint
 
     @ViewBuilder
     private func placementHint(kind: OpeningKind) -> some View {
@@ -134,15 +441,14 @@ struct EditorScreen: View {
             Text("Tap a wall to place the \(kind.rawValue). Interior vs. exterior is automatic.")
                 .font(.caption)
             Spacer()
-            Button("Cancel") { tool = .select }
-                .font(.caption.bold())
+            Button("Cancel") { tool = .select }.font(.caption.bold())
         }
         .padding(.horizontal)
         .padding(.vertical, 6)
         .background(.thinMaterial)
     }
 
-    // MARK: Inspector (selection-driven entry points)
+    // MARK: - Inspector (selection-driven entry points)
 
     @ViewBuilder
     private func inspector(for store: HomeModelStore) -> some View {
@@ -170,8 +476,7 @@ struct EditorScreen: View {
                     Button(role: .destructive) {
                         dispatch(.deleteRoom(roomId: roomId))
                     } label: {
-                        Label("Delete Room", systemImage: "trash")
-                            .labelStyle(.iconOnly)
+                        Label("Delete Room", systemImage: "trash").labelStyle(.iconOnly)
                     }
                 }
             }
@@ -195,21 +500,18 @@ struct EditorScreen: View {
                     Button(role: .destructive) {
                         dispatch(.deleteOpening(openingId: openingId))
                     } label: {
-                        Label("Delete Opening", systemImage: "trash")
-                            .labelStyle(.iconOnly)
+                        Label("Delete Opening", systemImage: "trash").labelStyle(.iconOnly)
                     }
                 }
             }
         case .stairs(let stairsId):
             inspectorBar {
-                Label("Stairs", systemImage: "figure.stairs")
-                    .font(.caption)
+                Label("Stairs", systemImage: "figure.stairs").font(.caption)
                 Spacer()
                 Button(role: .destructive) {
                     dispatch(.deleteStairs(stairsId: stairsId))
                 } label: {
-                    Label("Delete Stairs", systemImage: "trash")
-                        .labelStyle(.iconOnly)
+                    Label("Delete Stairs", systemImage: "trash").labelStyle(.iconOnly)
                 }
             }
         case .none, .wall, .vertex:
@@ -225,23 +527,7 @@ struct EditorScreen: View {
             .background(.ultraThinMaterial)
     }
 
-    @ViewBuilder
-    private func floorPicker(for store: HomeModelStore) -> some View {
-        if store.model.floors.count > 1 {
-            Picker("Floor", selection: Binding(
-                get: { store.activeFloorId },
-                set: { store.setActiveFloor($0) }
-            )) {
-                ForEach(store.model.floorsByLevel) { floor in
-                    Text(floor.name.isEmpty ? "Level \(floor.level)" : floor.name).tag(floor.id)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding()
-        }
-    }
-
-    // MARK: Toolbar
+    // MARK: - Toolbar
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
@@ -326,7 +612,7 @@ struct EditorScreen: View {
         }
     }
 
-    // MARK: Loading & saving
+    // MARK: - Loading & saving
 
     private func loadIfNeeded() {
         guard session == nil, loadError == nil else { return }
@@ -339,9 +625,10 @@ struct EditorScreen: View {
             }
             let newStore = try HomeModelStore(model: model)
             let newSession = EditorSession(store: newStore)
-            newStore.onCommit = { [documentStore] commit in
-                newSession.undoStack.recordCommit(commit)
+            newStore.onCommit = { [documentStore] _commit in
+                newSession.undoStack.recordCommit(_commit)
                 autosave(newStore, documentStore: documentStore)
+                invalidateRoutes()
             }
             session = newSession
             library?.editor = newSession
@@ -350,6 +637,7 @@ struct EditorScreen: View {
             if homeID == nil {
                 autosave(newStore, documentStore: documentStore)
             }
+            fetchRoutes()
         } catch {
             loadError = "\(error)"
         }
@@ -371,7 +659,7 @@ struct EditorScreen: View {
         onModelChanged?()
     }
 
-    // MARK: Dispatch
+    // MARK: - Dispatch
 
     /// Screen-level dispatch: forwards to the store and surfaces a rejection's reasons in the
     /// UI (the store guarantees a rejected action left the model untouched).
@@ -406,21 +694,23 @@ struct EditorScreen: View {
         dispatch(.addFloor(relativeTo: store.activeFloorId, above: above))
     }
 
-    // MARK: Undo/redo
+    // MARK: - Undo/redo
 
     private func undo() {
         guard let session, session.undoStack.undo(on: session.store) else { return }
         // replaceModel does NOT fire onCommit (undoing must not push its own undo entry), so
-        // autosave explicitly.
+        // autosave and invalidate explicitly.
         autosave(session.store, documentStore: documentStore)
+        invalidateRoutes()
     }
 
     private func redo() {
         guard let session, session.undoStack.redo(on: session.store) else { return }
         autosave(session.store, documentStore: documentStore)
+        invalidateRoutes()
     }
 
-    // MARK: Rename
+    // MARK: - Rename
 
     private enum RenameTarget: Equatable {
         case home
@@ -459,7 +749,7 @@ struct EditorScreen: View {
         }
     }
 
-    // MARK: Stairs
+    // MARK: - Stairs
 
     private var canAddStairs: Bool {
         guard let store = session?.store else { return false }
@@ -526,5 +816,6 @@ struct EditorScreen: View {
 }
 
 #Preview {
-    EditorScreen(homeID: nil)
+    HouseScreen(homeID: nil)
+        .environment(APIClient())
 }

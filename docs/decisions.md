@@ -422,3 +422,32 @@ A (unified view) → B (objects/routing) → C (builder). This session shipped A
 - New simulator test `UnifiedEditorPipelineTests` drives SCNView projection → controller →
   arbiter → bridge → store end-to-end (perspective AND top-down modes), so the join-rooms
   regression class is caught in seconds instead of the 2-minute env-gated UI run.
+
+## 2026-07-23 — Revamp A3: HouseScreen consolidation (+ two real interaction bugs found)
+
+- **`HouseScreen` replaces `EditorScreen` + `PlanScreen`** (both deleted, along with
+  `EditorSceneController` and `DollhouseSceneView`). One free-orbit translucent dollhouse is
+  simultaneously the editor and the route viewer; tab shell is now Home / House / Assistant /
+  Settings. Any accepted edit invalidates the shown plan and re-fetches `/routes` after a
+  0.9 s debounce — routes remain server truth, never client-computed. `DrillScreen` moved to
+  `UnifiedSceneView`. Onboarding's plan step and HomeScreen's push destinations use HouseScreen.
+- **Layout law: the scene view's frame must never change mid-gesture.** Chrome (inspector,
+  placement hint, route controls) lives in a FIXED-HEIGHT scrollable dock under the scene.
+  Both alternatives failed in practice: chrome stacked below the scene resizes it when panels
+  appear/vanish (an in-flight drag's world shifts under the finger — the driver caught vertex
+  drags landing ~1.7 m off), and chrome overlaid on the scene swallows touches aimed at
+  geometry behind it.
+- **Pan-recognition slop is real and breaks arbitration**: a `UIPanGestureRecognizer` begins
+  ~10 pt after touch-down and `translation` at `.began` does NOT fully cover the slop, so
+  neither `location` nor `location − translation` is the press point. At typical zooms 10 pt
+  crosses to a neighboring room's vertex — the drag then hits the wrong room and arbitration
+  latches camera. Fix: `InitialPointPanGestureRecognizer` records the true touch-down point
+  in `touchesBegan`; arbitration and the edit-drag anchor use that.
+- **Route overlay across rebuilds**: `UnifiedSceneController.onRebuild` re-hangs the overlay
+  on every rebuilt scene. The overlay lives in a stable class box, not directly in @State —
+  `onRebuild` fires inside `updateUIView`, and reassigning @State there invalidates the view
+  from within its own update, an endless rebuild loop.
+- **Debugging pattern that worked** (promoted for reuse): a rolling gesture-event log in the
+  scene view's `accessibilityValue` (gated behind `-editor.topDownCamera` so VoiceOver never
+  reads it) + the driver failing with `scene.value` in the message. Simulator log streams
+  never reach the cloned test simulator; this does.

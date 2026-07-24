@@ -58,6 +58,10 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
         scnView.rendersContinuously = false
     }
 
+    /// Fired at the end of every `rebuild` with the freshly built scene. The route overlay
+    /// hangs nodes off a specific `DollhouseScene`, so it must re-attach after each rebuild.
+    var onRebuild: ((DollhouseScene) -> Void)?
+
     /// Rebuilds the scene from the current model. Called on every commit and floor switch.
     /// The rig node survives the rebuild — the camera stays exactly where the user left it.
     func rebuild(home: HomeModel, activeFloorId: String) {
@@ -70,6 +74,7 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
         if topDownForAutomation {
             applyTopDownFrame(home: home, floorId: activeFloorId)
         }
+        onRebuild?(result.dollhouse)
         scnView.setNeedsDisplay()
     }
 
