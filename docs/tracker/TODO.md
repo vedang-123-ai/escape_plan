@@ -31,12 +31,10 @@ One free-camera translucent dollhouse = viewer + editor; objects block routes; a
 house builder behind forced review. Order A → B → C. A1 (camera rig, unified read-only view,
 RenderOrder ledger, tour fix) landed 2026-07-23 — see `notes/2026-07-23-revamp-a1-camera-rig.md`.
 
-- [ ] A1 follow-up: device-acceptance pass on gesture feel (orbit sensitivity, pinch anchor)
-      before A3 deletes the old camera stack.
-- [ ] A3: merge PlanScreen+EditorScreen into `HouseScreen`; delete `EditorSceneController`,
-      `DollhouseSceneView`, old screens; full gate + device acceptance.
-      (A2 landed 2026-07-23 — arbitrated editing in the unified view, driver passing live;
-      see `notes/2026-07-23-revamp-a2-unified-editing.md`.)
+- [ ] Project A follow-up: device-acceptance pass on the unified HouseScreen (gesture feel,
+      orbit sensitivity, pinch anchor, dock height on small screens, tour). A1+A2+A3 all
+      landed 2026-07-23 (see `notes/2026-07-23-revamp-a3-housescreen.md`) — simulator +
+      recording-driver verified; real-device feel is the open item.
 - [ ] B1: schema v1.1 — `floor.objects` (box primitives, no room_id) + `source: ai_plan`;
       three-way lockstep + SchemaMigrator + planted-obstacle fixtures. Own PR.
 - [ ] B2: objects rendered (RenderOrder band 5) + editable (EditActions, rotated-rect
