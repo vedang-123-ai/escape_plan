@@ -249,6 +249,52 @@ final class HomeModelStore {
             try setOpeningWidth(&draft, openingId, width_m)
             return nil
 
+        case .addObject(let objectId, let floorId, let category, let center,
+                        let size_m, let height_m):
+            let f = try floorIndex(draft, floorId)
+            guard size_m.count == 2, size_m.allSatisfy({ $0 > 0 }), height_m > 0 else {
+                throw ValidationIssue(.openingDimensions, entityId: objectId,
+                                      "object size must be positive [width, depth] + height")
+            }
+            let snapped = SnapEngine.snap(center, context: snapContext(draft, floorId: floorId),
+                                          settings: snapSettings)
+            draft.floors[f].objects.append(FloorObject(
+                id: objectId, category: category, center: snapped.point,
+                size_m: size_m, height_m: height_m, source: .manual))
+            return snapped
+
+        case .deleteObject(let objectId):
+            let (f, o) = try objectIndex(draft, objectId)
+            draft.floors[f].objects.remove(at: o)
+            return nil
+
+        case .dragObject(let objectId, let by):
+            let (f, o) = try objectIndex(draft, objectId)
+            let delta = SnapEngine.snapTranslation(by, settings: snapSettings)
+            let c = draft.floors[f].objects[o].center
+            draft.floors[f].objects[o].center = Point(c.x + delta.x, c.y + delta.y)
+            return SnapResult(delta, snapSettings.gridEnabled ? .grid : .none)
+
+        case .rotateObject(let objectId, let rotation_deg):
+            let (f, o) = try objectIndex(draft, objectId)
+            draft.floors[f].objects[o].rotation_deg = rotation_deg
+            return nil
+
+        case .resizeObject(let objectId, let size_m, let height_m):
+            guard size_m.count == 2, size_m.allSatisfy({ $0 > 0 }), height_m > 0 else {
+                throw ValidationIssue(.openingDimensions, entityId: objectId,
+                                      "object size must be positive [width, depth] + height")
+            }
+            let (f, o) = try objectIndex(draft, objectId)
+            draft.floors[f].objects[o].size_m = size_m
+            draft.floors[f].objects[o].height_m = height_m
+            return nil
+
+        case .setObjectCategory(let objectId, let category):
+            let (f, o) = try objectIndex(draft, objectId)
+            draft.floors[f].objects[o].category = category
+            return nil
+
         case .addStairs(let fromFloorId, let fromRoomId, let toFloorId, let toRoomId,
                         let footprint, let kind):
             try addStairs(&draft, fromFloorId, fromRoomId, toFloorId, toRoomId, footprint, kind)
@@ -551,6 +597,15 @@ final class HomeModelStore {
             if let o = floor.openings.firstIndex(where: { $0.id == openingId }) { return (f, o) }
         }
         throw ValidationIssue(.danglingReference, entityId: openingId, "no such opening")
+    }
+
+    private func objectIndex(_ model: HomeModel, _ objectId: String) throws -> (Int, Int) {
+        for (f, floor) in model.floors.enumerated() {
+            if let o = floor.objects.firstIndex(where: { $0.id == objectId }) {
+                return (f, o)
+            }
+        }
+        throw ValidationIssue(.danglingReference, entityId: objectId, "no such object")
     }
 
     private func profileIndex(_ model: HomeModel, _ profileId: String) throws -> Int {

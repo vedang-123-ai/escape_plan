@@ -178,6 +178,13 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
             guard let (_, room) = home.locateRoom(roomId),
                   let edge = Geometry.edge(room.polygon, edgeIndex) else { return nil }
             return Point(x: (edge.a.x + edge.b.x) / 2, y: (edge.a.y + edge.b.y) / 2)
+        case .object(let objectId):
+            for floor in home.floors {
+                if let object = floor.objects.first(where: { $0.id == objectId }) {
+                    return object.center
+                }
+            }
+            return nil
         }
     }
 }

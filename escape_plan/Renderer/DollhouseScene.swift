@@ -112,6 +112,15 @@ enum DollhouseSceneBuilder {
                 floorNode.addChildNode(makeWall(wall, height: floor.height_m))
             }
 
+            for object in floor.objects {
+                if let node = makeObject(object) {
+                    floorNode.addChildNode(node)
+                } else {
+                    issues.append(BuildIssue(entityID: object.id,
+                                             message: "object size_m is malformed — no prism rendered"))
+                }
+            }
+
             for opening in floor.openings {
                 guard let placement = DollhouseGeometry.placement(for: opening, on: floor) else {
                     issues.append(BuildIssue(
@@ -235,6 +244,27 @@ enum DollhouseSceneBuilder {
         node.name = "opening:\(opening.id)"
         node.position = DollhouseGeometry.scenePoint(placement.center, y: placement.sill + height / 2)
         node.eulerAngles.y = Float(placement.yaw)
+        return node
+    }
+
+    // MARK: - Objects (v1.1)
+
+    /// A furniture prism: opaque rotated box sitting on the floor slab. Deliberately the
+    /// simplest possible geometry — the schema stores box primitives and nothing more.
+    private static func makeObject(_ object: FloorObject) -> SCNNode? {
+        guard object.size_m.count == 2, object.size_m[0] > 0, object.size_m[1] > 0,
+              object.height_m > 0 else { return nil }
+        let box = SCNBox(width: CGFloat(object.size_m[0]), height: CGFloat(object.height_m),
+                         length: CGFloat(object.size_m[1]), chamferRadius: 0.02)
+        box.firstMaterial = material(DollhousePalette.object(category: object.category))
+
+        let node = SCNNode(geometry: box)
+        node.name = "object:\(object.id)"
+        node.position = DollhouseGeometry.scenePoint(object.center, y: object.height_m / 2)
+        // Plan CCW rotation about +y: plan +y maps to scene −z, so a CCW plan rotation is a
+        // positive rotation about the scene's +y axis.
+        node.eulerAngles.y = Float(object.rotation_deg * .pi / 180)
+        node.renderingOrder = RenderOrder.objects
         return node
     }
 

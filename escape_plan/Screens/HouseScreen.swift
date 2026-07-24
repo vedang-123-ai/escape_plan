@@ -514,6 +514,34 @@ struct HouseScreen: View {
                     Label("Delete Stairs", systemImage: "trash").labelStyle(.iconOnly)
                 }
             }
+        case .object(let objectId):
+            if let object = store.model.floors.flatMap(\.objects).first(where: { $0.id == objectId }) {
+                inspectorBar {
+                    Picker("Type", selection: Binding(
+                        get: { object.category },
+                        set: { dispatch(.setObjectCategory(objectId: objectId, category: $0)) }
+                    )) {
+                        ForEach(ObjectCategory.allCases, id: \.self) { category in
+                            Text(category.rawValue.capitalized).tag(category)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    Button {
+                        dispatch(.rotateObject(objectId: objectId,
+                                               rotation_deg: (object.rotation_deg + 45)
+                                                   .truncatingRemainder(dividingBy: 360)))
+                    } label: {
+                        Label("Rotate 45°", systemImage: "rotate.right")
+                            .labelStyle(.iconOnly)
+                    }
+                    Spacer()
+                    Button(role: .destructive) {
+                        dispatch(.deleteObject(objectId: objectId))
+                    } label: {
+                        Label("Delete Object", systemImage: "trash").labelStyle(.iconOnly)
+                    }
+                }
+            }
         case .none, .wall, .vertex:
             EmptyView()
         }
@@ -563,6 +591,11 @@ struct HouseScreen: View {
                     tool = .placeOpening(.window)
                 } label: {
                     Label("Add Window", systemImage: "window.vertical.open")
+                }
+                Button {
+                    addObject()
+                } label: {
+                    Label("Add Object", systemImage: "cube")
                 }
                 Button {
                     addStairsSheetPresented = true
@@ -692,6 +725,21 @@ struct HouseScreen: View {
     private func addFloor(above: Bool) {
         guard let store = session?.store else { return }
         dispatch(.addFloor(relativeTo: store.activeFloorId, above: above))
+    }
+
+    /// Drops a default box in the middle of the selected room (or the active floor's first
+    /// room), selected so the user can immediately drag it where it belongs.
+    private func addObject() {
+        guard let store = session?.store else { return }
+        let room = store.selection.roomId.flatMap { store.activeFloor.room($0) }
+            ?? store.activeFloor.rooms.first
+        guard let room else { return }
+        let sum = room.polygon.reduce(Point(0, 0)) { Point($0.x + $1.x, $0.y + $1.y) }
+        let center = Point(sum.x / Double(room.polygon.count), sum.y / Double(room.polygon.count))
+        let objectId = UUID().uuidString
+        dispatch(.addObject(objectId: objectId, floorId: store.activeFloorId, category: .other,
+                            center: center, size_m: [1.2, 0.6], height_m: 0.8))
+        store.select(.object(objectId: objectId))
     }
 
     // MARK: - Undo/redo

@@ -220,6 +220,8 @@ final class SceneKitEditorBridge {
             }
             let (_, t) = Geometry.closestPointOnSegment(target, edge.a, edge.b)
             return .dragOpening(openingId: openingId, t: t)
+        case .object(let objectId):
+            return .dragObject(objectId: objectId, by: delta)
         case .stairs:
             // Stairs aren't drag-manipulated (placed/deleted only) — nothing to do here.
             return nil

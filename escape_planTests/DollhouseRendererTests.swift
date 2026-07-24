@@ -260,6 +260,38 @@ final class DollhouseRendererTests: XCTestCase {
         }
     }
 
+    func testObjectRendersAsARotatedPrismInItsBand() throws {
+        var home = try FixtureLibrary.load(.bungalow)
+        home.floors[0].objects.append(FloorObject(
+            id: "o_test", category: .sofa, center: Point(x: 2.5, y: 2.0),
+            size_m: [2.0, 0.9], height_m: 0.8, rotation_deg: 90, source: .manual))
+        let built = DollhouseSceneBuilder.build(home)
+        XCTAssertTrue(built.issues.isEmpty)
+
+        let node = try XCTUnwrap(built.dollhouse.scene.rootNode.childNode(withName: "object:o_test",
+                                                                          recursively: true))
+        XCTAssertEqual(node.renderingOrder, RenderOrder.objects)
+        let box = try XCTUnwrap(node.geometry as? SCNBox)
+        XCTAssertEqual(Double(box.width), 2.0, accuracy: 1e-6)
+        XCTAssertEqual(Double(box.length), 0.9, accuracy: 1e-6)
+        XCTAssertEqual(Double(box.height), 0.8, accuracy: 1e-6)
+        // Sitting ON the slab: center at half height; plan (2.5, 2.0) → scene (2.5, _, -2.0).
+        XCTAssertEqual(node.position.y, 0.4, accuracy: 1e-4)
+        XCTAssertEqual(node.position.z, -2.0, accuracy: 1e-4)
+        XCTAssertEqual(Double(node.eulerAngles.y), .pi / 2, accuracy: 1e-6)
+    }
+
+    func testMalformedObjectIsSurfacedAsABuildIssueNotACrash() throws {
+        var home = try FixtureLibrary.load(.bungalow)
+        home.floors[0].objects.append(FloorObject(
+            id: "o_bad", category: .other, center: Point(x: 1, y: 1),
+            size_m: [2.0], height_m: 0.8, source: .manual))
+        let built = DollhouseSceneBuilder.build(home)
+        XCTAssertTrue(built.issues.contains { $0.entityID == "o_bad" })
+        XCTAssertNil(built.dollhouse.scene.rootNode.childNode(withName: "object:o_bad",
+                                                              recursively: true))
+    }
+
     func testSingleFloorFixturesHaveExactlyOneFloor() throws {
         for fixture in [Fixture.bungalow, .apartment] {
             let home = try FixtureLibrary.load(fixture)

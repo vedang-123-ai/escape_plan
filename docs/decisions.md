@@ -471,3 +471,19 @@ pydantic / Swift Codable (+ round-trip tests green):
 - Scan converter now emits 1.1. FastAPI app version string is unrelated and unchanged.
 - Process note: this lands as its own commit on `lane/editor`; the branch itself is the PR
   unit for team sign-off per the schema rules.
+
+## 2026-07-23 — Revamp B2: objects rendered + editable
+
+- Objects render as opaque rotated `SCNBox` prisms (`object:<id>`, RenderOrder band 5 —
+  under the translucent shell, over the slab), muted per-category tints. Malformed size_m
+  surfaces as a BuildIssue, never a crash.
+- Editor vocabulary: `addObject/deleteObject/dragObject/rotateObject/resizeObject/
+  setObjectCategory`; `Selection.object`; `dragObject` coalesces like other drags. Objects
+  join the global id namespace in EditorValidation (pydantic lockstep). Validation is
+  deliberately permissive about placement — an object poking outside a room is scan-data
+  reality, not an error.
+- Hit-testing: point-in-rotated-rect; objects win over the room interior, topmost
+  (last-listed) object wins on overlap. GestureArbiter unchanged — an object edits only
+  while selected, like every non-room entity.
+- HouseScreen: Add Object drops a default box at the selected room's centroid, pre-selected
+  for immediate dragging; inspector = category picker + rotate-45° + delete.
