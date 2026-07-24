@@ -451,3 +451,23 @@ A (unified view) → B (objects/routing) → C (builder). This session shipped A
   scene view's `accessibilityValue` (gated behind `-editor.topDownCamera` so VoiceOver never
   reads it) + the driver failing with `scene.value` in the message. Simulator log streams
   never reach the cloned test simulator; this does.
+
+## 2026-07-23 — Revamp B1: schema v1.1 (objects + ai_plan source)
+
+One bump covers both remaining revamp projects (B's objects AND C's ai_plan source) so the
+three-way lockstep churn happens exactly once. Changes, in lockstep across JSON Schema /
+pydantic / Swift Codable (+ round-trip tests green):
+
+- `floor.objects[]` (default []): `{id, category, center, size_m [w,d], height_m,
+  rotation_deg (default 0), source, confidence}` — rotated box primitives, rendered as
+  prisms, obstacles for B3's within-room routing. **No `room_id`** — containment is derived
+  geometrically so moving a room can never dangle an object reference.
+- `source` gains `"ai_plan"`; the confidence rule generalizes: scan AND ai_plan items must
+  carry confidence (pydantic `SourcedModel`).
+- `SchemaMigrator` 1.0 → 1.1 registered (re-stamps the version; decoders tolerate a missing
+  `objects` key). Migration + decode covered by a new PersistenceTests case.
+- Fixtures re-stamped to 1.1; new planted fixture `bungalow-blocked.json` (wardrobe fully
+  blocking the bedroom doorway + sofa mid-room) for B3's obstacle-routing assertions.
+- Scan converter now emits 1.1. FastAPI app version string is unrelated and unchanged.
+- Process note: this lands as its own commit on `lane/editor`; the branch itself is the PR
+  unit for team sign-off per the schema rules.

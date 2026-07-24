@@ -235,7 +235,7 @@ final class PersistenceTests: XCTestCase {
         XCTAssertThrowsError(try makeStore().load(homeID: homeID)) { error in
             XCTAssertEqual(
                 error as? PersistenceError,
-                .documentTooNew(documentVersion: "2.0", supportedVersion: "1.0")
+                .documentTooNew(documentVersion: "2.0", supportedVersion: "1.1")
             )
         }
         // Refused gracefully: the file is still there, unmodified, and the rest
@@ -243,7 +243,7 @@ final class PersistenceTests: XCTestCase {
         XCTAssertTrue(makeStoreUnchecked().exists(homeID: homeID))
     }
 
-    func testMigrationHookRunsForAnOlderDocument() throws {
+    func testMigrationHookRefusesAnUnknownOlderVersion() throws {
         // No 0.x documents exist in the wild (1.0 is the first version), so this
         // asserts the hook's contract rather than a real upgrade.
         let old = try XCTUnwrap(
@@ -252,9 +252,23 @@ final class PersistenceTests: XCTestCase {
         XCTAssertThrowsError(try SchemaMigrator.migrate(HomeDocument(body: old))) { error in
             XCTAssertEqual(
                 error as? PersistenceError,
-                .migrationUnavailable(fromVersion: "0.9", toVersion: "1.0")
+                .migrationUnavailable(fromVersion: "0.9", toVersion: "1.1")
             )
         }
+    }
+
+    func testMigrationUpgradesAOneOhDocumentToCurrentAndItDecodes() throws {
+        // The real upgrade path: every pre-revamp home on disk is a 1.0 document.
+        // 1.0 → 1.1 only re-stamps the version (floor.objects defaults to []).
+        let old = try XCTUnwrap(
+            PersistenceFixtures.document("bungalow").body.setting("schema_version", to: .string("1.0"))
+        )
+        let migrated = try SchemaMigrator.migrate(HomeDocument(body: old))
+        XCTAssertEqual(migrated.schemaVersion, SchemaMigrator.currentVersion)
+        let model = try migrated.decode(as: HomeModel.self)
+        XCTAssertEqual(model.schema_version, "1.1")
+        XCTAssertTrue(model.floors.allSatisfy { $0.objects.isEmpty },
+                      "a migrated 1.0 document has no objects yet")
     }
 
     func testCurrentVersionMatchesTheSchemaContract() throws {
@@ -324,7 +338,7 @@ final class PersistenceTests: XCTestCase {
 
     func testGenericSaveAndLoadOfACodableModel() throws {
         let model = StubHomeModel(
-            schema_version: "1.0",
+            schema_version: SchemaMigrator.currentVersion,
             home_id: UUID().uuidString.lowercased(),
             name: "Stub",
             floors: ["ground"]

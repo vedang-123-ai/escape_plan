@@ -108,6 +108,15 @@ final class HomeModelCodableTests: XCTestCase {
             dict["stairs"] = dict["stairs"] ?? []
             dict["profiles"] = dict["profiles"] ?? []
         }
+        // A floor: openings and (v1.1) objects both default to [].
+        if dict["level"] != nil, dict["rooms"] != nil {
+            dict["openings"] = dict["openings"] ?? []
+            dict["objects"] = dict["objects"] ?? []
+        }
+        // An object: rotation_deg defaults to 0.
+        if dict["category"] != nil, dict["size_m"] != nil {
+            dict["rotation_deg"] = dict["rotation_deg"] ?? 0
+        }
         if dict["viable"] != nil {
             dict["reasons"] = dict["reasons"] ?? []
         }

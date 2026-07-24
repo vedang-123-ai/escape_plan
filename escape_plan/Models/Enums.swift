@@ -12,7 +12,11 @@ enum OpeningKind: String, Codable, Equatable, CaseIterable {
 }
 
 enum Source: String, Codable, Equatable, CaseIterable {
-    case scan, manual
+    case scan, manual, ai_plan
+}
+
+enum ObjectCategory: String, Codable, Equatable, CaseIterable {
+    case bed, sofa, table, wardrobe, appliance, storage, other
 }
 
 enum StairKind: String, Codable, Equatable, CaseIterable {

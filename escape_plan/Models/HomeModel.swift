@@ -1,5 +1,5 @@
 // HomeModel.swift
-// Swift mirror of schema/homemodel.schema.json v1.0 (the project's one contract).
+// Swift mirror of schema/homemodel.schema.json v1.1 (the project's one contract).
 // Field names, enums, and optionality intentionally match the JSON schema / backend/app/models.py
 // exactly rather than adopting Swift naming conventions — see .claude/rules/languages/swift.md.
 //
@@ -62,6 +62,50 @@ struct Opening: Codable, Equatable, Identifiable {
     var isExit: Bool { room_ids.contains(EXTERIOR_ID) }
 }
 
+/// A large object as a rotated box primitive (v1.1). Rendered as a prism; treated as an
+/// obstacle by within-room routing. No room_id on purpose — containment is derived
+/// geometrically, so moving a room can never dangle an object reference.
+struct FloorObject: Codable, Equatable, Identifiable {
+    var id: String
+    var category: ObjectCategory
+    var center: Point
+    /// Footprint [width, depth] in meters, before rotation.
+    var size_m: [Double]
+    var height_m: Double
+    /// CCW rotation of the footprint about its center, degrees, floor-local frame.
+    var rotation_deg: Double
+    var source: Source
+    var confidence: Double?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, category, center, size_m, height_m, rotation_deg, source, confidence
+    }
+
+    init(id: String, category: ObjectCategory, center: Point, size_m: [Double],
+         height_m: Double, rotation_deg: Double = 0, source: Source, confidence: Double? = nil) {
+        self.id = id
+        self.category = category
+        self.center = center
+        self.size_m = size_m
+        self.height_m = height_m
+        self.rotation_deg = rotation_deg
+        self.source = source
+        self.confidence = confidence
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        category = try container.decode(ObjectCategory.self, forKey: .category)
+        center = try container.decode(Point.self, forKey: .center)
+        size_m = try container.decode([Double].self, forKey: .size_m)
+        height_m = try container.decode(Double.self, forKey: .height_m)
+        rotation_deg = try container.decodeIfPresent(Double.self, forKey: .rotation_deg) ?? 0
+        source = try container.decode(Source.self, forKey: .source)
+        confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
+    }
+}
+
 struct Floor: Codable, Equatable, Identifiable {
     var id: String
     var level: Int
@@ -69,18 +113,21 @@ struct Floor: Codable, Equatable, Identifiable {
     var height_m: Double
     var rooms: [Room]
     var openings: [Opening]
+    var objects: [FloorObject]
 
     private enum CodingKeys: String, CodingKey {
-        case id, level, name, height_m, rooms, openings
+        case id, level, name, height_m, rooms, openings, objects
     }
 
-    init(id: String, level: Int, name: String, height_m: Double, rooms: [Room], openings: [Opening] = []) {
+    init(id: String, level: Int, name: String, height_m: Double, rooms: [Room],
+         openings: [Opening] = [], objects: [FloorObject] = []) {
         self.id = id
         self.level = level
         self.name = name
         self.height_m = height_m
         self.rooms = rooms
         self.openings = openings
+        self.objects = objects
     }
 
     init(from decoder: Decoder) throws {
@@ -91,6 +138,7 @@ struct Floor: Codable, Equatable, Identifiable {
         height_m = try container.decode(Double.self, forKey: .height_m)
         rooms = try container.decode([Room].self, forKey: .rooms)
         openings = try container.decodeIfPresent([Opening].self, forKey: .openings) ?? []
+        objects = try container.decodeIfPresent([FloorObject].self, forKey: .objects) ?? []
     }
 }
 

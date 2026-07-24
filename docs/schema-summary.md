@@ -1,12 +1,13 @@
-# HomeModel v1.0 — 10-line team summary (S0.2 handoff)
+# HomeModel v1.1 — team summary (S0.2 handoff; v1.1 revamp 2026-07-23)
 
-1. One JSON document per home: `schema_version ("1.0"), home_id, name, floors[], stairs[], profiles[], meta`. Contract lives at `schema/homemodel.schema.json`; changes now require a version bump + sign-off.
-2. A floor = `id, level (unique int), name, height_m, rooms[], openings[]`; all coordinates are meters in a floor-local 2D frame.
+1. One JSON document per home: `schema_version ("1.1"), home_id, name, floors[], stairs[], profiles[], meta`. Contract lives at `schema/homemodel.schema.json`; changes now require a version bump + sign-off.
+2. A floor = `id, level (unique int), name, height_m, rooms[], openings[], objects[]`; all coordinates are meters in a floor-local 2D frame.
+2b. **v1.1** — an object = `id, category (bed|sofa|table|wardrobe|appliance|storage|other), center, size_m [w,d], height_m, rotation_deg (default 0)`: a rotated box primitive, rendered as a prism, treated as an obstacle by within-room routing. No room_id on purpose — containment is derived geometrically. `objects` defaults to `[]`; 1.0 documents migrate by re-stamping the version (SchemaMigrator).
 3. A room = `id, name, type (bedroom|living|kitchen|hall|bath|garage|other), polygon` — CCW, non-self-intersecting, first vertex not repeated; 3D is extruded from `height_m`.
 4. Edge convention: edge *i* runs vertex *i* → vertex *(i+1) mod n*. Openings sit on walls parametrically: `wall_segment {room_id, edge_index, t0, t1}` — drag a wall and its doors ride along.
 5. An opening = door|window with `room_ids` (always exactly 2): two rooms = interior adjacency; room + `EXTERIOR` (reserved pseudo-room) = an exit. `width_m/height_m/sill_height_m` are authoritative for egress checks.
 6. `egress {viable, reasons[]}` is computed-only (S1.1 annotator, IRC thresholds from the corpus) — never hand-authored, never AI-authored.
 7. Stairs connect `from {floor_id, room_id}` → `to` on a *different* floor (JSON key is `from`; pydantic field is `from_`, Swift should use CodingKeys).
-8. Provenance: everything carries `source: scan|manual`; scan items MUST carry `confidence` (low values get "needs review" treatment in the editor, never silently dropped).
+8. Provenance: everything carries `source: scan|manual|ai_plan` (v1.1 adds `ai_plan` = drafted by the LLM house builder); scan and ai_plan items MUST carry `confidence`, and ai_plan homes force editor review before routes are computed (low values get "needs review" treatment in the editor, never silently dropped).
 9. Ids are globally unique across ALL entity kinds (floors, rooms, openings, stairs, profiles); `additionalProperties: false` everywhere — unknown fields fail validation.
-10. Validate with `cd backend && python3 -m app.validate ../schema/fixtures/*.json` (runs JSON Schema + pydantic). Fixtures: `bungalow` (clean), `apartment` (planted: single exit, all windows non-viable), `twostory` (planted: kids' window too small; profiles Maya/Grandpa) + `fixtures/invalid/` for failure cases.
+10. Validate with `cd backend && python3 -m app.validate ../schema/fixtures/*.json` (runs JSON Schema + pydantic). Fixtures: `bungalow` (clean), `apartment` (planted: single exit, all windows non-viable), `twostory` (planted: kids' window too small; profiles Maya/Grandpa), `bungalow-blocked` (v1.1 planted: wardrobe fully blocking the bedroom doorway + sofa mid-living-room — B3 obstacle-routing tests assert the re-plan) + `fixtures/invalid/` for failure cases.
