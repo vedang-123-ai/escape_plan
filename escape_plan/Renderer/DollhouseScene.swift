@@ -45,6 +45,13 @@ final class DollhouseScene {
         floors.first(where: { $0.id == id })?.node.isHidden = !visible
     }
 
+    /// Fade a floor without hiding it (floor-spotlight in the unified view). Uses node
+    /// opacity — it multiplies down the subtree and never touches the hand-tuned materials
+    /// the translucency effect depends on.
+    func setFloorFade(_ id: String, opacity: Double) {
+        floors.first(where: { $0.id == id })?.node.opacity = CGFloat(min(max(opacity, 0), 1))
+    }
+
     func isFloorVisible(_ id: String) -> Bool {
         guard let node = floors.first(where: { $0.id == id })?.node else { return false }
         return !node.isHidden
@@ -103,6 +110,15 @@ enum DollhouseSceneBuilder {
 
             for wall in DollhouseGeometry.walls(for: floor) {
                 floorNode.addChildNode(makeWall(wall, height: floor.height_m))
+            }
+
+            for object in floor.objects {
+                if let node = makeObject(object) {
+                    floorNode.addChildNode(node)
+                } else {
+                    issues.append(BuildIssue(entityID: object.id,
+                                             message: "object size_m is malformed — no prism rendered"))
+                }
             }
 
             for opening in floor.openings {
@@ -176,7 +192,7 @@ enum DollhouseSceneBuilder {
         let textNode = SCNNode(geometry: text)
         // renderingOrder is per-node and does not inherit, so it belongs on the node that
         // actually carries the geometry, not on the billboarded holder.
-        textNode.renderingOrder = 100
+        textNode.renderingOrder = RenderOrder.labels
         // SCNText is laid out in points; scale it into meters and re-center on its own bounds so
         // the label sits over the room's centroid rather than starting there.
         let scale: Float = 0.018
@@ -213,7 +229,7 @@ enum DollhouseSceneBuilder {
         node.position = DollhouseGeometry.scenePoint(spec.midpoint, y: height / 2)
         node.eulerAngles.y = Float(spec.yaw)
         // Drawn after the opaque interior so alpha blends over it in the right order.
-        node.renderingOrder = 10
+        node.renderingOrder = RenderOrder.walls
         // Translucent walls throwing hard shadows would read as solid slabs on the floor.
         node.castsShadow = false
         return node
@@ -234,6 +250,27 @@ enum DollhouseSceneBuilder {
         node.name = "opening:\(opening.id)"
         node.position = DollhouseGeometry.scenePoint(placement.center, y: placement.sill + height / 2)
         node.eulerAngles.y = Float(placement.yaw)
+        return node
+    }
+
+    // MARK: - Objects (v1.1)
+
+    /// A furniture prism: opaque rotated box sitting on the floor slab. Deliberately the
+    /// simplest possible geometry — the schema stores box primitives and nothing more.
+    private static func makeObject(_ object: FloorObject) -> SCNNode? {
+        guard object.size_m.count == 2, object.size_m[0] > 0, object.size_m[1] > 0,
+              object.height_m > 0 else { return nil }
+        let box = SCNBox(width: CGFloat(object.size_m[0]), height: CGFloat(object.height_m),
+                         length: CGFloat(object.size_m[1]), chamferRadius: 0.02)
+        box.firstMaterial = material(DollhousePalette.object(category: object.category))
+
+        let node = SCNNode(geometry: box)
+        node.name = "object:\(object.id)"
+        node.position = DollhouseGeometry.scenePoint(object.center, y: object.height_m / 2)
+        // Plan CCW rotation about +y: plan +y maps to scene −z, so a CCW plan rotation is a
+        // positive rotation about the scene's +y axis.
+        node.eulerAngles.y = Float(object.rotation_deg * .pi / 180)
+        node.renderingOrder = RenderOrder.objects
         return node
     }
 

@@ -21,8 +21,9 @@ scratch files.
 - `Editor/Core/` — `HomeModelStore` reducer (the ONLY path that mutates a `HomeModel`),
   `EditAction`, `UndoStack`, validation, hit-testing, snapping. Pure Foundation — also compiled &
   tested as the `tools/editorcore` SwiftPM package.
-- `Editor/SceneKit/` — `EditorSceneController`/`EditorSceneView` and `SceneKitEditorBridge` (gesture
-  → `EditAction`).
+- `Editor/SceneKit/` — `EditorSceneView` (unified free-camera editor surface, hosts
+  `UnifiedSceneController` + `OrbitCameraRig`) and `SceneKitEditorBridge` (gesture →
+  `EditAction`, with `GestureArbiter` deciding edit-drag vs orbit).
 - `Renderer/` — SceneKit dollhouse (`DollhouseScene*`) + `RouteOverlay`/`RouteGeometry` (animated
   escape routes drawn from a `/routes` RoutePlan — never computed client-side).
 - `Capture/` — RoomPlan LiDAR capture + raw JSON/USDZ exporter matching the converter contract.
@@ -35,8 +36,7 @@ scratch files.
 | Screen | Session | Notes |
 |---|---|---|
 | `HomeScreen` | S0.3/S2.4 | home library; swipe/menu → Score & Profiles |
-| `EditorScreen` | S2.1/S2.2 | 3D editor: rooms, openings, stairs, undo/redo |
-| `PlanScreen` | S1.3/S2.3 | dollhouse + route overlay + camera tour + "Who" profile picker (S3.4) |
+| `HouseScreen` | revamp A3 | THE unified screen: free-orbit translucent dollhouse that is editor (rooms, openings, stairs, undo/redo) AND route viewer (overlay, tour, profile picker) at once — replaced EditorScreen + PlanScreen |
 | `AssistantScreen` | S3.3 | grounded chat; graceful error when the key is unset |
 | `ScoreScreen` | S3.5 | preparedness score; backend does all the math |
 | `ProfilesScreen` / `ProfileEditorView` | S3.4 | per-home family profiles CRUD |

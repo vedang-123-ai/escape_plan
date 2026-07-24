@@ -22,6 +22,7 @@ struct HomeScreen: View {
     @State private var profilesHomeID: String?
     @State private var drillHomeID: String?
     @State private var showingNewHome = false
+    @State private var showingBuildFromPlan = false
     @State private var initError: String?
 
     // Scan → /convert → save → open editor.
@@ -54,6 +55,19 @@ struct HomeScreen: View {
                             Label("Scan", systemImage: "camera.viewfinder")
                         }
                     }
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            showingBuildFromPlan = true
+                        } label: {
+                            Label("Import a plan", systemImage: "wand.and.stars")
+                        }
+                    }
+                }
+                .sheet(isPresented: $showingBuildFromPlan) {
+                    BuildFromPlanView { homeID in
+                        library.refresh()
+                        openHomeID = homeID
+                    }
                 }
                 .fullScreenCover(isPresented: $showingScan) {
                     ScanFlowView(
@@ -76,10 +90,10 @@ struct HomeScreen: View {
                     Text(scanError ?? "")
                 }
                 .navigationDestination(item: $openHomeID) { homeID in
-                    EditorScreen(homeID: homeID) { library.refresh() }
+                    HouseScreen(homeID: homeID, library: library) { library.refresh() }
                 }
                 .navigationDestination(isPresented: $showingNewHome) {
-                    EditorScreen(homeID: nil) { library.refresh() }
+                    HouseScreen(homeID: nil, library: library) { library.refresh() }
                 }
                 .navigationDestination(item: $scoreHomeID) { homeID in
                     ScoreScreen(homeID: homeID)

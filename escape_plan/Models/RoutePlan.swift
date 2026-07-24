@@ -102,6 +102,9 @@ struct Waypoint: Codable, Equatable {
 
 enum WaypointKind: String, Codable {
     case room, opening, stair, exterior
+    /// v1.1 revamp: an intermediate within-room point where the leg curves
+    /// around an object; `node_id` is the opening the leg approaches.
+    case path
 }
 
 /// The engine's warning payload — the ONLY source for the S2.3 warning badges. The client
@@ -114,6 +117,9 @@ struct RouteFinding: Codable, Equatable {
     enum FindingKind: String, Codable {
         case no_secondary_egress
         case no_viable_route
+        /// v1.1 revamp: an object blocks a doorway (or narrows its approach
+        /// below the egress clearance) from inside this room.
+        case blocked_opening
     }
 }
 

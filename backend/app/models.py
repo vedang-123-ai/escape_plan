@@ -1,4 +1,4 @@
-"""Pydantic models for the HomeModel contract (schema/homemodel.schema.json v1.0).
+"""Pydantic models for the HomeModel contract (schema/homemodel.schema.json v1.1).
 
 These models are the executable half of the contract: JSON Schema checks shape,
 these validators check the structural invariants JSON Schema cannot express —
@@ -41,6 +41,17 @@ class OpeningKind(str, Enum):
 class Source(str, Enum):
     scan = "scan"
     manual = "manual"
+    ai_plan = "ai_plan"
+
+
+class ObjectCategory(str, Enum):
+    bed = "bed"
+    sofa = "sofa"
+    table = "table"
+    wardrobe = "wardrobe"
+    appliance = "appliance"
+    storage = "storage"
+    other = "other"
 
 
 class StairKind(str, Enum):
@@ -166,17 +177,17 @@ class EgressAssessment(StrictModel):
 
 
 class SourcedModel(StrictModel):
-    """Common provenance fields; scan-derived items must carry confidence."""
+    """Common provenance fields; machine-derived items must carry confidence."""
 
     source: Source
     confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
     @model_validator(mode="after")
-    def _scan_needs_confidence(self) -> "SourcedModel":
-        if self.source == Source.scan and self.confidence is None:
+    def _machine_source_needs_confidence(self) -> "SourcedModel":
+        if self.source in (Source.scan, Source.ai_plan) and self.confidence is None:
             ident = getattr(self, "id", "?")
             raise ValueError(
-                f"'{ident}': scan-derived items must carry a confidence value"
+                f"'{ident}': {self.source.value}-derived items must carry a confidence value"
             )
         return self
 
@@ -231,6 +242,28 @@ class Opening(SourcedModel):
         return EXTERIOR_ID in self.room_ids
 
 
+class FloorObject(SourcedModel):
+    """A large object as a rotated box primitive (v1.1). Rendered as a prism; treated as an
+    obstacle by within-room routing. No room_id on purpose — containment is derived
+    geometrically, so moving a room can never dangle an object reference."""
+
+    id: str
+    category: ObjectCategory
+    center: Point
+    size_m: tuple[float, float]
+    height_m: float = Field(gt=0)
+    rotation_deg: float = 0.0
+
+    @model_validator(mode="after")
+    def _check(self) -> "FloorObject":
+        if self.id == EXTERIOR_ID:
+            raise ValueError(f"'{EXTERIOR_ID}' is a reserved id")
+        w, d = self.size_m
+        if w <= 0 or d <= 0:
+            raise ValueError(f"object '{self.id}': size_m must be positive, got {self.size_m}")
+        return self
+
+
 class Floor(StrictModel):
     id: str
     level: int
@@ -238,6 +271,7 @@ class Floor(StrictModel):
     height_m: float = Field(gt=0)
     rooms: list[Room] = Field(min_length=1)
     openings: list[Opening] = Field(default_factory=list)
+    objects: list[FloorObject] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check(self) -> "Floor":
@@ -306,7 +340,7 @@ class Meta(StrictModel):
 
 
 class HomeModel(StrictModel):
-    schema_version: str = Field(pattern=r"^1\.0$")
+    schema_version: str = Field(pattern=r"^1\.1$")
     home_id: str
     name: str = Field(min_length=1)
     floors: list[Floor] = Field(min_length=1)
@@ -344,6 +378,8 @@ class HomeModel(StrictModel):
                 all_room_ids.add(r.id)
             for op in fl.openings:
                 claim(op.id, "opening")
+            for obj in fl.objects:
+                claim(obj.id, "object")
 
         for st in self.stairs:
             claim(st.id, "stairs")

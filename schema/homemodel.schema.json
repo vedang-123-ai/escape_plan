@@ -2,13 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://escape-plan.app/schema/homemodel.schema.json",
   "title": "HomeModel",
-  "description": "THE contract of the Escape Plan project (v1.0, finalized in S0.2). One JSON document describes a home: the scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. All linear units are meters; room footprints are 2D polygons in floor-local coordinates (3D is derived by extrusion — meshes are never stored). Structural invariants that JSON Schema cannot express (CCW non-self-intersecting polygons, cross-references, global id uniqueness) are enforced by backend/app/models.py; both validators must pass.",
+  "description": "THE contract of the Escape Plan project (v1.1; v1.0 finalized in S0.2, v1.1 adds per-floor furniture objects and the ai_plan source for the LLM house builder — 2026-07-23 revamp). One JSON document describes a home: the scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. All linear units are meters; room footprints are 2D polygons in floor-local coordinates (3D is derived by extrusion — meshes are never stored). Structural invariants that JSON Schema cannot express (CCW non-self-intersecting polygons, cross-references, global id uniqueness) are enforced by backend/app/models.py; both validators must pass.",
   "type": "object",
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "1.0",
-      "description": "Version of this contract. Any change to the schema after S0.2 requires bumping this value plus team sign-off."
+      "const": "1.1",
+      "description": "Version of this contract. Any change to the schema after S0.2 requires bumping this value plus team sign-off. 1.0 → 1.1: added floor.objects and the 'ai_plan' source."
     },
     "home_id": {
       "type": "string",
@@ -61,8 +61,8 @@
     },
     "source": {
       "type": "string",
-      "enum": ["scan", "manual"],
-      "description": "Provenance of this element: 'scan' = derived from a RoomPlan capture (must carry confidence; low-confidence items are flagged for editor review, never silently dropped); 'manual' = created or confirmed by the user in the editor."
+      "enum": ["scan", "manual", "ai_plan"],
+      "description": "Provenance of this element: 'scan' = derived from a RoomPlan capture (must carry confidence; low-confidence items are flagged for editor review, never silently dropped); 'manual' = created or confirmed by the user in the editor; 'ai_plan' = drafted by the LLM house builder from a floor plan (must carry confidence; the app forces editor review before routes are computed — same review pipeline as scan)."
     },
     "confidence": {
       "type": "number",
@@ -227,11 +227,62 @@
           "items": { "$ref": "#/$defs/opening" },
           "default": [],
           "description": "Doors and windows on this floor. An opening's room_ids must reference rooms on this same floor (or 'EXTERIOR')."
+        },
+        "objects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/object" },
+          "default": [],
+          "description": "Furniture and other large objects on this floor (v1.1). Rendered as simple prisms; the routing engine treats them as obstacles in within-room pathfinding. Deliberately low-detail — box primitives only."
         }
       },
       "required": ["id", "level", "name", "height_m", "rooms"],
       "additionalProperties": false,
       "description": "One story of the home: rooms plus the openings that connect them."
+    },
+    "object": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "const": "EXTERIOR" },
+          "description": "Unique id of the object across the whole home."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["bed", "sofa", "table", "wardrobe", "appliance", "storage", "other"],
+          "description": "What the box represents. Drives the render color/label only — routing treats every category the same (an obstacle is an obstacle)."
+        },
+        "center": {
+          "$ref": "#/$defs/point",
+          "description": "Center of the object's footprint in floor-local meters. No room_id on purpose: containment is derived geometrically, so moving a room can never dangle an object reference."
+        },
+        "size_m": {
+          "type": "array",
+          "prefixItems": [
+            { "type": "number", "exclusiveMinimum": 0, "description": "Footprint width (local x before rotation), meters." },
+            { "type": "number", "exclusiveMinimum": 0, "description": "Footprint depth (local y before rotation), meters." }
+          ],
+          "items": false,
+          "minItems": 2,
+          "description": "Footprint size [width, depth] in meters, before rotation."
+        },
+        "height_m": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Height of the prism in meters."
+        },
+        "rotation_deg": {
+          "type": "number",
+          "default": 0,
+          "description": "Counter-clockwise rotation of the footprint about its center, degrees, in the floor-local frame."
+        },
+        "source": { "$ref": "#/$defs/source" },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      },
+      "required": ["id", "category", "center", "size_m", "height_m", "source"],
+      "additionalProperties": false,
+      "description": "A large object as a rotated box primitive (v1.1). Rendered as a rectangular prism; blocks within-room routing."
     },
     "stair_end": {
       "type": "object",

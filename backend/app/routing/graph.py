@@ -3,7 +3,13 @@
 Nodes: rooms, openings, the EXTERIOR pseudo-node, with 2D positions + floor ids
 so the renderer can turn paths into waypoints. Edges:
 
-- room ↔ opening        weight = straight-line distance room centroid → opening midpoint
+- room ↔ opening        weight = within-room path length room centroid → opening midpoint
+                        (straight line when the room has no objects; a grid path
+                        around furniture when it does — revamp B3, nav_grid.py).
+                        An opening an object fully blocks, or whose approach
+                        falls below the egress clearance, yields NO edge: the
+                        engine then re-plans at room level and the blockage is
+                        surfaced as a blocked_opening finding.
 - opening ↔ EXTERIOR    weight 0 (exit crossing; door/window preference is applied
                         by the S1.2 engine as penalties, not baked in here)
 - room ↔ room via stair weight = STAIR_TRAVERSAL_COST (cross-floor connector)
@@ -26,6 +32,8 @@ from app.models import (
     Point,
 )
 from app.routing.egress import EgressThresholds, annotate_egress
+from app.routing.nav_grid import build_room_grid, objects_intersecting
+from app.routing.pathfind import grid_path, path_length
 
 STAIR_TRAVERSAL_COST = 6.0
 """Meters-equivalent cost of traversing a staircase (deliberately > a typical
@@ -60,6 +68,9 @@ class Edge:
     weight: float
     kind: EdgeKind
     via: str | None = None  # stair id for stair edges, else None
+    path: tuple[Point, ...] | None = None
+    """Within-room waypoints for room_opening edges, ordered room → opening.
+    None = straight line (no objects in the room)."""
 
     def other(self, node_id: str) -> str:
         return self.b if node_id == self.a else self.a
@@ -73,6 +84,9 @@ class NavGraph:
     """Opening ids with a viable crossing to EXTERIOR, sorted."""
     excluded_exits: dict[str, list[str]] = field(default_factory=dict)
     """Exterior openings excluded as escape paths: opening id → reasons."""
+    blocked_openings: dict[str, list[str]] = field(default_factory=dict)
+    """room id → opening ids unreachable from inside that room because objects
+    block the doorway or shrink its approach below the egress clearance."""
 
     def neighbors(self, node_id: str) -> list[Edge]:
         return self.adjacency.get(node_id, [])
@@ -128,6 +142,10 @@ def build_graph(home: HomeModel, thresholds: EgressThresholds) -> NavGraph:
     room_centroids: dict[str, Point] = {}
     room_floor: dict[str, str] = {}
     room_polygons: dict[str, list[Point]] = {}
+    # Grids exist only for rooms that actually contain objects; every other room
+    # keeps the straight-line leg (identical to pre-B3 behavior and weights).
+    room_grids: dict[str, "object"] = {}
+    clearance_m = thresholds.door_min_width_m / 2
 
     for floor in annotated.floors:
         for room in floor.rooms:
@@ -138,6 +156,11 @@ def build_graph(home: HomeModel, thresholds: EgressThresholds) -> NavGraph:
             graph.nodes[room.id] = Node(
                 id=room.id, kind=NodeKind.room, floor_id=floor.id, position=centroid
             )
+            local_objects = objects_intersecting(list(room.polygon), list(floor.objects))
+            if local_objects:
+                room_grids[room.id] = build_room_grid(
+                    list(room.polygon), local_objects, clearance_m
+                )
 
     for floor in annotated.floors:
         for op in floor.openings:
@@ -158,12 +181,35 @@ def build_graph(home: HomeModel, thresholds: EgressThresholds) -> NavGraph:
             for rid in op.room_ids:
                 if rid == EXTERIOR_ID:
                     continue
+                grid = room_grids.get(rid)
+                if grid is None:
+                    edges.append(
+                        Edge(
+                            a=rid,
+                            b=op.id,
+                            weight=_dist(room_centroids[rid], midpoint),
+                            kind=EdgeKind.room_opening,
+                        )
+                    )
+                    continue
+                leg = grid_path(
+                    grid,
+                    room_centroids[rid],
+                    midpoint,
+                    goal_radius_m=max(op.width_m / 2, 0.6),
+                )
+                if leg is None:
+                    # The doorway is unreachable from inside this room — omit the
+                    # edge so Dijkstra re-plans, and record why for the findings.
+                    graph.blocked_openings.setdefault(rid, []).append(op.id)
+                    continue
                 edges.append(
                     Edge(
                         a=rid,
                         b=op.id,
-                        weight=_dist(room_centroids[rid], midpoint),
+                        weight=path_length(leg),
                         kind=EdgeKind.room_opening,
+                        path=tuple(leg),
                     )
                 )
             if op.is_exit:
@@ -192,6 +238,8 @@ def build_graph(home: HomeModel, thresholds: EgressThresholds) -> NavGraph:
             )
         )
 
+    for rid in graph.blocked_openings:
+        graph.blocked_openings[rid].sort()
     graph.exits.sort()
     for node_id in graph.nodes:
         graph.adjacency[node_id] = []

@@ -32,6 +32,7 @@ struct DrillScreen: View {
 
     @State private var overlay: RouteOverlay?
     @State private var sceneView: SCNView?
+    @State private var cameraRig: OrbitCameraRig?
     @State private var session: DrillSession?
     @State private var isFlying = false
     @State private var practiced = false
@@ -62,13 +63,17 @@ struct DrillScreen: View {
             )
         } else if let built, let homeModel {
             ZStack(alignment: .bottom) {
-                DollhouseSceneView(
+                UnifiedSceneView(
                     dollhouse: built.dollhouse,
+                    home: homeModel,
                     explode: 0,               // tour flies the stacked house — never exploded
                     hiddenFloorIDs: [],
                     wantsContinuousRendering: routePlan != nil,
                     isTouring: isFlying,
-                    onViewReady: { sceneView = $0 }
+                    onViewReady: { view, rig in
+                        sceneView = view
+                        cameraRig = rig
+                    }
                 )
                 .ignoresSafeArea(edges: .bottom)
 
@@ -301,7 +306,7 @@ struct DrillScreen: View {
         if case .move(let segment, _) = updated.currentStep,
            let overlay, let view = sceneView {
             isFlying = true
-            overlay.startTour(along: segment, in: view) { isFlying = false }
+            overlay.startTour(along: segment, in: view, restoreTo: cameraRig?.node) { isFlying = false }
         }
     }
 

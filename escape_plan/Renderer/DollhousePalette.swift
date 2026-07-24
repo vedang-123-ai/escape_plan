@@ -46,6 +46,20 @@ enum DollhousePalette {
     // S2.3 route overlay. Primary is the hottest color in the scene on purpose — the escape
     // path is the thing the eye must find first. Secondary is cool and dashed so the two
     // never read as interchangeable.
+    /// Object prisms (v1.1): muted per-category tints so furniture reads as context, never
+    /// competing with routes or warnings.
+    static func object(category: ObjectCategory) -> UIColor {
+        switch category {
+        case .bed: return UIColor(red: 0.62, green: 0.70, blue: 0.82, alpha: 1.0)
+        case .sofa: return UIColor(red: 0.64, green: 0.74, blue: 0.68, alpha: 1.0)
+        case .table: return UIColor(red: 0.78, green: 0.72, blue: 0.62, alpha: 1.0)
+        case .wardrobe: return UIColor(red: 0.72, green: 0.66, blue: 0.76, alpha: 1.0)
+        case .appliance: return UIColor(red: 0.68, green: 0.72, blue: 0.76, alpha: 1.0)
+        case .storage: return UIColor(red: 0.76, green: 0.70, blue: 0.66, alpha: 1.0)
+        case .other: return UIColor(red: 0.72, green: 0.72, blue: 0.72, alpha: 1.0)
+        }
+    }
+
     static let routePrimary = UIColor(red: 1.0, green: 0.420, blue: 0.102, alpha: 1.0)
     static let routeSecondary = UIColor(red: 0.302, green: 0.537, blue: 0.870, alpha: 1.0)
     static let exitGlow = UIColor(red: 0.180, green: 0.820, blue: 0.443, alpha: 1.0)

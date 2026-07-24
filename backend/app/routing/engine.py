@@ -163,6 +163,23 @@ def _route_from_search(
             continue
         if i > 0:
             edge = result.edges[i - 1]
+            # Within-room grid legs (revamp B3): splice the curve-around-objects
+            # points between the two node waypoints. The cached path runs
+            # room → opening; reverse it when the leg is walked the other way.
+            if edge.kind == EdgeKind.room_opening and edge.path is not None:
+                interior = list(edge.path[1:-1])
+                if result.path[i - 1] != edge.a:
+                    interior.reverse()
+                opening_id = edge.b
+                for px, py in interior:
+                    waypoints.append(
+                        Waypoint(
+                            x=px, y=py,
+                            floor_id=graph.nodes[opening_id].floor_id,
+                            node_id=opening_id,
+                            kind="path",
+                        )
+                    )
             if edge.kind == EdgeKind.stair:
                 uses_stairs = True
                 stair = stairs_by_id[edge.via]
@@ -264,6 +281,19 @@ def compute_route_plan(
             findings: list[RouteFinding] = []
             primary_route = None
             secondary_route = None
+
+            for opening_id in graph.blocked_openings.get(room.id, []):
+                findings.append(
+                    RouteFinding(
+                        kind="blocked_opening",
+                        room_id=room.id,
+                        detail=(
+                            f"Opening '{opening_id}' can't be reached from inside "
+                            f"'{room.name}' — an object blocks the doorway or "
+                            "narrows its approach below the egress clearance."
+                        ),
+                    )
+                )
 
             primary = _dijkstra_to_exterior(
                 graph, room.id, openings, constraints

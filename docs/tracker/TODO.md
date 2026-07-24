@@ -1,8 +1,9 @@
 # Everything still to do
 
-_Last verified: 2026-07-23 @ lane/backend f39d9f6 — backend + corpus re-verified live (real
-ANTHROPIC_API_KEY, all live suites run and green); EditorCore/iOS counts below are from the
-2026-07-22 pass and untouched by this lane._
+_Last verified: 2026-07-23 on `integrate/2026-07-23` — full gate after merging all three
+lanes (backend live-AI, editor revamp, S4.4 polish). Lane C's live suites (real
+ANTHROPIC_API_KEY) were run and green on `lane/backend` before the merge; counts below are
+from the post-merge gate._
 
 This is the single source of truth for open work. It replaces the old `board.md` +
 `checklist.md`, which had drifted into contradicting each other.
@@ -18,13 +19,29 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 | Suite | Count | Command |
 |---|---|---|
-| Backend pytest | 207 pass, 11 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
-| Backend live suites | 6 + 2 + chat smoke, all pass | `python3 -m pytest backend/tests/ -m "" ` (needs key; latency bounds can flake on API variance) |
-| EditorCore (SwiftPM) | 128 pass | `swift test --package-path tools/editorcore` |
-| iOS (unit + UI) | 242 pass, 1 skipped | `xcodebuild test -scheme escape_plan …` |
+| Backend pytest | 227 pass, 12 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
+| Backend live suites | 6 + 2 + chat smoke, all pass (pre-merge, lane/backend) | `python3 -m pytest backend/tests/ -m ""` (needs key; latency bounds can flake on API variance) |
+| EditorCore (SwiftPM) | 186 pass | `swift test --package-path tools/editorcore` |
+| iOS (unit + UI) | all pass, skipped = env-gated recording/screenshot drivers | `xcodebuild test -scheme escape_plan …` |
 | Corpus | 11 sources, 6 files | `python3 backend/corpus/validate.py` |
 
 ---
+
+## 3D revamp (approved 2026-07-23 — spec/plan: `~/.claude/plans/i-want-you-to-tender-flask.md`)
+
+**ALL SIX PHASES LANDED 2026-07-23** (A1–A3 unified free-camera HouseScreen; B1–B3 schema
+v1.1 objects + obstacle-aware grid routing; C1–C2 LLM house builder + forced review gate).
+Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
+`-a3-housescreen.md`, `-b-c-objects-routing-builder.md`. Remaining follow-ups:
+
+- [ ] Device-acceptance pass on the whole revamp: unified HouseScreen gesture feel (orbit
+      sensitivity, pinch anchor, dock height on small screens), object editing, plan-import
+      flow + review gate, tour. Simulator + recording-driver verified; real-device feel and
+      real-photo floor plans are the open items.
+- [ ] Live builder golden (`backend/tests/test_builder_live.py -m live`) — blocked on the
+      same `ANTHROPIC_API_KEY` as every other live suite (see section above).
+- [ ] Consider surfacing `blocked_opening` findings in /score and the S3.2 agent
+      (deliberately not wired during the revamp).
 
 ## Blocked on a real API key
 
@@ -85,19 +102,23 @@ is unverified is the round-trip against a real scan.
 
 ## iOS — real code gaps
 
-- [ ] **`HomeModelPersisting` is declared but nothing conforms to it** and
-      `HomeLibrary.editor` is never assigned. Consequence: deleting a home that is open in
-      the editor does not close it or clear its undo history. Fix: conform `HomeModelStore`
-      and set `HomeLibrary.editor` when the editor opens. (S2.1/S2.4)
-- [ ] **Editor toolbar doesn't refresh after a tap-selection**, so "Add Stairs" stays
-      disabled until some other action bumps the revision and forces a re-render. Known
-      workaround only; see the 2026-07-22 device-acceptance entry in `decisions.md`. (S2.2)
-- [ ] **Redo occasionally needs a second tap** right after an undo — same stale-render
-      suspicion as above. Not blocking, but it will look bad on camera. (S2.2)
-- [ ] `SceneKitEditorBridge` gesture recognizers are still unwired (`TODO(integration)` in
-      the file's header block). (S2.1)
-- [ ] Add stairs between floors of a **hand-built** two-story home. Observed only on the
-      seeded fixture. (S2.2)
+_The four 2026-07-22 editor bugs (HomeModelPersisting unconformed, stale toolbar after
+tap-selection, second-tap redo, "unwired" bridge) are fixed and verified on `lane/editor` —
+see `notes/2026-07-23-lane-a-editor-completion.md`. Stairs on a hand-built two-story home
+verified in the recorded manual-build run. The old "Render URL is not the app's default"
+item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render URL._
+
+- [ ] `setOpeningWidth` exists in the reducer with tests but has **no UI entry point** — add a
+      width control (stepper/slider) to the opening inspector in `HouseScreen` (EditorScreen
+      was merged into it in revamp A3). (Lane A)
+- [ ] The House *tab*'s standalone `HouseScreen()` has no `HomeLibrary`, so the
+      delete-under-editor seam only protects the HomeScreen→Editor push path. Cross-tab
+      delete while the House tab holds the same home is still unguarded — share one library
+      instance (or an app-level environment object) if that matters. (Lane A)
+- [ ] Selecting an opening or stairs draws no marker in the 3D view
+      (`UnifiedSceneController.highlightCenter` returns nil for both — deferred since S2.2).
+      The inspector bar makes the selection legible; a visible marker needs Lane B's renderer
+      touch. (S2.2/Lane B)
 - [ ] Custom launch screen (branded color/image instead of the generated blank): needs a
       pbxproj edit (storyboard ref or physical Info.plist), deliberately deferred to the
       integration window while Lane A holds the project file — decisions.md 2026-07-23. (S4.4)

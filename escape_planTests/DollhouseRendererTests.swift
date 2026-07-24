@@ -12,7 +12,7 @@ final class DollhouseRendererTests: XCTestCase {
     func testAllFixturesDecode() throws {
         for fixture in Fixture.allCases {
             let home = try FixtureLibrary.load(fixture)
-            XCTAssertEqual(home.schema_version, "1.0", "\(fixture.rawValue) is not schema v1.0")
+            XCTAssertEqual(home.schema_version, "1.1", "\(fixture.rawValue) is not schema v1.1")
             XCTAssertFalse(home.floors.isEmpty, "\(fixture.rawValue) has no floors")
         }
     }
@@ -233,6 +233,63 @@ final class DollhouseRendererTests: XCTestCase {
         XCTAssertTrue(upper.node.isHidden)
         dollhouse.setFloor(upper.id, visible: true)
         XCTAssertTrue(dollhouse.isFloorVisible(upper.id))
+    }
+
+    /// The see-through look depends on draw order (translucent surfaces don't write depth), so
+    /// every geometry node must sit in a RenderOrder band — and translucency must line up with
+    /// order: anything that doesn't write depth must draw after the opaque interior. A stray
+    /// hand-set renderingOrder is the kind of regression that only shows up as "walls look
+    /// wrong from some angles".
+    func testEveryNodeSitsInItsRenderOrderBand() throws {
+        let knownBands: Set<Int> = [RenderOrder.opaque, RenderOrder.objects, RenderOrder.walls,
+                                    RenderOrder.glow, RenderOrder.routes, RenderOrder.labels,
+                                    RenderOrder.badges, RenderOrder.badgeGlyphs]
+        for fixture in Fixture.allCases {
+            let home = try FixtureLibrary.load(fixture)
+            let built = DollhouseSceneBuilder.build(home)
+            built.dollhouse.scene.rootNode.enumerateHierarchy { node, _ in
+                guard let geometry = node.geometry else { return }
+                XCTAssertTrue(knownBands.contains(node.renderingOrder),
+                              "\(fixture.rawValue): geometry node '\(node.name ?? "unnamed")' has renderingOrder \(node.renderingOrder), which is not a RenderOrder band")
+                // Depth-write-off translucency only works when the node draws after opaque.
+                if let material = geometry.firstMaterial, !material.writesToDepthBuffer {
+                    XCTAssertGreaterThan(node.renderingOrder, RenderOrder.opaque,
+                                         "\(fixture.rawValue): '\(node.name ?? "unnamed")' is translucent (no depth write) but draws in the opaque band")
+                }
+            }
+        }
+    }
+
+    func testObjectRendersAsARotatedPrismInItsBand() throws {
+        var home = try FixtureLibrary.load(.bungalow)
+        home.floors[0].objects.append(FloorObject(
+            id: "o_test", category: .sofa, center: Point(x: 2.5, y: 2.0),
+            size_m: [2.0, 0.9], height_m: 0.8, rotation_deg: 90, source: .manual))
+        let built = DollhouseSceneBuilder.build(home)
+        XCTAssertTrue(built.issues.isEmpty)
+
+        let node = try XCTUnwrap(built.dollhouse.scene.rootNode.childNode(withName: "object:o_test",
+                                                                          recursively: true))
+        XCTAssertEqual(node.renderingOrder, RenderOrder.objects)
+        let box = try XCTUnwrap(node.geometry as? SCNBox)
+        XCTAssertEqual(Double(box.width), 2.0, accuracy: 1e-6)
+        XCTAssertEqual(Double(box.length), 0.9, accuracy: 1e-6)
+        XCTAssertEqual(Double(box.height), 0.8, accuracy: 1e-6)
+        // Sitting ON the slab: center at half height; plan (2.5, 2.0) → scene (2.5, _, -2.0).
+        XCTAssertEqual(node.position.y, 0.4, accuracy: 1e-4)
+        XCTAssertEqual(node.position.z, -2.0, accuracy: 1e-4)
+        XCTAssertEqual(Double(node.eulerAngles.y), .pi / 2, accuracy: 1e-6)
+    }
+
+    func testMalformedObjectIsSurfacedAsABuildIssueNotACrash() throws {
+        var home = try FixtureLibrary.load(.bungalow)
+        home.floors[0].objects.append(FloorObject(
+            id: "o_bad", category: .other, center: Point(x: 1, y: 1),
+            size_m: [2.0], height_m: 0.8, source: .manual))
+        let built = DollhouseSceneBuilder.build(home)
+        XCTAssertTrue(built.issues.contains { $0.entityID == "o_bad" })
+        XCTAssertNil(built.dollhouse.scene.rootNode.childNode(withName: "object:o_bad",
+                                                              recursively: true))
     }
 
     func testSingleFloorFixturesHaveExactlyOneFloor() throws {

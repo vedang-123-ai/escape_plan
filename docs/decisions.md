@@ -11,6 +11,10 @@ Running log of deviations from playbook defaults, and why. Newest first.
 | 2026-07-23 | S4.4 (Lane B) | **Routes render x-ray (always on top).** Route tubes, exit glows, stair stubs, and the new start marker set `readsFromDepthBuffer = false` + renderingOrder above the walls'. Before-screenshots proved the old rendering invisible: stacked double-sided translucent walls (4-6 surfaces from a three-quarter camera) alpha-dimmed the 6 cm tubes to nothing — the demo's money shot showed a gray box with a green door. Also: primary tube radius 0.06→0.10, route lift 0.22→0.30, camera tour eased (`easeInEaseOut`), tour lens widened to 65°, tour gaze aimed down at the path | The route is the one thing the screen exists to show; physical correctness (occlusion) loses to legibility here, matching how the room labels and warning badges already rendered through walls |
 | 2026-07-23 | S4.4 (Lane B) | **Launch screen stays the system-generated blank** (`INFOPLIST_KEY_UILaunchScreen_Generation`). Customizing it requires either a storyboard file reference or a physical Info.plist — both pbxproj edits — while Lane A concurrently holds the project open; a fake in-app splash was rejected as an anti-pattern (delays first interaction). Left as an integration-window item in TODO.md | Lowest-value item on the S4.4 list vs. the only one needing shared-project-file surgery mid-parallel-lanes |
 | 2026-07-23 | S4.4 (Lane B) | **App icon is generated, not designed externally**: `scripts/make_app_icon.swift` (CoreGraphics, run with `swift scripts/make_app_icon.swift <outdir>`) produces the 1024px light/dark/tinted PNGs (night-blue gradient, white house outline, green doorway, ember route arrow). No new dependency; `tools-used.md` unchanged | Zero-dependency way to a real icon; the motif is the product (house + route out the door) |
+| 2026-07-23 | Lane A (S2.1/S2.2 completion) | **`HomeModelStore` and `UndoStack` are `@Observable`; every manual `revision += 1` deleted.** `import Observation` in `Editor/Core` (Foundation-family — the core stays UIKit/SwiftUI-free; `tools/editorcore` platform floor bumped macOS 13→14 for the macro). `EditorScreen`/`EditorSceneView` re-render off the store's own `model`/`selection`/`activeFloorId` and the undo stack's `canUndo`/`canRedo`; `EditorSceneView` receives `model`/`selection`/`activeFloorId` **by value** so the representable's diff actually fires `updateUIView`. Kills the whole stale-render class from the 2026-07-22 acceptance: toolbar now enables Add Stairs on plain tap-selection, redo works on the first tap, and the stale yellow highlight is repainted because selection changes reach `updateUIView` | The revision counter was a hand-maintained shadow of "did anything change" and every missed bump was a UI bug. Observation makes the store itself the signal — a forgotten call site is no longer possible |
+| 2026-07-23 | Lane A (openings) | **Opening authoring: `addOpening`/`deleteOpening`/`setOpeningKind`/`setOpeningWidth` + pure `OpeningPlacement`.** Interior-vs-exterior is **derived from geometry at creation time, never asked**: another room's edge collinearly overlapping the opening's span on the host wall ⇒ interior (`room_ids = [host, neighbor]`), else `[host, EXTERIOR]` (a door there is an exit; a window there is the fixtures' egress-window encoding). Editor defaults per kind — door 0.9×2.0 m sill 0, window 1.0×1.2 m sill 0.8 — copied from the hand-authored fixtures (editor conveniences, NOT safety guidance; egress viability stays the backend annotator's). Kind switch jumps height/sill to the new kind's defaults, keeps width+span. **Drags never re-derive `room_ids`**: scan-converted homes may encode adjacency their footprints can't reproduce exactly (RoomPlan rooms don't share wall lines), so normalizing on drag could silently disconnect a scanned interior door. New validation closes the S2.2 known gap: same-edge openings must not overlap in t (all three fixtures audited clean before adding). Placement UI is a one-shot tool (Add Door/Window → tap a wall → `HitTesting.wallPoint` → dispatch), with the new opening auto-selected and an Interior/Exterior readout in the selection inspector | Deriving adjacency is the only design that never asks the user a question the geometry already answers, and creation-time-only is the conservative choice for scan data. The overlap check was flagged 2026-07-22 as the missing backstop for `dragOpening` sliding a door through another |
+| 2026-07-23 | Lane A (bug 1) | **`HomeModelPersisting` conformer is a new `EditorSession` (@Observable: store + undo stack + `wasDeletedExternally`), not `HomeModelStore` itself** — the doc comment's suggestion would have put app-lifecycle state in the pure core, and the store can't clear an undo stack it doesn't own. Protocol is now `@MainActor` (its only caller, `HomeLibrary`, already is). `EditorScreen` registers the session as `library.editor` on load, unregisters on disappear, and dismisses when `wasDeletedExternally` flips; `UndoStack.reset()` added. Note the seam only connects screens sharing a `HomeLibrary` instance (HomeScreen→Editor push); the Editor *tab*'s standalone screen has no library and stays unregistered | The session wrapper keeps EditorCore pure while giving the seam a home; deleting a home's undo history on external delete is mandatory because those snapshots would resurrect the deleted document |
+| 2026-07-23 | Lane A (evidence) | **Manual-build acceptance driven by an env-gated UI test (`ManualBuildRecordingUITests`, `TEST_RUNNER_MANUAL_BUILD=1`) + `simctl recordVideo`, following the S4.1 golden-path recording idiom.** The test inverts the editor camera's deterministic ortho framing (bbox + 1.5 m padding, `scale = max(w,d)/2`) to convert floor-plan meters into taps; `SCNView` gained accessibility id `editor.scene` for it. Rooms are joined by dragging corners onto neighbors (vertex snap lands them exactly — also live proof of drag+snap through the wired bridge). Evidence: `docs/evidence/lane-editor-manual-build{.mp4,-home.json,-routeplan.json}` — recording transcoded to 0.5 MB (ffmpeg, local tool only, not a project dependency); `/routes` returned primary+secondary for all 4 rooms | Repeatable by anyone with the simulator + local backend, and the recording shows the two on-camera bugs (stale toolbar, second-tap redo) actually gone |
 | 2026-07-22 | S3.3 fix + S3.2 prep | **Closed the 2026-07-22 "S3.3 (found, not fixed)" finding: `/chat` now returns a deliberate 502 when `ANTHROPIC_API_KEY` is unset.** `api_chat.post_chat` catches the base `GroundingError` (raised by `service._client()`; NOT a parent of `ChatGroundingError` — they're sibling `Exception` subclasses) in the same 502 clause, mirroring `/explain`/`/analyze`. Regression test `test_chat_endpoint_maps_missing_key_grounding_error_to_502` verified red-on-old-code/green-on-fix. Also wrote `backend/tests/test_agent_live.py` (marked `live`, key-skipped), the missing S3.2 live acceptance suite the board flagged: encodes the playbook criteria (apartment `d_entry` single-exit, twostory `w_kids`/`r_bed_kids`, zero findings without trace-resolving evidence, <60s) with `test_ai_live.py`-style first-run golden snapshots (`tests/golden/agent_<case>.json`). Backend suite 197 green; the live run itself remains key-blocked for P1's key session | The 500 was an accident of exception hierarchy, not a decision — the iOS client already treats all 5xx alike, but the JSON 502 matches the other AI endpoints and the session brief's assumption. Writing the live suite now means P1's key session is pure run-and-review, no authoring |
 | 2026-07-22 | S5.1 | **Script + storyboard promoted to v1 (`docs/demo/script-v1.md`, `storyboard-v1.md`; v0 files marked superseded, kept).** Run ahead of the S4.1 prerequisite by explicit direction (second approved instance of the 2026-07-16 deviation) — the build state now supports it: S2.1–S2.3/S3.2–S3.5 code-done resolved most of v0's `[PENDING]` tags to true-now, tracked per claim in a truth-ledger appendix. Three content rulings: (1) Beat 2's unsourced "eighty percent" reworded to "most of the way there" per the v0 honesty note — S1.5 never produced a measured number; (2) Beat 5 locked to the build's actual semantics — the kids'-room finding is "window too small" via the agent's `check_egress` (engine's `no_secondary_egress` doesn't trip there), and the on-camera profile switch is `mobility_limited`/`elderly` only (child is a tested no-op); (3) the storyboard now **defines the canonical b-roll path contract** (`docs/demo/broll/s<xy>-<shot>.mov`) that concurrent capture work delivers into — v0's "first person to record it creates it" is now binding names. VO: 436 words ≈ 2:54 at 150 wpm. Acceptance (team table-read < 3:15, P1 tech-accuracy pass) deliberately left unchecked — needs humans | The doc-only lane could run while device/key sessions proceed elsewhere; every judge-checkable claim now cites either `sources.json` or a decisions.md entry, and the path contract lets b-roll land without coordination |
 | 2026-07-22 | integration (S2.2×S2.3×S3.3×S3.4×S3.5) | **Closed S3.4's `TODO(integration)`: PlanScreen now has a "Who" profile picker.** Selecting a family member calls the existing `fetchRoutes(home:profileID:)` seam S2.3 had already left in place, and jumps the room selection to that profile's `bedroom_room_id`; "Everyone" (nil) restores the unconstrained whole-house plan. Switching homes resets the selection. The client still sends only `profile_id` — tag→constraint translation stays server-side, and nothing client-side re-derives a route | The two halves were built in parallel against an agreed seam, so joining them was wiring, not new logic. Auto-selecting the profile's bedroom makes the Grandpa-vs-Maya acceptance a one-tap demo instead of a two-step one |
@@ -374,3 +378,181 @@ live backend required) so the normal suite stays hermetic.
 - **Scorecard**: S3.5 fully DONE; S2.3 + S3.4 observed except real-device 60fps (S2.3) and
  key-blocked explanation text (S3.4); S2.2 observed except the real-converted-scan door-fix
  criterion (needs S1.4/S1.5). Evidence + b-roll: `artifacts/acceptance-2026-07-22/`.
+
+## 2026-07-23 — Revamp A1: hand-rolled orbit camera replaces `allowsCameraControl`
+
+Approved revamp (grilled spec, saved plan): one free-camera translucent dollhouse that is
+simultaneously viewer and editor, objects that block routes (schema v1.1 + within-room grid
+pathfinding), and an agentic LLM house builder behind a forced human-review gate. Sequencing
+A (unified view) → B (objects/routing) → C (builder). This session shipped A1:
+
+- **`allowsCameraControl` replaced** by `CameraRigModel` (pure Foundation, editorcore-tested)
+  + `OrbitCameraRig` (SceneKit binding). Why: pinch must zoom toward the pinch point (the
+  stock controller zooms at the scene center), and A2's editing drags need to share gesture
+  arbitration with the camera — impossible against the black-box default controller.
+  Zoom-to-point math: `d' = d/s`, `pivot' = anchor + (pivot − anchor)/s`.
+- **The rig node is owned by the view layer** and re-attached across scene rebuilds, so the
+  editor's rebuild-on-every-edit strategy no longer resets the camera (pre-req for A2).
+- **`RenderOrder` ledger** (`Renderer/RenderOrder.swift`): all `renderingOrder` magic numbers
+  centralized into spaced bands (opaque 0 / objects 5 / walls 10 / glow 20 / routes 30 /
+  labels 100+); route tubes now explicitly draw after the translucent shell. A renderer test
+  asserts every geometry node sits in a known band and that depth-write-off materials never
+  draw in the opaque band.
+- **Tour teardown** now restores `pointOfView` to a caller-supplied node instead of flipping
+  `allowsCameraControl` back on (RouteOverlay.startTour gained `restoreTo:`).
+- `DollhouseScene.setFloorFade(_:opacity:)` added (node.opacity only — materials stay
+  untouched) for the coming floor-spotlight chips.
+- `DollhouseSceneView` is superseded by `UnifiedSceneView` but not yet deleted — PlanScreen
+  now uses the unified view; deletion happens in A3 after the editor migrates (A2).
+
+## 2026-07-23 — Revamp A2: editing in the unified free-camera view
+
+- **Arbitration-by-selection**: a one-finger pan edits ONLY when it begins on the current
+  selection (or a vertex/wall of the selected room) — decided once at `.began` by the pure
+  `GestureArbiter` and latched for the whole gesture. Anything else orbits. Worst case is one
+  extra tap; there is no mode switch.
+- **One pan recognizer, branched on touch count** (1 = edit/orbit, 2 = truck), pinch runs
+  simultaneously with pan. An earlier split into per-touch-count recognizers was scrapped.
+- **`UnifiedSceneController` replaces `EditorSceneController`** as the `EditorSceneAdapter`:
+  whole house visible while editing, unprojection onto the active floor's *presentation* Y
+  (works mid-explode), `metersPerPoint()` measured by probing the drag plane (perspective-
+  correct tolerances). `EditorSceneController` is now dead code — deleted in A3.
+- **Wall drags slide along their normal**: `Geometry.projectOntoEdgeNormal` strips the
+  along-edge component before `.dragEdge` dispatch.
+- **UI-automation camera**: the manual-build recording driver can't invert a free perspective
+  camera, so `-editor.topDownCamera YES` pins the old deterministic ortho frame (same math,
+  verbatim). Driver updated: selects a room before dragging its corners, and **pins portrait
+  orientation** — the driver's failures during this session were ultimately a simulator left
+  in landscape while the device reported portrait, which silently breaks synthesized drags
+  (taps survive). Documented here because it looks exactly like an app bug and cost a debug
+  cycle: check orientation FIRST when synthesized drags do nothing.
+- New simulator test `UnifiedEditorPipelineTests` drives SCNView projection → controller →
+  arbiter → bridge → store end-to-end (perspective AND top-down modes), so the join-rooms
+  regression class is caught in seconds instead of the 2-minute env-gated UI run.
+
+## 2026-07-23 — Revamp A3: HouseScreen consolidation (+ two real interaction bugs found)
+
+- **`HouseScreen` replaces `EditorScreen` + `PlanScreen`** (both deleted, along with
+  `EditorSceneController` and `DollhouseSceneView`). One free-orbit translucent dollhouse is
+  simultaneously the editor and the route viewer; tab shell is now Home / House / Assistant /
+  Settings. Any accepted edit invalidates the shown plan and re-fetches `/routes` after a
+  0.9 s debounce — routes remain server truth, never client-computed. `DrillScreen` moved to
+  `UnifiedSceneView`. Onboarding's plan step and HomeScreen's push destinations use HouseScreen.
+- **Layout law: the scene view's frame must never change mid-gesture.** Chrome (inspector,
+  placement hint, route controls) lives in a FIXED-HEIGHT scrollable dock under the scene.
+  Both alternatives failed in practice: chrome stacked below the scene resizes it when panels
+  appear/vanish (an in-flight drag's world shifts under the finger — the driver caught vertex
+  drags landing ~1.7 m off), and chrome overlaid on the scene swallows touches aimed at
+  geometry behind it.
+- **Pan-recognition slop is real and breaks arbitration**: a `UIPanGestureRecognizer` begins
+  ~10 pt after touch-down and `translation` at `.began` does NOT fully cover the slop, so
+  neither `location` nor `location − translation` is the press point. At typical zooms 10 pt
+  crosses to a neighboring room's vertex — the drag then hits the wrong room and arbitration
+  latches camera. Fix: `InitialPointPanGestureRecognizer` records the true touch-down point
+  in `touchesBegan`; arbitration and the edit-drag anchor use that.
+- **Route overlay across rebuilds**: `UnifiedSceneController.onRebuild` re-hangs the overlay
+  on every rebuilt scene. The overlay lives in a stable class box, not directly in @State —
+  `onRebuild` fires inside `updateUIView`, and reassigning @State there invalidates the view
+  from within its own update, an endless rebuild loop.
+- **Debugging pattern that worked** (promoted for reuse): a rolling gesture-event log in the
+  scene view's `accessibilityValue` (gated behind `-editor.topDownCamera` so VoiceOver never
+  reads it) + the driver failing with `scene.value` in the message. Simulator log streams
+  never reach the cloned test simulator; this does.
+
+## 2026-07-23 — Revamp B1: schema v1.1 (objects + ai_plan source)
+
+One bump covers both remaining revamp projects (B's objects AND C's ai_plan source) so the
+three-way lockstep churn happens exactly once. Changes, in lockstep across JSON Schema /
+pydantic / Swift Codable (+ round-trip tests green):
+
+- `floor.objects[]` (default []): `{id, category, center, size_m [w,d], height_m,
+  rotation_deg (default 0), source, confidence}` — rotated box primitives, rendered as
+  prisms, obstacles for B3's within-room routing. **No `room_id`** — containment is derived
+  geometrically so moving a room can never dangle an object reference.
+- `source` gains `"ai_plan"`; the confidence rule generalizes: scan AND ai_plan items must
+  carry confidence (pydantic `SourcedModel`).
+- `SchemaMigrator` 1.0 → 1.1 registered (re-stamps the version; decoders tolerate a missing
+  `objects` key). Migration + decode covered by a new PersistenceTests case.
+- Fixtures re-stamped to 1.1; new planted fixture `bungalow-blocked.json` (wardrobe fully
+  blocking the bedroom doorway + sofa mid-room) for B3's obstacle-routing assertions.
+- Scan converter now emits 1.1. FastAPI app version string is unrelated and unchanged.
+- Process note: this lands as its own commit on `lane/editor`; the branch itself is the PR
+  unit for team sign-off per the schema rules.
+
+## 2026-07-23 — Revamp B2: objects rendered + editable
+
+- Objects render as opaque rotated `SCNBox` prisms (`object:<id>`, RenderOrder band 5 —
+  under the translucent shell, over the slab), muted per-category tints. Malformed size_m
+  surfaces as a BuildIssue, never a crash.
+- Editor vocabulary: `addObject/deleteObject/dragObject/rotateObject/resizeObject/
+  setObjectCategory`; `Selection.object`; `dragObject` coalesces like other drags. Objects
+  join the global id namespace in EditorValidation (pydantic lockstep). Validation is
+  deliberately permissive about placement — an object poking outside a room is scan-data
+  reality, not an error.
+- Hit-testing: point-in-rotated-rect; objects win over the room interior, topmost
+  (last-listed) object wins on overlap. GestureArbiter unchanged — an object edits only
+  while selected, like every non-room entity.
+- HouseScreen: Add Object drops a default box at the selected room's centroid, pre-selected
+  for immediate dragging; inspector = category picker + rotate-45° + delete.
+
+## 2026-07-23 — Revamp B3: within-room grid pathfinding (obstacle-aware routing)
+
+- **Grid over navmesh, per ROOM not per floor**: a room ↔ opening leg is by definition
+  within one room, so each object-bearing room gets its own 0.1 m occupancy grid — no wall
+  bands, no opening punch-through, and rooms WITHOUT objects keep the literal pre-B3
+  straight-line legs (`grid is None` fast path). Zero golden churn on the existing fixtures,
+  asserted by `test_object_free_fixtures_keep_straight_legs`.
+- **Determinism recipe**: integer cells, integer step costs (10/14), heap tie-break
+  (f, h, row, col), chamfer 3-4 distance transform in scaled ints, ring-then-row-then-col
+  endpoint landing, greedy supercover-Bresenham smoothing. Byte-equality asserted.
+- **Clearance = door_min_width_m / 2 from the corpus thresholds** (metric authoritative,
+  loaded never hardcoded): an object that shrinks a passage below the egress width blocks
+  the leg even without touching a wall.
+- **Endpoint landing radii differ on purpose**: a START (room centroid) lands generously
+  (1.5 m — a centroid can sit inside the bed; the person starts beside it), a GOAL (doorway
+  midpoint) must land AT the doorway (max(width/2, 0.6 m)) or the wardrobe in front of the
+  door would be "reached" by standing next to it. This distinction is what makes
+  blocked-doorway detection work at all.
+- **Room-graph architecture kept**: blocked leg ⇒ edge omitted ⇒ existing Dijkstra re-plans
+  with zero new logic; `blocked_opening` finding (additive) surfaces why. Grid work happens
+  once per room in `build_graph`; `find_bottlenecks` stays graph-only. Cached grid waypoints
+  splice into routes as `kind: "path"` (additive; Swift decodes both new kinds, drill cards
+  treat path like room). Evidence sample: `docs/route-samples/bungalow-blocked.json` (40
+  curve points + the finding).
+
+## 2026-07-23 — Revamp C1: LLM house builder (backend agent + /build)
+
+- `backend/app/builder/actions.py` (pure): the Python mirror of the editor vocabulary — NOT
+  a Swift port. Shared semantics = the pydantic validators both halves already obey; the
+  only re-expressed editor logic is parametric opening placement (span clamping +
+  adjacency-derived room_ids, mirroring OpeningPlacement.swift — interior vs EXTERIOR is
+  geometry, the model is never asked). Forgiving where it should be (CW polygons reversed,
+  not rejected); loud, specific ActionErrors where the model needs feedback.
+- `backend/app/ai/builder.py`: hand-rolled loop cloned from agent.py, cap 40 (construction
+  is ~one call per entity). **No routing/egress tools** — asserted by a test. Provenance is
+  structural: every created element gets source=ai_plan + confidence 0.5 from the action
+  layer; the model cannot emit a "trusted" element, which is what makes the iOS review gate
+  non-bypassable. An invalid submit_home bounces back with the pydantic errors so the model
+  self-corrects within the budget; ending without a valid draft returns home=None + issues,
+  never a broken model.
+- `POST /build` (bearer-gated): {description?, image_b64?, image_media_type} → BuildResult
+  {home, trace, truncated, issues}. Vision input as content blocks; PDFs will be rasterized
+  client-side (C2, PDFKit) — no new backend dependency.
+- Tests: 13 pure action tests (rejections emphasized), 6 scripted-loop tests, 1 live golden
+  (`-m live`, needs the API key — blocked on the same key as every other live suite).
+
+## 2026-07-23 — Revamp C2: plan-import flow + the forced review gate
+
+- Intake scope-lock officially relaxed (per the approved revamp spec): LiDAR-only becomes
+  LiDAR + AI-drafted plan import, BOTH funneling through editor review. The judge story is
+  unchanged and stronger: AI accelerates input, the human verifies, the engine routes.
+- **The gate is structural at every layer**: the builder can only emit `source: ai_plan`
+  (action layer stamps it); `HitTesting.needsReview` says ai_plan ALWAYS needs review
+  regardless of confidence; `HomeModel.hasAIDraftContent` blocks `fetchRoutes` in
+  HouseScreen until `.confirmAIDraft` (a single undoable commit) flips every ai_plan
+  element to manual. No prompt behavior can bypass it.
+- `BuildFromPlanView` (text + photo + PDF): PDFs rasterized client-side with PDFKit at
+  ~150 dpi — the backend only ever sees PNG/JPEG, zero new backend deps. Entry point lives
+  in HomeScreen's toolbar next to Scan.
+- This is also the fast test path the revamp wanted: describe a home → draft → review →
+  routes, no LiDAR and no manual building required.

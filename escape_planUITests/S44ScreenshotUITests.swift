@@ -85,8 +85,8 @@ final class S44ScreenshotUITests: XCTestCase {
         sleep(1)
         shoot("02-home")
 
-        // --- Plan tab: pick Two-Story, wait for routes ----------------------
-        app.tabBars.buttons["Plan"].tap()
+        // --- House tab (unified editor+routes): pick Two-Story, wait for routes ----------
+        app.tabBars.buttons["House"].tap()
         sleep(2)
         attempt("select two-story in plan") {
             // Toolbar principal picker collapses to a button naming the current home.
@@ -103,7 +103,7 @@ final class S44ScreenshotUITests: XCTestCase {
             return true
         }
         // Routes fetched from the local backend land in a second or two.
-        _ = app.staticTexts["Exploded view"].waitForExistence(timeout: 10)
+        _ = app.staticTexts["Explode"].waitForExistence(timeout: 10)
         sleep(6)
         shoot("03-plan-everyone")
 
@@ -165,8 +165,8 @@ final class S44ScreenshotUITests: XCTestCase {
             return true
         }
 
-        // --- Editor tab (view only — Lane A owns it) ------------------------
-        app.tabBars.buttons["Editor"].tap()
+        // --- House tab again: the unified screen IS the editor now ----------
+        app.tabBars.buttons["House"].tap()
         sleep(3)
         shoot("07-editor")
 
@@ -304,13 +304,13 @@ final class S44BackendDownUITests: XCTestCase {
         ]
         app.launch()
 
-        // Plan: either the cached-plan banner or the error banner — and a live scene.
-        XCTAssertTrue(app.tabBars.buttons["Plan"].waitForExistence(timeout: 15))
-        app.tabBars.buttons["Plan"].tap()
+        // House: either the cached-plan banner or the error banner — and a live scene.
+        XCTAssertTrue(app.tabBars.buttons["House"].waitForExistence(timeout: 15))
+        app.tabBars.buttons["House"].tap()
         sleep(8)
         shoot("offline-01-plan")
-        XCTAssertTrue(app.staticTexts["Exploded view"].waitForExistence(timeout: 10),
-                      "Plan screen must still render the dollhouse with the backend down")
+        XCTAssertTrue(app.staticTexts["Explode"].waitForExistence(timeout: 10),
+                      "House screen must still render the dollhouse with the backend down")
 
         // Assistant: send must fail into the error banner, not hang.
         app.tabBars.buttons["Assistant"].tap()

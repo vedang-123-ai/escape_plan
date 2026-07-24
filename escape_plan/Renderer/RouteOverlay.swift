@@ -49,6 +49,7 @@ final class RouteOverlay {
 
     private var tourNode: SCNNode?
     private weak var tourView: SCNView?
+    private weak var tourRestoreNode: SCNNode?
     private var tourCompletion: (() -> Void)?
     /// Room-name labels hidden while the tour owns the camera — at eye level a billboarded
     /// label fills the whole frame.
@@ -114,6 +115,8 @@ final class RouteOverlay {
                 geometry.firstMaterial = tubeMaterial(style)
                 let node = SCNNode(geometry: geometry)
                 node.name = "route:\(label):\(run.floorID)"
+                // Routes are the payload of the whole view — drawn after the translucent
+                // shell so they read through walls and floors.
                 node.renderingOrder = style.renderingOrder
                 node.castsShadow = false
                 container.addChildNode(node)
@@ -275,7 +278,7 @@ final class RouteOverlay {
         discMaterial.readsFromDepthBuffer = false
         disc.firstMaterial = discMaterial
         let discNode = SCNNode(geometry: disc)
-        discNode.renderingOrder = 110
+        discNode.renderingOrder = RenderOrder.badges
 
         let glyph = SCNText(string: severe ? "✕" : "!", extrusionDepth: 0)
         glyph.font = UIFont.systemFont(ofSize: 12, weight: .heavy)
@@ -287,7 +290,7 @@ final class RouteOverlay {
         glyphMaterial.readsFromDepthBuffer = false
         glyph.firstMaterial = glyphMaterial
         let glyphNode = SCNNode(geometry: glyph)
-        glyphNode.renderingOrder = 111
+        glyphNode.renderingOrder = RenderOrder.badgeGlyphs
         let scale: Float = 0.028
         glyphNode.scale = SCNVector3(scale, scale, scale)
         let (minB, maxB) = glyph.boundingBox
@@ -308,8 +311,11 @@ final class RouteOverlay {
     // MARK: - Tour
 
     /// Flies the camera along the primary route at eye height — the S2.3 "money shot".
-    /// Restores free orbit on the builder's camera when finished or cancelled.
-    func startTour(along route: Route, in view: SCNView, completion: @escaping () -> Void) {
+    /// When finished or cancelled, `pointOfView` returns to `restoreTo` (the unified view's
+    /// orbit-rig camera; falls back to the builder's static camera when nil).
+    func startTour(along route: Route, in view: SCNView,
+                   restoreTo restoreNode: SCNNode? = nil,
+                   completion: @escaping () -> Void) {
         cancelTour()
         guard let dollhouse else {
             completion()
@@ -344,9 +350,9 @@ final class RouteOverlay {
 
         tourNode = node
         tourView = view
+        tourRestoreNode = restoreNode
         tourCompletion = completion
         view.pointOfView = node
-        view.allowsCameraControl = false
 
         tourHiddenLabels = []
         dollhouse.scene.rootNode.enumerateChildNodes { child, _ in
@@ -391,11 +397,13 @@ final class RouteOverlay {
         tourNode = nil
         for label in tourHiddenLabels { label.isHidden = false }
         tourHiddenLabels = []
-        if let view = tourView, let dollhouse {
-            view.pointOfView = dollhouse.cameraNode
-            view.allowsCameraControl = true
+        // Hand the camera back to whoever owned it — the orbit rig's node, not
+        // `allowsCameraControl` (the unified view never enables the built-in controller).
+        if let view = tourView {
+            view.pointOfView = tourRestoreNode ?? dollhouse?.cameraNode
         }
         tourView = nil
+        tourRestoreNode = nil
         let completion = tourCompletion
         tourCompletion = nil
         completion?()

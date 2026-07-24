@@ -1,0 +1,626 @@
+{
+  "home_id": "5d3f2a10-6b7c-4d8e-9f01-23456789abc4",
+  "home_name": "Bungalow (blocked doorway)",
+  "constraints": {
+    "avoid_stairs": false,
+    "avoid_windows": false,
+    "max_sill_height_m": null,
+    "stair_penalty_m": 0.0,
+    "window_penalty_m": 0.0
+  },
+  "profile_id": null,
+  "rooms": [
+    {
+      "room_id": "r_living",
+      "room_name": "Living Room",
+      "floor_id": "f1",
+      "primary": {
+        "waypoints": [
+          {
+            "x": 2.5,
+            "y": 2.0,
+            "floor_id": "f1",
+            "node_id": "r_living",
+            "kind": "room"
+          },
+          {
+            "x": 2.45,
+            "y": 2.75,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 1.25,
+            "y": 2.6500000000000004,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 1.1500000000000001,
+            "y": 2.35,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 1.1500000000000001,
+            "y": 1.35,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 2.35,
+            "y": 0.35000000000000003,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 2.45,
+            "y": 0.35000000000000003,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 2.45,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "opening"
+          },
+          {
+            "x": 2.45,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 5.284,
+        "uses_stairs": false,
+        "uses_window": false,
+        "exit_id": "d_front"
+      },
+      "secondary": {
+        "waypoints": [
+          {
+            "x": 2.5,
+            "y": 2.0,
+            "floor_id": "f1",
+            "node_id": "r_living",
+            "kind": "room"
+          },
+          {
+            "x": 2.45,
+            "y": 2.75,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "path"
+          },
+          {
+            "x": 1.25,
+            "y": 2.6500000000000004,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "path"
+          },
+          {
+            "x": 0.35000000000000003,
+            "y": 2.0500000000000003,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "path"
+          },
+          {
+            "x": 0.0,
+            "y": 2.1,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "opening"
+          },
+          {
+            "x": 0.0,
+            "y": 2.1,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 3.391,
+        "uses_stairs": false,
+        "uses_window": true,
+        "exit_id": "w_living"
+      },
+      "findings": []
+    },
+    {
+      "room_id": "r_kitchen",
+      "room_name": "Kitchen",
+      "floor_id": "f1",
+      "primary": {
+        "waypoints": [
+          {
+            "x": 7.5,
+            "y": 2.0,
+            "floor_id": "f1",
+            "node_id": "r_kitchen",
+            "kind": "room"
+          },
+          {
+            "x": 5.0,
+            "y": 1.65,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "opening"
+          },
+          {
+            "x": 4.65,
+            "y": 1.6500000000000001,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 3.75,
+            "y": 2.6500000000000004,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 2.45,
+            "y": 2.75,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 2.5,
+            "y": 2.0,
+            "floor_id": "f1",
+            "node_id": "r_living",
+            "kind": "room"
+          },
+          {
+            "x": 2.45,
+            "y": 2.75,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 1.25,
+            "y": 2.6500000000000004,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 1.1500000000000001,
+            "y": 2.35,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 1.1500000000000001,
+            "y": 1.35,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 2.35,
+            "y": 0.35000000000000003,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 2.45,
+            "y": 0.35000000000000003,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 2.45,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "opening"
+          },
+          {
+            "x": 2.45,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 11.559,
+        "uses_stairs": false,
+        "uses_window": false,
+        "exit_id": "d_front"
+      },
+      "secondary": {
+        "waypoints": [
+          {
+            "x": 7.5,
+            "y": 2.0,
+            "floor_id": "f1",
+            "node_id": "r_kitchen",
+            "kind": "room"
+          },
+          {
+            "x": 5.0,
+            "y": 1.65,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "opening"
+          },
+          {
+            "x": 4.65,
+            "y": 1.6500000000000001,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 3.75,
+            "y": 2.6500000000000004,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 2.45,
+            "y": 2.75,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 2.5,
+            "y": 2.0,
+            "floor_id": "f1",
+            "node_id": "r_living",
+            "kind": "room"
+          },
+          {
+            "x": 2.45,
+            "y": 2.75,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "path"
+          },
+          {
+            "x": 1.25,
+            "y": 2.6500000000000004,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "path"
+          },
+          {
+            "x": 0.35000000000000003,
+            "y": 2.0500000000000003,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "path"
+          },
+          {
+            "x": 0.0,
+            "y": 2.1,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "opening"
+          },
+          {
+            "x": 0.0,
+            "y": 2.1,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 9.666,
+        "uses_stairs": false,
+        "uses_window": true,
+        "exit_id": "w_living"
+      },
+      "findings": []
+    },
+    {
+      "room_id": "r_bedroom",
+      "room_name": "Bedroom",
+      "floor_id": "f1",
+      "primary": {
+        "waypoints": [
+          {
+            "x": 2.5,
+            "y": 6.0,
+            "floor_id": "f1",
+            "node_id": "r_bedroom",
+            "kind": "room"
+          },
+          {
+            "x": 2.45,
+            "y": 7.65,
+            "floor_id": "f1",
+            "node_id": "w_bedroom",
+            "kind": "path"
+          },
+          {
+            "x": 2.5,
+            "y": 8.0,
+            "floor_id": "f1",
+            "node_id": "w_bedroom",
+            "kind": "opening"
+          },
+          {
+            "x": 2.5,
+            "y": 8.0,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 2.004,
+        "uses_stairs": false,
+        "uses_window": true,
+        "exit_id": "w_bedroom"
+      },
+      "secondary": null,
+      "findings": [
+        {
+          "kind": "blocked_opening",
+          "room_id": "r_bedroom",
+          "detail": "Opening 'd_living_bedroom' can't be reached from inside 'Bedroom' — an object blocks the doorway or narrows its approach below the egress clearance."
+        },
+        {
+          "kind": "no_secondary_egress",
+          "room_id": "r_bedroom",
+          "detail": "'Bedroom' has no second way out: every route depends on exit 'w_bedroom'."
+        }
+      ]
+    },
+    {
+      "room_id": "r_bath",
+      "room_name": "Bathroom",
+      "floor_id": "f1",
+      "primary": {
+        "waypoints": [
+          {
+            "x": 7.5,
+            "y": 6.0,
+            "floor_id": "f1",
+            "node_id": "r_bath",
+            "kind": "room"
+          },
+          {
+            "x": 7.55,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "d_kitchen_bath",
+            "kind": "opening"
+          },
+          {
+            "x": 7.5,
+            "y": 2.0,
+            "floor_id": "f1",
+            "node_id": "r_kitchen",
+            "kind": "room"
+          },
+          {
+            "x": 5.0,
+            "y": 1.65,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "opening"
+          },
+          {
+            "x": 4.65,
+            "y": 1.6500000000000001,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 3.75,
+            "y": 2.6500000000000004,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 2.45,
+            "y": 2.75,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 2.5,
+            "y": 2.0,
+            "floor_id": "f1",
+            "node_id": "r_living",
+            "kind": "room"
+          },
+          {
+            "x": 2.45,
+            "y": 2.75,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 1.25,
+            "y": 2.6500000000000004,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 1.1500000000000001,
+            "y": 2.35,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 1.1500000000000001,
+            "y": 1.35,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 2.35,
+            "y": 0.35000000000000003,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 2.45,
+            "y": 0.35000000000000003,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "path"
+          },
+          {
+            "x": 2.45,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "d_front",
+            "kind": "opening"
+          },
+          {
+            "x": 2.45,
+            "y": 0.0,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 15.561,
+        "uses_stairs": false,
+        "uses_window": false,
+        "exit_id": "d_front"
+      },
+      "secondary": {
+        "waypoints": [
+          {
+            "x": 7.5,
+            "y": 6.0,
+            "floor_id": "f1",
+            "node_id": "r_bath",
+            "kind": "room"
+          },
+          {
+            "x": 7.55,
+            "y": 4.0,
+            "floor_id": "f1",
+            "node_id": "d_kitchen_bath",
+            "kind": "opening"
+          },
+          {
+            "x": 7.5,
+            "y": 2.0,
+            "floor_id": "f1",
+            "node_id": "r_kitchen",
+            "kind": "room"
+          },
+          {
+            "x": 5.0,
+            "y": 1.65,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "opening"
+          },
+          {
+            "x": 4.65,
+            "y": 1.6500000000000001,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 3.75,
+            "y": 2.6500000000000004,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 2.45,
+            "y": 2.75,
+            "floor_id": "f1",
+            "node_id": "d_living_kitchen",
+            "kind": "path"
+          },
+          {
+            "x": 2.5,
+            "y": 2.0,
+            "floor_id": "f1",
+            "node_id": "r_living",
+            "kind": "room"
+          },
+          {
+            "x": 2.45,
+            "y": 2.75,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "path"
+          },
+          {
+            "x": 1.25,
+            "y": 2.6500000000000004,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "path"
+          },
+          {
+            "x": 0.35000000000000003,
+            "y": 2.0500000000000003,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "path"
+          },
+          {
+            "x": 0.0,
+            "y": 2.1,
+            "floor_id": "f1",
+            "node_id": "w_living",
+            "kind": "opening"
+          },
+          {
+            "x": 0.0,
+            "y": 2.1,
+            "floor_id": "f1",
+            "node_id": "EXTERIOR",
+            "kind": "exterior"
+          }
+        ],
+        "length_m": 13.668,
+        "uses_stairs": false,
+        "uses_window": true,
+        "exit_id": "w_living"
+      },
+      "findings": []
+    }
+  ],
+  "bottlenecks": [
+    {
+      "opening_id": "d_living_kitchen",
+      "disconnected_room_ids": [
+        "r_bath",
+        "r_kitchen"
+      ]
+    }
+  ]
+}

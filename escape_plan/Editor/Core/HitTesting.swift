@@ -39,12 +39,37 @@ enum HitTesting {
         if let w = nearestWall(point, floor: floor, within: tolerances.wallRadiusM) {
             return w
         }
+        // Objects sit on top of the room slab, so they win over the room interior.
+        if let o = topObject(point, floor: floor) {
+            return o
+        }
         // Last room wins: rooms drawn later sit on top, so overlapping footprints resolve the
         // way they look.
         for room in floor.rooms.reversed() where Geometry.contains(room.polygon, point) {
             return .room(roomId: room.id)
         }
         return .none
+    }
+
+    /// Topmost (last-listed) object whose rotated footprint contains the point.
+    static func topObject(_ point: Point, floor: Floor) -> Selection? {
+        for object in floor.objects.reversed() where objectContains(object, point) {
+            return .object(objectId: object.id)
+        }
+        return nil
+    }
+
+    /// Point-in-rotated-rect: transform the point into the object's local frame (translate to
+    /// its center, rotate by −rotation), then it's an axis-aligned half-extent test.
+    static func objectContains(_ object: FloorObject, _ point: Point) -> Bool {
+        guard object.size_m.count == 2 else { return false }
+        let angle = -object.rotation_deg * .pi / 180
+        let dx = point.x - object.center.x
+        let dy = point.y - object.center.y
+        let localX = dx * cos(angle) - dy * sin(angle)
+        let localY = dx * sin(angle) + dy * cos(angle)
+        return abs(localX) <= object.size_m[0] / 2 + Geometry.epsilon
+            && abs(localY) <= object.size_m[1] / 2 + Geometry.epsilon
     }
 
     static func nearestVertex(_ point: Point, floor: Floor,
@@ -97,17 +122,46 @@ enum HitTesting {
         return best?.0
     }
 
+    /// Resolves a tap to a position ON a wall — the placement query behind the Add Door /
+    /// Add Window tools. Same nearest-wall scan as `nearestWall`, but returns the parametric
+    /// (roomId, edgeIndex, t) the `addOpening` action wants instead of a Selection.
+    static func wallPoint(_ point: Point, floor: Floor,
+                          within radius: Double) -> (roomId: String, edgeIndex: Int, t: Double)? {
+        var best: ((roomId: String, edgeIndex: Int, t: Double), Double)?
+        for room in floor.rooms {
+            let n = room.polygon.count
+            guard n >= 3 else { continue }
+            for i in 0..<n {
+                let (_, t) = Geometry.closestPointOnSegment(point, room.polygon[i],
+                                                            room.polygon[(i + 1) % n])
+                let d = Geometry.distanceToSegment(point, room.polygon[i], room.polygon[(i + 1) % n])
+                if d <= radius, d < (best?.1 ?? .infinity) {
+                    best = ((roomId: room.id, edgeIndex: i, t: t), d)
+                }
+            }
+        }
+        return best?.0
+    }
+
     /// Scan-derived items the editor should badge for review (S2.2 renders the pulsing
     /// outline). Low-confidence items are flagged, never silently dropped — that rule is the
     /// reason `confidence` is required on scan items at all.
     static let needsReviewThreshold = 0.5
 
     static func needsReview(source: Source, confidence: Double?) -> Bool {
-        guard source == .scan else { return false }
-        // A scan item with no confidence is a contract violation the validator catches; treat
-        // it as needing review rather than trusting it.
-        guard let c = confidence else { return true }
-        return c < needsReviewThreshold
+        switch source {
+        case .manual:
+            return false
+        case .ai_plan:
+            // An AI-drafted element ALWAYS needs review, whatever its confidence —
+            // the review gate is the whole safety story of the plan-import feature.
+            return true
+        case .scan:
+            // A scan item with no confidence is a contract violation the validator
+            // catches; treat it as needing review rather than trusting it.
+            guard let c = confidence else { return true }
+            return c < needsReviewThreshold
+        }
     }
 
     /// Every id on a floor that should carry the "needs review" treatment.
@@ -117,6 +171,9 @@ enum HitTesting {
             ids.append(room.id)
         }
         for o in floor.openings where needsReview(source: o.source, confidence: o.confidence) {
+            ids.append(o.id)
+        }
+        for o in floor.objects where needsReview(source: o.source, confidence: o.confidence) {
             ids.append(o.id)
         }
         return ids

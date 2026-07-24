@@ -50,7 +50,9 @@ enum DrillInstructions {
 
     private static func moveCard(toward kind: WaypointKind) -> DrillCard {
         switch kind {
-        case .room:
+        case .room, .path:
+            // "path" points are within-room curve points around furniture (v1.1) —
+            // the guidance is the same as moving through the room.
             return DrillCard(
                 title: "Keep moving",
                 body: "Follow the highlighted route into the next room. Close doors behind you "
