@@ -512,3 +512,24 @@ pydantic / Swift Codable (+ round-trip tests green):
   splice into routes as `kind: "path"` (additive; Swift decodes both new kinds, drill cards
   treat path like room). Evidence sample: `docs/route-samples/bungalow-blocked.json` (40
   curve points + the finding).
+
+## 2026-07-23 — Revamp C1: LLM house builder (backend agent + /build)
+
+- `backend/app/builder/actions.py` (pure): the Python mirror of the editor vocabulary — NOT
+  a Swift port. Shared semantics = the pydantic validators both halves already obey; the
+  only re-expressed editor logic is parametric opening placement (span clamping +
+  adjacency-derived room_ids, mirroring OpeningPlacement.swift — interior vs EXTERIOR is
+  geometry, the model is never asked). Forgiving where it should be (CW polygons reversed,
+  not rejected); loud, specific ActionErrors where the model needs feedback.
+- `backend/app/ai/builder.py`: hand-rolled loop cloned from agent.py, cap 40 (construction
+  is ~one call per entity). **No routing/egress tools** — asserted by a test. Provenance is
+  structural: every created element gets source=ai_plan + confidence 0.5 from the action
+  layer; the model cannot emit a "trusted" element, which is what makes the iOS review gate
+  non-bypassable. An invalid submit_home bounces back with the pydantic errors so the model
+  self-corrects within the budget; ending without a valid draft returns home=None + issues,
+  never a broken model.
+- `POST /build` (bearer-gated): {description?, image_b64?, image_media_type} → BuildResult
+  {home, trace, truncated, issues}. Vision input as content blocks; PDFs will be rasterized
+  client-side (C2, PDFKit) — no new backend dependency.
+- Tests: 13 pure action tests (rejections emphasized), 6 scripted-loop tests, 1 live golden
+  (`-m live`, needs the API key — blocked on the same key as every other live suite).

@@ -17,6 +17,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai.agent import AgentError, AnalysisResult, run_agent_analysis
+from app.ai.builder import BuilderError, BuildResult, run_builder
 from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
 from app.api_chat import router as chat_router
 from app.config import get_settings, get_thresholds
@@ -173,6 +174,39 @@ def analyze(request: AnalyzeRequest) -> AnalysisResult:
     try:
         return run_agent_analysis(request.home, get_thresholds())
     except AgentError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+class BuildRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    description: Optional[str] = None
+    image_b64: Optional[str] = None
+    image_media_type: str = "image/png"
+
+
+@app.post(
+    "/build",
+    response_model=BuildResult,
+    dependencies=[Depends(require_token)],
+)
+def build(request: BuildRequest) -> BuildResult:
+    """LLM house builder (revamp C1): constructs a DRAFT HomeModel from a text
+    description and/or floor-plan image via a capped tool-use loop. Everything
+    it emits is source=ai_plan + low confidence — the app forces editor review
+    before any routes are computed. The builder has no routing tools; the
+    deterministic engine remains the only route authority."""
+    if not request.description and not request.image_b64:
+        raise HTTPException(
+            status_code=422, detail="provide a description, an image, or both"
+        )
+    try:
+        return run_builder(
+            description=request.description,
+            image_b64=request.image_b64,
+            image_media_type=request.image_media_type,
+        )
+    except BuilderError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
