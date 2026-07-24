@@ -20,7 +20,7 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 | Suite | Count | Command |
 |---|---|---|
-| Backend pytest | 227 pass, 12 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
+| Backend pytest | 238 pass, 12 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
 | Backend live suites | 6 + 2 + chat smoke, all pass (pre-merge, lane/backend) | `python3 -m pytest backend/tests/ -m ""` (needs key; latency bounds can flake on API variance) |
 | EditorCore (SwiftPM) | 186 pass | `swift test --package-path tools/editorcore` |
 | iOS (unit + UI) | TEST SUCCEEDED, 0 failures (6 env-gated drivers skipped) | `xcodebuild test -scheme escape_plan …` |
