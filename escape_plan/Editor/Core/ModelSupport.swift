@@ -43,6 +43,19 @@ extension HomeModel {
     func locateStairs(_ stairsId: String) -> Stairs? {
         stairs.first { $0.id == stairsId }
     }
+
+    /// True while ANY element is still an unconfirmed AI draft (source == .ai_plan).
+    /// The route gate: routes are never computed for a home the user hasn't reviewed —
+    /// same review pipeline as scan, structurally enforced because the builder can only
+    /// emit ai_plan elements.
+    var hasAIDraftContent: Bool {
+        for floor in floors {
+            if floor.rooms.contains(where: { $0.source == .ai_plan }) { return true }
+            if floor.openings.contains(where: { $0.source == .ai_plan }) { return true }
+            if floor.objects.contains(where: { $0.source == .ai_plan }) { return true }
+        }
+        return stairs.contains { $0.source == .ai_plan }
+    }
 }
 
 extension Floor {

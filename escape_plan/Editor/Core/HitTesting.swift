@@ -149,11 +149,19 @@ enum HitTesting {
     static let needsReviewThreshold = 0.5
 
     static func needsReview(source: Source, confidence: Double?) -> Bool {
-        guard source == .scan else { return false }
-        // A scan item with no confidence is a contract violation the validator catches; treat
-        // it as needing review rather than trusting it.
-        guard let c = confidence else { return true }
-        return c < needsReviewThreshold
+        switch source {
+        case .manual:
+            return false
+        case .ai_plan:
+            // An AI-drafted element ALWAYS needs review, whatever its confidence —
+            // the review gate is the whole safety story of the plan-import feature.
+            return true
+        case .scan:
+            // A scan item with no confidence is a contract violation the validator
+            // catches; treat it as needing review rather than trusting it.
+            guard let c = confidence else { return true }
+            return c < needsReviewThreshold
+        }
     }
 
     /// Every id on a floor that should carry the "needs review" treatment.
@@ -163,6 +171,9 @@ enum HitTesting {
             ids.append(room.id)
         }
         for o in floor.openings where needsReview(source: o.source, confidence: o.confidence) {
+            ids.append(o.id)
+        }
+        for o in floor.objects where needsReview(source: o.source, confidence: o.confidence) {
             ids.append(o.id)
         }
         return ids

@@ -22,6 +22,7 @@ struct HomeScreen: View {
     @State private var profilesHomeID: String?
     @State private var drillHomeID: String?
     @State private var showingNewHome = false
+    @State private var showingBuildFromPlan = false
     @State private var initError: String?
 
     // Scan → /convert → save → open editor.
@@ -53,6 +54,19 @@ struct HomeScreen: View {
                         } label: {
                             Label("Scan", systemImage: "camera.viewfinder")
                         }
+                    }
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            showingBuildFromPlan = true
+                        } label: {
+                            Label("Import a plan", systemImage: "wand.and.stars")
+                        }
+                    }
+                }
+                .sheet(isPresented: $showingBuildFromPlan) {
+                    BuildFromPlanView { homeID in
+                        library.refresh()
+                        openHomeID = homeID
                     }
                 }
                 .fullScreenCover(isPresented: $showingScan) {

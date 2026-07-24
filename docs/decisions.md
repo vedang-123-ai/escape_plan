@@ -533,3 +533,19 @@ pydantic / Swift Codable (+ round-trip tests green):
   client-side (C2, PDFKit) — no new backend dependency.
 - Tests: 13 pure action tests (rejections emphasized), 6 scripted-loop tests, 1 live golden
   (`-m live`, needs the API key — blocked on the same key as every other live suite).
+
+## 2026-07-23 — Revamp C2: plan-import flow + the forced review gate
+
+- Intake scope-lock officially relaxed (per the approved revamp spec): LiDAR-only becomes
+  LiDAR + AI-drafted plan import, BOTH funneling through editor review. The judge story is
+  unchanged and stronger: AI accelerates input, the human verifies, the engine routes.
+- **The gate is structural at every layer**: the builder can only emit `source: ai_plan`
+  (action layer stamps it); `HitTesting.needsReview` says ai_plan ALWAYS needs review
+  regardless of confidence; `HomeModel.hasAIDraftContent` blocks `fetchRoutes` in
+  HouseScreen until `.confirmAIDraft` (a single undoable commit) flips every ai_plan
+  element to manual. No prompt behavior can bypass it.
+- `BuildFromPlanView` (text + photo + PDF): PDFs rasterized client-side with PDFKit at
+  ~150 dpi — the backend only ever sees PNG/JPEG, zero new backend deps. Entry point lives
+  in HomeScreen's toolbar next to Scan.
+- This is also the fast test path the revamp wanted: describe a home → draft → review →
+  routes, no LiDAR and no manual building required.

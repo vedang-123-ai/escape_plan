@@ -251,7 +251,22 @@ struct HouseScreen: View {
     /// routes are fetched (server cold starts can take ~30 s) or after a failure.
     @ViewBuilder
     private var routesBanner: some View {
-        if isFetchingRoutes {
+        if needsDraftReview {
+            HStack(spacing: 8) {
+                Image(systemName: "wand.and.stars")
+                Text("AI draft — review the layout, then confirm to compute escape routes.")
+                    .font(.caption)
+                Button("Confirm draft") {
+                    dispatch(.confirmAIDraft)
+                    fetchRoutes()
+                }
+                .font(.caption.bold())
+                .accessibilityIdentifier("house.confirmDraft")
+            }
+            .padding(10)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .padding(.top, 8)
+        } else if isFetchingRoutes {
             HStack(spacing: 8) {
                 ProgressView()
                 Text("Planning routes…").font(.caption)
@@ -336,9 +351,20 @@ struct HouseScreen: View {
 
     // MARK: - Routes (server truth)
 
+    /// The review gate (revamp C2): while ANY element is an unconfirmed AI draft, routes
+    /// are never fetched. The builder can only emit ai_plan elements, so this cannot be
+    /// bypassed by prompt behavior — confirming in the editor is the only way through.
+    private var needsDraftReview: Bool {
+        session?.store.model.hasAIDraftContent ?? false
+    }
+
     private func fetchRoutes() {
         routesTask?.cancel()
         guard let model = session?.store.model else { return }
+        guard !needsDraftReview else {
+            routePlan = nil
+            return
+        }
         routesError = nil
         isFetchingRoutes = true
         routesTask = Task {

@@ -304,6 +304,26 @@ final class HomeModelStore {
             try deleteStairs(&draft, stairsId)
             return nil
 
+        case .confirmAIDraft:
+            for f in draft.floors.indices {
+                for r in draft.floors[f].rooms.indices
+                where draft.floors[f].rooms[r].source == .ai_plan {
+                    draft.floors[f].rooms[r].source = .manual
+                }
+                for o in draft.floors[f].openings.indices
+                where draft.floors[f].openings[o].source == .ai_plan {
+                    draft.floors[f].openings[o].source = .manual
+                }
+                for o in draft.floors[f].objects.indices
+                where draft.floors[f].objects[o].source == .ai_plan {
+                    draft.floors[f].objects[o].source = .manual
+                }
+            }
+            for s in draft.stairs.indices where draft.stairs[s].source == .ai_plan {
+                draft.stairs[s].source = .manual
+            }
+            return nil
+
         case .addProfile(let profileId, let name, let tags, let bedroom_room_id):
             draft.profiles.append(Profile(id: profileId, name: name, tags: tags,
                                           bedroom_room_id: bedroom_room_id))
