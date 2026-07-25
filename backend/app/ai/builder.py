@@ -30,7 +30,10 @@ from app.models import HomeModel
 
 logger = logging.getLogger("app.ai.builder")
 
-TEMPERATURE = 0.2
+# No sampling params: claude-sonnet-5 rejects non-default temperature with a 400
+# ("`temperature` is deprecated for this model") — the same lesson agent.py, grounded.py
+# and chat/service.py already carry. Determinism here comes from the tight tool schema and
+# the forced-review gate downstream, not from a low temperature.
 MAX_TOKENS = 4096
 MAX_ITERATIONS = 40
 """Higher than the inspector's 15: construction takes one tool call per room/
@@ -414,7 +417,6 @@ def run_builder(
         response = client.messages.create(
             model=settings.anthropic_model,
             max_tokens=MAX_TOKENS,
-            temperature=TEMPERATURE,
             system=BUILDER_SYSTEM_PROMPT,
             tools=TOOLS,
             messages=messages,

@@ -605,3 +605,26 @@ three of which are fixed here.
 - **`/explain` p95 deferred, not decided.** Anish's reasoning: the submission is an edited
   video, so a slow call can be cut around. The acceptance criterion stays formally UNMET and
   is still in TODO.md — this is a scheduling decision, not a resolution.
+
+## 2026-07-24 (later) — Route-rendering bug, live-AI unlock, builder temperature
+
+- **Escape routes were silently not rendering in the House tab** — the app's core visual. Root
+  cause (found by instrumenting with NSLog + `log stream`, after three wrong theories): the
+  `onRebuild` closure in `HouseScreen.attach` captures the SwiftUI View struct, and reading
+  `@State routePlan` from inside it returns a stale snapshot (perpetually nil).
+  `EditorSceneView.updateUIView` rebuilds the scene to a fresh empty one on every render, and
+  the stale-self redraw drew nothing — so every rebuild wiped the routes a fresh-context draw
+  had just added. Fix: cache draw inputs (plan/selection/model) AND view state
+  (explode/spotlight) in the stable `RouteOverlayHolder` class; `onRebuild` redraws from the
+  holder, never from captured @State. The explode slider had the identical latent bug (snapped
+  back to 0 on rebuild) and is fixed by the same change. This is a general SwiftUI lesson for
+  this codebase: **never read @State inside a closure stored on the UIKit/SceneKit
+  controller — route it through a reference-type holder.**
+- **Builder dropped `temperature`.** The live builder golden failed with
+  `400 "temperature is deprecated for this model"`; `agent.py`, `grounded.py` and
+  `chat/service.py` already omit sampling params for the same reason. Removed it from
+  `builder.py` too. Determinism there comes from the tight tool schema + the forced-review
+  gate, not temperature.
+- **Live AI is unlocked locally**: the key lives in repo-root `.env` (gitignored). Live suite
+  is 12/12 after the builder fix. The Render dashboard env var is still outstanding for the
+  deployed backend.

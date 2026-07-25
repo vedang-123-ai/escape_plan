@@ -1,10 +1,9 @@
 # Everything still to do
 
-_Last verified: 2026-07-24 on `main` — backend 248 pass (10 new obstruction tests),
-editorcore 186 pass, iOS unit TEST SUCCEEDED, corpus valid. The full iOS **UI** suite was
-green earlier the same session but NOT re-run after the last Swift edits — re-run `/verify`
-before trusting it. Lane C's live suites (real ANTHROPIC_API_KEY) were last run green on
-`lane/backend` 2026-07-23; the key is no longer set anywhere on this machine._
+_Last verified: 2026-07-24 on `main` (end of the route-fix + live-AI session) — backend 248
+not-live + 12 live pass, editorcore 186 pass, corpus valid, iOS FULL suite (unit + UI)
+TEST SUCCEEDED. Live suites run with the key now in repo-root `.env` (gitignored). Escape
+routes confirmed rendering on the simulator after the stale-@State fix._
 
 This is the single source of truth for open work. It replaces the old `board.md` +
 `checklist.md`, which had drifted into contradicting each other.
@@ -21,26 +20,22 @@ This is the single source of truth for open work. It replaces the old `board.md`
 | Suite | Count | Command |
 |---|---|---|
 | Backend pytest | 248 pass, 12 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
-| Backend live suites | 6 + 2 + chat smoke, all pass (pre-merge, lane/backend) | `python3 -m pytest backend/tests/ -m ""` (needs key; latency bounds can flake on API variance) |
+| Backend live suites | 12 pass (2026-07-24, key in `.env`) | `set -a; . ./.env; set +a; python3 -m pytest backend/tests/ -m "live"` (latency bounds can flake on API variance) |
 | EditorCore (SwiftPM) | 186 pass | `swift test --package-path tools/editorcore` |
 | iOS (unit + UI) | TEST SUCCEEDED, 0 failures (6 env-gated drivers skipped) | `xcodebuild test -scheme escape_plan …` |
 | Corpus | 11 sources, 6 files | `python3 backend/corpus/validate.py` |
 
 ---
 
-## BLOCKER — escape routes do not render in the House tab (found 2026-07-24)
+## ~~BLOCKER — escape routes do not render~~ FIXED 2026-07-24
 
-The app's core visual is missing. Ruled out already: the backend returns real geometry
-(Kids' Bedroom = 8 waypoints, 14.2 m); `routePlan` is non-nil (the route controls only draw
-inside `if let routePlan` and they appear); `attach(_:)`→`onRebuild`→`applyOverlay()` and
-`fetchRoutes`→`applyOverlay()` are both wired, so the obvious races are handled; route
-materials are x-ray (`readsFromDepthBuffer = false`, order 55 > walls 10), so walls aren't
-hiding them.
-
-- [ ] Next action: check whether `RouteOverlay.show` is returning issues and drawing nothing —
-      specifically `RouteGeometry.floorRuns` dropping runs whose `floor_id` isn't in
-      `knownFloorIDs`, and where `overlayIssues` actually surfaces in the UI. Use
-      systematic-debugging; don't guess. Evidence: `docs/tracker/notes/2026-07-24-*.md`.
+Root cause: `HouseScreen`'s `onRebuild` closure read `@State routePlan` from a stale captured
+View snapshot (always nil), and `updateUIView` rebuilds the scene empty on every render, so
+routes were wiped as fast as they were drawn. Fixed by caching draw inputs + view state in the
+`RouteOverlayHolder` class and redrawing from it in `onRebuild`. The explode slider had the
+same latent bug (snapped to 0 on rebuild) — fixed by the same change. **Confirmed rendering**
+on the simulator (orange primary + blue secondary, all 7 primaries in "Everyone", exit glows).
+Details: decisions.md 2026-07-24 (later) + `notes/2026-07-24-look-and-feel-*.md`.
 
 ## 3D revamp (approved 2026-07-23 — spec/plan: `~/.claude/plans/i-want-you-to-tender-flask.md`)
 
@@ -53,8 +48,9 @@ Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
       sensitivity, pinch anchor, dock height on small screens), object editing, plan-import
       flow + review gate, tour. Simulator + recording-driver verified; real-device feel and
       real-photo floor plans are the open items.
-- [ ] Live builder golden (`backend/tests/test_builder_live.py -m live`) — blocked on the
-      same `ANTHROPIC_API_KEY` as every other live suite (see section above).
+- [x] ~~Live builder golden~~ — run 2026-07-24 with the key in `.env`; PASSES after removing
+      the deprecated `temperature` param from `builder.py` (the model 400s on it). See
+      decisions.md 2026-07-24 (later).
 - [x] ~~Surface `blocked_opening` in /score~~ — done 2026-07-24, and went further per Anish:
       `app/routing/obstructions.py` names WHICH object blocks (counterfactual attribution)
       and how far to move it (measured), surfaced in `RouteFinding.detail` + `object_ids`
@@ -69,10 +65,9 @@ Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
 hand-reviewed; goldens are committed in `backend/tests/golden/`. What remains here is only
 what a dev machine cannot close.
 
-- [ ] `ANTHROPIC_API_KEY` is not persisted ANYWHERE on this machine (checked 2026-07-24:
-      not in `~/.zshrc`, `~/.zshenv`, or any `.env`). Last session's key lived only in that
-      shell, so every live suite and every local AI call is dark until it's re-exported.
-      Decide where it lives for a demo build.
+- [x] ~~Key not persisted anywhere locally~~ — Anish placed it in repo-root `.env`
+      (gitignored) on 2026-07-24; live suites and local AI now work. (Deployed Render backend
+      still needs its own dashboard env var — next item.)
 - [ ] Set `ANTHROPIC_API_KEY` in the Render dashboard so the deployed backend's AI endpoints
       work at all. Until this happens `/explain`, `/analyze`, and `/chat` 502 in production.
       Exact steps: dashboard → `escape-plan-backend` service → Environment → add

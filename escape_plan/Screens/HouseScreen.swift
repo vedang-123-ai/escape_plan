@@ -48,12 +48,44 @@ struct HouseScreen: View {
     /// Non-nil = spotlight this floor: everything else fades back.
     @State private var spotlightFloorID: String?
 
-    /// Overlay lives in a stable class box, NOT directly in @State: `onRebuild` fires inside
-    /// `updateUIView`, and reassigning an @State var there invalidates the view from within
-    /// its own update — an endless rebuild loop that starves gesture handling.
+    /// Overlay AND its draw inputs live in a stable class box, NOT directly in @State.
+    ///
+    /// Two reasons, both learned the hard way (2026-07-24):
+    /// 1. `onRebuild` fires inside `updateUIView`; reassigning an @State var there invalidates
+    ///    the view from within its own update — an endless rebuild loop that starves gestures.
+    /// 2. The `onRebuild` closure captures the View struct, and reading its @State from inside
+    ///    that closure returns a STALE snapshot (routePlan perpetually nil). `updateUIView`
+    ///    rebuilds the scene to a fresh empty one on every render, so a stale-self redraw left
+    ///    the routes permanently wiped — the "controls appear but no route draws" bug. The
+    ///    holder caches the last real inputs so `redraw()` never has to touch @State.
     @MainActor
     private final class RouteOverlayHolder {
         var overlay: RouteOverlay?
+        var plan: RoutePlan?
+        var selectedRoomID: String?
+        var model: HomeModel?
+        // View state that must survive a rebuild for the same stale-@State reason as the routes.
+        var explode: Double = 0
+        var spotlightFloorID: String?
+
+        /// Redraw from cached inputs only — safe to call from `onRebuild`, where the View's
+        /// @State is a stale captured snapshot. Returns the overlay's issues.
+        @discardableResult
+        func redraw() -> [String] {
+            guard let overlay, let plan, let model else { return [] }
+            let rooms = selectedRoomID.map { id in plan.rooms.filter { $0.room_id == id } }
+                ?? plan.rooms
+            return overlay.show(rooms: rooms, home: model, includeSecondary: selectedRoomID != nil)
+        }
+
+        /// Re-apply explode/spotlight to a freshly rebuilt scene from cached values.
+        func applyViewState(to dollhouse: DollhouseScene) {
+            dollhouse.setExplode(explode)
+            for floor in dollhouse.floors {
+                let faded = spotlightFloorID != nil && floor.id != spotlightFloorID
+                dollhouse.setFloorFade(floor.id, opacity: faded ? 0.22 : 1.0)
+            }
+        }
     }
 
     // Route layer (server truth — S2.3 semantics preserved).
@@ -175,26 +207,26 @@ struct HouseScreen: View {
     private func attach(_ controller: UnifiedSceneController) {
         self.controller = controller
         controller.onRebuild = { dollhouse in
+            // A rebuild throws away the old scene (and its route tubes), so the overlay must be
+            // re-created against the NEW dollhouse and the routes redrawn. Redraw from the
+            // holder's cached inputs, never from this closure's captured (stale) @State — that
+            // was the bug that left every rebuilt scene empty.
             overlayHolder.overlay = RouteOverlay(dollhouse: dollhouse)
-            applyViewState(to: dollhouse)
-            applyOverlay()
+            overlayHolder.applyViewState(to: dollhouse)
+            overlayHolder.redraw()
         }
         if let dollhouse = controller.dollhouse {
             controller.onRebuild?(dollhouse)
         }
     }
 
-    private func applyViewState(to dollhouse: DollhouseScene) {
-        dollhouse.setExplode(explode)
-        for floor in dollhouse.floors {
-            let faded = spotlightFloorID != nil && floor.id != spotlightFloorID
-            dollhouse.setFloorFade(floor.id, opacity: faded ? 0.22 : 1.0)
-        }
-    }
-
+    /// Sync explode/spotlight from @State into the holder (fresh-`self` context only), then
+    /// apply to the current scene. `onRebuild` re-applies from the holder, never from @State.
     private func reapplyViewState() {
+        overlayHolder.explode = explode
+        overlayHolder.spotlightFloorID = spotlightFloorID
         guard let dollhouse = controller?.dollhouse else { return }
-        applyViewState(to: dollhouse)
+        overlayHolder.applyViewState(to: dollhouse)
         controller?.scnView.setNeedsDisplay()
     }
 
@@ -406,6 +438,9 @@ struct HouseScreen: View {
         routesTask?.cancel()
         routePlan = nil
         overlayIssues = []
+        // Drop the cached inputs too, so a scene rebuild after an edit doesn't redraw the
+        // now-stale routes from the holder.
+        overlayHolder.plan = nil
         overlayHolder.overlay?.clear()
         controller?.scnView.rendersContinuously = false
         refetchDebounce?.cancel()
@@ -416,21 +451,22 @@ struct HouseScreen: View {
         }
     }
 
+    /// Called only from fresh-`self` contexts (fetchRoutes completion, the room/profile
+    /// pickers): sync the holder from current @State, then draw. `onRebuild` must NOT call this
+    /// — it would read stale @State; it calls `overlayHolder.redraw()` instead.
     private func applyOverlay() {
-        guard let overlay = overlayHolder.overlay, let routePlan,
-              let model = session?.store.model else { return }
-        let rooms = selectedRoomID.map { id in routePlan.rooms.filter { $0.room_id == id } }
-            ?? routePlan.rooms
-        // "Everyone" draws primaries + badges only; both routes appear once a room is picked.
-        let issues = overlay.show(rooms: rooms, home: model,
-                                  includeSecondary: selectedRoomID != nil)
+        overlayHolder.plan = routePlan
+        overlayHolder.selectedRoomID = selectedRoomID
+        overlayHolder.model = session?.store.model
+        let issues = overlayHolder.redraw()
         // May run inside updateUIView (via onRebuild): only touch @State when the value
         // actually changed, or the view invalidates itself from within its own update forever.
         if issues != overlayIssues {
             overlayIssues = issues
         }
-        // The pulse shader animates on u_time, which only advances while the view redraws.
-        controller?.scnView.rendersContinuously = true
+        // The pulse shader animates on u_time, which only advances while the view redraws —
+        // and only routes need it, so idle scenes stay still.
+        controller?.scnView.rendersContinuously = routePlan != nil
         controller?.scnView.setNeedsDisplay()
     }
 

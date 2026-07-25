@@ -179,3 +179,8 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 2b2c0da Revamp C1: LLM house builder — pure action layer + agent loop + /build
   - 52f012e Revamp B3: within-room grid pathfinding — routes curve around objects
 
+## 2026-07-24T19:16:37Z · Anish Yarrakonda · `main` @ `922df5e`
+
+**Commits this session**
+  - 922df5e Look-and-feel pass, starter demo data, and object-obstruction advice
+

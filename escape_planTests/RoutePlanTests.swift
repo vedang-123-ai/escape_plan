@@ -218,6 +218,17 @@ final class RoutePlanTests: XCTestCase {
                             "route container for \(floorID) must live under its floor node so explode/hide apply")
         }
 
+        // The containers must actually hold tube geometry — an empty container renders nothing,
+        // which is exactly the "controls appear but no route is drawn" failure mode. Assert at
+        // least one "route:<label>:<floor>" node with geometry exists per room that has a route.
+        var tubeNodes = 0
+        built.dollhouse.scene.rootNode.enumerateHierarchy { node, _ in
+            if node.name?.hasPrefix("route:") == true, node.geometry != nil { tubeNodes += 1 }
+        }
+        let roomsWithRoutes = plan.rooms.filter { $0.primary != nil }.count
+        XCTAssertGreaterThanOrEqual(tubeNodes, roomsWithRoutes,
+            "every room with a primary route must draw at least one tube node; got \(tubeNodes) for \(roomsWithRoutes) routed rooms")
+
         overlay.clear()
         XCTAssertEqual(nodeCount(), baseline, "clear() must restore the scene exactly")
     }

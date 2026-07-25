@@ -52,22 +52,39 @@ fighting black chrome, tiny labels, ~⅓ of the screen dead dock.
    lived only in that shell. **Not fixed** (it's Anish's secret to place); it is why the AI
    half is dark locally.
 
-## Open bug found and NOT fixed — routes don't render
+## The route-rendering bug — FOUND AND FIXED (2026-07-24, later)
 
-The single most important visual in the app does not appear. Evidence gathered:
+The single most important visual in the app was silently dead. Resolved by instrumentation,
+not guessing (three theories above were all wrong — backend geometry, x-ray materials, and
+overlay logic were all fine; the strengthened `testOverlayParentsRoutesPerFloorAndClearsCompletely`
+proved `show()` creates ≥7 tube nodes).
 
-- The backend returns real geometry: Kids' Bedroom → 8 waypoints, 14.2 m, no findings.
-- `routePlan` is non-nil in the app — the route controls (room picker + Tour) only render
-  inside `if let routePlan`, and they are on screen.
-- `attach(_:)` wires `onRebuild` → `applyOverlay()`, and `fetchRoutes` calls `applyOverlay()`
-  after assigning, so the obvious races are already handled.
-- Route materials are x-ray (`readsFromDepthBuffer = false`, renderingOrder 55 > walls 10),
-  so occlusion by walls is ruled out.
+**Root cause (confirmed via `NSLog` + `log stream` during a UI-test run):**
+- `applyOverlay drew rooms=7 issues=[] sameScene=true` — routes ARE drawn into the live scene.
+- **No `onCommit` / `invalidateRoutes` ever fired** — nothing legitimately cleared them.
+- Interleaved `applyOverlay early-return … plan=false` — the `onRebuild` closure set in
+  `attach` captures the **View struct**, and reading `@State routePlan` from inside that
+  closure returns a STALE snapshot (perpetually nil). `EditorSceneView.updateUIView` rebuilds
+  the scene to a fresh EMPTY one on every SwiftUI render (line 102), and the stale-self
+  `onRebuild` redraw saw `routePlan == nil` and drew nothing — so every rebuild wiped the
+  routes a fresh-context draw had just added. The screenshot always caught the empty scene.
+  That is exactly why the overlay unit test (calls `show()` directly) passed while the app
+  showed nothing.
 
-Not yet checked: whether `RouteOverlay.show` is returning issues (e.g. `floorRuns` dropping
-runs whose `floor_id` isn't in `knownFloorIDs`) and drawing nothing. **That is the next
-thing to look at** — `overlayIssues` is populated but I did not confirm where it surfaces.
-This deserves systematic-debugging, not another guess.
+**Fix:** cache the draw inputs (plan, selectedRoomID, model) AND the view state (explode,
+spotlight) in the stable `RouteOverlayHolder` class. `onRebuild` now redraws from the holder,
+never from captured @State. Fresh-context callers (`fetchRoutes` completion, the room/profile
+pickers, the explode/spotlight controls) sync the holder then apply. `invalidateRoutes` clears
+`holder.plan` so a post-edit rebuild doesn't redraw stale routes.
+
+**Twin bug fixed at the same time:** `applyViewState` (explode/spotlight) had the identical
+stale-@State-in-`onRebuild` flaw — the explode slider would snap back to 0 on any rebuild.
+Routed through the holder too.
+
+**Confirmed visually:** re-ran the screenshot driver — orange primary + blue secondary routes
+now render, all 7 primaries in "Everyone", green exit-glows, on the new dark stage. Live chat
+also confirmed working now that the key is in `.env` (spinner + a 200 from Anthropic in the
+backend log).
 
 ## Obstruction advice (the feature Anish asked for)
 
@@ -91,17 +108,24 @@ one room previously collapsed onto one checkbox and were titled "has no usable w
 
 10 new tests. Backend 238 → **248 pass**.
 
-## Gate after the changes
+## Live AI unlocked
 
-EditorCore 186 pass · backend 248 pass · iOS unit TEST SUCCEEDED · corpus valid.
-The full iOS UI suite was green earlier in the session; it was not re-run after the last
-Swift edits (`RouteFinding` decode + the render-band test widening) — **re-run `/verify`
-before trusting the UI half.**
+Key now lives in repo-root `.env` (Anish added it). Ran the live backend suite
+(`-m live`, key sourced): **11 passed, 1 fixed**. The one failure was real — the house
+builder (`app/ai/builder.py`) still sent `temperature`, which the current model rejects with
+`400 "temperature is deprecated for this model"`; `agent.py`/`grounded.py`/`chat/service.py`
+already carry that lesson. Dropped the param; builder live golden passes.
+
+## Gate after all changes
+
+EditorCore 186 · backend 248 (not-live) · backend live 12 pass · corpus valid ·
+iOS full suite (unit + UI) re-run at the end.
 
 ## Next
 
-1. **Debug why routes don't render.** Highest priority — it's the product.
-2. Re-run the screenshot driver and look at the House tab again now that fixtures seed.
-3. Persist `ANTHROPIC_API_KEY`, and set it in the Render dashboard.
-4. Remaining machine-closable iOS gaps (untouched): `setOpeningWidth` UI, shared
+1. Persist `ANTHROPIC_API_KEY` for the Render deploy (in `.env` locally now; still needs the
+   Render dashboard env var so the DEPLOYED backend's AI endpoints stop 502ing).
+2. Remaining machine-closable iOS gaps (untouched): `setOpeningWidth` UI, shared
    `HomeLibrary`, selection markers, launch screen, agent-finding `id` threading.
+3. Give the S3.2 agent a `check_obstructions` tool so the AI phrases the "move the wardrobe"
+   advice conversationally (deterministic layer is built + tested; only wiring left).
