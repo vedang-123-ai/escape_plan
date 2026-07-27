@@ -132,6 +132,17 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
 
 ## Backend
 
+- [ ] **DECISION NEEDED (P1): a home that has never been analysed scores full marks for
+      safety.** `/score` defaults `findings=[]`, so the 20-point "No open safety findings"
+      component pays out in full when `/analyze` has simply never run — bungalow and twostory
+      both read 75/100 on a home nobody has audited. "We didn't look" and "we looked and it's
+      clean" produce the same number, which is a safety claim the app hasn't earned. Fix
+      would be to distinguish absent from empty (e.g. `findings: Optional[...] = None` →
+      component reported as *not assessed*, its 20 pts subtracted from a new `max_possible`
+      so the UI renders "55 / 80"). **Not done unilaterally: it changes `ScoreBreakdown`, the
+      `ScoreScreen`/`ScoreModels` Swift contract, and every worked example in the weights
+      doc.** Mitigated in part 2026-07-27 — undersized bedroom egress windows are now caught
+      deterministically without `/analyze` (see `egress.window.*` items). (S3.5)
 - [ ] Phone-on-cellular timing against the deployed backend was never measured natively.
       Warm curl from a dev machine was ~0.27–0.39s, well under the 2s bar. (S1.6)
 - [ ] TODO(integration): `/analyze` findings now carry a stable server-stamped `id`
