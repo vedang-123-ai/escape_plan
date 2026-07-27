@@ -17,6 +17,7 @@ from typing import Optional, Sequence
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import HomeModel
+from app.routing.egress import EgressThresholds
 from app.routing.plan import RoutePlan
 from app.scoring.checklist import (
     ChecklistItem,
@@ -189,6 +190,7 @@ def compute_score(
     plan: RoutePlan,
     findings: Optional[Sequence[Finding]] = None,
     state: Optional[ChecklistState] = None,
+    thresholds: Optional[EgressThresholds] = None,
 ) -> ScoreBreakdown:
     """Score a home 0-100 and return the full breakdown plus its checklist.
 
@@ -196,9 +198,13 @@ def compute_score(
     computed for `home` — pass it in rather than recomputing so the score always
     reflects the routes the user is actually looking at (including any
     profile-derived constraints).
+
+    `thresholds` enables the deterministic IRC R310 egress-window items; omit it
+    only if you have no thresholds to hand (undersized bedroom windows then go
+    unreported until /analyze runs).
     """
     findings = findings or []
-    items = build_checklist(home, plan, findings, state or {})
+    items = build_checklist(home, plan, findings, state or {}, thresholds)
     components = [
         _primary_component(plan),
         _secondary_component(plan),
