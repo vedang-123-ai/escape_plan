@@ -244,11 +244,12 @@ def score(request: ScoreRequest) -> ScoreBreakdown:
     docs/preparedness-score-weights.md. `include_recommendations` is the only
     part that calls the AI, and only to add non-scoring checklist items.
     """
+    thresholds = get_thresholds()
     plan = compute_route_plan(
-        request.home, get_thresholds(), constraints=request.constraints
+        request.home, thresholds, constraints=request.constraints
     )
     breakdown = compute_score(
-        request.home, plan, request.findings, request.checklist_state
+        request.home, plan, request.findings, request.checklist_state, thresholds
     )
     if request.include_recommendations:
         try:
