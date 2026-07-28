@@ -164,3 +164,15 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-07-27T23:55:31Z · vedang-123-ai · `main` @ `81bbc5c`
+
+**Commits this session**
+  - 81bbc5c Session note: R310 egress gap + the duplicate-S3.5 postmortem
+  - ffd71f3 Decisions: R310 egress items + the stale-clone process failure
+  - f33b087 TODO: flag that an un-analysed home scores full safety marks
+  - dfa79cc Docs: document the non-scoring R310 egress-window items
+  - 9c4a4ab Tests: R310 egress-window items (4 tests, suite 39 -> 43)
+  - 7a5138d /score: pass egress thresholds so R310 window items are reported
+  - 92b0546 Scoring: thread egress thresholds through compute_score
+  - f668b03 Scoring: deterministic IRC R310 egress-window checklist items
+
