@@ -39,6 +39,11 @@ Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
       sensitivity, pinch anchor, dock height on small screens), object editing, plan-import
       flow + review gate, tour. Simulator + recording-driver verified; real-device feel and
       real-photo floor plans are the open items.
+- [ ] Fixture-kit renderer (landed 2026-07-29, `notes/2026-07-29-fixture-kit-renderer.md`):
+      include in the device-acceptance pass above — node count is ~3-4× the old builder and
+      the editor rebuilds per commit; profile one edit-drag session on hardware. Next
+      actions if custom assets land: register via `FixtureCatalog.shared.door =
+      AssetFixture(named:)` at startup, then eyeball joins on all three schema fixtures.
 - [ ] Live builder golden (`backend/tests/test_builder_live.py -m live`) — blocked on the
       same `ANTHROPIC_API_KEY` as every other live suite (see section above).
 - [ ] Consider surfacing `blocked_opening` findings in /score and the S3.2 agent

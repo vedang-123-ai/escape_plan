@@ -220,14 +220,17 @@ final class RouteOverlay {
         guard dollhouse.scene.rootNode.childNode(withName: glowName, recursively: true) == nil else { return }
         guard let opening = dollhouse.scene.rootNode.childNode(withName: "opening:\(exitID)",
                                                                recursively: true),
-              let parent = opening.parent,
-              let box = opening.geometry as? SCNBox else {
+              let parent = opening.parent else {
             issues.append("exit '\(exitID)' has no opening marker in the scene — glow skipped")
             return
         }
 
-        let shell = SCNBox(width: box.width + 0.16, height: box.height + 0.16,
-                           length: box.length + 0.16, chamferRadius: 0.04)
+        // Openings are fixture containers (frame + leaf/glass), not single boxes — size the
+        // shell from the container's local bounds so any fixture builder gets a fitting glow.
+        let (minB, maxB) = opening.boundingBox
+        let shell = SCNBox(width: CGFloat(maxB.x - minB.x) + 0.16,
+                           height: CGFloat(maxB.y - minB.y) + 0.16,
+                           length: CGFloat(maxB.z - minB.z) + 0.16, chamferRadius: 0.04)
         let material = SCNMaterial()
         material.lightingModel = .constant
         material.diffuse.contents = DollhousePalette.exitGlow

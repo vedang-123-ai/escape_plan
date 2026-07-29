@@ -48,6 +48,20 @@ struct HouseScreen: View {
     /// Non-nil = spotlight this floor: everything else fades back.
     @State private var spotlightFloorID: String?
 
+    /// Explode/spotlight ALSO live in a stable class box: the `onRebuild` closure is captured
+    /// once (at attach) and reads through a stale copy of this struct — @State reads from that
+    /// copy returned the values from attach time, so every editor rebuild silently reset the
+    /// exploded view and spotlight fade back to defaults. The box is the same fix
+    /// `RouteOverlayHolder` (below) already is for the overlay: closures read the live values
+    /// through the reference. The @State vars above stay as the UI's render source; every
+    /// write goes to both.
+    @MainActor
+    private final class SceneViewStateHolder {
+        var explode: Double = 0
+        var spotlightFloorID: String?
+    }
+    @State private var viewStateHolder = SceneViewStateHolder()
+
     /// Overlay lives in a stable class box, NOT directly in @State: `onRebuild` fires inside
     /// `updateUIView`, and reassigning an @State var there invalidates the view from within
     /// its own update — an endless rebuild loop that starves gesture handling.
@@ -184,10 +198,13 @@ struct HouseScreen: View {
         }
     }
 
+    /// Reads through `viewStateHolder`, never the @State vars — this runs from the captured
+    /// `onRebuild` closure, where @State reads are stale (see SceneViewStateHolder).
     private func applyViewState(to dollhouse: DollhouseScene) {
-        dollhouse.setExplode(explode)
+        dollhouse.setExplode(viewStateHolder.explode)
         for floor in dollhouse.floors {
-            let faded = spotlightFloorID != nil && floor.id != spotlightFloorID
+            let faded = viewStateHolder.spotlightFloorID != nil
+                && floor.id != viewStateHolder.spotlightFloorID
             dollhouse.setFloorFade(floor.id, opacity: faded ? 0.22 : 1.0)
         }
     }
@@ -209,7 +226,7 @@ struct HouseScreen: View {
                     Text("Explode").font(.caption).foregroundStyle(.secondary)
                     Slider(value: Binding(
                         get: { explode },
-                        set: { explode = $0; reapplyViewState() }
+                        set: { explode = $0; viewStateHolder.explode = $0; reapplyViewState() }
                     ), in: 0...1)
                     .disabled(isTouring)
                 }
@@ -230,6 +247,7 @@ struct HouseScreen: View {
                     Button {
                         spotlightFloorID = spotlightFloorID == store.activeFloorId
                             ? nil : store.activeFloorId
+                        viewStateHolder.spotlightFloorID = spotlightFloorID
                         reapplyViewState()
                     } label: {
                         Label("Spotlight floor",
@@ -452,6 +470,8 @@ struct HouseScreen: View {
         // space or inside faded geometry.
         explode = 0
         spotlightFloorID = nil
+        viewStateHolder.explode = 0
+        viewStateHolder.spotlightFloorID = nil
         reapplyViewState()
         isTouring = true
         Haptics.begin()

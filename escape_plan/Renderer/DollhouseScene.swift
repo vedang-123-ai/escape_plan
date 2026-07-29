@@ -64,9 +64,6 @@ enum DollhouseSceneBuilder {
 
     private static let slabThicknessM = 0.06
     private static let wallThicknessM = 0.10
-    /// Opening markers are slightly thicker than the wall so they read as inset panels punched
-    /// through it rather than as decals that z-fight with the wall surface.
-    private static let openingInsetM = 0.04
 
     /// Anything the model asked for but the geometry couldn't honor — a dangling `wall_segment`
     /// reference, a degenerate polygon. Surfaced rather than swallowed: bad data should be visible
@@ -149,6 +146,11 @@ enum DollhouseSceneBuilder {
             ))
         }
 
+        if let plate = BasePlateFixture.node(bounds: DollhouseGeometry.bounds(of: home),
+                                             groundSlabThickness: slabThicknessM) {
+            scene.rootNode.addChildNode(plate)
+        }
+
         addLighting(to: scene)
         let cameraNode = makeCamera(for: home, baseHeights: baseHeights)
         scene.rootNode.addChildNode(cameraNode)
@@ -161,21 +163,13 @@ enum DollhouseSceneBuilder {
 
     // MARK: - Rooms
 
+    /// Slab geometry comes from the fixture catalog (already in floor space per the FixtureKit
+    /// contract); the builder owns the selectable node name.
     private static func makeSlab(_ room: Room) -> SCNNode? {
-        guard let path = DollhouseGeometry.path(for: room.polygon) else { return nil }
-        let shape = SCNShape(path: UIBezierPath(cgPath: path), extrusionDepth: CGFloat(slabThicknessM))
-        shape.firstMaterial = material(
-            DollhousePalette.accent(for: room.type)
-                .blended(with: DollhousePalette.slab, amount: 1 - DollhousePalette.roomAccentStrength)
-        )
-
-        let node = SCNNode(geometry: shape)
+        let spec = SlabFixtureSpec(polygon: room.polygon, thickness: slabThicknessM,
+                                   roomType: room.type)
+        guard let node = FixtureCatalog.shared.slab.node(for: spec) else { return nil }
         node.name = "room:\(room.id)"
-        // SCNShape lays its path out in local XY and extrudes along local z, centered on 0.
-        // Rotating −90° about x maps plan (x, y) → scene (x, −z) and the extrusion axis to +y,
-        // so the slab ends up flat with its top face at the floor's base height.
-        node.eulerAngles.x = -.pi / 2
-        node.position = SCNVector3(0, Float(-slabThicknessM / 2), 0)
         return node
     }
 
@@ -183,7 +177,7 @@ enum DollhouseSceneBuilder {
         let text = SCNText(string: room.name, extrusionDepth: 0)
         text.font = UIFont.systemFont(ofSize: 12, weight: .medium)
         text.flatness = 0.1
-        let labelMaterial = material(DollhousePalette.label, lighting: .constant)
+        let labelMaterial = FixtureStyle.material(DollhousePalette.label, lighting: .constant)
         // Labels are UI, not geometry — they stay legible through a wall.
         labelMaterial.writesToDepthBuffer = false
         labelMaterial.readsFromDepthBuffer = false
@@ -211,27 +205,18 @@ enum DollhouseSceneBuilder {
 
     // MARK: - Walls
 
+    /// Wall geometry (with its opening cutouts already carved) comes from the fixture catalog;
+    /// the builder places the container on the deduped edge.
     private static func makeWall(_ spec: DollhouseGeometry.WallSpec, height: Double) -> SCNNode {
-        let box = SCNBox(width: CGFloat(spec.length), height: CGFloat(height),
-                         length: CGFloat(wallThicknessM), chamferRadius: 0)
-        // Exterior shell keeps more body than interior partitions so the house reads as an
-        // object while the floor plan inside stays legible.
-        let mat = material(spec.isExterior ? DollhousePalette.exteriorWall : DollhousePalette.wall)
-        mat.transparency = spec.isExterior
-            ? DollhousePalette.exteriorWallOpacity : DollhousePalette.wallOpacity
-        mat.isDoubleSided = true
-        // Transparent surfaces that write depth hide whatever is drawn behind them afterwards —
-        // which for a see-through dollhouse is exactly the content you want to see.
-        mat.writesToDepthBuffer = false
-        box.firstMaterial = mat
-
-        let node = SCNNode(geometry: box)
+        let node = FixtureCatalog.shared.wall.node(for: WallFixtureSpec(
+            length: spec.length,
+            height: height,
+            thickness: wallThicknessM,
+            isExterior: spec.isExterior,
+            cutouts: spec.cutouts
+        ))
         node.position = DollhouseGeometry.scenePoint(spec.midpoint, y: height / 2)
         node.eulerAngles.y = Float(spec.yaw)
-        // Drawn after the opaque interior so alpha blends over it in the right order.
-        node.renderingOrder = RenderOrder.walls
-        // Translucent walls throwing hard shadows would read as solid slabs on the floor.
-        node.castsShadow = false
         return node
     }
 
@@ -241,12 +226,15 @@ enum DollhouseSceneBuilder {
                                     placement: DollhouseGeometry.OpeningPlacement,
                                     floorHeight: Double) -> SCNNode {
         // A door taller than its floor is bad data, not a reason to punch through the ceiling.
+        // The same clamp feeds the wall's cutout (DollhouseGeometry.walls), so the fixture
+        // always exactly fills its hole.
         let height = min(placement.height, max(floorHeight - placement.sill, 0.05))
-        let box = SCNBox(width: CGFloat(placement.width), height: CGFloat(height),
-                         length: CGFloat(wallThicknessM + openingInsetM), chamferRadius: 0.01)
-        box.firstMaterial = material(DollhousePalette.opening(kind: opening.kind, isExit: opening.isExit))
-
-        let node = SCNNode(geometry: box)
+        let spec = OpeningFixtureSpec(width: placement.width, height: height,
+                                      wallThickness: wallThicknessM,
+                                      kind: opening.kind, isExit: opening.isExit)
+        let node = opening.kind == .door
+            ? FixtureCatalog.shared.door.node(for: spec)
+            : FixtureCatalog.shared.window.node(for: spec)
         node.name = "opening:\(opening.id)"
         node.position = DollhouseGeometry.scenePoint(placement.center, y: placement.sill + height / 2)
         node.eulerAngles.y = Float(placement.yaw)
@@ -262,7 +250,7 @@ enum DollhouseSceneBuilder {
               object.height_m > 0 else { return nil }
         let box = SCNBox(width: CGFloat(object.size_m[0]), height: CGFloat(object.height_m),
                          length: CGFloat(object.size_m[1]), chamferRadius: 0.02)
-        box.firstMaterial = material(DollhousePalette.object(category: object.category))
+        box.firstMaterial = FixtureStyle.material(DollhousePalette.object(category: object.category))
 
         let node = SCNNode(geometry: box)
         node.name = "object:\(object.id)"
@@ -279,40 +267,24 @@ enum DollhouseSceneBuilder {
     /// A proxy, not a real staircase: the schema stores a footprint and a `kind` for exactly this
     /// purpose. L and U runs render as a straight flight across the footprint's long axis — enough
     /// to read "stairs here, going up" without pretending to geometry the model doesn't carry.
+    /// The flight itself comes from the fixture catalog; the builder orients it along that axis.
     private static func makeStairs(_ stair: Stairs, rise: Double) -> SCNNode? {
         var bounds = DollhouseGeometry.PlanBounds()
         for p in stair.footprint { bounds.extend(p) }
         guard !bounds.isEmpty, bounds.width > 1e-3, bounds.depth > 1e-3, rise > 1e-3 else { return nil }
 
         let alongX = bounds.width >= bounds.depth
-        let runLength = alongX ? bounds.width : bounds.depth
-        let treadWidth = alongX ? bounds.depth : bounds.width
-
-        let stepCount = 12
-        let treadDepth = runLength / Double(stepCount)
-        let stepRise = rise / Double(stepCount)
-
-        let container = SCNNode()
-        container.name = "stairs:\(stair.id)"
-        let mat = material(DollhousePalette.stairs)
-
-        for i in 0..<stepCount {
-            // Each tread is a slab whose top face is at the height you'd be standing on.
-            let box = SCNBox(width: CGFloat(alongX ? treadDepth : treadWidth),
-                             height: CGFloat(stepRise),
-                             length: CGFloat(alongX ? treadWidth : treadDepth),
-                             chamferRadius: 0)
-            box.firstMaterial = mat
-            let node = SCNNode(geometry: box)
-
-            let alongCenter = (Double(i) + 0.5) * treadDepth
-            let plan = alongX
-                ? Point(x: bounds.minX + alongCenter, y: bounds.center.y)
-                : Point(x: bounds.center.x, y: bounds.minY + alongCenter)
-            node.position = DollhouseGeometry.scenePoint(plan, y: Double(i) * stepRise + stepRise / 2)
-            container.addChildNode(node)
-        }
-        return container
+        let node = FixtureCatalog.shared.stair.node(for: StairFixtureSpec(
+            runLength: alongX ? bounds.width : bounds.depth,
+            width: alongX ? bounds.depth : bounds.width,
+            rise: rise
+        ))
+        node.name = "stairs:\(stair.id)"
+        node.position = DollhouseGeometry.scenePoint(bounds.center, y: 0)
+        // The fixture ascends along local +x; plan +y maps to scene −z, so a run along the
+        // plan's y axis is a +90° turn about scene +y.
+        node.eulerAngles.y = alongX ? 0 : .pi / 2
+        return node
     }
 
     // MARK: - Camera & lighting
@@ -379,32 +351,4 @@ enum DollhouseSceneBuilder {
         scene.rootNode.addChildNode(fill)
     }
 
-    // MARK: -
-
-    private static func material(_ color: UIColor,
-                                 lighting: SCNMaterial.LightingModel = .physicallyBased) -> SCNMaterial {
-        let m = SCNMaterial()
-        m.diffuse.contents = color
-        m.lightingModel = lighting
-        if lighting == .physicallyBased {
-            m.roughness.contents = 0.85
-            m.metalness.contents = 0.0
-        }
-        return m
-    }
-}
-
-private extension UIColor {
-    /// Mix toward `other` by `amount` (0 = self, 1 = other).
-    func blended(with other: UIColor, amount: CGFloat) -> UIColor {
-        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
-        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
-        getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
-        other.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
-        let t = min(max(amount, 0), 1)
-        return UIColor(red: r1 + (r2 - r1) * t,
-                       green: g1 + (g2 - g1) * t,
-                       blue: b1 + (b2 - b1) * t,
-                       alpha: a1 + (a2 - a1) * t)
-    }
 }

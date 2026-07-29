@@ -558,3 +558,30 @@ pydantic / Swift Codable (+ round-trip tests green):
   in HomeScreen's toolbar next to Scan.
 - This is also the fast test path the revamp wanted: describe a home → draft → review →
   routes, no LiDAR and no manual building required.
+
+## 2026-07-29 — UI revamp: parametric fixture kit for the dollhouse renderer
+
+- The renderer's single-color boxes (walls, flat opening panels, ziggurat stairs) are
+  replaced by a **fixture layer** (`escape_plan/Renderer/Fixtures/`): parametric specs +
+  builder protocols + a swappable `FixtureCatalog`. Rationale: every home renders from the
+  same component vocabulary (consistent look across scans — the driving-viz principle), and
+  builders are replaceable wholesale — `AssetFixture` bounding-box-fits a bundled
+  `.usdz`/`.scn` onto any spec, so hand-modeled doors/windows/stairs plug in without
+  touching the scene builder. Local-frame contract is documented in `FixtureKit.swift`.
+- Walls carve REAL holes for openings (pier/sill/header box composition). The cutouts and
+  the door/window fixtures are computed from the same clamped numbers on the same deduped
+  wall — joins are seamless by construction, not by tuning. Two new RenderOrder bands:
+  `fixtures = 6` (opaque detail under the translucent shell), `glass = 12` (panes blend
+  after walls). The see-through dollhouse regime (depth-write-off walls, hot routes on
+  top) is unchanged.
+- All fixture tones derive from the existing `DollhousePalette` colors — restyling stays a
+  one-file change. Slabs gained per-face materials (accent top / darker cut edge) and the
+  house sits on a shadow-catching base plate.
+- `RouteOverlay` exit glow now sizes from the opening node's bounding box (was: cast to
+  `SCNBox`) — required because openings are now containers, and it decouples the overlay
+  from any future fixture builder.
+- **Pre-existing bug found and fixed while verifying**: HouseScreen's explode slider and
+  spotlight fade never worked — the `onRebuild` closure (captured once at attach) read
+  @State through a stale struct copy, so every editor rebuild reset both to defaults.
+  Reproduced on unmodified main before fixing. Fix: `SceneViewStateHolder` reference box
+  (the `RouteOverlayHolder` pattern); `applyViewState` reads only through the box.

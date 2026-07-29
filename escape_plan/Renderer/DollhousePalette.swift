@@ -77,4 +77,50 @@ enum DollhousePalette {
         case (.window, false):return UIColor(red: 0.588, green: 0.749, blue: 0.827, alpha: 1.0)
         }
     }
+
+    // MARK: - Fixture kit tones (UI revamp, Jul 2026)
+    //
+    // Every tone below is DERIVED from the base palette above, so restyling the app stays a
+    // one-place change and the fixtures always read as one family with the walls and slabs.
+
+    /// The diorama table the house sits on — darker than the backdrop so shadows land on it.
+    static let basePlate = background.blended(with: exteriorWall, amount: 0.24)
+    /// Cut edge of a floor slab (the extruded side face).
+    static let slabSide = slab.blended(with: exteriorWall, amount: 0.55)
+    static let slabUnderside = slab.blended(with: exteriorWall, amount: 0.35)
+
+    /// The darker rim along the top of every wall — the "cut line" that makes the dollhouse
+    /// read as deliberately sliced rather than unfinished.
+    static func wallCap(isExterior: Bool) -> UIColor {
+        (isExterior ? exteriorWall : wall).blended(with: label, amount: 0.30)
+    }
+
+    /// Door/window frames sit a shade darker than their leaf/glass so the trim reads.
+    static func openingFrame(kind: OpeningKind, isExit: Bool) -> UIColor {
+        opening(kind: kind, isExit: isExit).blended(with: label, amount: 0.32)
+    }
+
+    static let doorHandle = UIColor(red: 0.36, green: 0.33, blue: 0.30, alpha: 1.0)
+    /// Glass gets its blue from the window family, kept pale so routes stay the hot colors.
+    static let windowGlass = UIColor(red: 0.73, green: 0.85, blue: 0.90, alpha: 1.0)
+
+    static let stairTread = stairs
+    static let stairRiser = stairs.blended(with: label, amount: 0.16)
+    static let stairStringer = stairs.blended(with: label, amount: 0.30)
+    static let stairRail = stairs.blended(with: label, amount: 0.42)
+}
+
+extension UIColor {
+    /// Mix toward `other` by `amount` (0 = self, 1 = other).
+    func blended(with other: UIColor, amount: CGFloat) -> UIColor {
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+        getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        other.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        let t = min(max(amount, 0), 1)
+        return UIColor(red: r1 + (r2 - r1) * t,
+                       green: g1 + (g2 - g1) * t,
+                       blue: b1 + (b2 - b1) * t,
+                       alpha: a1 + (a2 - a1) * t)
+    }
 }

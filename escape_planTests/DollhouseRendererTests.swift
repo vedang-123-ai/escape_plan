@@ -241,7 +241,8 @@ final class DollhouseRendererTests: XCTestCase {
     /// hand-set renderingOrder is the kind of regression that only shows up as "walls look
     /// wrong from some angles".
     func testEveryNodeSitsInItsRenderOrderBand() throws {
-        let knownBands: Set<Int> = [RenderOrder.opaque, RenderOrder.objects, RenderOrder.walls,
+        let knownBands: Set<Int> = [RenderOrder.opaque, RenderOrder.objects, RenderOrder.fixtures,
+                                    RenderOrder.walls, RenderOrder.glass,
                                     RenderOrder.glow, RenderOrder.routes, RenderOrder.labels,
                                     RenderOrder.badges, RenderOrder.badgeGlyphs]
         for fixture in Fixture.allCases {

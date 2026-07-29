@@ -131,7 +131,7 @@ enum DollhouseGeometry {
 
     // MARK: - Walls
 
-    /// One wall of a room's footprint, ready to become a box.
+    /// One wall of a room's footprint, ready to become a fixture.
     struct WallSpec {
         var a: Point
         var b: Point
@@ -142,12 +142,21 @@ enum DollhouseGeometry {
         /// boundary to unmodeled space, which renders the same way). Shared edges are interior
         /// partitions.
         var isExterior: Bool = true
+        /// Holes this wall's openings punch through it, in wall-local terms (distance measured
+        /// along the wall from `a`). The wall fixture leaves these open; the door/window
+        /// fixtures fill them — both cut from the same numbers, so the joins are seamless.
+        var cutouts: [WallCutout] = []
     }
 
     /// Deduplicated walls for a floor. Adjacent rooms each own the shared wall in their own
     /// polygon; rendering both would put two coplanar transparent boxes in the same place and
     /// z-fight. Keying on the rounded, unordered endpoint pair collapses them to one, and the
     /// occurrence count is what separates exterior shell from interior partition.
+    ///
+    /// Each opening that resolves parametrically is attached to its host wall as a cutout.
+    /// A shared wall referenced from either adjacent room maps to the same deduped spec, and
+    /// `centerAlong` is measured from the spec's own `a` end regardless of which room's edge
+    /// direction the opening was authored against.
     static func walls(for floor: Floor) -> [WallSpec] {
         var occurrences: [String: Int] = [:]
         for room in floor.rooms {
@@ -159,6 +168,7 @@ enum DollhouseGeometry {
 
         var seen = Set<String>()
         var specs: [WallSpec] = []
+        var indexByKey: [String: Int] = [:]
         for room in floor.rooms {
             for i in 0..<room.polygon.count {
                 guard let e = edge(room.polygon, i) else { continue }
@@ -167,6 +177,7 @@ enum DollhouseGeometry {
                 seen.insert(key)
                 let len = length(from: e.a, to: e.b)
                 guard len > 1e-6 else { continue }
+                indexByKey[key] = specs.count
                 specs.append(WallSpec(
                     a: e.a,
                     b: e.b,
@@ -176,6 +187,23 @@ enum DollhouseGeometry {
                     isExterior: occurrences[key, default: 1] == 1
                 ))
             }
+        }
+
+        for opening in floor.openings {
+            guard let p = placement(for: opening, on: floor),
+                  let room = floor.rooms.first(where: { $0.id == opening.wall_segment.room_id }),
+                  let e = edge(room.polygon, opening.wall_segment.edge_index),
+                  let index = indexByKey[wallKey(e.a, e.b)]
+            else { continue }  // dangling references are reported by the scene builder
+            // The placement center lies on the edge, so its distance from the deduped wall's
+            // own `a` IS the along-wall coordinate, whichever direction the edge was authored.
+            let height = min(p.height, max(floor.height_m - p.sill, 0.05))
+            specs[index].cutouts.append(WallCutout(
+                centerAlong: length(from: specs[index].a, to: p.center),
+                width: p.width,
+                sill: p.sill,
+                height: height
+            ))
         }
         return specs
     }
