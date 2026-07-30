@@ -585,3 +585,39 @@ pydantic / Swift Codable (+ round-trip tests green):
   @State through a stale struct copy, so every editor rebuild reset both to defaults.
   Reproduced on unmodified main before fixing. Fix: `SceneViewStateHolder` reference box
   (the `RouteOverlayHolder` pattern); `applyViewState` reads only through the box.
+
+## 2026-07-29 — UI craft pass: room label chips, dock sections, finding cards
+
+- 3D room labels are now pre-rendered capsule chips (`RoomLabelSprite`) instead of raw
+  SCNText — legible surface, padding, room-type accent dot; same billboard/label-band
+  node contract, so the overlay's badge conventions are untouched.
+- The HouseScreen dock is sectioned (View / Escape routes / Route check) with one quiet
+  header style. The fixed-height-dock rule (no mid-gesture scene resizes) is preserved.
+- Route findings render as severity-tiered cards (`RouteFindingViews.swift`). The card
+  TITLE names the machine `kind` ("No way out", "No second way out", "Blocked doorway");
+  the `detail` string below stays verbatim from the engine — presentation changed,
+  the "client never writes safety judgments" rule did not. Severity colors are the same
+  `DollhousePalette` badge colors the 3D scene uses, so both layers agree.
+
+## 2026-07-29 — Glass view controls, scene card, fullscreen mode
+
+- The dollhouse is now a **card** (continuous 26 pt corners, soft shadow, inset), and the
+  view controls (floor picker, spotlight, fullscreen) **float on it** in Liquid Glass
+  rather than living in the dock. The empty sky above the model was dead space; it is now
+  the control surface, and the dock opens directly on route content.
+- `Screens/GlassControls.swift` owns the single `#available(iOS 26.0)` fork for the app:
+  `.glassEffect` / `GlassEffectContainer` on 26+, `.regularMaterial` + rim stroke below.
+  Every floating control goes through it so the two OS versions stay visually consistent
+  and no screen repeats the availability dance.
+- **Fullscreen (`isImmersive`)** hides the dock, nav bar, tab bar, and status bar and takes
+  the card full-bleed. The explode slider floats in glass at the bottom so it does not
+  disappear with the dock. Disabled while touring — a frame change would fight the tour
+  camera for the point of view.
+- The renderer's fixed-dock contract is **partially relaxed, deliberately**: controls may
+  overlay the scene as a fixed-height strip (never resizing it); the ban on mid-gesture
+  scene resizes still stands, and the immersive toggle is the one frame change, always
+  user-initiated from a button.
+- **Rejected**: `SCNCamera.projectionDirection = .horizontal` to keep the house's width
+  framed at any aspect. On a 1:2.2 full-screen viewport it implies a ~90° vertical FOV,
+  which shrinks and visibly skews the model. `.automatic` stays; pinch handles the mild
+  crop when entering fullscreen.

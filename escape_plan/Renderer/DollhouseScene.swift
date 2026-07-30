@@ -174,29 +174,31 @@ enum DollhouseSceneBuilder {
     }
 
     private static func makeLabel(_ room: Room, floorHeight: Double) -> SCNNode {
-        let text = SCNText(string: room.name, extrusionDepth: 0)
-        text.font = UIFont.systemFont(ofSize: 12, weight: .medium)
-        text.flatness = 0.1
-        let labelMaterial = FixtureStyle.material(DollhousePalette.label, lighting: .constant)
-        // Labels are UI, not geometry — they stay legible through a wall.
-        labelMaterial.writesToDepthBuffer = false
-        labelMaterial.readsFromDepthBuffer = false
-        text.firstMaterial = labelMaterial
+        // A pre-rendered capsule chip (RoomLabelSprite) instead of raw SCNText: legible
+        // against any wall, padded, and carrying the room-type accent as a dot.
+        let sprite = RoomLabelSprite.make(name: room.name,
+                                          accent: DollhousePalette.accent(for: room.type))
+        let chipHeightM: CGFloat = 0.28
+        let plane = SCNPlane(width: chipHeightM * sprite.aspect, height: chipHeightM)
 
-        let textNode = SCNNode(geometry: text)
+        let material = SCNMaterial()
+        material.diffuse.contents = sprite.image
+        material.lightingModel = .constant
+        material.isDoubleSided = true
+        // Labels are UI, not geometry — they stay legible through a wall.
+        material.writesToDepthBuffer = false
+        material.readsFromDepthBuffer = false
+        plane.firstMaterial = material
+
+        let planeNode = SCNNode(geometry: plane)
         // renderingOrder is per-node and does not inherit, so it belongs on the node that
         // actually carries the geometry, not on the billboarded holder.
-        textNode.renderingOrder = RenderOrder.labels
-        // SCNText is laid out in points; scale it into meters and re-center on its own bounds so
-        // the label sits over the room's centroid rather than starting there.
-        let scale: Float = 0.018
-        textNode.scale = SCNVector3(scale, scale, scale)
-        let (minB, maxB) = text.boundingBox
-        textNode.pivot = SCNMatrix4MakeTranslation((minB.x + maxB.x) / 2, (minB.y + maxB.y) / 2, 0)
+        planeNode.renderingOrder = RenderOrder.labels
+        planeNode.castsShadow = false
 
         let holder = SCNNode()
         holder.name = "label:\(room.id)"
-        holder.addChildNode(textNode)
+        holder.addChildNode(planeNode)
         let c = DollhouseGeometry.centroid(room.polygon)
         holder.position = DollhouseGeometry.scenePoint(c, y: floorHeight * 0.55)
         holder.constraints = [SCNBillboardConstraint()]

@@ -13,27 +13,27 @@
 				<key>testAIPlanAlwaysNeedsReviewRegardlessOfConfidence</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0010470151901245117</real>
+					<real>0.00090003013610839844</real>
 				</dict>
 				<key>testConfirmAIDraftFlipsEverythingToManualInOneUndoableCommit</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0043479204177856445</real>
+					<real>0.0045549869537353516</real>
 				</dict>
 				<key>testConfirmOnAFullyManualHomeIsANoOpCommit</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00069797039031982422</real>
+					<real>0.00057995319366455078</real>
 				</dict>
 				<key>testHasAIDraftContentDetectsAnySingleDraftElement</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00052607059478759766</real>
+					<real>0.00058400630950927734</real>
 				</dict>
 				<key>testObjectsJoinTheReviewList</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0018699169158935547</real>
+					<real>0.001544952392578125</real>
 				</dict>
 			</dict>
 			<key>BuildRequestEncodingTests</key>
@@ -41,17 +41,17 @@
 				<key>testFailureResponseDecodesWithNilHomeAndIssues</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0014669895172119141</real>
+					<real>0.00091600418090820312</real>
 				</dict>
 				<key>testRequestEncodesDescriptionAndImage</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.001381993293762207</real>
+					<real>0.0010750293731689453</real>
 				</dict>
 				<key>testResponseDecodesHomeAndIgnoresTrace</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00063407421112060547</real>
+					<real>0.00054693222045898438</real>
 				</dict>
 			</dict>
 			<key>CameraRigModelTests</key>
@@ -59,62 +59,62 @@
 				<key>testBasisIsOrthonormalAndUpIsUpward</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00041091442108154297</real>
+					<real>0.00036799907684326172</real>
 				</dict>
 				<key>testDegenerateZoomScaleIsIgnored</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00052297115325927734</real>
+					<real>0.00038897991180419922</real>
 				</dict>
 				<key>testFramingLooksAtHouseCenterFromThreeQuarterAngle</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00034701824188232422</real>
+					<real>0.00033199787139892578</real>
 				</dict>
 				<key>testFramingSurvivesDegenerateExtent</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00030493736267089844</real>
+					<real>0.00033295154571533203</real>
 				</dict>
 				<key>testMetersPerPointMatchesFrustumHeight</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00029301643371582031</real>
+					<real>0.00032496452331542969</real>
 				</dict>
 				<key>testOrbitClampsPitchAtBothEnds</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0015799999237060547</real>
+					<real>0.00033402442932128906</real>
 				</dict>
 				<key>testOrbitKeepsPivotAndDistance</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00040698051452636719</real>
+					<real>0.00030994415283203125</real>
 				</dict>
 				<key>testPositionSitsAtDistanceFromPivot</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00033402442932128906</real>
+					<real>0.00033199787139892578</real>
 				</dict>
 				<key>testTruckMovesPivotInCameraPlaneOnly</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00032806396484375</real>
+					<real>0.00036001205444335938</real>
 				</dict>
 				<key>testZoomClampStopsPivotDrift</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00029194355010986328</real>
+					<real>0.00034499168395996094</real>
 				</dict>
 				<key>testZoomOutMovesAwayFromAnchor</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.001708984375</real>
+					<real>0.00033402442932128906</real>
 				</dict>
 				<key>testZoomTowardAnchorHoldsAnchorDirectionAndScalesDistance</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00043594837188720703</real>
+					<real>0.00030398368835449219</real>
 				</dict>
 			</dict>
 			<key>ChatRequestEncodingTests</key>
@@ -122,22 +122,22 @@
 				<key>testAssistantMessageProjectsToWireFormatWithoutCitations</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00038504600524902344</real>
+					<real>0.00035905838012695312</real>
 				</dict>
 				<key>testChatResponseDecodes</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0012650489807128906</real>
+					<real>0.00085699558258056641</real>
 				</dict>
 				<key>testConversationDocumentRoundTrips</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0031139850616455078</real>
+					<real>0.0027550458908081055</real>
 				</dict>
 				<key>testRequestEncodesExactlyTheAllowedKeys</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0035279989242553711</real>
+					<real>0.003188014030456543</real>
 				</dict>
 			</dict>
 			<key>ChecklistStateStoreTests</key>
@@ -145,37 +145,37 @@
 				<key>testCorruptStoredValueLoadsAsEmptyInsteadOfCrashing</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0028009414672851562</real>
+					<real>0.0022950172424316406</real>
 				</dict>
 				<key>testHomesDoNotCrossContaminate</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0027120113372802734</real>
+					<real>0.0019400119781494141</real>
 				</dict>
 				<key>testLoadWithNothingSavedReturnsEmpty</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0010019540786743164</real>
+					<real>0.00089192390441894531</real>
 				</dict>
 				<key>testSaveLoadRoundTrip</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0021669864654541016</real>
+					<real>0.0020079612731933594</real>
 				</dict>
 				<key>testSecondSaveReplacesTheFirstEntirely</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0022360086441040039</real>
+					<real>0.0020380020141601562</real>
 				</dict>
 				<key>testStateIsStoredUnderTheDocumentedKeyScheme</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0022530555725097656</real>
+					<real>0.0016229152679443359</real>
 				</dict>
 				<key>testStateSurvivesRelaunch</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.001752018928527832</real>
+					<real>0.0016340017318725586</real>
 				</dict>
 			</dict>
 			<key>ConversationStoreTests</key>
@@ -183,37 +183,37 @@
 				<key>testAssistantMessageRoundTripKeepsIdentityAndCitations</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00076603889465332031</real>
+					<real>0.00085699558258056641</real>
 				</dict>
 				<key>testChatErrorMessagesMatchWhatTheScreenShows</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0005359649658203125</real>
+					<real>0.00070202350616455078</real>
 				</dict>
 				<key>testClearWithNoFileDoesNotThrowAndSaveStillWorksAfter</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0010869503021240234</real>
+					<real>0.0012149810791015625</real>
 				</dict>
 				<key>testCorruptFileLoadsAsNilAndSaveRecovers</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0027220249176025391</real>
+					<real>0.00197601318359375</real>
 				</dict>
 				<key>testIncrementalResavesAccumulateTheWholeThread</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0033099651336669922</real>
+					<real>0.002987980842590332</real>
 				</dict>
 				<key>testReinitializingOverAnExistingDirectoryKeepsTheFile</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0056809186935424805</real>
+					<real>0.0046499967575073242</real>
 				</dict>
 				<key>testThreadSurvivesRelaunchExactly</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0010589361190795898</real>
+					<real>0.0010150671005249023</real>
 				</dict>
 			</dict>
 			<key>DollhouseRendererTests</key>
@@ -221,107 +221,107 @@
 				<key>testAllFixturesBuildWithoutGeometryIssues</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.020593047142028809</real>
+					<real>0.042059063911437988</real>
 				</dict>
 				<key>testAllFixturesDecode</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0010980367660522461</real>
+					<real>0.00079393386840820312</real>
 				</dict>
 				<key>testBundledFixturesMatchSchemaFixtures</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0014460086822509766</real>
+					<real>0.0013910531997680664</real>
 				</dict>
 				<key>testCentroidOfDegeneratePolygonFallsBackInsteadOfProducingNaN</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00049698352813720703</real>
+					<real>0.00045001506805419922</real>
 				</dict>
 				<key>testCentroidOfSquare</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00037908554077148438</real>
+					<real>0.00035405158996582031</real>
 				</dict>
 				<key>testDanglingWallSegmentReferenceIsReportedNotSilentlyPlaced</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00057709217071533203</real>
+					<real>0.00052797794342041016</real>
 				</dict>
 				<key>testEveryNodeSitsInItsRenderOrderBand</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0085669755935668945</real>
+					<real>0.023782014846801758</real>
 				</dict>
 				<key>testEveryOpeningInEveryFixtureResolvesParametrically</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0047310590744018555</real>
+					<real>0.0037159919738769531</real>
 				</dict>
 				<key>testExplodeAmountIsClamped</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0046899318695068359</real>
+					<real>0.011978983879089355</real>
 				</dict>
 				<key>testExplodedViewSeparatesFloorsAndReturnsToRest</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0042240619659423828</real>
+					<real>0.012282013893127441</real>
 				</dict>
 				<key>testFloorVisibilityToggles</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0044289827346801758</real>
+					<real>0.011322021484375</real>
 				</dict>
 				<key>testFloorsStackByLevelNotArrayOrder</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00064098834991455078</real>
+					<real>0.00066196918487548828</real>
 				</dict>
 				<key>testMalformedObjectIsSurfacedAsABuildIssueNotACrash</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0032559633255004883</real>
+					<real>0.0060110092163085938</real>
 				</dict>
 				<key>testObjectRendersAsARotatedPrismInItsBand</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0026201009750366211</real>
+					<real>0.0057790279388427734</real>
 				</dict>
 				<key>testOpeningIsCenteredOnItsTRangeAndSizedByWidth</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00074493885040283203</real>
+					<real>0.00051295757293701172</real>
 				</dict>
 				<key>testOpeningWiderThanItsWallIsClampedRatherThanOverhanging</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00059306621551513672</real>
+					<real>0.00066101551055908203</real>
 				</dict>
 				<key>testPlanToSceneMapsYToNegativeZ</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00062596797943115234</real>
+					<real>0.000453948974609375</real>
 				</dict>
 				<key>testPointOnEdgeFollowsSchemaEdgeConvention</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00041806697845458984</real>
+					<real>0.00037109851837158203</real>
 				</dict>
 				<key>testSceneContainsANodeForEveryRoomAndOpening</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0053309202194213867</real>
+					<real>0.012570023536682129</real>
 				</dict>
 				<key>testSharedWallsAreDeduplicated</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00084102153778076172</real>
+					<real>0.00071704387664794922</real>
 				</dict>
 				<key>testSingleFloorFixturesHaveExactlyOneFloor</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00075793266296386719</real>
+					<real>0.00071799755096435547</real>
 				</dict>
 			</dict>
 			<key>DrillInstructionsTests</key>
@@ -329,17 +329,17 @@
 				<key>testCitationParserFindsAndDedupesIDs</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0020740032196044922</real>
+					<real>0.0014209747314453125</real>
 				</dict>
 				<key>testEveryCitationResolvesInCorpusSources</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.001995086669921875</real>
+					<real>0.0017989873886108398</real>
 				</dict>
 				<key>testSafetyClaimCardsCarryCitationsAndNavCardsDoNot</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00041306018829345703</real>
+					<real>0.0003509521484375</real>
 				</dict>
 			</dict>
 			<key>DrillPracticedStateTests</key>
@@ -347,7 +347,7 @@
 				<key>testMarkingPracticedPersistsAndLeavesOtherItemsAlone</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0027730464935302734</real>
+					<real>0.0022890567779541016</real>
 				</dict>
 			</dict>
 			<key>DrillSessionTests</key>
@@ -355,22 +355,22 @@
 				<key>testAdvanceAndBackClampAtEnds</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00058794021606445312</real>
+					<real>0.00041401386260986328</real>
 				</dict>
 				<key>testFloorCrossingBecomesStairsStepWithoutFlight</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00045299530029296875</real>
+					<real>0.00039505958557128906</real>
 				</dict>
 				<key>testRouteWithFewerThanTwoWaypointsIsRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.000453948974609375</real>
+					<real>0.00031602382659912109</real>
 				</dict>
 				<key>testSingleFloorRouteDerivesStartMovesAndMeetingPoint</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00051701068878173828</real>
+					<real>0.00034689903259277344</real>
 				</dict>
 			</dict>
 			<key>EdgeNormalProjectionTests</key>
@@ -378,22 +378,22 @@
 				<key>testAlongEdgeDeltaProjectsToZero</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0003910064697265625</real>
+					<real>0.00033009052276611328</real>
 				</dict>
 				<key>testDegenerateEdgePassesDeltaThrough</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00035405158996582031</real>
+					<real>0.00033998489379882812</real>
 				</dict>
 				<key>testDeltaProjectsOntoNormalOfHorizontalEdge</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00042796134948730469</real>
+					<real>0.00031292438507080078</real>
 				</dict>
 				<key>testPureNormalDeltaSurvivesUnchanged</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00034999847412109375</real>
+					<real>0.00031208992004394531</real>
 				</dict>
 			</dict>
 			<key>EditActionEdgeCaseTests</key>
@@ -401,62 +401,62 @@
 				<key>testAddProfileRejectsDuplicateTags</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00079202651977539062</real>
+					<real>0.00073301792144775391</real>
 				</dict>
 				<key>testAddStairsRejectsAFootprintWithTooFewVertices</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00080394744873046875</real>
+					<real>0.00057303905487060547</real>
 				</dict>
 				<key>testAddStairsRejectsASelfIntersectingFootprint</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00085198879241943359</real>
+					<real>0.0009250640869140625</real>
 				</dict>
 				<key>testCoalescedOpeningDragIsOneUndoEntry</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00079596042633056641</real>
+					<real>0.00066995620727539062</real>
 				</dict>
 				<key>testDeleteFloorIsRefusedWhileAProfileSleepsThere</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0017530918121337891</real>
+					<real>0.0012860298156738281</real>
 				</dict>
 				<key>testDeleteStairsClearsASelectionPointingAtIt</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00082302093505859375</real>
+					<real>0.00065302848815917969</real>
 				</dict>
 				<key>testDeleteStairsKeepsAnUnrelatedSelection</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00073003768920898438</real>
+					<real>0.00056397914886474609</real>
 				</dict>
 				<key>testDragOpeningAtTheBoundaryShrinksWidthButStaysValid</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00059390068054199219</real>
+					<real>0.00048792362213134766</real>
 				</dict>
 				<key>testDragOpeningClampsAtTheFarEnd</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00061202049255371094</real>
+					<real>0.00053393840789794922</real>
 				</dict>
 				<key>testDragOpeningMidWallPreservesParametricRef</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00084292888641357422</real>
+					<real>0.00049996376037597656</real>
 				</dict>
 				<key>testDragOpeningOutOfRangeInputClampsInsteadOfRejecting</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00070798397064208984</real>
+					<real>0.00062394142150878906</real>
 				</dict>
 				<key>testUpdateProfileRejectsADanglingBedroom</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00069105625152587891</real>
+					<real>0.00062108039855957031</real>
 				</dict>
 				<key>testUpdateProfileRejectsAnEmptyName</key>
 				<dict>
@@ -469,87 +469,87 @@
 				<key>testAreaIsWindingIndependent</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00039696693420410156</real>
+					<real>0.00035500526428222656</real>
 				</dict>
 				<key>testBowtieIsNotSimple</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00039303302764892578</real>
+					<real>0.00032496452331542969</real>
 				</dict>
 				<key>testClosestPointOnSegment</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00037598609924316406</real>
+					<real>0.00031197071075439453</real>
 				</dict>
 				<key>testCollinearOverlapDetection</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00040805339813232422</real>
+					<real>0.00030303001403808594</real>
 				</dict>
 				<key>testContains</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00034296512603759766</real>
+					<real>0.00033593177795410156</real>
 				</dict>
 				<key>testContainsHandlesConcavity</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00035595893859863281</real>
+					<real>0.00033497810363769531</real>
 				</dict>
 				<key>testConvexAndConcavePolygonsAreSimple</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00036203861236572266</real>
+					<real>0.00033891201019287109</real>
 				</dict>
 				<key>testDegeneratePolygonIsNeitherCCWNorSimple</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00039696693420410156</real>
+					<real>0.00077605247497558594</real>
 				</dict>
 				<key>testDoublingBackAlongAWallIsNotSimple</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00041294097900390625</real>
+					<real>0.00033891201019287109</real>
 				</dict>
 				<key>testDuplicateVertexIsNotSimple</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00037205219268798828</real>
+					<real>0.00032496452331542969</real>
 				</dict>
 				<key>testEdgeIndexFollowsTheSchemaConvention</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00037097930908203125</real>
+					<real>0.00033497810363769531</real>
 				</dict>
 				<key>testEveryFixtureRoomIsAValidRoomPolygon</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00088405609130859375</real>
+					<real>0.00073301792144775391</real>
 				</dict>
 				<key>testFixtureOpeningsResolveOntoTheirHostWall</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00079894065856933594</real>
+					<real>0.001811981201171875</real>
 				</dict>
 				<key>testPointOnEdgeResolvesTheTParameter</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00036799907684326172</real>
+					<real>0.00036096572875976562</real>
 				</dict>
 				<key>testSegmentIntersection</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00040495395660400391</real>
+					<real>0.00030696392059326172</real>
 				</dict>
 				<key>testSignedAreaSignEncodesWinding</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00034797191619873047</real>
+					<real>0.00028300285339355469</real>
 				</dict>
 				<key>testTouchingButNotCrossingIsStillNotSimple</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00035202503204345703</real>
+					<real>0.00031697750091552734</real>
 				</dict>
 			</dict>
 			<key>GestureArbiterTests</key>
@@ -557,32 +557,32 @@
 				<key>testHittingTheSelectionEdits</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00045990943908691406</real>
+					<real>0.00033092498779296875</real>
 				</dict>
 				<key>testNoSelectionAlwaysOrbits</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00043499469757080078</real>
+					<real>0.00033009052276611328</real>
 				</dict>
 				<key>testNonRoomSelectionsOnlyEditThemselves</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00040090084075927734</real>
+					<real>0.00032091140747070312</real>
 				</dict>
 				<key>testNothingUnderFingerOrbits</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00041902065277099609</real>
+					<real>0.00030291080474853516</real>
 				</dict>
 				<key>testOtherRoomsOrbit</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0021469593048095703</real>
+					<real>0.00033700466156005859</real>
 				</dict>
 				<key>testPartsOfTheSelectedRoomEdit</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00040495395660400391</real>
+					<real>0.00032699108123779297</real>
 				</dict>
 			</dict>
 			<key>HitTestingTests</key>
@@ -590,57 +590,57 @@
 				<key>testItemsNeedingReviewFindsBothRoomsAndOpenings</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0005359649658203125</real>
+					<real>0.000492095947265625</real>
 				</dict>
 				<key>testLowConfidenceScanItemsNeedReview</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00037300586700439453</real>
+					<real>0.00033092498779296875</real>
 				</dict>
 				<key>testManualItemsNeverNeedReview</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0015799999237060547</real>
+					<real>0.00033009052276611328</real>
 				</dict>
 				<key>testNearestVertexWinsWhenTwoRoomsShareACorner</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0006389617919921875</real>
+					<real>0.002140045166015625</real>
 				</dict>
 				<key>testOpeningBeatsItsWall</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00068700313568115234</real>
+					<real>0.00038909912109375</real>
 				</dict>
 				<key>testRoomInteriorSelectsTheRoom</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00067400932312011719</real>
+					<real>0.00042498111724853516</real>
 				</dict>
 				<key>testTappingEmptySpaceSelectsNothing</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00058400630950927734</real>
+					<real>0.00040793418884277344</real>
 				</dict>
 				<key>testTappingTheSameWallOutsideTheDoorsRangeSelectsTheWall</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00055694580078125</real>
+					<real>0.00039207935333251953</real>
 				</dict>
 				<key>testToleranceIsRespected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00046503543853759766</real>
+					<real>0.00075292587280273438</real>
 				</dict>
 				<key>testVertexBeatsWall</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00048398971557617188</real>
+					<real>0.00044000148773193359</real>
 				</dict>
 				<key>testWallBeatsRoomInterior</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00057399272918701172</real>
+					<real>0.00044906139373779297</real>
 				</dict>
 			</dict>
 			<key>HomeLibraryEditorSeamTests</key>
@@ -648,12 +648,12 @@
 				<key>testDeletingADifferentHomeLeavesTheOpenEditorAlone</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0048819780349731445</real>
+					<real>0.0029129981994628906</real>
 				</dict>
 				<key>testDeletingTheOpenHomeClosesEditorAndClearsUndo</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0017619132995605469</real>
+					<real>0.0015870332717895508</real>
 				</dict>
 			</dict>
 			<key>HomeModelCodableTests</key>
@@ -661,37 +661,37 @@
 				<key>testExteriorIsNotAValidRoomType</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00058603286743164062</real>
+					<real>0.00066399574279785156</real>
 				</dict>
 				<key>testFixturesAreValidPerTheEditorsOwnRules</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00091099739074707031</real>
+					<real>0.00082099437713623047</real>
 				</dict>
 				<key>testFixturesRoundTripAtTheJSONLevel</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0021719932556152344</real>
+					<real>0.0019819736480712891</real>
 				</dict>
 				<key>testFixturesRoundTripSemantically</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0014139413833618164</real>
+					<real>0.0010919570922851562</real>
 				</dict>
 				<key>testInvalidFixturesAreRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0011049509048461914</real>
+					<real>0.0010349750518798828</real>
 				</dict>
 				<key>testPointEncodesAsATwoElementArray</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00044798851013183594</real>
+					<real>0.00034701824188232422</real>
 				</dict>
 				<key>testStairsUsesTheReservedFromKey</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0011030435562133789</real>
+					<real>0.0010089874267578125</real>
 				</dict>
 			</dict>
 			<key>HomeModelRoundTripTests</key>
@@ -699,22 +699,22 @@
 				<key>testAllFixturesRoundTrip</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0014200210571289062</real>
+					<real>0.0013159513473510742</real>
 				</dict>
 				<key>testPointRoundTripsAsTwoElementArray</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00041401386260986328</real>
+					<real>0.00037395954132080078</real>
 				</dict>
 				<key>testStairsFromKeywordDecodesWithoutCollision</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0006580352783203125</real>
+					<real>0.00049102306365966797</real>
 				</dict>
 				<key>testTwostoryDecodesExpectedStructure</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0064189434051513672</real>
+					<real>0.0054749250411987305</real>
 				</dict>
 			</dict>
 			<key>HomeModelStoreTests</key>
@@ -722,7 +722,7 @@
 				<key>testARejectedActionDoesNotFireTheCommitHook</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.000576019287109375</real>
+					<real>0.00046300888061523438</real>
 				</dict>
 				<key>testARejectedActionLeavesTheModelBitForBitUnchanged</key>
 				<dict>
@@ -732,187 +732,187 @@
 				<key>testActiveFloorDefaultsToTheLowestLevel</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00071001052856445312</real>
+					<real>0.000701904296875</real>
 				</dict>
 				<key>testAddFloorTakesTheNextFreeLevelAndIsBornValid</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00054395198822021484</real>
+					<real>0.00046408176422119141</real>
 				</dict>
 				<key>testAddRoomPlacesACCWRectangleOnTheGivenFloor</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00068902969360351562</real>
+					<real>0.00054597854614257812</real>
 				</dict>
 				<key>testAddStairsConnectsTwoFloors</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00082504749298095703</real>
+					<real>0.00067400932312011719</real>
 				</dict>
 				<key>testAddStairsRejectedWhenFromAndToFloorsAreTheSame</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00077700614929199219</real>
+					<real>0.00061798095703125</real>
 				</dict>
 				<key>testAddStairsRejectedWhenRoomDoesNotExistOnFloor</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00064706802368164062</real>
+					<real>0.00051796436309814453</real>
 				</dict>
 				<key>testCannotDeleteTheLastRoomOnAFloor</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00045108795166015625</real>
+					<real>0.00036799907684326172</real>
 				</dict>
 				<key>testCannotDeleteTheOnlyFloor</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00057303905487060547</real>
+					<real>0.00033497810363769531</real>
 				</dict>
 				<key>testCommitHookCarriesBeforeAndAfterSnapshots</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00066804885864257812</real>
+					<real>0.00054299831390380859</real>
 				</dict>
 				<key>testDeleteRoomCascadesToItsOpenings</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00082898139953613281</real>
+					<real>0.00052905082702636719</real>
 				</dict>
 				<key>testDeleteRoomIsRefusedWhenAProfileSleepsThere</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0045740604400634766</real>
+					<real>0.004320979118347168</real>
 				</dict>
 				<key>testDeleteRoomIsRefusedWhenStairsLandThere</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00069200992584228516</real>
+					<real>0.00064492225646972656</real>
 				</dict>
 				<key>testDeleteStairsRejectsUnknownId</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00072896480560302734</real>
+					<real>0.000576019287109375</real>
 				</dict>
 				<key>testDeleteStairsRemovesEntry</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00063204765319824219</real>
+					<real>0.00060892105102539062</real>
 				</dict>
 				<key>testDeletingAFloorIsRefusedWhenSomeoneSleepsOnIt</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00070703029632568359</real>
+					<real>0.00051796436309814453</real>
 				</dict>
 				<key>testDeletingAFloorTakesItsStairsAndReassignsTheActiveFloor</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0027550458908081055</real>
+					<real>0.0020159482955932617</real>
 				</dict>
 				<key>testDeletingASelectedRoomClearsTheSelection</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00062704086303710938</real>
+					<real>0.00048696994781494141</real>
 				</dict>
 				<key>testDragEdgeTranslatesBothEndpointsAndStretchesNeighbours</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00062203407287597656</real>
+					<real>0.00063991546630859375</real>
 				</dict>
 				<key>testDragEdgeWrapsAroundTheClosingEdge</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00060498714447021484</real>
+					<real>0.00051796436309814453</real>
 				</dict>
 				<key>testDragOpeningClampsAtWallEnds</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00059306621551513672</real>
+					<real>0.00049495697021484375</real>
 				</dict>
 				<key>testDragOpeningRejectsUnknownOpeningId</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00052309036254882812</real>
+					<real>0.00050592422485351562</real>
 				</dict>
 				<key>testDragOpeningSlidesAlongItsWallPreservingWidth</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00054204463958740234</real>
+					<real>0.00058102607727050781</real>
 				</dict>
 				<key>testDragRoomTranslatesTheWholeFootprintRigidly</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00079798698425292969</real>
+					<real>0.00058305263519287109</real>
 				</dict>
 				<key>testDragVertexMovesOnlyThatCorner</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00062501430511474609</real>
+					<real>0.00049602985382080078</real>
 				</dict>
 				<key>testDragVertexSnapsToAnAdjacentRoomsCorner</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00052499771118164062</real>
+					<real>0.00051796436309814453</real>
 				</dict>
 				<key>testFloorsStaySortedByLevel</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00051200389862060547</real>
+					<real>0.00035202503204345703</real>
 				</dict>
 				<key>testGeneratedIdsAreUniqueAcrossEntityKinds</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0011659860610961914</real>
+					<real>0.0011268854141235352</real>
 				</dict>
 				<key>testInvalidFloorHeightIsRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00057089328765869141</real>
+					<real>0.00053703784942626953</real>
 				</dict>
 				<key>testMutationsStampMetaModified</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00065696239471435547</real>
+					<real>0.00045800209045410156</real>
 				</dict>
 				<key>testNewHomeIsTheSmallestValidDocument</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00039196014404296875</real>
+					<real>0.00034093856811523438</real>
 				</dict>
 				<key>testOpeningsRideAlongWhenTheirWallMoves</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00051403045654296875</real>
+					<real>0.00050699710845947266</real>
 				</dict>
 				<key>testRenamingToAnEmptyNameIsRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00053298473358154297</real>
+					<real>0.000514984130859375</real>
 				</dict>
 				<key>testReplaceModelValidatesButDoesNotCommit</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00071489810943603516</real>
+					<real>0.00068604946136474609</real>
 				</dict>
 				<key>testSetActiveFloorRejectsUnknownIdsAndClearsSelection</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00061893463134765625</real>
+					<real>0.00057494640350341797</real>
 				</dict>
 				<key>testStoreNeverSnapsARoomToItself</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00055003166198730469</real>
+					<real>0.00047993659973144531</real>
 				</dict>
 				<key>testStoreRefusesAnInvalidSeedModel</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.001520991325378418</real>
+					<real>0.0010629892349243164</real>
 				</dict>
 				<key>testUnknownIdsAreRejectedNotCrashed</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00067496299743652344</real>
+					<real>0.00048196315765380859</real>
 				</dict>
 			</dict>
 			<key>ObjectActionsTests</key>
@@ -920,47 +920,47 @@
 				<key>testAddObjectAppendsWithManualSourceAndValidates</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.000782012939453125</real>
+					<real>0.00058591365814208984</real>
 				</dict>
 				<key>testAddObjectRejectsDuplicateId</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00062894821166992188</real>
+					<real>0.00054192543029785156</real>
 				</dict>
 				<key>testAddObjectRejectsNonPositiveSize</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00051200389862060547</real>
+					<real>0.00047194957733154297</real>
 				</dict>
 				<key>testBlockedFixtureDecodesAndIsValid</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00051701068878173828</real>
+					<real>0.00044703483581542969</real>
 				</dict>
 				<key>testDeleteObjectRemovesItAndUnknownIdsAreRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00061392784118652344</real>
+					<real>0.00055193901062011719</real>
 				</dict>
 				<key>testDragObjectIsAContinuousDragForUndoCoalescing</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00039899349212646484</real>
+					<real>0.00031197071075439453</real>
 				</dict>
 				<key>testDragObjectTranslatesCenter</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00059592723846435547</real>
+					<real>0.000514984130859375</real>
 				</dict>
 				<key>testResizeRejectsNonPositiveAndLeavesModelUntouched</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0005550384521484375</real>
+					<real>0.00055992603302001953</real>
 				</dict>
 				<key>testRotateResizeAndRecategorize</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00064897537231445312</real>
+					<real>0.00057494640350341797</real>
 				</dict>
 			</dict>
 			<key>ObjectHitTestingTests</key>
@@ -968,22 +968,22 @@
 				<key>testAxisAlignedContainment</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00040304660797119141</real>
+					<real>0.00033700466156005859</real>
 				</dict>
 				<key>testHitTestPrefersObjectOverRoomInterior</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00046694278717041016</real>
+					<real>0.000431060791015625</real>
 				</dict>
 				<key>testRotatedContainment</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00042700767517089844</real>
+					<real>0.00052094459533691406</real>
 				</dict>
 				<key>testTopmostObjectWinsWhenOverlapping</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0004520416259765625</real>
+					<real>0.00040900707244873047</real>
 				</dict>
 			</dict>
 			<key>OnboardingTests</key>
@@ -991,42 +991,42 @@
 				<key>testAnalysisResultDecodesAndIgnoresTrace</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0015869140625</real>
+					<real>0.0014079809188842773</real>
 				</dict>
 				<key>testAnalysisResultLenientDefaults</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00059401988983154297</real>
+					<real>0.00041997432708740234</real>
 				</dict>
 				<key>testConnectionFailureClassification</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00052297115325927734</real>
+					<real>0.00042593479156494141</real>
 				</dict>
 				<key>testFlagAsScannedIsPureAndFixtureUntouched</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00099790096282958984</real>
+					<real>0.00074911117553710938</real>
 				</dict>
 				<key>testFlagAsScannedProducesReviewItems</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00092399120330810547</real>
+					<real>0.00052797794342041016</real>
 				</dict>
 				<key>testRoutePlanCacheMissAndCorruptFileReadAsNil</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00092196464538574219</real>
+					<real>0.00086510181427001953</real>
 				</dict>
 				<key>testRoutePlanCacheRoundTrip</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0051170587539672852</real>
+					<real>0.0040800571441650391</real>
 				</dict>
 				<key>testSeedDemoHomeWritesLoadableDocument</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0059030055999755859</real>
+					<real>0.0055559873580932617</real>
 				</dict>
 			</dict>
 			<key>OpeningActionsTests</key>
@@ -1034,92 +1034,92 @@
 				<key>testAddOpeningUndoRedoRoundTrip</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00082099437713623047</real>
+					<real>0.00079202651977539062</real>
 				</dict>
 				<key>testDeleteOpeningRemovesItAndClearsSelection</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00057899951934814453</real>
+					<real>0.00038695335388183594</real>
 				</dict>
 				<key>testDeleteOpeningUndoRestoresIt</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00044596195220947266</real>
+					<real>0.00037300586700439453</real>
 				</dict>
 				<key>testDoorDefaultsMatchFixtureConventions</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00042700767517089844</real>
+					<real>0.00039005279541015625</real>
 				</dict>
 				<key>testDoorOnExteriorWallIsAnExit</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00042796134948730469</real>
+					<real>0.00042593479156494141</real>
 				</dict>
 				<key>testDoorOnSharedWallConnectsBothRooms</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0003910064697265625</real>
+					<real>0.00035500526428222656</real>
 				</dict>
 				<key>testDragOpeningCannotCrossAnotherOpening</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00054597854614257812</real>
+					<real>0.00042390823364257812</real>
 				</dict>
 				<key>testDraggedWallCarriesItsOpening</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00051403045654296875</real>
+					<real>0.00040698051452636719</real>
 				</dict>
 				<key>testOverlappingOpeningsOnSameEdgeRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00050902366638183594</real>
+					<real>0.00041294097900390625</real>
 				</dict>
 				<key>testRejectedForUnknownRoomAndBadEdge</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00044298171997070312</real>
+					<real>0.00033795833587646484</real>
 				</dict>
 				<key>testRejectedWhenWallTooShort</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00040900707244873047</real>
+					<real>0.00034105777740478516</real>
 				</dict>
 				<key>testSetOpeningKindSwapsDimensionDefaultsKeepsSpan</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00049293041229248047</real>
+					<real>0.00034594535827636719</real>
 				</dict>
 				<key>testSetOpeningWidthRecentersAndRejectsOverwide</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00042402744293212891</real>
+					<real>0.00033795833587646484</real>
 				</dict>
 				<key>testSpanSlidesInwardNearWallEnd</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.000370025634765625</real>
+					<real>0.0003910064697265625</real>
 				</dict>
 				<key>testUndoStackResetDropsAllHistory</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00037395954132080078</real>
+					<real>0.00037300586700439453</real>
 				</dict>
 				<key>testWallPointResolvesTapToParametricPosition</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00040793418884277344</real>
+					<real>0.00034999847412109375</real>
 				</dict>
 				<key>testWindowAdjacencyIsDerivedTheSameWay</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00040507316589355469</real>
+					<real>0.00054204463958740234</real>
 				</dict>
 				<key>testWindowDefaultsMatchFixtureConventions</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00040602684020996094</real>
+					<real>0.00037300586700439453</real>
 				</dict>
 			</dict>
 			<key>PersistenceTests</key>
@@ -1127,72 +1127,72 @@
 				<key>testCurrentVersionMatchesTheSchemaContract</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0034469366073608398</real>
+					<real>0.0034229755401611328</real>
 				</dict>
 				<key>testDeviceIDIsStableAcrossLaunchesAndIsAUUID</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0040869712829589844</real>
+					<real>0.0038449764251708984</real>
 				</dict>
 				<key>testDocumentSurvivesRelaunchByteForByte</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0037989616394042969</real>
+					<real>0.0035239458084106445</real>
 				</dict>
 				<key>testDuplicateGetsFreshIDAndIsIndependent</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0092439651489257812</real>
+					<real>0.0078070163726806641</real>
 				</dict>
 				<key>testDuplicateOfDuplicateGetsAnotherFreshID</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0098869800567626953</real>
+					<real>0.0079510211944580078</real>
 				</dict>
 				<key>testEveryFixtureRoundTripsLosslessly</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.011603951454162598</real>
+					<real>0.010406970977783203</real>
 				</dict>
 				<key>testExportProducesTheStoredDocumentAtAHostVisiblePath</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0072410106658935547</real>
+					<real>0.0060520172119140625</real>
 				</dict>
 				<key>testGenericSaveAndLoadOfACodableModel</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0019010305404663086</real>
+					<real>0.0017209053039550781</real>
 				</dict>
 				<key>testImportedExportGetsAFreshIDAndDoesNotClobber</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0099959373474121094</real>
+					<real>0.0083850622177124023</real>
 				</dict>
 				<key>testListReportsNameFloorsRoomsAndModified</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0054850578308105469</real>
+					<real>0.0047720670700073242</real>
 				</dict>
 				<key>testListSkipsUnreadableFilesInsteadOfFailing</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0040400028228759766</real>
+					<real>0.0030770301818847656</real>
 				</dict>
 				<key>testLoadAndDeleteOfAnUnknownHomeThrow</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0014650821685791016</real>
+					<real>0.0011980533599853516</real>
 				</dict>
 				<key>testLoadRefusesADocumentFromANewerBuild</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0033109188079833984</real>
+					<real>0.0031069517135620117</real>
 				</dict>
 				<key>testMigrationHookRefusesAnUnknownOlderVersion</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0016989707946777344</real>
+					<real>0.0015310049057006836</real>
 				</dict>
 				<key>testMigrationHookRunsForAnOlderDocument</key>
 				<dict>
@@ -1202,22 +1202,22 @@
 				<key>testMigrationUpgradesAOneOhDocumentToCurrentAndItDecodes</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.001952052116394043</real>
+					<real>0.0017549991607666016</real>
 				</dict>
 				<key>testSaveRejectsADocumentWithoutSchemaVersionOrHomeID</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0028089284896850586</real>
+					<real>0.0024399757385253906</real>
 				</dict>
 				<key>testTwoHomesCoexistAndAreIndependent</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0099149942398071289</real>
+					<real>0.0085079669952392578</real>
 				</dict>
 				<key>testVersionComparisonIsNumericNotLexicographic</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00049889087677001953</real>
+					<real>0.0004940032958984375</real>
 				</dict>
 			</dict>
 			<key>ProfileActionsTests</key>
@@ -1225,57 +1225,57 @@
 				<key>testAddProfileAppendsAndValidates</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0010290145874023438</real>
+					<real>0.00064408779144287109</real>
 				</dict>
 				<key>testAddProfileRejectsDanglingBedroom</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00066006183624267578</real>
+					<real>0.00048398971557617188</real>
 				</dict>
 				<key>testAddProfileRejectsDuplicateId</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00076508522033691406</real>
+					<real>0.00069391727447509766</real>
 				</dict>
 				<key>testAddProfileRejectsEmptyName</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00059902667999267578</real>
+					<real>0.00053608417510986328</real>
 				</dict>
 				<key>testAddProfileRejectsReservedExteriorId</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00060904026031494141</real>
+					<real>0.00048899650573730469</real>
 				</dict>
 				<key>testDeleteProfileRemovesIt</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00069200992584228516</real>
+					<real>0.00068593025207519531</real>
 				</dict>
 				<key>testDeleteUnknownProfileIsRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00066900253295898438</real>
+					<real>0.00057899951934814453</real>
 				</dict>
 				<key>testDeletingAProfileUnblocksDeletingItsBedroom</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00081396102905273438</real>
+					<real>0.00073599815368652344</real>
 				</dict>
 				<key>testProfileActionsFireOnCommit</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00084006786346435547</real>
+					<real>0.00060808658599853516</real>
 				</dict>
 				<key>testUpdateProfileReplacesFields</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00089800357818603516</real>
+					<real>0.00066506862640380859</real>
 				</dict>
 				<key>testUpdateUnknownProfileIsRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00063502788543701172</real>
+					<real>0.00050199031829833984</real>
 				</dict>
 			</dict>
 			<key>RoutePlanDecodeErrorTests</key>
@@ -1283,47 +1283,47 @@
 				<key>testConstraintsDecodingRequiresTheBoolKeys</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00047993659973144531</real>
+					<real>0.00036895275115966797</real>
 				</dict>
 				<key>testGarbageAndTruncatedDataThrow</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00039708614349365234</real>
+					<real>0.00035595893859863281</real>
 				</dict>
 				<key>testMinimalPlanAndRouteDecode</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00040400028228759766</real>
+					<real>0.00039696693420410156</real>
 				</dict>
 				<key>testMissingRequiredTopLevelKeyThrows</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00043404102325439453</real>
+					<real>0.00038099288940429688</real>
 				</dict>
 				<key>testMissingRouteExitIdThrows</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00048208236694335938</real>
+					<real>0.00039303302764892578</real>
 				</dict>
 				<key>testUnknownFindingKindThrows</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0012429952621459961</real>
+					<real>0.0010100603103637695</real>
 				</dict>
 				<key>testUnknownWaypointKindThrows</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00048303604125976562</real>
+					<real>0.000370025634765625</real>
 				</dict>
 				<key>testV11PathWaypointAndBlockedOpeningFindingDecode</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00059008598327636719</real>
+					<real>0.00038599967956542969</real>
 				</dict>
 				<key>testWrongTypeForLengthThrows</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00044894218444824219</real>
+					<real>0.00039005279541015625</real>
 				</dict>
 			</dict>
 			<key>RoutePlanTests</key>
@@ -1331,72 +1331,72 @@
 				<key>testAllRouteSamplesDecode</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0022230148315429688</real>
+					<real>0.0020380020141601562</real>
 				</dict>
 				<key>testApartmentSampleCarriesNoSecondaryEgressFindings</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0048369169235229492</real>
+					<real>0.0047409534454345703</real>
 				</dict>
 				<key>testArcLengthsAreMonotoneAndDedupeDropsCoincidentPoints</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00089204311370849609</real>
+					<real>0.00086104869842529297</real>
 				</dict>
 				<key>testCatmullRomPassesThroughControlPoints</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00044691562652587891</real>
+					<real>0.0003509521484375</real>
 				</dict>
 				<key>testDecodesWhenBackendDefaultedKeysAreOmitted</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00041806697845458984</real>
+					<real>0.00034403800964355469</real>
 				</dict>
 				<key>testFloorRunsDropUnknownFloors</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00050103664398193359</real>
+					<real>0.00033700466156005859</real>
 				</dict>
 				<key>testFloorRunsSplitAtStairCrossing</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00037598609924316406</real>
+					<real>0.00029706954956054688</real>
 				</dict>
 				<key>testMobilityLimitedSampleCarriesNoViableRouteFindings</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00066494941711425781</real>
+					<real>0.00043702125549316406</real>
 				</dict>
 				<key>testOverlayBadgesFlaggedRooms</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0062679052352905273</real>
+					<real>0.010673046112060547</real>
 				</dict>
 				<key>testOverlayParentsRoutesPerFloorAndClearsCompletely</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0088210105895996094</real>
+					<real>0.016025066375732422</real>
 				</dict>
 				<key>testPointAtDistanceInterpolatesAndClamps</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00049996376037597656</real>
+					<real>0.00034296512603759766</real>
 				</dict>
 				<key>testRoutesRequestOmitsNilConstraintsAndProfile</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0018140077590942383</real>
+					<real>0.0015709400177001953</real>
 				</dict>
 				<key>testTubeMeshCountsAndDirectionalUVs</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00046491622924804688</real>
+					<real>0.00041508674621582031</real>
 				</dict>
 				<key>testTubeMeshRejectsDegenerateInput</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00051295757293701172</real>
+					<real>0.00044298171997070312</real>
 				</dict>
 			</dict>
 			<key>ScanExportTests</key>
@@ -1404,37 +1404,37 @@
 				<key>testConfidenceDecodesBareString</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0012350082397460938</real>
+					<real>0.00078690052032470703</real>
 				</dict>
 				<key>testConfidenceEncodesAsSingleKeyObject</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00050294399261474609</real>
+					<real>0.00038003921508789062</real>
 				</dict>
 				<key>testDoorCategoryCarriesIsOpen</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00095999240875244141</real>
+					<real>0.00074899196624755859</real>
 				</dict>
 				<key>testEncodingIsDeterministic</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0026360750198364258</real>
+					<real>0.0024429559707641602</real>
 				</dict>
 				<key>testExportMatchesConverterTopLevelShape</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00038897991180419922</real>
+					<real>0.00035893917083740234</real>
 				</dict>
 				<key>testIdentifiersAreLowercasedAndStable</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00042498111724853516</real>
+					<real>0.00034999847412109375</real>
 				</dict>
 				<key>testUnknownCategoryRoundTripsAsOther</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00038492679595947266</real>
+					<real>0.00034999847412109375</real>
 				</dict>
 			</dict>
 			<key>ScoreModelsTests</key>
@@ -1442,42 +1442,42 @@
 				<key>testChecklistItemOptionalFieldsDefaultToNil</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0024600028991699219</real>
+					<real>0.0016180276870727539</real>
 				</dict>
 				<key>testEveryChecklistCategoryDecodes</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00054299831390380859</real>
+					<real>0.00038206577301025391</real>
 				</dict>
 				<key>testFullBreakdownDecodes</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00038504600524902344</real>
+					<real>0.00047099590301513672</real>
 				</dict>
 				<key>testMissingRequiredComponentFieldThrows</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00036501884460449219</real>
+					<real>0.00036096572875976562</real>
 				</dict>
 				<key>testMissingScoreThrows</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00037300586700439453</real>
+					<real>0.00037205219268798828</real>
 				</dict>
 				<key>testScoreComponentIdIsItsKey</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00037598609924316406</real>
+					<real>0.00036096572875976562</real>
 				</dict>
 				<key>testScoreRequestEncodesExactlyHomeAndChecklistState</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0015740394592285156</real>
+					<real>0.0012969970703125</real>
 				</dict>
 				<key>testUnknownChecklistCategoryThrows</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00053799152374267578</real>
+					<real>0.00036895275115966797</real>
 				</dict>
 			</dict>
 			<key>SnappingTests</key>
@@ -1485,67 +1485,67 @@
 				<key>testAxisLockBeatsTheGridOnTheLockedAxisOnly</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00042998790740966797</real>
+					<real>0.00038897991180419922</real>
 				</dict>
 				<key>testAxisSnapIgnoresAnchorsOutsideTolerance</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00042605400085449219</real>
+					<real>0.00033795833587646484</real>
 				</dict>
 				<key>testAxisSnapLocksOntoAnAnchorCoordinate</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00043809413909912109</real>
+					<real>0.00050199031829833984</real>
 				</dict>
 				<key>testDisabledSettingsPassCoordinatesThroughUntouched</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00037097930908203125</real>
+					<real>0.00043690204620361328</real>
 				</dict>
 				<key>testGridRoundsToNearestCell</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00034999847412109375</real>
+					<real>0.00033295154571533203</real>
 				</dict>
 				<key>testGridSnapIsSymmetricAroundZero</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00037992000579833984</real>
+					<real>0.00030195713043212891</real>
 				</dict>
 				<key>testSnappingIsDeterministic</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00036501884460449219</real>
+					<real>0.00033307075500488281</real>
 				</dict>
 				<key>testTranslationIsIdentityWhenGridIsOff</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00034701824188232422</real>
+					<real>0.00032699108123779297</real>
 				</dict>
 				<key>testTranslationSnapsTheDeltaNotTheVertices</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00034999847412109375</real>
+					<real>0.00093293190002441406</real>
 				</dict>
 				<key>testVertexSnapWins</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00035107135772705078</real>
+					<real>0.00035595893859863281</real>
 				</dict>
 				<key>testWallSnapBeatsGrid</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00035595893859863281</real>
+					<real>0.00032699108123779297</real>
 				</dict>
 				<key>testWallSnapProjectsOntoTheWall</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00034403800964355469</real>
+					<real>0.00033092498779296875</real>
 				</dict>
 				<key>testWallSnapRespectsItsRadius</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00036704540252685547</real>
+					<real>0.00033402442932128906</real>
 				</dict>
 			</dict>
 			<key>StoreInvariantTests</key>
@@ -1553,52 +1553,52 @@
 				<key>testAWallDraggedThroughTheOppositeWallIsRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00091707706451416016</real>
+					<real>0.00064301490783691406</real>
 				</dict>
 				<key>testCoarseGridOnSmallRoomsStillCannotBreakTheModel</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.1823350191116333</real>
+					<real>0.17235398292541504</real>
 				</dict>
 				<key>testCollapsingAWallToZeroLengthIsRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00097906589508056641</real>
+					<real>0.00064897537231445312</real>
 				</dict>
 				<key>testDraggingACornerAcrossTheDiagonalIsRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00078892707824707031</real>
+					<real>0.00052595138549804688</real>
 				</dict>
 				<key>testFlatteningARoomToALineIsRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0007190704345703125</real>
+					<real>0.00059998035430908203</real>
 				</dict>
 				<key>testInvertingWindingIsRejected</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00060999393463134766</real>
+					<real>0.00054299831390380859</real>
 				</dict>
 				<key>testNoActionSequenceCanProduceAnInvalidModel</key>
 				<dict>
 					<key>mrnet</key>
-					<real>1.8495659828186035</real>
+					<real>1.7695009708404541</real>
 				</dict>
 				<key>testNoDragEverOrphansAnOpening</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.030467987060546875</real>
+					<real>0.028221011161804199</real>
 				</dict>
 				<key>testSnappingCannotProduceAnInvalidModel</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.37150692939758301</real>
+					<real>0.35036599636077881</real>
 				</dict>
 				<key>testTheSameSeedProducesTheSameModel</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0090590715408325195</real>
+					<real>0.0085710287094116211</real>
 				</dict>
 			</dict>
 			<key>UndoStackTests</key>
@@ -1606,37 +1606,37 @@
 				<key>testCoalescingGroupsAContinuousDragIntoOneUndoEntry</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00085699558258056641</real>
+					<real>0.00077199935913085938</real>
 				</dict>
 				<key>testCoalescingWhereEveryStepIsRejectedPushesNothing</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00063204765319824219</real>
+					<real>0.00048089027404785156</real>
 				</dict>
 				<key>testCoalescingWithNoActualChangeDoesNotPushAnEmptyEntry</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00087702274322509766</real>
+					<real>0.00047898292541503906</real>
 				</dict>
 				<key>testNonContinuousActionsPushOnePerDispatch</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00074100494384765625</real>
+					<real>0.00070393085479736328</real>
 				</dict>
 				<key>testRedoReappliesAnUndoneCommit</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00085902214050292969</real>
+					<real>0.00068902969360351562</real>
 				</dict>
 				<key>testUndoRestoresThePreCommitSnapshot</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00054705142974853516</real>
+					<real>0.00055599212646484375</real>
 				</dict>
 				<key>testUndoingClearsRedoOnNewAction</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.00066792964935302734</real>
+					<real>0.00056898593902587891</real>
 				</dict>
 			</dict>
 			<key>UnifiedEditorPipelineTests</key>
@@ -1644,12 +1644,12 @@
 				<key>testTapSelectsThenArbitratedCornerDragJoinsRooms</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.042039036750793457</real>
+					<real>0.039106011390686035</real>
 				</dict>
 				<key>testTopDownAutomationModePipeline</key>
 				<dict>
 					<key>mrnet</key>
-					<real>0.0045540332794189453</real>
+					<real>0.0048489570617675781</real>
 				</dict>
 			</dict>
 		</dict>

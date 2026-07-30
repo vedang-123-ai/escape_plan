@@ -62,6 +62,11 @@ struct HouseScreen: View {
     }
     @State private var viewStateHolder = SceneViewStateHolder()
 
+    /// Fullscreen viewing: dock, nav bar, and tab bar step aside and the scene card goes
+    /// full-bleed. Purely presentational — no model or route state depends on it.
+    @State private var isImmersive = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// Overlay lives in a stable class box, NOT directly in @State: `onRebuild` fires inside
     /// `updateUIView`, and reassigning an @State var there invalidates the view from within
     /// its own update — an endless rebuild loop that starves gesture handling.
@@ -139,41 +144,40 @@ struct HouseScreen: View {
             // The scene sits above a FIXED-HEIGHT dock. Chrome (inspector, placement hint,
             // route controls) appears and vanishes inside the dock, so the scene view's frame
             // never changes — a mid-gesture resize would shift the world under the user's
-            // finger and break any in-flight drag — and nothing overlays the scene where it
-            // could swallow touches.
+            // finger and break any in-flight drag.
+            //
+            // View controls (floors, spotlight, fullscreen) DO float over the scene: they are
+            // a fixed-height strip pinned to the card's top edge, so they never resize it, and
+            // the region they cover is empty sky above the model in every framing the camera
+            // rig produces. Immersive mode is the one place the scene's frame changes, and it
+            // is user-initiated from a button — never mid-drag.
             VStack(spacing: 0) {
-                ZStack(alignment: .top) {
-                    EditorSceneView(store: store,
-                                    model: store.model,
-                                    activeFloorId: store.activeFloorId,
-                                    selection: store.selection,
-                                    tool: tool,
-                                    interactionEnabled: !isTouring,
-                                    undoStack: session.undoStack,
-                                    onOpeningPlaced: { tool = .select },
-                                    onControllerReady: { attach($0) })
-                    routesBanner
-                }
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        if case .placeOpening(let kind) = tool {
-                            placementHint(kind: kind)
+                sceneCard(for: session)
+                if !isImmersive {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            if case .placeOpening(let kind) = tool {
+                                placementHint(kind: kind)
+                            }
+                            inspector(for: store)
+                            if let rejection {
+                                Text(rejection).font(.caption).foregroundStyle(.orange).padding(.horizontal)
+                            }
+                            if let saveError {
+                                Text("Autosave failed: \(saveError)").font(.caption).foregroundStyle(.red)
+                                    .padding(.horizontal)
+                            }
+                            viewControls(for: store)
                         }
-                        inspector(for: store)
-                        if let rejection {
-                            Text(rejection).font(.caption).foregroundStyle(.orange).padding(.horizontal)
-                        }
-                        if let saveError {
-                            Text("Autosave failed: \(saveError)").font(.caption).foregroundStyle(.red)
-                                .padding(.horizontal)
-                        }
-                        viewControls(for: store)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 240)
+                    .background(.regularMaterial)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .frame(height: 240)
-                .background(.regularMaterial)
             }
+            .toolbar(isImmersive ? .hidden : .visible, for: .navigationBar, .tabBar)
+            .statusBarHidden(isImmersive)
             .onChange(of: session.wasDeletedExternally) { _, deleted in
                 if deleted { dismiss() }
             }
@@ -215,13 +219,141 @@ struct HouseScreen: View {
         controller?.scnView.setNeedsDisplay()
     }
 
-    // MARK: - View controls (explode, spotlight, routes)
+    // MARK: - Scene card
+
+    /// The dollhouse as a card: rounded continuous corners, its own shadow, with the view
+    /// controls floating on it in glass. Going immersive squares the corners and drops the
+    /// insets so the model runs to the screen edges.
+    @ViewBuilder
+    private func sceneCard(for session: EditorSession) -> some View {
+        let store = session.store
+        ZStack {
+            EditorSceneView(store: store,
+                            model: store.model,
+                            activeFloorId: store.activeFloorId,
+                            selection: store.selection,
+                            tool: tool,
+                            interactionEnabled: !isTouring,
+                            undoStack: session.undoStack,
+                            onOpeningPlaced: { tool = .select },
+                            onControllerReady: { attach($0) })
+
+            VStack(spacing: 8) {
+                floatingSceneControls(for: store)
+                routesBanner
+                Spacer(minLength: 0)
+                // The dock carries explode normally; in immersive there is no dock, so it
+                // floats here rather than becoming unreachable.
+                if isImmersive, store.model.floorsByLevel.count > 1 {
+                    floatingExplodeStrip
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, isImmersive ? 28 : 10)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: isImmersive ? 0 : 26, style: .continuous))
+        .shadow(color: .black.opacity(isImmersive ? 0 : 0.10), radius: 14, y: 5)
+        .padding(.horizontal, isImmersive ? 0 : 12)
+        .padding(.bottom, isImmersive ? 0 : 10)
+        .ignoresSafeArea(edges: isImmersive ? .bottom : [])
+        // Immersive keeps its controls inside the safe area (nothing tucked under the
+        // Dynamic Island), so the status-bar strip is painted in the scene's own backdrop
+        // instead — full-bleed to the eye, with no layout hidden behind the notch.
+        .background {
+            if isImmersive {
+                Color(DollhousePalette.background).ignoresSafeArea()
+            }
+        }
+    }
+
+    /// Floor picker + spotlight + fullscreen, floating on the model's top edge. Fixed height,
+    /// so it never resizes the scene underneath it.
+    @ViewBuilder
+    private func floatingSceneControls(for store: HomeModelStore) -> some View {
+        let floors = store.model.floorsByLevel
+        HStack(spacing: 8) {
+            if floors.count > 1 {
+                ForEach(floors) { floor in
+                    let isActive = store.activeFloorId == floor.id
+                    Button {
+                        store.setActiveFloor(floor.id)
+                    } label: {
+                        Text(floor.name.isEmpty ? "Level \(floor.level)" : floor.name)
+                    }
+                    .buttonStyle(GlassChipButtonStyle(isSelected: isActive))
+                    .disabled(isTouring)
+                    .accessibilityAddTraits(isActive ? [.isSelected] : [])
+                }
+
+                Button {
+                    spotlightFloorID = spotlightFloorID == store.activeFloorId
+                        ? nil : store.activeFloorId
+                    viewStateHolder.spotlightFloorID = spotlightFloorID
+                    reapplyViewState()
+                } label: {
+                    Image(systemName: spotlightFloorID == nil ? "lightbulb" : "lightbulb.fill")
+                }
+                .buttonStyle(GlassChipButtonStyle(isSelected: spotlightFloorID != nil,
+                                                  isCompact: true))
+                .disabled(isTouring)
+                .accessibilityLabel("Spotlight this floor")
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                withAnimation(reduceMotion ? .easeInOut(duration: 0.2)
+                                           : .spring(response: 0.42, dampingFraction: 1.0)) {
+                    isImmersive.toggle()
+                }
+            } label: {
+                Image(systemName: isImmersive
+                      ? "arrow.down.right.and.arrow.up.left"
+                      : "arrow.up.left.and.arrow.down.right")
+            }
+            .buttonStyle(GlassChipButtonStyle(isCompact: true))
+            // Resizing the scene mid-tour would fight the tour camera for the frame.
+            .disabled(isTouring)
+            .accessibilityLabel(isImmersive ? "Exit full screen" : "View full screen")
+            .accessibilityIdentifier("house.fullscreen")
+        }
+        .glassGroup()
+    }
+
+    /// Immersive-only explode control, in the same glass vocabulary as the top strip.
+    private var floatingExplodeStrip: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "square.3.layers.3d.down.right")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Slider(value: Binding(
+                get: { explode },
+                set: { explode = $0; viewStateHolder.explode = $0; reapplyViewState() }
+            ), in: 0...1)
+            .disabled(isTouring)
+            .accessibilityLabel("Explode floors")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .glassPanel()
+    }
+
+    // MARK: - View controls (explode, routes)
+
+    /// Quiet section header — the dock's wayfinding. Sentence case, secondary, no chrome.
+    private func dockHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+    }
 
     @ViewBuilder
     private func viewControls(for store: HomeModelStore) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            let floors = store.model.floorsByLevel
-            if floors.count > 1 {
+        VStack(alignment: .leading, spacing: 18) {
+            // Floor picking and spotlight moved onto the model itself (floatingSceneControls);
+            // explode stays here, self-labeled, so the dock opens on route content.
+            if store.model.floorsByLevel.count > 1 {
                 HStack(spacing: 10) {
                     Text("Explode").font(.caption).foregroundStyle(.secondary)
                     Slider(value: Binding(
@@ -230,39 +362,13 @@ struct HouseScreen: View {
                     ), in: 0...1)
                     .disabled(isTouring)
                 }
-                HStack {
-                    // Edit target + spotlight in one row of chips: tap picks the floor you're
-                    // editing; the sparkle toggles fading everything else back.
-                    ForEach(floors) { floor in
-                        let isActive = store.activeFloorId == floor.id
-                        Button {
-                            store.setActiveFloor(floor.id)
-                        } label: {
-                            Text(floor.name.isEmpty ? "Level \(floor.level)" : floor.name)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(isActive ? .accentColor : .secondary)
-                        .disabled(isTouring)
-                    }
-                    Button {
-                        spotlightFloorID = spotlightFloorID == store.activeFloorId
-                            ? nil : store.activeFloorId
-                        viewStateHolder.spotlightFloorID = spotlightFloorID
-                        reapplyViewState()
-                    } label: {
-                        Label("Spotlight floor",
-                              systemImage: spotlightFloorID == nil ? "lightbulb" : "lightbulb.fill")
-                            .labelStyle(.iconOnly)
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(isTouring)
-                }
             }
             if let routePlan {
                 routeControls(for: routePlan)
             }
         }
         .padding()
+        .padding(.bottom, 6)
     }
 
     /// Non-blocking status strip over the scene — the house stays fully interactive while
@@ -308,67 +414,99 @@ struct HouseScreen: View {
 
     @ViewBuilder
     private func routeControls(for plan: RoutePlan) -> some View {
-        // Picking a family member re-runs the engine with that profile's constraints
-        // (server-side) and jumps to their bedroom. The client sends profile_id, nothing else.
-        let model = session?.store.model
-        if let model, !model.profiles.isEmpty {
-            Picker("Who", selection: $selectedProfileID) {
-                Text("Everyone").tag(String?.none)
-                ForEach(model.profiles) { profile in
-                    Text(profile.name).tag(Optional(profile.id))
+        VStack(alignment: .leading, spacing: 10) {
+            dockHeader("Escape routes")
+
+            // Picking a family member re-runs the engine with that profile's constraints
+            // (server-side) and jumps to their bedroom. The client sends profile_id,
+            // nothing else.
+            let model = session?.store.model
+            if let model, !model.profiles.isEmpty {
+                Picker("Who", selection: $selectedProfileID) {
+                    Text("Everyone").tag(String?.none)
+                    ForEach(model.profiles) { profile in
+                        Text(profile.name).tag(Optional(profile.id))
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(isTouring || isFetchingRoutes)
+                .onChange(of: selectedProfileID) { _, newValue in
+                    selectedRoomID = newValue.flatMap { id in
+                        model.profiles.first { $0.id == id }?.bedroom_room_id
+                    }
+                    fetchRoutes()
                 }
             }
-            .pickerStyle(.segmented)
-            .disabled(isTouring || isFetchingRoutes)
-            .onChange(of: selectedProfileID) { _, newValue in
-                selectedRoomID = newValue.flatMap { id in
-                    model.profiles.first { $0.id == id }?.bedroom_room_id
-                }
-                fetchRoutes()
-            }
-        }
 
-        HStack {
-            Picker("Route", selection: $selectedRoomID) {
-                Text("Everyone").tag(String?.none)
-                ForEach(plan.rooms) { room in
-                    Text(room.room_name).tag(Optional(room.room_id))
+            HStack {
+                Picker("Route", selection: $selectedRoomID) {
+                    Text("Everyone").tag(String?.none)
+                    ForEach(plan.rooms) { room in
+                        Text(room.room_name).tag(Optional(room.room_id))
+                    }
                 }
-            }
-            .accessibilityIdentifier("plan.route.picker")
-            .disabled(isTouring)
-            .onChange(of: selectedRoomID) { _, _ in applyOverlay() }
+                .accessibilityIdentifier("plan.route.picker")
+                .disabled(isTouring)
+                .onChange(of: selectedRoomID) { _, _ in applyOverlay() }
 
-            Spacer()
+                Spacer()
 
-            if let room = selectedRoom(in: plan), let primary = room.primary {
-                Button {
-                    isTouring ? stopTour() : startTour(along: primary)
-                } label: {
-                    Label(isTouring ? "Stop" : "Tour",
-                          systemImage: isTouring ? "stop.circle" : "play.circle")
+                if let room = selectedRoom(in: plan), let primary = room.primary {
+                    Button {
+                        isTouring ? stopTour() : startTour(along: primary)
+                    } label: {
+                        Label(isTouring ? "Stop" : "Tour",
+                              systemImage: isTouring ? "stop.circle" : "play.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("plan.tour.button")
+                } else if selectedRoomID == nil {
+                    Text("Pick a room to tour").font(.caption2).foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("plan.tour.button")
-            } else if selectedRoomID == nil {
-                Text("Pick a room to tour").font(.caption2).foregroundStyle(.secondary)
             }
         }
 
         let findings = shownFindings(in: plan)
-        if !findings.isEmpty {
-            // Warning text comes verbatim from the engine's findings — the app never writes
-            // its own safety judgments.
-            ForEach(findings.indices, id: \.self) { i in
-                Label(findings[i].detail, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(Color(DollhousePalette.warningBadge))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                dockHeader("Route check")
+                if !findings.isEmpty {
+                    Text("\(findings.count)")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Color(DollhousePalette.warningBadge), in: Capsule())
+                        .accessibilityLabel("\(findings.count) issues")
+                }
+            }
+            if findings.isEmpty {
+                RouteAllClearRow()
+            } else {
+                // Cards title the machine `kind`; the detail inside stays verbatim from
+                // the engine — the app never writes its own safety judgments.
+                ForEach(findings.indices, id: \.self) { i in
+                    RouteFindingCard(finding: findings[i],
+                                     roomName: roomName(for: findings[i].room_id, in: plan))
+                }
+            }
+            if !overlayIssues.isEmpty {
+                Text("Some routes couldn't be drawn on the model.")
+                    .font(.caption2).foregroundStyle(.secondary)
             }
         }
-        if !overlayIssues.isEmpty {
-            Text("Some routes couldn't be drawn on the model.")
-                .font(.caption2).foregroundStyle(.secondary)
+    }
+
+    /// Resolve a finding's room id for its chip — plan first (already localized names),
+    /// model second, raw id as the honest last resort.
+    private func roomName(for roomID: String, in plan: RoutePlan) -> String {
+        if let room = plan.rooms.first(where: { $0.room_id == roomID }) {
+            return room.room_name
         }
+        if let located = session?.store.model.locateRoom(roomID) {
+            return located.room.name
+        }
+        return roomID
     }
 
     // MARK: - Routes (server truth)

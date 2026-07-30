@@ -34,6 +34,9 @@ final class OrbitCameraRig {
         camera.zNear = 0.1
         camera.zFar = extent * 40
         camera.fieldOfView = 50
+        // Projection direction stays `.automatic`. Pinning it horizontally sounds right (the
+        // house's width always fits) but on a full-screen 1:2.2 viewport it implies a ~90°
+        // vertical FOV — the model shrinks and the wide-angle distortion skews it badly.
         camera.wantsHDR = false
         node = SCNNode()
         node.camera = camera
