@@ -33,7 +33,8 @@ Root cause: `HouseScreen`'s `onRebuild` closure read `@State routePlan` from a s
 View snapshot (always nil), and `updateUIView` rebuilds the scene empty on every render, so
 routes were wiped as fast as they were drawn. Fixed by caching draw inputs + view state in the
 `RouteOverlayHolder` class and redrawing from it in `onRebuild`. The explode slider had the
-same latent bug (snapped to 0 on rebuild) — fixed by the same change. **Confirmed rendering**
+same latent bug (snapped to 0 on rebuild); after the 2026-07-30 merge that half is carried by
+the UI branch's separate `SceneViewStateHolder`, and both boxes now coexist. **Confirmed rendering**
 on the simulator (orange primary + blue secondary, all 7 primaries in "Everyone", exit glows).
 Details: decisions.md 2026-07-24 (later) + `notes/2026-07-24-look-and-feel-*.md`.
 
@@ -48,9 +49,15 @@ Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
       sensitivity, pinch anchor, dock height on small screens), object editing, plan-import
       flow + review gate, tour. Simulator + recording-driver verified; real-device feel and
       real-photo floor plans are the open items.
+- [ ] Fixture-kit renderer (landed 2026-07-29, `notes/2026-07-29-fixture-kit-renderer.md`):
+      include in the device-acceptance pass above — node count is ~3-4× the old builder and
+      the editor rebuilds per commit; profile one edit-drag session on hardware. Next
+      actions if custom assets land: register via `FixtureCatalog.shared.door =
+      AssetFixture(named:)` at startup, then eyeball joins on all three schema fixtures.
 - [x] ~~Live builder golden~~ — run 2026-07-24 with the key in `.env`; PASSES after removing
       the deprecated `temperature` param from `builder.py` (the model 400s on it). See
-      decisions.md 2026-07-24 (later).
+      decisions.md 2026-07-24 (later). (The 2026-07-29 branch still listed this as blocked on
+      the key — it was closed on the other branch before the merge.)
 - [x] ~~Surface `blocked_opening` in /score~~ — done 2026-07-24, and went further per Anish:
       `app/routing/obstructions.py` names WHICH object blocks (counterfactual attribution)
       and how far to move it (measured), surfaced in `RouteFinding.detail` + `object_ids`
@@ -157,6 +164,17 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
 
 ## Backend
 
+- [ ] **DECISION NEEDED (P1): a home that has never been analysed scores full marks for
+      safety.** `/score` defaults `findings=[]`, so the 20-point "No open safety findings"
+      component pays out in full when `/analyze` has simply never run — bungalow and twostory
+      both read 75/100 on a home nobody has audited. "We didn't look" and "we looked and it's
+      clean" produce the same number, which is a safety claim the app hasn't earned. Fix
+      would be to distinguish absent from empty (e.g. `findings: Optional[...] = None` →
+      component reported as *not assessed*, its 20 pts subtracted from a new `max_possible`
+      so the UI renders "55 / 80"). **Not done unilaterally: it changes `ScoreBreakdown`, the
+      `ScoreScreen`/`ScoreModels` Swift contract, and every worked example in the weights
+      doc.** Mitigated in part 2026-07-27 — undersized bedroom egress windows are now caught
+      deterministically without `/analyze` (see `egress.window.*` items). (S3.5)
 - [ ] Phone-on-cellular timing against the deployed backend was never measured natively.
       Warm curl from a dev machine was ~0.27–0.39s, well under the 2s bar. (S1.6)
 - [ ] TODO(integration): `/analyze` findings now carry a stable server-stamped `id`

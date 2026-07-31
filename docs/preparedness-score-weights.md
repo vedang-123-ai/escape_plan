@@ -162,6 +162,15 @@ is what makes the score move on its own during the demo.
  They are fixed by changing the home and re-running the engine (or re-running
  `/analyze`), which moves components 1–3 on its own. If ticking the box *also*
  paid out, the same fix would be counted twice.
+- **Egress-window items (`egress.window.*`).** Bedroom escape windows that fail
+ IRC R310, checked deterministically by `routing.egress.check_egress` — the same
+ function the engine and the agent both call, no AI involved. `scoring: false`
+ for the same reason as route findings. These exist because the check is free
+ and the alternative was silence: `twostory.json`'s planted kids'-bedroom window
+ (0.4 m wide against the 0.508 m minimum) raises no RoutePlan finding — the
+ whole-house router is satisfied by a secondary route out of a *different* exit
+ — so before these items existed it appeared on the checklist only if someone
+ ran `/analyze`. Scoped to sleeping rooms, which is where R310 applies.
 
 So of the checklist, only the smoke-alarm and practice items are scoring items —
 together the 25 points a family can earn without touching the floor plan.

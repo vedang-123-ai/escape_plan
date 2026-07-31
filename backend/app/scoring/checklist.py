@@ -16,12 +16,13 @@ from typing import Literal, Optional, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models import HomeModel, RoomType
+from app.models import HomeModel, OpeningKind, RoomType
+from app.routing.egress import EgressThresholds, check_egress
 from app.routing.plan import RoutePlan
 from app.scoring.findings import Finding
 
 ItemCategory = Literal[
-    "smoke_alarm", "practice", "routes", "agent_finding", "recommendation"
+    "smoke_alarm", "practice", "routes", "egress", "agent_finding", "recommendation"
 ]
 
 #: The two scoring components whose points are earned by *checking boxes*
@@ -189,6 +190,60 @@ def route_items(plan: RoutePlan, state: ChecklistState) -> list[ChecklistItem]:
     return items
 
 
+def egress_window_items(
+    home: HomeModel, thresholds: EgressThresholds, state: ChecklistState
+) -> list[ChecklistItem]:
+    """Bedroom escape windows that fail IRC R310, checked deterministically.
+
+    Non-scoring, for the same reason as `route_items`: it is fixed by changing
+    the home, not by ticking a box.
+
+    Why this exists separately from `finding_items`: the agent finds this too,
+    but only when someone runs /analyze. The check itself is free and needs no
+    AI — `routing.egress.check_egress` is the same function the engine and the
+    agent both call. Without this, twostory.json's planted kids'-bedroom window
+    (0.4 m wide against the 0.508 m minimum) appears nowhere on an un-analysed
+    home's checklist, because the whole-house router legitimately does not raise
+    a RoutePlan finding for it — see docs/decisions.md (2026-07-16, S3.2).
+
+    Scoped to sleeping rooms because that is where R310 requires an emergency
+    escape and rescue opening; flagging every small utility window would bury
+    the real one in noise.
+    """
+    items: list[ChecklistItem] = []
+    for floor in home.floors:
+        bedrooms = {r.id: r for r in floor.rooms if r.type == RoomType.bedroom}
+        grade_floor = floor.level <= 0
+        for opening in floor.openings:
+            if opening.kind != OpeningKind.window:
+                continue
+            served = [rid for rid in opening.room_ids if rid in bedrooms]
+            if not served:
+                continue
+            assessment = check_egress(opening, thresholds, grade_floor=grade_floor)
+            if assessment.viable:
+                continue
+            room = bedrooms[served[0]]
+            item_id = f"egress.window.{opening.id}"
+            items.append(
+                ChecklistItem(
+                    id=item_id,
+                    category="egress",
+                    title=f"Escape window in {room.name} is too small to climb out of",
+                    detail=(
+                        "An emergency escape window in a sleeping room has to be "
+                        "big enough to climb through: "
+                        + "; ".join(assessment.reasons)
+                        + "."
+                    ),
+                    done=state.get(item_id, False),
+                    source_citation="irc-2021-r310",
+                    scoring=False,
+                )
+            )
+    return items
+
+
 def finding_items(
     findings: Sequence[Finding], state: ChecklistState
 ) -> list[ChecklistItem]:
@@ -230,11 +285,18 @@ def build_checklist(
     plan: RoutePlan,
     findings: Sequence[Finding],
     state: ChecklistState,
+    thresholds: Optional[EgressThresholds] = None,
 ) -> list[ChecklistItem]:
-    """The full deterministic checklist, ordered scoring-items-first."""
+    """The full deterministic checklist, ordered scoring-items-first.
+
+    `thresholds` is optional only for backward compatibility with callers
+    predating the egress items — pass it. Without it, undersized bedroom escape
+    windows are only reported when /analyze has been run.
+    """
     return [
         *smoke_alarm_items(home, state),
         *practice_items(state),
         *route_items(plan, state),
+        *(egress_window_items(home, thresholds, state) if thresholds else []),
         *finding_items(findings, state),
     ]

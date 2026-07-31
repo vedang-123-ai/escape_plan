@@ -39,8 +39,11 @@ def _env(monkeypatch: pytest.MonkeyPatch):
 
 def _scored(fixture: dict, findings=None, state=None) -> ScoreBreakdown:
     home = HomeModel.model_validate(fixture)
-    plan = compute_route_plan(home, config.get_thresholds())
-    return compute_score(home, plan, findings or [], state or {})
+    thresholds = config.get_thresholds()
+    plan = compute_route_plan(home, thresholds)
+    # Pass thresholds exactly as /score does, so these tests see the same
+    # checklist the endpoint returns (including the R310 egress-window items).
+    return compute_score(home, plan, findings or [], state or {}, thresholds)
 
 
 def _component(breakdown: ScoreBreakdown, key: str):
@@ -473,3 +476,54 @@ def test_score_endpoint_rejects_unknown_fields(bungalow: dict):
         "/score", json={"home": bungalow, "unexpected": 1}, headers=AUTH
     )
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Deterministic egress-window items (IRC R310) — no /analyze required
+
+
+def test_undersized_bedroom_window_is_flagged_without_running_analyze(twostory):
+    """twostory.json's planted kids'-bedroom window.
+
+    The whole-house router raises no RoutePlan finding for it (its secondary
+    route legitimately leaves by another exit — docs/decisions.md 2026-07-16),
+    so before this check existed the danger appeared on the checklist only if
+    someone happened to run /analyze.
+    """
+    breakdown = _scored(twostory)  # note: no findings passed
+
+    item = next(
+        (i for i in breakdown.checklist if i.id == "egress.window.w_kids"), None
+    )
+    assert item is not None, "undersized bedroom window must be reported"
+    assert item.category == "egress"
+    assert item.source_citation == "irc-2021-r310"
+    assert "0.400m" in item.detail  # the measured failure, not boilerplate
+
+
+def test_egress_window_items_are_non_scoring(twostory):
+    """Fixed by changing the home, not by ticking a box — same rule as routes."""
+    breakdown = _scored(twostory)
+    egress = [i for i in breakdown.checklist if i.category == "egress"]
+
+    assert egress, "expected at least one egress item on twostory"
+    assert all(not i.scoring for i in egress)
+    assert all(i.component is None for i in egress)
+
+    ticked = _scored(twostory, state={i.id: True for i in egress})
+    assert ticked.score == breakdown.score
+
+
+def test_compliant_windows_are_not_flagged(bungalow):
+    """Only failures appear — a home whose bedroom windows pass stays quiet."""
+    breakdown = _scored(bungalow)
+    assert [i for i in breakdown.checklist if i.category == "egress"] == []
+
+
+def test_egress_items_are_omitted_when_no_thresholds_are_supplied(twostory):
+    """Backward compatibility for callers predating the thresholds argument."""
+    home = HomeModel.model_validate(twostory)
+    plan = compute_route_plan(home, config.get_thresholds())
+    breakdown = compute_score(home, plan, [], {})  # no thresholds
+
+    assert [i for i in breakdown.checklist if i.category == "egress"] == []

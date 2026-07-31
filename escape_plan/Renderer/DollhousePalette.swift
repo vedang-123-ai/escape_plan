@@ -11,16 +11,9 @@ import UIKit
 /// route colors hot enough to read from across the room.
 enum DollhousePalette {
 
-    /// Dark stage, not a cream page (2026-07-24). The cream backdrop was chosen when the
-    /// renderer was viewed on its own; inside the shipped app it butts against black chrome
-    /// on all four sides and reads as a hole cut in the UI. Going dark makes the model a lit
-    /// object on a stage — and, more usefully, gives the hot orange route the contrast it was
-    /// designed for. Floor plates stay pale (below), so the house still glows.
-    static let background = UIColor(red: 0.055, green: 0.055, blue: 0.067, alpha: 1.0)
-    /// Slightly lifted stage tone used for the backdrop gradient's horizon.
-    static let backgroundHorizon = UIColor(red: 0.129, green: 0.125, blue: 0.145, alpha: 1.0)
-    /// Slab top: pale warm oak. Deliberately still light — the plates are the "paper" the
-    /// plan is drawn on, and dark labels have to stay readable on them.
+    /// Warm paper backdrop — reads as a diorama table, not a void.
+    static let background = UIColor(red: 0.957, green: 0.937, blue: 0.902, alpha: 1.0)
+    /// Slab top: pale warm oak.
     static let slab = UIColor(red: 0.914, green: 0.875, blue: 0.812, alpha: 1.0)
     /// Interior partitions: light warm plaster.
     static let wall = UIColor(red: 0.851, green: 0.816, blue: 0.769, alpha: 1.0)
@@ -28,35 +21,6 @@ enum DollhousePalette {
     static let exteriorWall = UIColor(red: 0.639, green: 0.557, blue: 0.494, alpha: 1.0)
     static let stairs = UIColor(red: 0.706, green: 0.627, blue: 0.545, alpha: 1.0)
     static let label = UIColor(red: 0.216, green: 0.192, blue: 0.161, alpha: 1.0)
-
-    /// Room labels ride a billboarded plate instead of floating as bare glyphs: a label that
-    /// crosses a pale slab, a translucent wall and the dark stage in one orbit has no single
-    /// text color that stays legible. The plate gives it a constant background to sit on.
-    static let labelText = UIColor(red: 0.965, green: 0.957, blue: 0.937, alpha: 1.0)
-    static let labelPlate = UIColor(red: 0.086, green: 0.082, blue: 0.098, alpha: 0.82)
-
-    /// Vertical stage gradient for `scene.background.contents` — darker at the top so the
-    /// eye settles on the model rather than the void above it.
-    static func stageBackdrop(size: CGSize = CGSize(width: 8, height: 512)) -> UIImage {
-        UIGraphicsImageRenderer(size: size).image { ctx in
-            let colors = [background.cgColor, backgroundHorizon.cgColor] as CFArray
-            guard let gradient = CGGradient(
-                colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                colors: colors,
-                locations: [0.0, 1.0]
-            ) else {
-                background.setFill()
-                ctx.fill(CGRect(origin: .zero, size: size))
-                return
-            }
-            ctx.cgContext.drawLinearGradient(
-                gradient,
-                start: .zero,
-                end: CGPoint(x: 0, y: size.height),
-                options: []
-            )
-        }
-    }
 
     /// Interior walls stay airy so the floor plan (and the routes on it) read from outside…
     static let wallOpacity: CGFloat = 0.18
@@ -112,5 +76,51 @@ enum DollhousePalette {
         case (.window, true): return UIColor(red: 0.239, green: 0.718, blue: 0.831, alpha: 1.0)
         case (.window, false):return UIColor(red: 0.588, green: 0.749, blue: 0.827, alpha: 1.0)
         }
+    }
+
+    // MARK: - Fixture kit tones (UI revamp, Jul 2026)
+    //
+    // Every tone below is DERIVED from the base palette above, so restyling the app stays a
+    // one-place change and the fixtures always read as one family with the walls and slabs.
+
+    /// The diorama table the house sits on — darker than the backdrop so shadows land on it.
+    static let basePlate = background.blended(with: exteriorWall, amount: 0.24)
+    /// Cut edge of a floor slab (the extruded side face).
+    static let slabSide = slab.blended(with: exteriorWall, amount: 0.55)
+    static let slabUnderside = slab.blended(with: exteriorWall, amount: 0.35)
+
+    /// The darker rim along the top of every wall — the "cut line" that makes the dollhouse
+    /// read as deliberately sliced rather than unfinished.
+    static func wallCap(isExterior: Bool) -> UIColor {
+        (isExterior ? exteriorWall : wall).blended(with: label, amount: 0.30)
+    }
+
+    /// Door/window frames sit a shade darker than their leaf/glass so the trim reads.
+    static func openingFrame(kind: OpeningKind, isExit: Bool) -> UIColor {
+        opening(kind: kind, isExit: isExit).blended(with: label, amount: 0.32)
+    }
+
+    static let doorHandle = UIColor(red: 0.36, green: 0.33, blue: 0.30, alpha: 1.0)
+    /// Glass gets its blue from the window family, kept pale so routes stay the hot colors.
+    static let windowGlass = UIColor(red: 0.73, green: 0.85, blue: 0.90, alpha: 1.0)
+
+    static let stairTread = stairs
+    static let stairRiser = stairs.blended(with: label, amount: 0.16)
+    static let stairStringer = stairs.blended(with: label, amount: 0.30)
+    static let stairRail = stairs.blended(with: label, amount: 0.42)
+}
+
+extension UIColor {
+    /// Mix toward `other` by `amount` (0 = self, 1 = other).
+    func blended(with other: UIColor, amount: CGFloat) -> UIColor {
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+        getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        other.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        let t = min(max(amount, 0), 1)
+        return UIColor(red: r1 + (r2 - r1) * t,
+                       green: g1 + (g2 - g1) * t,
+                       blue: b1 + (b2 - b1) * t,
+                       alpha: a1 + (a2 - a1) * t)
     }
 }

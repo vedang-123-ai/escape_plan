@@ -184,3 +184,72 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Commits this session**
   - 922df5e Look-and-feel pass, starter demo data, and object-obstruction advice
 
+## 2026-07-27T23:55:31Z · vedang-123-ai · `main` @ `81bbc5c`
+
+**Commits this session**
+  - 81bbc5c Session note: R310 egress gap + the duplicate-S3.5 postmortem
+  - ffd71f3 Decisions: R310 egress items + the stale-clone process failure
+  - f33b087 TODO: flag that an un-analysed home scores full safety marks
+  - dfa79cc Docs: document the non-scoring R310 egress-window items
+  - 9c4a4ab Tests: R310 egress-window items (4 tests, suite 39 -> 43)
+  - 7a5138d /score: pass egress thresholds so R310 window items are reported
+  - 92b0546 Scoring: thread egress thresholds through compute_score
+  - f668b03 Scoring: deterministic IRC R310 egress-window checklist items
+
+## 2026-07-28T00:01:30Z · vedang-123-ai · `main` @ `d413ecb`
+
+**Commits this session**
+  - d413ecb Activity log (hook appends)
+  - 81bbc5c Session note: R310 egress gap + the duplicate-S3.5 postmortem
+  - ffd71f3 Decisions: R310 egress items + the stale-clone process failure
+  - f33b087 TODO: flag that an un-analysed home scores full safety marks
+  - dfa79cc Docs: document the non-scoring R310 egress-window items
+  - 9c4a4ab Tests: R310 egress-window items (4 tests, suite 39 -> 43)
+  - 7a5138d /score: pass egress thresholds so R310 window items are reported
+  - 92b0546 Scoring: thread egress thresholds through compute_score
+  - f668b03 Scoring: deterministic IRC R310 egress-window checklist items
+
+## 2026-07-28T00:03:32Z · vedang-123-ai · `main` @ `126181d`
+
+**Commits this session**
+  - 126181d Activity log (hook appends)
+  - d413ecb Activity log (hook appends)
+  - 81bbc5c Session note: R310 egress gap + the duplicate-S3.5 postmortem
+  - ffd71f3 Decisions: R310 egress items + the stale-clone process failure
+  - f33b087 TODO: flag that an un-analysed home scores full safety marks
+  - dfa79cc Docs: document the non-scoring R310 egress-window items
+  - 9c4a4ab Tests: R310 egress-window items (4 tests, suite 39 -> 43)
+  - 7a5138d /score: pass egress thresholds so R310 window items are reported
+  - 92b0546 Scoring: thread egress thresholds through compute_score
+  - f668b03 Scoring: deterministic IRC R310 egress-window checklist items
+
+## 2026-07-31T00:20:20Z · unknown · `main` @ `4ea6310`
+
+**Uncommitted working-tree changes (700)**
+  - M  .build-assess/Index.noindex/DataStore/v5/units/APIClient+Analyze.o-KJIX97IM0U7K
+  - M  .build-assess/Index.noindex/DataStore/v5/units/APIClient+Cache.o-1V48CHTH2JGXY
+  - M  .build-assess/Index.noindex/DataStore/v5/units/APIClient+Chat.o-1IHNO7VHRKVR0
+  - M  .build-assess/Index.noindex/DataStore/v5/units/APIClient+Convert.o-384R239AY54Q7
+  - M  .build-assess/Index.noindex/DataStore/v5/units/APIClient+Routes.o-1TZYSYW6S726T
+  - M  .build-assess/Index.noindex/DataStore/v5/units/APIClient+Score.o-3A90DPWQK8ABR
+  - M  .build-assess/Index.noindex/DataStore/v5/units/APIClient.o-2GFP8PT513B9A
+  - M  .build-assess/Index.noindex/DataStore/v5/units/AnalyzeModels.o-12OZPK3ZJDO27
+  - M  .build-assess/Index.noindex/DataStore/v5/units/AssistantScreen.o-3MLLQDWU4TFGN
+  - M  .build-assess/Index.noindex/DataStore/v5/units/ChatRequestEncodingTests.o-2FE7K2Y36QD5Q
+  - M  .build-assess/Index.noindex/DataStore/v5/units/ChecklistStateStore.o-3JEDK5UI5GAT5
+  - M  .build-assess/Index.noindex/DataStore/v5/units/ChecklistStateStoreTests.o-2XBNTS0NG37BU
+  - M  .build-assess/Index.noindex/DataStore/v5/units/ContentView.o-3RPUOGWI4J65P
+  - M  .build-assess/Index.noindex/DataStore/v5/units/ConversationStore.o-3FIMUU1TKBW3S
+  - M  .build-assess/Index.noindex/DataStore/v5/units/ConversationStoreTests.o-JU29IB6Y9S93
+  - M  .build-assess/Index.noindex/DataStore/v5/units/DeviceIdentity.o-1QJECWJRJGZRO
+  - M  .build-assess/Index.noindex/DataStore/v5/units/DollhouseGeometry.o-2N9EGKQGR6FGK
+  - M  .build-assess/Index.noindex/DataStore/v5/units/DollhousePalette.o-33ZSFAMH9Q7UW
+  - M  .build-assess/Index.noindex/DataStore/v5/units/DollhouseRendererTests.o-1Z8OYUCN7LO44
+  - M  .build-assess/Index.noindex/DataStore/v5/units/DollhouseScene.o-161K530N0G3KK
+  - M  .build-assess/Index.noindex/DataStore/v5/units/DrillInstructions.o-2AQ8TR7EFTT4S
+  - M  .build-assess/Index.noindex/DataStore/v5/units/DrillModeTests.o-2IY5GDWU78E7W
+  - M  .build-assess/Index.noindex/DataStore/v5/units/DrillScreen.o-IVW8SVFCD5SG
+  - M  .build-assess/Index.noindex/DataStore/v5/units/DrillSession.o-2TEKO2S5POK7L
+  - M  .build-assess/Index.noindex/DataStore/v5/units/EditAction.o-306DVJS0PG3VU
+  - …and 675 more
+
