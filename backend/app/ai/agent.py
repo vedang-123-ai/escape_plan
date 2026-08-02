@@ -26,6 +26,7 @@ from app.config import CORPUS_DIR, get_settings
 from app.models import HomeModel
 from app.routing.egress import EgressThresholds, check_egress
 from app.routing.engine import compute_route_plan
+from app.routing.obstructions import analyze_obstructions
 from app.routing.plan import RoutePlan, RoutingConstraints
 from app.scoring.findings import finding_id
 
@@ -184,6 +185,29 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "check_obstructions",
+        "description": (
+            "Run the deterministic obstruction analysis: which piece of furniture is "
+            "in the way of which doorway, and how far it has to move. Returns, per "
+            "finding, kind ('blocks_opening' = no path to that doorway at all; "
+            "'narrows_route' = passable but a squeeze), the culprit object id(s) and "
+            "categories, the measured passable width, the required door width, and the "
+            "measured distance to move. Optionally scope to one room. Use this whenever "
+            "a room has furniture — the routing engine reports that a doorway is "
+            "unreachable, but only this tool names the object responsible."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "room_id": {
+                    "type": "string",
+                    "description": "Optional — restrict to one room. Omit to check the whole home.",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "search_corpus",
         "description": (
             "Search the fire-safety grounding corpus for guidance on a topic (e.g. "
@@ -215,14 +239,18 @@ You are the agentic home safety inspector for Escape Plan, a home fire escape \
 planning app. You are given tools to walk a specific home room by room. \
 Hard rules:
 
-1. NEVER invent a route, an egress verdict, or a safety fact. Every factual \
-   claim about routes or egress must come from compute_routes or check_egress. \
+1. NEVER invent a route, an egress verdict, a blocked doorway, or a safety \
+   fact. Every factual claim about routes or egress must come from \
+   compute_routes or check_egress; every claim that furniture is in the way, \
+   and every distance you tell someone to move it, must come from \
+   check_obstructions. Never estimate a clearance or a move distance yourself. \
    Every safety recommendation must be grounded by search_corpus and cite a \
    real source id it returned.
 2. Inspect systematically: get_home_summary first, then examine every room \
    (get_room / list_openings), run compute_routes to see the engine's own \
-   bottleneck and no_secondary_egress findings, and check_egress on any \
-   opening that looks marginal (small windows, high sills).
+   bottleneck and no_secondary_egress findings, check_egress on any \
+   opening that looks marginal (small windows, high sills), and \
+   check_obstructions to find furniture standing in the way of a doorway.
 3. A finding without a real tool call behind it is worthless and will be \
    discarded — always call the tool, look at its actual output, THEN write \
    the finding, and reference the exact tool_use_id(s) you used as evidence. \
@@ -230,9 +258,14 @@ Hard rules:
    verbatim — they start with 'toolu_'. Never write descriptive labels like \
    'check_egress:w_kids' or 'compute_routes:avoid_stairs=true'.
 4. Report findings at the severity the evidence supports: high = no viable \
-   route or no secondary egress from an occupied room; med = marginal egress \
-   (fails a threshold) or a bottleneck opening; low = best-practice gaps \
-   (e.g. missing recommended clearance) with no acute failure.
+   route or no secondary egress from an occupied room, or a 'blocks_opening' \
+   obstruction on a sleeping room's only way out; med = marginal egress \
+   (fails a threshold), a bottleneck opening, or any other 'blocks_opening'; \
+   low = best-practice gaps with no acute failure, including 'narrows_route' \
+   squeezes. An obstruction finding is worth writing even when it is easy to \
+   fix — moving a wardrobe is the cheapest safety improvement in the house — \
+   so name the object, say which doorway, and quote the measured distance \
+   check_obstructions returned.
 5. When you have checked every room, call submit_findings exactly once with \
    your complete findings list. If you have nothing to report, submit an \
    empty findings list — do not pad it.
@@ -382,6 +415,32 @@ def _dispatch_tool(
                         "reasons": assessment.reasons,
                     }
         return {"error": f"no such opening_id: {opening_id}"}
+
+    if name == "check_obstructions":
+        room_id = tool_input.get("room_id")
+        found = analyze_obstructions(home, thresholds)
+        if room_id is not None:
+            found = [o for o in found if o.room_id == room_id]
+        return {
+            "obstructions": [
+                {
+                    "kind": o.kind,
+                    "room_id": o.room_id,
+                    "room_name": o.room_name,
+                    "floor_id": o.floor_id,
+                    "opening_id": o.opening_id,
+                    "object_ids": list(o.object_ids),
+                    "object_categories": list(o.object_categories),
+                    "passable_width_m": o.passable_width_m,
+                    "required_width_m": o.required_width_m,
+                    "suggested_move_m": o.suggested_move_m,
+                    # The engine's own phrasing, carried so the model re-words a
+                    # measured sentence instead of composing numbers of its own.
+                    "detail": o.detail,
+                }
+                for o in found
+            ]
+        }
 
     if name == "search_corpus":
         return {"results": search_corpus(tool_input["topic"])}
