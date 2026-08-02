@@ -2,10 +2,19 @@
 //  escape_planTests
 //
 //  S3.5 /score contract on the client: ScoreBreakdown decoding (via HomeModel.decoder, the
-//  same decoder APIClient+Score uses) and ScoreRequest encoding. ScoreModels is deliberately
-//  strict — unlike RoutePlan there is no lenient defaulting, because the backend always sends
-//  the full breakdown; these tests pin that contract so a silent backend field rename fails
-//  loudly here instead of as a blank Score screen.
+//  same decoder APIClient+Score uses) and ScoreRequest encoding.
+//
+//  ScoreModels stays strict about STRUCTURE — unlike RoutePlan there is no lenient defaulting
+//  for missing fields, because the backend always sends the full breakdown, and a field that
+//  vanished is a contract break worth failing on.
+//
+//  It is deliberately NOT strict about enum VALUES, and the distinction cost us a broken demo
+//  screen. "Fail loudly on an unknown category" sounds like the same discipline, but a test
+//  suite can't fail on a category that doesn't exist yet — only the user's app can, at
+//  runtime, by refusing to show the Score screen at all. That is what happened when the
+//  backend started emitting `egress` on 2026-07-27 (apartment + twostory, i.e. the demo home)
+//  and nobody noticed until 2026-08-02. Strict about what the backend PROMISED; tolerant
+//  about what it later ADDED.
 
 import XCTest
 @testable import escape_plan
@@ -96,11 +105,42 @@ final class ScoreModelsTests: XCTestCase {
     }
 
     func testEveryChecklistCategoryDecodes() throws {
-        let categories = ["smoke_alarm", "practice", "routes", "agent_finding", "recommendation"]
+        // `egress` is here because its absence broke the Score screen outright between
+        // 2026-07-27 and 2026-08-02 — see the enum's doc comment.
+        let categories = ["smoke_alarm", "practice", "routes", "egress",
+                          "agent_finding", "recommendation"]
         let breakdown = try decodeBreakdown(breakdownJSON(
             checklist: categories.enumerated().map { itemJSON(id: "item.\($0.offset)", category: $0.element) }))
         XCTAssertEqual(breakdown.checklist.map(\.category),
-                       [.smoke_alarm, .practice, .routes, .agent_finding, .recommendation])
+                       [.smoke_alarm, .practice, .routes, .egress,
+                        .agent_finding, .recommendation])
+    }
+
+    /// The regression guard. A category this build has never heard of must cost one row's
+    /// label, not the whole screen — the failure mode was "Couldn't get your score" on two
+    /// of three fixtures, including the demo home.
+    func testUnknownChecklistCategoryFallsBackInsteadOfFailingTheScreen() throws {
+        let breakdown = try decodeBreakdown(breakdownJSON(checklist: [
+            itemJSON(id: "known", category: "smoke_alarm"),
+            itemJSON(id: "from.the.future", category: "earthquake"),
+        ]))
+        XCTAssertEqual(breakdown.checklist.count, 2, "the whole breakdown must still decode")
+        XCTAssertEqual(breakdown.checklist[1].category, .other)
+        // …and the row is still readable: only the category degraded.
+        XCTAssertEqual(breakdown.checklist[1].id, "from.the.future")
+    }
+
+    /// Decoding a category is only half the job — `ScoreScreen.categoryOrder` is a whitelist
+    /// that silently drops anything missing from it, so an item could parse perfectly and
+    /// render nowhere. That is how an R310 egress warning goes invisible.
+    func testScoreScreenRendersEveryChecklistCategory() {
+        let rendered = Set(ScoreScreen.categoryOrder.map(\.0))
+        let missing = ChecklistCategory.allCases.filter { !rendered.contains($0) }
+        XCTAssertTrue(
+            missing.isEmpty,
+            "ScoreScreen.categoryOrder is missing \(missing.map(\.rawValue)) — those items "
+            + "decode but never appear on screen"
+        )
     }
 
     // MARK: - Strictness (deliberate contrast with RoutePlan's lenient keys)
@@ -108,12 +148,6 @@ final class ScoreModelsTests: XCTestCase {
     func testMissingScoreThrows() {
         XCTAssertThrowsError(try decodeBreakdown(breakdownJSON(scoreLine: "")),
                              "ScoreBreakdown has no lenient defaults — a missing score is a contract break")
-    }
-
-    func testUnknownChecklistCategoryThrows() {
-        XCTAssertThrowsError(
-            try decodeBreakdown(breakdownJSON(checklist: [itemJSON(category: "earthquake")])),
-            "an unknown category means the backend contract moved — fail loudly, don't skip the row")
     }
 
     func testMissingRequiredComponentFieldThrows() {

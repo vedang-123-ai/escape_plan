@@ -32,12 +32,31 @@ struct ScoreComponent: Decodable, Identifiable, Hashable {
     var id: String { key }
 }
 
-enum ChecklistCategory: String, Decodable {
+/// Checklist categories the backend emits (`backend/app/scoring/checklist.py`).
+///
+/// Decoding is deliberately tolerant. A raw-value enum that throws on an unknown string
+/// fails its PARENT's decode, so one unrecognized category takes down the whole
+/// `ScoreBreakdown` and the user sees "Couldn't get your score" — which is exactly what
+/// happened between 2026-07-27 and 2026-08-02, when the backend started emitting `egress`
+/// and Swift had no case for it (broken on apartment + twostory, i.e. the demo home).
+/// An unknown category must cost one odd-looking row, never the screen.
+///
+/// Adding a case here is not the whole job: `ScoreScreen.categoryOrder` is a whitelist and
+/// silently drops anything absent from it.
+enum ChecklistCategory: String, Decodable, CaseIterable {
     case smoke_alarm
     case practice
     case routes
+    case egress
     case agent_finding
     case recommendation
+    /// Anything the backend added that this build predates.
+    case other
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ChecklistCategory(rawValue: raw) ?? .other
+    }
 }
 
 /// A checklist row. Only items with `scoring == true` (smoke_alarm and practice

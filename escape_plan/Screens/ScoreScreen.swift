@@ -154,12 +154,17 @@ struct ScoreScreen: View {
 
     // MARK: - Checklist
 
-    private static let categoryOrder: [(ChecklistCategory, String)] = [
+    /// A whitelist: a category missing from here decodes fine and then renders nowhere.
+    /// Keep it exhaustive over `ChecklistCategory` — `ScoreModelsTests` asserts that it is,
+    /// because a silently dropped section is how an R310 egress warning goes invisible.
+    static let categoryOrder: [(ChecklistCategory, String)] = [
         (.smoke_alarm, "Smoke alarms"),
         (.practice, "Practice"),
         (.routes, "Routes"),
+        (.egress, "Escape windows"),
         (.agent_finding, "Findings"),
         (.recommendation, "Recommendations"),
+        (.other, "Other"),
     ]
 
     @ViewBuilder
