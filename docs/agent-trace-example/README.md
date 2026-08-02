@@ -34,6 +34,23 @@ its first hop), so it happily routes the kids' room's "secondary" back out
 through the shared landing door and the back door downstairs — a different
 final exit, which satisfies its definition of a secondary route.
 
+## A third tool, for a hazard neither of those can see (2026-08-02)
+
+`compute_routes` and `check_egress` both reason about the *shell* of the home —
+doorways, widths, sills. Neither can see a wardrobe standing in front of a
+bedroom door. `check_obstructions` is the agent's window into
+`app/routing/obstructions.py`, which attributes a blocked doorway to a specific
+object by counterfactual re-rasterization (remove it, does the path come back?)
+and measures how far it has to move.
+
+The division of labor is the same one that governs routing: the engine decides
+*what* is blocked and *by how much*, deterministically; the agent only re-words
+that into cited advice. The tool payload carries the engine's own `detail`
+sentence for exactly this reason, and the live test
+(`test_blocked_bungalow_agent_names_the_wardrobe`) asserts the distance in the
+model's recommendation is the one the engine measured — a fluent recommendation
+with an invented number fails.
+
 The room's own window (`w_kids`) does fail egress on width and area
 (confirmed directly via `check_egress` — see
 `test_check_egress_flags_undersized_kids_window`), so the *room* genuinely has

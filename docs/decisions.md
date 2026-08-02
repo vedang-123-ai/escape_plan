@@ -739,3 +739,39 @@ system, not a set of independent tweaks.
 Gate after resolution: EditorCore 186, backend 252, iOS 308 unit + 14 UI (6 env-gated skips),
 corpus valid — all green. **Not yet visually verified**: nobody has looked at the merged
 renderer on a simulator. The route fix is verified by construction, not by eye.
+
+## 2026-08-02 — The S3.2 agent gets `check_obstructions`
+
+Closes the "still open" half of the 2026-07-24 obstruction work: the
+deterministic attribution existed and fed `/routes` + `/score`, but the AI
+inspector could not reach it, so a wardrobe parked in front of a bedroom door
+was only ever a checklist row — never something the agent could raise in prose
+or in chat.
+
+- **The tool is a window, not a second opinion.** `check_obstructions` calls
+  `analyze_obstructions` and returns its fields verbatim, including the
+  engine's own `detail` sentence. The model re-words a measured claim; it never
+  produces a clearance or a move distance. Same division of labor as routing —
+  and the reason the tool description spells out `blocks_opening` vs
+  `narrows_route` rather than letting the model coin its own severity language.
+- **Optional `room_id`, no required args.** The agent sweeps the whole home in
+  one call (the common case, and cheap — rooms without objects cost nothing)
+  and narrows only when it is writing up a specific room. Making `room_id`
+  required would have meant one call per room against a 15-iteration cap.
+- **Prompt rule 1 now names obstructions explicitly.** "Never invent a route or
+  an egress verdict" did not obviously cover "don't estimate how far to move a
+  sofa," and that is exactly the kind of number a model will happily supply.
+- **The measurement is asserted, not hoped for.** Both the scripted test and
+  the live case check that the distance in the model's recommendation equals
+  the one in the trace. A recommendation that reads well but invented its
+  number fails — which is the whole point of routing through the engine.
+- **Severity mapping:** `blocks_opening` on a sleeping room's only way out is
+  high; any other `blocks_opening` is med; `narrows_route` is low. It is a
+  judgment call, so it lives in the prompt where it can be seen and argued
+  with, not hardcoded where it would look like a fact.
+
+**Unverified here:** the live case (`test_blocked_bungalow_agent_names_the
+_wardrobe`) has never run — no `ANTHROPIC_API_KEY` on this machine. The `.env`
+the 2026-07-24 tracker stamp refers to is gitignored and machine-local, not
+something a fresh clone inherits. Its golden will be written and needs review
+on the first machine that has the key.
