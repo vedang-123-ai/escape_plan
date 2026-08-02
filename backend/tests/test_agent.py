@@ -72,6 +72,11 @@ def twostory_home_and_thresholds(twostory: dict):
     return HomeModel.model_validate(twostory), config.get_thresholds()
 
 
+@pytest.fixture
+def blocked_home_and_thresholds(bungalow_blocked: dict):
+    return HomeModel.model_validate(bungalow_blocked), config.get_thresholds()
+
+
 # --- search_corpus (pure) ----------------------------------------------------
 
 
@@ -132,6 +137,68 @@ def test_check_egress_unknown_opening(apartment_home_and_thresholds):
     home, thresholds = apartment_home_and_thresholds
     out = _dispatch_tool("check_egress", {"opening_id": "nope"}, home, thresholds)
     assert "error" in out
+
+
+def test_check_obstructions_names_the_object_and_the_measured_move(
+    blocked_home_and_thresholds,
+):
+    """The point of the tool: not "something blocks this door" but which thing,
+    and how far it has to go. Both numbers come from the engine, never the model."""
+    home, thresholds = blocked_home_and_thresholds
+    out = _dispatch_tool("check_obstructions", {}, home, thresholds)
+    assert len(out["obstructions"]) == 1
+    found = out["obstructions"][0]
+    assert found["kind"] == "blocks_opening"
+    assert found["object_ids"] == ["o_wardrobe_blocking"]
+    assert found["object_categories"] == ["wardrobe"]
+    assert found["opening_id"] == "d_living_bedroom"
+    assert found["suggested_move_m"] == pytest.approx(0.85)
+    assert found["required_width_m"] == pytest.approx(thresholds.door_min_width_m)
+    # The engine's own phrasing rides along so the model re-words a measured
+    # sentence instead of inventing a distance that sounds plausible.
+    assert "0.85" in found["detail"] and "wardrobe" in found["detail"]
+
+
+def test_check_obstructions_room_filter_scopes_to_one_room(
+    blocked_home_and_thresholds,
+):
+    home, thresholds = blocked_home_and_thresholds
+    assert _dispatch_tool(
+        "check_obstructions", {"room_id": "r_bedroom"}, home, thresholds
+    )["obstructions"]
+    assert (
+        _dispatch_tool("check_obstructions", {"room_id": "r_living"}, home, thresholds)[
+            "obstructions"
+        ]
+        == []
+    )
+
+
+def test_check_obstructions_on_a_furniture_free_home_reports_nothing(
+    twostory_home_and_thresholds,
+):
+    """No objects means no culprits — the tool must not manufacture advice for
+    a home it has nothing to say about."""
+    home, thresholds = twostory_home_and_thresholds
+    out = _dispatch_tool("check_obstructions", {}, home, thresholds)
+    assert out["obstructions"] == []
+
+
+def test_check_obstructions_does_not_mutate_the_home(blocked_home_and_thresholds):
+    """Every agent tool is read-only. This one re-rasterizes rooms with objects
+    withdrawn, which is exactly the shape of code that could leak a mutation."""
+    home, thresholds = blocked_home_and_thresholds
+    before = home.model_dump(mode="json")
+    _dispatch_tool("check_obstructions", {}, home, thresholds)
+    assert home.model_dump(mode="json") == before
+
+
+def test_check_obstructions_is_registered_as_a_tool():
+    tool = next(t for t in agent.TOOLS if t["name"] == "check_obstructions")
+    # room_id is a filter, not a requirement — the agent must be able to sweep
+    # the whole home in one call.
+    assert "required" not in tool["input_schema"]
+    assert set(tool["input_schema"]["properties"]) == {"room_id"}
 
 
 def test_dispatch_unknown_tool_raises(apartment_home_and_thresholds):
@@ -282,6 +349,56 @@ def test_agent_flags_kids_room_undersized_window_via_check_egress(
     assert result.findings[0].room_ids == ["r_bed_kids"]
     egress_call = next(t for t in result.trace if t.tool_name == "check_egress")
     assert egress_call.output["viable"] is False
+
+
+def test_agent_flags_blocking_wardrobe_with_check_obstructions_evidence(
+    blocked_home_and_thresholds,
+):
+    """The whole reason the tool exists: the agent turns a deterministic
+    attribution into cited, actionable advice, and the number in its finding is
+    traceable to the engine's measurement rather than to the model."""
+    home, thresholds = blocked_home_and_thresholds
+    turns = [
+        [_tool_use("toolu_1", "get_home_summary", {})],
+        [_tool_use("toolu_2", "check_obstructions", {})],
+        [_tool_use("toolu_3", "search_corpus", {"topic": "keep exits clear"})],
+        [
+            _tool_use(
+                "toolu_4",
+                "submit_findings",
+                {
+                    "findings": [
+                        {
+                            "severity": "high",
+                            "room_ids": ["r_bedroom"],
+                            "finding": (
+                                "A wardrobe is standing in front of the Bedroom's "
+                                "door (d_living_bedroom) — there is no walkable path "
+                                "to it at all."
+                            ),
+                            "evidence": ["toolu_2"],
+                            "recommendation": (
+                                "Move the wardrobe about 0.85 m clear of the "
+                                "doorway to restore a full-width escape path."
+                            ),
+                            "citation": "usfa-escape-plans",
+                        }
+                    ]
+                },
+            )
+        ],
+    ]
+    result = run_agent_analysis(home, thresholds, client=ScriptedClient(turns))
+    assert result.truncated is False
+    assert result.dropped == []
+    assert len(result.findings) == 1
+    # The advice survives validation *because* a real obstruction call backs it.
+    obstruction_call = next(
+        t for t in result.trace if t.tool_name == "check_obstructions"
+    )
+    assert result.findings[0].evidence == [obstruction_call.id]
+    measured = obstruction_call.output["obstructions"][0]["suggested_move_m"]
+    assert f"{measured:.2f}" in result.findings[0].recommendation
 
 
 def _bad_submission(call_id: str):

@@ -29,3 +29,10 @@ def apartment() -> dict:
 @pytest.fixture
 def twostory() -> dict:
     return load_fixture("twostory.json")
+
+
+@pytest.fixture
+def bungalow_blocked() -> dict:
+    """The bungalow with a wardrobe planted in front of the bedroom door —
+    the obstruction test bed (see app/routing/obstructions.py)."""
+    return load_fixture("bungalow-blocked.json")
