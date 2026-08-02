@@ -258,3 +258,12 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Commits this session**
   - fe7b49a Merge branch 'main' of https://github.com/vedang-123-ai/escape_plan
 
+## 2026-08-02T21:04:34Z · vedang-123-ai · `main` @ `702fa4b`
+
+**Commits this session**
+  - 702fa4b Tracker: check_obstructions closed, live golden opened, gate stamp de-staled
+  - ba3d163 Decisions + trace doc: why check_obstructions is a window, not a second opinion
+  - 69512b3 Live: a third agent case — the model must name the wardrobe, not shrug
+  - 5ebef6c Tests: check_obstructions dispatch + a cited scripted finding (24 -> 30)
+  - 3294e44 Agent: check_obstructions tool — name the object, quote the measured move
+
