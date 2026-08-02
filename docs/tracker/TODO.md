@@ -1,9 +1,15 @@
 # Everything still to do
 
-_Last verified: 2026-07-24 on `main` (end of the route-fix + live-AI session) — backend 248
-not-live + 12 live pass, editorcore 186 pass, corpus valid, iOS FULL suite (unit + UI)
-TEST SUCCEEDED. Live suites run with the key now in repo-root `.env` (gitignored). Escape
-routes confirmed rendering on the simulator after the stale-@State fix._
+_Last verified: 2026-08-02 on `main` (check_obstructions agent tool) — **backend 258 not-live
+pass, corpus valid**, both re-run this session. EditorCore (186) and the iOS suite were NOT
+re-run: nothing Swift changed, so the 2026-07-30 post-merge result stands unretested. Live
+suites (13 deselected) could not run — no `ANTHROPIC_API_KEY` on this machine; the `.env`
+from the 2026-07-24 stamp is gitignored and machine-local, not inherited by a clone._
+
+_Prior stamp, 2026-07-24 on `main` (route-fix + live-AI session) — backend 248 not-live + 12
+live pass, editorcore 186, corpus valid, iOS FULL suite (unit + UI) TEST SUCCEEDED. Escape
+routes confirmed rendering on the simulator after the stale-@State fix. (The 2026-07-30 merge
+moved backend to 252 without refreshing this table.)_
 
 This is the single source of truth for open work. It replaces the old `board.md` +
 `checklist.md`, which had drifted into contradicting each other.
@@ -19,11 +25,14 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 | Suite | Count | Command |
 |---|---|---|
-| Backend pytest | 248 pass, 12 live-deselected | `python3 -m pytest backend/tests/ -m "not live"` |
-| Backend live suites | 12 pass (2026-07-24, key in `.env`) | `set -a; . ./.env; set +a; python3 -m pytest backend/tests/ -m "live"` (latency bounds can flake on API variance) |
-| EditorCore (SwiftPM) | 186 pass | `swift test --package-path tools/editorcore` |
-| iOS (unit + UI) | TEST SUCCEEDED, 0 failures (6 env-gated drivers skipped) | `xcodebuild test -scheme escape_plan …` |
-| Corpus | 11 sources, 6 files | `python3 backend/corpus/validate.py` |
+| Backend pytest | 258 pass, 13 live-deselected (2026-08-02) | `python3 -m pytest backend/tests/ -m "not live"` |
+| Backend live suites | 12 pass (2026-07-24); the 13th (`agent_bungalow_blocked`) has never run | `set -a; . ./.env; set +a; python3 -m pytest backend/tests/ -m "live"` (needs a key this machine doesn't have; latency bounds can flake on API variance) |
+| EditorCore (SwiftPM) | 186 pass (2026-07-30, not re-run since) | `swift test --package-path tools/editorcore` |
+| iOS (unit + UI) | TEST SUCCEEDED, 0 failures (2026-07-30, not re-run since; 6 env-gated drivers skipped) | `xcodebuild test -scheme escape_plan …` |
+| Corpus | 11 sources, 6 files (2026-08-02) | `python3 backend/corpus/validate.py` |
+
+**Heads-up on `python3`:** the system `python3` on at least one machine is 3.9 and cannot
+import pydantic. The project env is `backend/.venv` (3.13) — use `backend/.venv/bin/python`.
 
 ---
 
@@ -62,9 +71,17 @@ Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
       `app/routing/obstructions.py` names WHICH object blocks (counterfactual attribution)
       and how far to move it (measured), surfaced in `RouteFinding.detail` + `object_ids`
       and as a `usfa-escape-plans`-cited checklist item. 10 tests.
-- [ ] Still open from that item: give the S3.2 **agent** a `check_obstructions` tool so the
-      AI can phrase the move as cited advice and flag hazards conversationally. The
-      deterministic layer it would call is built and tested; only the tool wiring is left.
+- [x] ~~Give the S3.2 **agent** a `check_obstructions` tool~~ — done 2026-08-02. Optional
+      `room_id` filter, returns the engine's fields verbatim including its `detail`
+      sentence; prompt rule 1 now forbids estimating a move distance, rule 4 maps
+      `blocks_opening`/`narrows_route` to severities. 6 deterministic tests (backend 248 →
+      258). See decisions.md 2026-08-02. **The live case is unrun** — next item.
+- [ ] Review the golden for `test_blocked_bungalow_agent_names_the_wardrobe`
+      (`backend/tests/test_agent_live.py`, `-m live`). It has never executed: there is no
+      `ANTHROPIC_API_KEY` on every machine — the `.env` in the stamp above is gitignored and
+      machine-local, so a fresh clone does not inherit it. On the first machine with the key,
+      run the live agent suite; the golden writes itself and `pytest.skip`s for review, then
+      commit `backend/tests/golden/agent_bungalow_blocked.json`. (S3.2)
 
 ## Blocked on a real API key
 
