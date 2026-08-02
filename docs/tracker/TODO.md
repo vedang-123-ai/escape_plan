@@ -47,6 +47,11 @@ the UI branch's separate `SceneViewStateHolder`, and both boxes now coexist. **C
 on the simulator (orange primary + blue secondary, all 7 primaries in "Everyone", exit glows).
 Details: decisions.md 2026-07-24 (later) + `notes/2026-07-24-look-and-feel-*.md`.
 
+**Re-confirmed on the merged build 2026-08-02** — the open "nobody has looked at the merge on a
+simulator" item is now closed. Routes draw, and they survive a committed edit (the exact thing
+the fix protects). Evidence: `docs/evidence/route-redraw-2026-08-02/`; regression guard:
+`escape_planUITests/RouteRedrawAfterEditUITests` (env-gated, needs a local backend).
+
 ## 3D revamp (approved 2026-07-23 — spec/plan: `~/.claude/plans/i-want-you-to-tender-flask.md`)
 
 **ALL SIX PHASES LANDED 2026-07-23** (A1–A3 unified free-camera HouseScreen; B1–B3 schema
