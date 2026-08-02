@@ -140,3 +140,44 @@ def test_twostory_agent_flags_kids_bedroom_window():
         "flagged rooms drifted completely from the reviewed snapshot: "
         f"{sorted(current_rooms)} vs snapshot {sorted(snapshot_rooms)}"
     )
+
+
+def test_blocked_bungalow_agent_names_the_wardrobe():
+    """The check_obstructions half: a real model, given the deterministic
+    attribution, must name the object and carry the measured move into its
+    advice — not shrug that 'something' blocks the door."""
+    result, latency = _run("bungalow-blocked.json")
+    _assert_hard_invariants(result, latency)
+    assert result.findings, "agent found nothing in the planted blocked bungalow"
+
+    assert "check_obstructions" in {t.tool_name for t in result.trace}, (
+        "the agent never called check_obstructions on a home whose bedroom door "
+        "is physically blocked; tools used: "
+        + ", ".join(sorted({t.tool_name for t in result.trace}))
+    )
+
+    flagged = [
+        f
+        for f in result.findings
+        if "wardrobe" in (f.finding + f.recommendation).lower()
+        or "o_wardrobe_blocking" in f.finding
+    ]
+    assert flagged, (
+        "no finding names the wardrobe blocking d_living_bedroom; findings were: "
+        + "; ".join(f.finding for f in result.findings)
+    )
+
+    # The move distance is the engine's, so it must appear verbatim rather than
+    # as a number the model found reasonable.
+    measured = {
+        o["suggested_move_m"]
+        for t in result.trace
+        if t.tool_name == "check_obstructions"
+        for o in t.output["obstructions"]
+    }
+    advice = " ".join(f.finding + " " + f.recommendation for f in flagged)
+    assert any(f"{m:.2f}" in advice or f"{m:.1f}" in advice for m in measured), (
+        f"advice quotes no measured distance (engine measured {sorted(measured)}): {advice}"
+    )
+
+    _snapshot("bungalow_blocked", result, latency)
