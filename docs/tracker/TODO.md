@@ -184,6 +184,25 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       build — without it a fresh install reaches the Render URL but gets 401s until the
       token is typed in Settings. Mechanism + decision: decisions.md 2026-07-23. (S4.4)
 
+## Client/server contract (added 2026-08-02)
+
+- [x] ~~Score screen dead on apartment + twostory~~ — fixed 2026-08-02. Backend emitted
+      `category: "egress"` (R310 work, 2026-07-27); Swift's `ChecklistCategory` had no case,
+      and a throwing enum failed the whole `ScoreBreakdown`. Also fixed the whitelist behind
+      it (`ScoreScreen.categoryOrder`) that would have made the fix look successful while
+      still rendering nothing. Evidence: `docs/evidence/score-fixed-2026-08-02/`.
+- [x] ~~Enum tolerance sweep~~ — done 2026-08-02, all ten enums checked. `FindingKind`,
+      `WaypointKind`, `Severity` made tolerant; the six schema enums left strict on purpose
+      (they round-trip user data — see decisions.md). iOS unit suite 309 → 315.
+- [ ] **Surface `narrows_route` as a RouteFinding** — `obstructions.py` computes it and
+      nothing shows it. Now safe to wire up: `FindingKind` degrades gracefully instead of
+      killing the plan, and `RouteFindingViews` has an `.unknown` style. Would have broken
+      routes outright before today. (S2.3/revamp)
+- [ ] Consider a contract test that diffs the backend's `Literal`/enum values against the
+      Swift cases automatically. Today's sweep was by hand and found the gap six days late;
+      nothing stops the next one. Cheapest version: a pytest that imports the enums, greps
+      the Swift sources, and asserts the value sets match.
+
 ## Backend
 
 - [ ] **DECISION NEEDED (P1): a home that has never been analysed scores full marks for
