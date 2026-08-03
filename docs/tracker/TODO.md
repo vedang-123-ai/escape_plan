@@ -190,7 +190,17 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       `category: "egress"` (R310 work, 2026-07-27); Swift's `ChecklistCategory` had no case,
       and a throwing enum failed the whole `ScoreBreakdown`. Also fixed the whitelist behind
       it (`ScoreScreen.categoryOrder`) that would have made the fix look successful while
-      still rendering nothing. Evidence: `docs/evidence/score-fixed-2026-08-02/`.
+      still rendering nothing. Verified by 315 unit tests (a decode test using the real
+      `egress` category + a whitelist-exhaustiveness test), and by curl against the backend
+      confirming which categories each fixture emits. **Not yet seen on screen** — next item.
+- [ ] **Screenshot the fixed Score screen.** The fix is unit-verified but nobody has watched
+      it render. `escape_planUITests/ScoreScreenshotUITests` exists for this and has never
+      completed a run: three attempts died on UI-automation flakiness and then on the harness
+      itself (`Timed out waiting for AX loaded notification`) with the disk at 99%. Needs
+      free disk more than it needs code. Run:
+      `TEST_RUNNER_SCORE_SHOT=1 TEST_RUNNER_SCORE_SHOT_OUT=<dir>
+      TEST_RUNNER_SCORE_SHOT_TOKEN=<tok> xcodebuild test … -only-testing:escape_planUITests/ScoreScreenshotUITests`
+      with a local backend up. (S3.5)
 - [x] ~~Enum tolerance sweep~~ — done 2026-08-02, all ten enums checked. `FindingKind`,
       `WaypointKind`, `Severity` made tolerant; the six schema enums left strict on purpose
       (they round-trip user data — see decisions.md). iOS unit suite 309 → 315.
