@@ -137,12 +137,26 @@ struct RouteFinding: Codable, Equatable {
         self.object_ids = object_ids
     }
 
+    /// Tolerant on purpose. This enum is nested inside RoutePlan, so a kind this build
+    /// has never heard of would fail the WHOLE plan decode and the app would render no
+    /// routes at all — a worse outcome than one unlabelled warning badge. The backend
+    /// already carries `narrows_route` (`ObstructionKind` in obstructions.py) that nothing
+    /// surfaces yet; the day someone wires it into a finding, this is what stops routes
+    /// from disappearing. Precedent: ChecklistCategory, decisions.md 2026-08-02.
     enum FindingKind: String, Codable {
         case no_secondary_egress
         case no_viable_route
         /// v1.1 revamp: an object blocks a doorway (or narrows its approach
         /// below the egress clearance) from inside this room.
         case blocked_opening
+        /// A kind added server-side after this build shipped. `detail` is written by the
+        /// engine and stays readable, so the badge degrades to "unlabelled", not "absent".
+        case unknown
+
+        init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = FindingKind(rawValue: raw) ?? .unknown
+        }
     }
 }
 

@@ -149,7 +149,11 @@ final class RoutePlanDecodeErrorTests: XCTestCase {
                              "an unknown waypoint kind means a newer engine — fail loudly")
     }
 
-    func testUnknownFindingKindThrows() {
+    /// A finding kind newer than this build must NOT cost the whole plan. Findings are
+    /// nested inside RoutePlan, so throwing here means zero routes render — strictly worse
+    /// than one generically-labelled badge. The backend already carries `narrows_route`
+    /// with nothing surfacing it yet, so this is a live path, not a hypothetical.
+    func testUnknownFindingKindDegradesInsteadOfKillingThePlan() throws {
         let plan = """
         {
           "home_id": "home-1",
@@ -161,13 +165,18 @@ final class RoutePlanDecodeErrorTests: XCTestCase {
               "room_name": "Living Room",
               "floor_id": "f1",
               "findings": [
-                { "kind": "sharknado_risk", "room_id": "r_living", "detail": "nope" }
+                { "kind": "narrows_route", "room_id": "r_living",
+                  "detail": "The path to 'd_entry' squeezes to 0.62 m past the sofa." }
               ]
             }
           ]
         }
         """
-        XCTAssertThrowsError(try decodePlan(plan))
+        let decoded = try decodePlan(plan)
+        XCTAssertEqual(decoded.rooms.count, 1, "the plan itself must still decode")
+        XCTAssertEqual(decoded.rooms[0].findings[0].kind, .unknown)
+        // The engine's prose is what the user actually reads — it must survive intact.
+        XCTAssertTrue(decoded.rooms[0].findings[0].detail.contains("0.62 m"))
     }
 
     // MARK: - Type mismatches

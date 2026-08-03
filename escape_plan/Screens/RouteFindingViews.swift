@@ -31,6 +31,13 @@ struct RouteFindingStyle {
             RouteFindingStyle(title: "Blocked doorway",
                               icon: "door.left.hand.closed",
                               tint: Color(DollhousePalette.warningBadge))
+        case .unknown:
+            // A kind newer than this build. The engine's `detail` still reads fine, so
+            // show the warning rather than hiding a real safety finding behind a
+            // version mismatch. Generic title, cautious (non-severe) tint.
+            RouteFindingStyle(title: "Safety warning",
+                              icon: "exclamationmark.triangle.fill",
+                              tint: Color(DollhousePalette.warningBadge))
         }
     }
 }

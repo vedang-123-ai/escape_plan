@@ -296,3 +296,37 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 6a6b42f Tracker: merged-build simulator pass verified, merge follow-up closed
   - 05ce469 UI test: routes must survive a committed edit, asserted on pixels
 
+## 2026-08-02T22:48:03Z · vedang-123-ai · `main` @ `7fc835a`
+
+**Commits this session**
+  - 7fc835a Fix: Score screen was dead on two of three fixtures since 2026-07-27
+
+## 2026-08-02T22:55:32Z · vedang-123-ai · `main` @ `7fc835a`
+
+**Commits this session**
+  - 7fc835a Fix: Score screen was dead on two of three fixtures since 2026-07-27
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-08-02T23:26:20Z · vedang-123-ai · `main` @ `7fc835a`
+
+**Commits this session**
+  - 7fc835a Fix: Score screen was dead on two of three fixtures since 2026-07-27
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-08-02T23:28:17Z · vedang-123-ai · `main` @ `7fc835a`
+
+**Commits this session**
+  - 7fc835a Fix: Score screen was dead on two of three fixtures since 2026-07-27
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-08-02T23:32:46Z · vedang-123-ai · `main` @ `7fc835a`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
