@@ -24,8 +24,19 @@ struct AgentFinding: Decodable, Equatable, Identifiable, Hashable {
     /// Findings carry no server id; the content itself identifies the row for SwiftUI lists.
     var id: String { "\(severity.rawValue)|\(room_ids.joined(separator: ","))|\(finding)" }
 
+    /// Tolerant like the route enums: a finding is nested inside the /analyze response, so
+    /// an unrecognized severity would fail the whole analysis and the user would see none
+    /// of the agent's findings. An unranked finding is still a finding worth reading.
     enum Severity: String, Decodable, Hashable {
         case high, med, low
+        /// Newer than this build. Sorts as least-severe so it can never masquerade as a
+        /// `high` the user should act on first.
+        case unknown
+
+        init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = Severity(rawValue: raw) ?? .unknown
+        }
     }
 
     private enum CodingKeys: String, CodingKey {
