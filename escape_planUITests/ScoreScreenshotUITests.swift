@@ -37,32 +37,29 @@ final class ScoreScreenshotUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Two-Story House"].waitForExistence(timeout: 20),
                       "seeded homes never appeared")
 
-        // HomeScreen exposes Score two ways: a leading swipe action and a context menu.
-        // Prefer the long-press — a swipe that lands mid-layout silently does nothing, which
-        // is what made S44's step skip intermittently, whereas a context menu either opens
-        // or doesn't. Swipe stays as the fallback.
+        // Score is a leading swipe action on the home row. The gesture itself is reliable —
+        // what isn't is the FIRST one: in S44's tour the Score swipe (its first) skipped
+        // while the later Profiles and Drill swipes on the same cell worked, i.e. the list
+        // hadn't settled yet rather than the action being wrong. So: let it settle, then
+        // retry, resetting with a swipe rather than a tap (a tap on a half-open row is
+        // "not hittable" and throws, which killed an earlier attempt outright).
         let cell = app.cells.firstMatch
         XCTAssertTrue(cell.waitForExistence(timeout: 15), "no home cells on the Home tab")
+        sleep(3)
 
         var opened = false
-        for _ in 1...3 {
-            cell.press(forDuration: 1.2)
-            let menuItem = app.buttons["Preparedness Score"].firstMatch
-            if menuItem.waitForExistence(timeout: 5) {
-                menuItem.tap()
+        for _ in 1...4 {
+            cell.swipeRight()
+            let score = app.buttons["Score"].firstMatch
+            if score.waitForExistence(timeout: 4) {
+                score.tap()
                 opened = true
                 break
             }
+            cell.swipeLeft()   // close any half-open row; never throws the way tap does
+            sleep(2)
         }
-        if !opened {
-            cell.swipeRight()
-            let score = app.buttons["Score"].firstMatch
-            if score.waitForExistence(timeout: 5) {
-                score.tap()
-                opened = true
-            }
-        }
-        XCTAssertTrue(opened, "couldn't open Score via context menu or swipe")
+        XCTAssertTrue(opened, "couldn't open Score after 4 swipe attempts")
 
         // /score is a round trip plus a render; give it room.
         XCTAssertTrue(app.navigationBars["Score"].waitForExistence(timeout: 20),
