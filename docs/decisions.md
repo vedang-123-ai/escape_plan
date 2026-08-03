@@ -775,3 +775,42 @@ _wardrobe`) has never run — no `ANTHROPIC_API_KEY` on this machine. The `.env`
 the 2026-07-24 tracker stamp refers to is gitignored and machine-local, not
 something a fresh clone inherits. Its golden will be written and needs review
 on the first machine that has the key.
+
+## 2026-08-02 — Client/server enum tolerance sweep
+
+Prompted by the Score screen being dead for six days (an unmapped `egress` checklist
+category failed the whole `ScoreBreakdown` decode). Swept every Swift enum that decodes
+backend output against what the backend can actually emit.
+
+**All ten enums' values match today** — the `egress` gap was the only live mismatch. The
+finding is not a second wrong value; it is that three response-only enums were one backend
+addition away from breaking a core screen, and one of those additions already exists.
+
+Made tolerant (unknown value → a fallback case, never a throw):
+
+- `RouteFinding.FindingKind` — **the urgent one.** Findings nest inside `RoutePlan`, so an
+  unknown kind failed the whole plan and rendered NO routes. `obstructions.py` already
+  carries `narrows_route` with nothing surfacing it; wiring that up would have broken
+  routes outright, with the engine's own `detail` prose sitting right there, readable.
+- `WaypointKind` — same nesting hazard. `path` itself arrived mid-project in the revamp.
+- `AgentFinding.Severity` — an unknown severity cost the user every finding the agent
+  produced. Sorts as least-severe so it can never masquerade as an urgent one.
+
+Left strict, deliberately: `RoomType`, `OpeningKind`, `Source`, `ObjectCategory`,
+`StairKind`, `ProfileTag`. These are not the same kind of thing. They describe the user's
+own home, round-trip through local JSON persistence, and are **encoded** as well as decoded.
+A silent `unknown` fallback would decode a newer build's `"sunroom"`, re-encode it as
+`"other"`, and quietly degrade the saved home on disk with no error anyone ever saw — data
+loss wearing the costume of graceful degradation. They are also schema-governed: adding a
+value is a reviewed act behind a `schema_version` bump, not something the backend can do to
+the client unilaterally. Rationale is in the `Enums.swift` header so nobody "finishes" the
+sweep later.
+
+**The general rule this settles:** strict about structure the backend *promised* (a missing
+required field is a contract break worth failing on); tolerant about values it may later
+*add*. "Fail loudly on unknown enum values" sounds like the same discipline as the former.
+It isn't — a test suite cannot fail on a value that doesn't exist yet, so the only thing
+that ever fails is the user's app, at runtime, on the demo home.
+
+Also added: `AnalyzeModelsTests` (6 tests). `AnalyzeModels` had shipped with no test file
+at all, which is part of why its sibling break in `ScoreModels` went unnoticed.
