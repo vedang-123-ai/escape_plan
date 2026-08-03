@@ -100,11 +100,22 @@ struct Waypoint: Codable, Equatable {
     var kind: WaypointKind
 }
 
+/// Tolerant for the same reason as `RouteFinding.FindingKind`: waypoints are nested inside
+/// RoutePlan, so an unrecognized kind would fail the whole plan and render no routes.
+/// `path` itself arrived mid-project in the v1.1 revamp — evidence that this list grows.
 enum WaypointKind: String, Codable {
     case room, opening, stair, exterior
     /// v1.1 revamp: an intermediate within-room point where the leg curves
     /// around an object; `node_id` is the opening the leg approaches.
     case path
+    /// Newer than this build. The waypoint keeps its coordinates, so the leg still
+    /// draws — only kind-specific decoration is skipped.
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = WaypointKind(rawValue: raw) ?? .unknown
+    }
 }
 
 /// The engine's warning payload — the ONLY source for the S2.3 warning badges. The client

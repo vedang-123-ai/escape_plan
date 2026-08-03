@@ -50,9 +50,12 @@ enum DrillInstructions {
 
     private static func moveCard(toward kind: WaypointKind) -> DrillCard {
         switch kind {
-        case .room, .path:
+        case .room, .path, .unknown:
             // "path" points are within-room curve points around furniture (v1.1) —
-            // the guidance is the same as moving through the room.
+            // the guidance is the same as moving through the room. `.unknown` (a waypoint
+            // kind newer than this build) lands here deliberately: "follow the highlighted
+            // route" is true regardless of what the new kind turns out to mean, and the
+            // cited claim is generic escape guidance, not a claim about this waypoint.
             return DrillCard(
                 title: "Keep moving",
                 body: "Follow the highlighted route into the next room. Close doors behind you "

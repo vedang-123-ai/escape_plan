@@ -142,11 +142,16 @@ final class RoutePlanDecodeErrorTests: XCTestCase {
 
     // MARK: - Enum strictness
 
-    func testUnknownWaypointKindThrows() {
+    /// Same reasoning as the finding-kind case: waypoints are nested inside the plan, so
+    /// throwing costs every route. The waypoint keeps its coordinates either way, so the
+    /// leg still draws — only kind-specific decoration is lost.
+    func testUnknownWaypointKindDegradesInsteadOfKillingThePlan() throws {
         let badKind = planWithRoute(route.replacingOccurrences(of: #""kind": "room""#,
                                                                with: #""kind": "teleporter""#))
-        XCTAssertThrowsError(try decodePlan(badKind),
-                             "an unknown waypoint kind means a newer engine — fail loudly")
+        let decoded = try decodePlan(badKind)
+        let kinds = decoded.rooms.flatMap { $0.primary?.waypoints ?? [] }.map(\.kind)
+        XCTAssertTrue(kinds.contains(.unknown), "the teleporter waypoint should decode as .unknown")
+        XCTAssertFalse(kinds.isEmpty, "the route's waypoints must survive")
     }
 
     /// A finding kind newer than this build must NOT cost the whole plan. Findings are
