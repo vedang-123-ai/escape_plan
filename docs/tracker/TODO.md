@@ -1,10 +1,25 @@
 # Everything still to do
 
-_Last verified: 2026-08-02 on `main` (check_obstructions agent tool) — **backend 258 not-live
-pass, corpus valid**, both re-run this session. EditorCore (186) and the iOS suite were NOT
-re-run: nothing Swift changed, so the 2026-07-30 post-merge result stands unretested. Live
-suites (13 deselected) could not run — no `ANTHROPIC_API_KEY` on this machine; the `.env`
-from the 2026-07-24 stamp is gitignored and machine-local, not inherited by a clone._
+_Last verified: 2026-08-04 on `main` (full-app test sweep) — **every suite re-run this session
+and green**: backend **264** not-live (13 live-deselected), EditorCore **186**, iOS **320**
+(315 unit + UI, 8 skipped), corpus valid. Endpoints exercised by hand too: `/routes` on all
+three fixtures (16/16 rooms routed), `/convert` on two synthetic scans, `/score` on all three.
+See `notes/2026-08-04-full-app-test-sweep.md`._
+
+_**AI is entirely down — the Anthropic account is out of credits.** One `/explain` succeeded
+this session (200, 26.0s, good grounded output) and the balance ran out mid-sweep. `/explain`,
+`/analyze`, `/chat` and every `-m live` suite are blocked on a top-up, not on code. Read the
+first blocker section below before planning any AI work or filming._
+
+_**Do not trust a single iOS run.** Three identical back-to-back full runs went pass / fail
+(10 failures) / pass. Every failure was `Simulator device failed to launch … Busy
+("Application failed preflight checks")` — environmental, kills both test targets, says nothing
+about the code. Also: `xcodebuild`'s console prints `Executed 16 tests` because the unit target
+runs under Swift Testing; the real count is in the result bundle
+(`xcrun xcresulttool get test-results summary --path <bundle>` → 320)._
+
+_Prior stamp, 2026-08-02 on `main` (check_obstructions agent tool) — backend 258 not-live pass,
+corpus valid. EditorCore and iOS were not re-run that session._
 
 _Prior stamp, 2026-07-24 on `main` (route-fix + live-AI session) — backend 248 not-live + 12
 live pass, editorcore 186, corpus valid, iOS FULL suite (unit + UI) TEST SUCCEEDED. Escape
@@ -25,14 +40,16 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 | Suite | Count | Command |
 |---|---|---|
-| Backend pytest | 258 pass, 13 live-deselected (2026-08-02) | `python3 -m pytest backend/tests/ -m "not live"` |
-| Backend live suites | 12 pass (2026-07-24); the 13th (`agent_bungalow_blocked`) has never run | `set -a; . ./.env; set +a; python3 -m pytest backend/tests/ -m "live"` (needs a key this machine doesn't have; latency bounds can flake on API variance) |
-| EditorCore (SwiftPM) | 186 pass (2026-07-30, not re-run since) | `swift test --package-path tools/editorcore` |
-| iOS (unit + UI) | TEST SUCCEEDED, 0 failures (2026-07-30, not re-run since; 6 env-gated drivers skipped) | `xcodebuild test -scheme escape_plan …` |
-| Corpus | 11 sources, 6 files (2026-08-02) | `python3 backend/corpus/validate.py` |
+| Backend pytest | 264 pass, 13 live-deselected (2026-08-04) | `python3 -m pytest backend/tests/ -m "not live"` |
+| Backend live suites | 12 pass (2026-07-24); the 13th (`agent_bungalow_blocked`) has never run. **Blocked on credits as of 2026-08-04, not just on a key** | `set -a; . ./.env; set +a; python3 -m pytest backend/tests/ -m "live"` (latency bounds can flake on API variance) |
+| EditorCore (SwiftPM) | 186 pass (2026-08-04) | `swift test --package-path tools/editorcore` |
+| iOS (unit + UI) | 320 pass, 8 skipped (2026-08-04) — **~1-in-3 launch flake, re-run before believing a red** | `xcodebuild test -scheme escape_plan …` |
+| Corpus | 11 sources, 6 files (2026-08-04) | `python3 backend/corpus/validate.py` |
 
-**Heads-up on `python3`:** the system `python3` on at least one machine is 3.9 and cannot
-import pydantic. The project env is `backend/.venv` (3.13) — use `backend/.venv/bin/python`.
+**Heads-up on `python3`:** on at least one machine the system `python3` is 3.9 and cannot
+import pydantic; that machine needs its own venv. On this one (2026-08-04) system `python3` is
+3.13.5 with pydantic 2.13.3 and runs everything — and **`backend/.venv` does not exist**, so
+the old "use `backend/.venv/bin/python`" instruction fails outright. Check before assuming.
 
 ---
 
@@ -87,6 +104,30 @@ Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
       machine-local, so a fresh clone does not inherit it. On the first machine with the key,
       run the live agent suite; the golden writes itself and `pytest.skip`s for review, then
       commit `backend/tests/golden/agent_bungalow_blocked.json`. (S3.2)
+
+## BLOCKER — the Anthropic account is out of credits (found 2026-08-04)
+
+Every AI feature is dead. `/explain`, `/analyze` and `/chat` fail with
+`Your credit balance is too low to access the Anthropic API`. One `/explain` succeeded earlier
+in the same session (200 in 26.0s, good grounded output), so this happened just now — the key
+in `.env` is valid, the balance is not. The deterministic half (`/routes`, `/score`,
+`/convert`) is completely unaffected, which is the architecture working as designed.
+
+- [ ] **Top up the Anthropic account.** Blocks: the AI half of the demo, the never-executed
+      `agent_bungalow_blocked` live golden, all 13 `-m live` tests, and any filming that shows
+      the assistant. Nothing else on this list is closer to the critical path.
+- [x] ~~AI API errors surfaced as a bare `500 Internal Server Error`~~ — fixed 2026-08-04.
+      Each AI module only guarded the *missing-key* case; the `client.messages.create` calls
+      were unguarded, so a dry account / rate limit / outage escaped as a 500 with nothing the
+      app could show. One app-level `@app.exception_handler(anthropic.APIError)` now returns
+      **502** (operator must act: no credit, bad key) or **503** (retryable: rate limit,
+      overload, network), with the API's own sentence as `detail`. Verified against the real
+      dry account. 6 tests (backend 258 → 264). See decisions.md 2026-08-04.
+- [ ] Decide what the **app** shows for the new 502 vs 503. The backend now distinguishes
+      "retry may work" from "an operator must act", but Swift's `APIClientError` only carries
+      `unexpectedResponse(statusCode:)` — so both still render as one generic failure. Cheapest
+      version: map 503 → banner with a Retry button, 502 → "AI features are unavailable right
+      now" with no retry. (S1.6/S4.4)
 
 ## Blocked on a real API key
 
@@ -193,14 +234,13 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       still rendering nothing. Verified by 315 unit tests (a decode test using the real
       `egress` category + a whitelist-exhaustiveness test), and by curl against the backend
       confirming which categories each fixture emits. **Not yet seen on screen** — next item.
-- [ ] **Screenshot the fixed Score screen.** The fix is unit-verified but nobody has watched
-      it render. `escape_planUITests/ScoreScreenshotUITests` exists for this and has never
-      completed a run: three attempts died on UI-automation flakiness and then on the harness
-      itself (`Timed out waiting for AX loaded notification`) with the disk at 99%. Needs
-      free disk more than it needs code. Run:
-      `TEST_RUNNER_SCORE_SHOT=1 TEST_RUNNER_SCORE_SHOT_OUT=<dir>
-      TEST_RUNNER_SCORE_SHOT_TOKEN=<tok> xcodebuild test … -only-testing:escape_planUITests/ScoreScreenshotUITests`
-      with a local backend up. (S3.5)
+- [x] ~~Screenshot the fixed Score screen~~ — **done 2026-08-04, TEST SUCCEEDED.** Evidence:
+      `docs/evidence/score-screen-2026-08-04/` (twostory, 75/100, all five components
+      rendered, no decode-failure state). Disk was a real factor in the earlier attempts, but
+      the test *also* asserted `navigationBars["Score"]` while `ScoreScreen` sets
+      `.navigationTitle(breakdown?.home_name ?? "Score")` — "Score" is the **loading** title,
+      so the assertion failed on exactly the runs that worked, and would have failed forever.
+      Now waits on the "How it's scored" header. See decisions.md 2026-08-04. (S3.5)
 - [x] ~~Enum tolerance sweep~~ — done 2026-08-02, all ten enums checked. `FindingKind`,
       `WaypointKind`, `Severity` made tolerant; the six schema enums left strict on purpose
       (they round-trip user data — see decisions.md). iOS unit suite 309 → 315.
@@ -225,7 +265,10 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       so the UI renders "55 / 80"). **Not done unilaterally: it changes `ScoreBreakdown`, the
       `ScoreScreen`/`ScoreModels` Swift contract, and every worked example in the weights
       doc.** Mitigated in part 2026-07-27 — undersized bedroom egress windows are now caught
-      deterministically without `/analyze` (see `egress.window.*` items). (S3.5)
+      deterministically without `/analyze` (see `egress.window.*` items). **Now visible in a
+      committed screenshot** (`docs/evidence/score-screen-2026-08-04/`): the twostory home
+      reads "No open safety findings — 20/20" having never been analysed. Worth deciding
+      before the demo script locks, since the score is on camera. (S3.5)
 - [ ] Phone-on-cellular timing against the deployed backend was never measured natively.
       Warm curl from a dev machine was ~0.27–0.39s, well under the 2s bar. (S1.6)
 - [ ] TODO(integration): `/analyze` findings now carry a stable server-stamped `id`
@@ -253,6 +296,20 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       the app description + "what we learned" answers. (S5.3)
 
 ## Process & repo hygiene
+
+- [ ] **iOS test runs are ~1-in-3 flaky at launch (found 2026-08-04).** Three identical
+      back-to-back full runs: pass / fail (10 failures) / pass. Every failure was
+      `Simulator device failed to launch cac.Escape-Plan … Busy ("Application failed preflight
+      checks")` — it takes down both test targets, so a red run says nothing about the code.
+      Disk is the most likely lever (93% used, 31 GB free; the previous blocker was 99%).
+      Next action: free disk, run the gate 5× in a row, and record the pass rate here. If it
+      persists it will bite during filming. Until then, **re-run before believing a red**.
+- [ ] Console output undercounts the iOS suite — `xcodebuild` prints `Executed 16 tests`
+      because the unit target runs under Swift Testing, which doesn't emit the old
+      `Test Suite` lines. The true count (320) is only in the result bundle. Anything that
+      parses the console tail for a pass count is wrong. Next action: when someone touches
+      the `/verify` skill, have it read
+      `xcrun xcresulttool get test-results summary --path <bundle>` instead.
 
 - [ ] Backfill curated evidence for the S2.2/S2.3/S3.4/S3.5 handoffs (their ~45 MB of
       screenshots/recordings still live only in one machine's gitignored `artifacts/`).

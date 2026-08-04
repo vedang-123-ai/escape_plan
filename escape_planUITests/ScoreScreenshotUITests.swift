@@ -62,8 +62,17 @@ final class ScoreScreenshotUITests: XCTestCase {
         XCTAssertTrue(opened, "couldn't open Score after 4 swipe attempts")
 
         // /score is a round trip plus a render; give it room.
-        XCTAssertTrue(app.navigationBars["Score"].waitForExistence(timeout: 20),
-                      "Score screen never appeared")
+        //
+        // Do NOT wait on navigationBars["Score"]: ScoreScreen sets
+        // `.navigationTitle(breakdown?.home_name ?? "Score")`, so "Score" is the
+        // *loading* title and it's replaced by the home name the moment the data
+        // lands. Waiting for it therefore fails on exactly the runs that worked —
+        // which is what happened on 2026-08-04, where the assertion failed while
+        // the captured screenshot showed a perfectly rendered screen.
+        // "How it's scored" is the section header of the breakdown list, so it
+        // exists only once a ScoreBreakdown decoded and rendered.
+        XCTAssertTrue(app.staticTexts["How it's scored"].waitForExistence(timeout: 30),
+                      "Score breakdown never rendered")
         sleep(8)
 
         let shot = XCUIScreen.main.screenshot()

@@ -12,7 +12,9 @@ import secrets
 from datetime import datetime, timezone
 from typing import Annotated, Any, Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+import anthropic
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -43,6 +45,65 @@ app = FastAPI(
 app.include_router(chat_router)
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+
+
+# Every AI module raises its own domain error (GroundingError/AgentError/BuilderError)
+# for the missing-key case, but the `client.messages.create` calls themselves are
+# unguarded — so an exhausted credit balance, a rate limit, or an API outage escaped
+# as a bare 500 "Internal Server Error" with nothing the app could show a user.
+# Found 2026-08-04 by running the endpoints against a dry account. One app-level
+# handler covers every endpoint (including the chat router) and any added later.
+def _anthropic_message(exc: anthropic.APIError) -> str:
+    """The human-readable half of an SDK error.
+
+    `exc.message` is the full repr ("Error code: 400 - {'type': 'error', ...}"),
+    which is fine for a log and useless in a banner. The API puts the sentence a
+    person should read at `error.message`, so prefer that.
+    """
+    for source in (getattr(exc, "body", None), _response_json(exc)):
+        if isinstance(source, dict):
+            error = source.get("error")
+            if isinstance(error, dict) and isinstance(error.get("message"), str):
+                return error["message"]
+    return getattr(exc, "message", None) or str(exc) or exc.__class__.__name__
+
+
+def _response_json(exc: anthropic.APIError) -> Any:
+    response = getattr(exc, "response", None)
+    if response is None:
+        return None
+    try:
+        return response.json()
+    except Exception:  # non-JSON error bodies (proxies, gateways) are expected
+        return None
+
+
+@app.exception_handler(anthropic.APIError)
+def anthropic_error(_request: Request, exc: anthropic.APIError) -> JSONResponse:
+    """Map Anthropic SDK failures to a labelled 502/503 instead of a bare 500.
+
+    503 means "the same request may work shortly" (rate limit, overload, network);
+    502 means an operator has to act (no credit, bad key). The app uses the split to
+    decide between a retry affordance and an honest "AI is unavailable" banner.
+    """
+    retryable = isinstance(
+        exc, (anthropic.RateLimitError, anthropic.APIConnectionError)
+    ) or getattr(exc, "status_code", None) in (500, 502, 503, 529)
+
+    detail = _anthropic_message(exc)
+    logging.error(
+        "Anthropic API failure (%s): %s", exc.__class__.__name__, exc, exc_info=True
+    )
+
+    if retryable:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": f"The AI service is temporarily unavailable: {detail}"},
+        )
+    return JSONResponse(
+        status_code=502,
+        content={"detail": f"The AI service rejected the request: {detail}"},
+    )
 
 
 def require_token(
