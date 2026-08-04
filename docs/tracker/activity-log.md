@@ -336,3 +336,22 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 82931f5 Tracker: session note for the sweep, Score screenshot left open
   - 56a6735 Score screenshot driver -- committed unproven, never completed a run
 
+## 2026-08-04T20:36:53Z · Anish Yarrakonda · `main` @ `48805dc`
+
+**Uncommitted working-tree changes (7)**
+  - M backend/app/main.py
+  - M docs/decisions.md
+  - M docs/tracker/TODO.md
+  - M escape_planUITests/ScoreScreenshotUITests.swift
+  - ?? backend/tests/test_api_ai_errors.py
+  - ?? docs/evidence/score-screen-2026-08-04/
+  - ?? docs/tracker/notes/2026-08-04-full-app-test-sweep.md
+
+## 2026-08-04T20:39:44Z · Anish Yarrakonda · `fix/ai-error-handling-and-score-shot` @ `8b99155`
+
+**Commits this session**
+  - 8b99155 Fix AI error handling (bare 500s) and the Score screenshot test
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
