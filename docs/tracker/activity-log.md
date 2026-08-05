@@ -481,3 +481,18 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - ?? docs/tracker/notes/2026-08-05-uiux-pass.md
   - …and 11 more
 
+## 2026-08-05T23:06:33Z · Anish Yarrakonda · `main` @ `6f45c8f`
+
+**Commits this session**
+  - 6f45c8f UI/UX pass: chrome contains no route orange, plus icon, launch, people, thumbnails
+  - a72139e Field-test tooling: scan triage, demo preflight, capability spec
+
+## 2026-08-05T23:07:12Z · Anish Yarrakonda · `main` @ `6f45c8f`
+
+**Commits this session**
+  - 6f45c8f UI/UX pass: chrome contains no route orange, plus icon, launch, people, thumbnails
+  - a72139e Field-test tooling: scan triage, demo preflight, capability spec
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
