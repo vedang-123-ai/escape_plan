@@ -80,6 +80,38 @@ enum DrillInstructions {
         }
     }
 
+    // MARK: - Practice frequency (reminders)
+
+    /// The ONLY frequency the app is allowed to put in front of the user, because it is the
+    /// only one the corpus states. Two independent sources say it, and both are quoted here
+    /// rather than merged into one number with one citation:
+    ///
+    ///   backend/corpus/escape-planning-nfpa.md  — "**Practice the plan twice a year**,
+    ///       making the drill as realistic as possible. [cite: nfpa-escape-planning]"
+    ///   backend/corpus/home-fire-escape-redcross.md — "Practice at least **twice a year**,
+    ///       varying conditions (night drill, blocked primary exit). [cite: redcross-escape-plan]"
+    ///
+    /// Nothing rounds or reinterprets this: the reminder cadence the app recommends is
+    /// exactly twice a year, and it is never shown without these chips.
+    static let practiceFrequencyGuidance =
+        "Practice the plan twice a year, making the drill as realistic as possible. "
+        + "[cite: nfpa-escape-planning] The Red Cross says the same — practise at least twice "
+        + "a year, varying the conditions, such as a night drill or a blocked primary exit. "
+        + "[cite: redcross-escape-plan]"
+
+    /// Shown beside the cadence picker. Deliberately carries NO citation because it makes no
+    /// safety claim — it exists to keep the user's own choice from reading as advice.
+    static let cadenceChoiceNote =
+        "Only the twice-a-year reminder comes from published guidance. Any other interval is "
+        + "your own choice, and the app makes no safety claim about it."
+
+    /// The Red Cross drill loop, quoted for the timer. A benchmark, not a verdict — the app
+    /// never tells a household they passed or failed it.
+    static let drillTimerGoal =
+        "In a Red Cross drill you sound the alarm, start a timer, and stop it when everyone "
+        + "has reached the meeting place — the goal is under two minutes. "
+        + "[cite: redcross-two-minutes]"
+
     /// Every body string a card can produce, for the citation-resolution test.
     static var auditableBodies: [String] {
         var steps: [DrillStep] = [
@@ -92,7 +124,10 @@ enum DrillInstructions {
         for kind in [WaypointKind.room, .opening, .stair, .exterior] {
             steps.append(.move(segment: anySegment, destinationKind: kind))
         }
+        // Standalone copy is audited by the same test as the cards — a frequency shown
+        // without a resolvable citation is exactly the failure this test exists to catch.
         return steps.map { card(for: $0, profileName: "Sam").body }
+            + [practiceFrequencyGuidance, cadenceChoiceNote, drillTimerGoal]
     }
 
     /// Parses inline `[cite: source-id]` tags, in order, deduplicated.
