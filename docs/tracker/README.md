@@ -1,12 +1,18 @@
 # docs/tracker/
 
-Three files, and they have deliberately opposite jobs.
+Three state files with deliberately opposite jobs, plus field guides for work that can't be
+done at a desk.
 
 | File | What it is | Who touches it |
 |---|---|---|
 | `TODO.md` | **The** source of truth for open work: everything not yet done, grouped by area, each line naming its next action | Anyone finishing work removes what they finished and adds what they discovered |
 | `activity-log.md` | Append-only and **machine-written** — a Stop hook adds an entry whenever a session changes files | Nobody by hand; the hook owns it |
 | `notes/` | Append-only session notes, one per work session (copy `_TEMPLATE.md`) — the "why we did it this way" record and the project's process evidence | Whoever ran the session, at the end |
+| `field-test-*.md` | Runbooks for acceptance that needs hardware the dev machine doesn't have — procedure, triage loop, and the exact acceptance lines each step closes | Whoever writes one; revised after the trip with what actually happened |
+
+Today there is one field guide: [`field-test-lidar.md`](field-test-lidar.md), which covers the
+device trip that closes S1.4 and S1.5. It exists because the scan converter was written
+against an *assumed* RoomPlan format and only real exports can falsify that.
 
 `TODO.md` shrinks as work lands. `activity-log.md` and `notes/` only ever grow. That asymmetry
 is the point: a list of open work that grows forever stops being read, and a history that gets
