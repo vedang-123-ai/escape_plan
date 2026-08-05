@@ -125,6 +125,153 @@ enum RouteGeometry {
         return SCNVector3(simd_mix(simd(points[i - 1]), simd(points[i]), SIMD3(repeating: t)))
     }
 
+    // MARK: - Dashes
+
+    /// Dash metrics for the secondary route, in meters of real house — a 0.45 m mark with a
+    /// 0.28 m gap. Sized against the model, not the screen: at the default three-quarter camera
+    /// this is roughly the width of a doorway, which is coarse enough to read as "dashed" from
+    /// the overview and fine enough that a short bedroom-to-window leg still shows several marks.
+    static let dashLengthM: Float = 0.45
+    static let dashGapM: Float = 0.28
+
+    /// One mark of a dashed route: its own polyline, plus where it sits in the parent route's
+    /// 0→1 arc-length parameterization.
+    struct Dash {
+        var points: [SCNVector3]
+        /// Carried into the tube's `u` coordinate so a dashed route keeps ONE continuous
+        /// parameterization across its marks. Without this every dash would restart at u=0 and
+        /// any arc-length shader (the travelling pulse) would stutter per-mark instead of
+        /// flowing along the path.
+        var uStart: Float
+        var uEnd: Float
+    }
+
+    /// Split a polyline into dash marks by arc length.
+    ///
+    /// This is deliberately real geometry rather than the alpha-stipple fragment shader the
+    /// secondary route used to carry. Three reasons: a shader dash is invisible to a unit test
+    /// (there is nothing to assert but the string), it is measured in UV space so its apparent
+    /// period changes with the length of the route, and it cannot be reused by the printable
+    /// plan, which has no fragment shaders at all. Marks in world space have a fixed physical
+    /// period, are inspectable, and hand the PDF lane the same dash list the 3D view draws.
+    ///
+    /// A route shorter than one dash returns a single unbroken mark — a two-meter leg must
+    /// still draw, and "so short it looks solid" is a truthful rendering of a two-meter leg.
+    static func dashes(_ rawPoints: [SCNVector3],
+                       dashLength: Float = dashLengthM,
+                       gapLength: Float = dashGapM) -> [Dash] {
+        let points = dedupe(rawPoints)
+        guard points.count >= 2, dashLength > 0, gapLength > 0 else { return [] }
+        let arcs = arcLengths(points)
+        guard let total = arcs.last, total > 1e-5 else { return [] }
+        if total <= dashLength { return [Dash(points: points, uStart: 0, uEnd: 1)] }
+
+        var out: [Dash] = []
+        let period = dashLength + gapLength
+        var start: Float = 0
+        while start < total - 1e-5 {
+            let end = min(start + dashLength, total)
+            // A crumb left at the tail reads as dirt on the screen rather than as a dash, so
+            // fold anything under a third of a mark into the preceding gap.
+            if end - start >= dashLength * 0.35 {
+                out.append(dash(points, arcs: arcs, from: start, to: end, total: total))
+            }
+            start += period
+        }
+        return out
+    }
+
+    private static func dash(_ points: [SCNVector3], arcs: [Float],
+                             from: Float, to: Float, total: Float) -> Dash {
+        var sub: [SCNVector3] = [point(at: from, along: points, arcs: arcs)]
+        for (i, p) in points.enumerated() where arcs[i] > from + 1e-5 && arcs[i] < to - 1e-5 {
+            sub.append(p)
+        }
+        sub.append(point(at: to, along: points, arcs: arcs))
+        return Dash(points: dedupe(sub), uStart: from / total, uEnd: to / total)
+    }
+
+    // MARK: - Numbered stops
+
+    /// The kinds of waypoint worth putting a number on. `path` waypoints (the interpolated
+    /// points that curve a leg around furniture) are not stops — numbering those would put a
+    /// chip every meter and turn the ordered-steps affordance into noise.
+    enum StopKind: String {
+        case start, doorway, stairs, exit
+
+        /// Spoken by VoiceOver and printed on the paper plan. Navigational description of
+        /// engine output only — this never editorializes about what to do at the stop.
+        var title: String {
+            switch self {
+            case .start: return "Start here"
+            case .doorway: return "Through the doorway"
+            case .stairs: return "Take the stairs"
+            case .exit: return "Out to safety"
+            }
+        }
+
+        /// When two candidate stops land on the same spot, the more meaningful one wins.
+        fileprivate var priority: Int {
+            switch self {
+            case .start: return 1
+            case .doorway: return 2
+            case .stairs: return 3
+            case .exit: return 4
+            }
+        }
+
+        fileprivate init?(_ kind: WaypointKind) {
+            switch kind {
+            case .room: self = .start
+            case .opening: self = .doorway
+            case .stair: self = .stairs
+            case .exterior: self = .exit
+            case .path, .unknown: return nil
+            }
+        }
+    }
+
+    /// One numbered stop along a route.
+    struct Stop {
+        /// 1-based, in walking order.
+        let number: Int
+        let kind: StopKind
+        let waypoint: Waypoint
+
+        /// "2. Through the doorway" — the marker's caption and its accessibility label, so the
+        /// number a sighted user reads off the model is the number VoiceOver announces.
+        var caption: String { "\(number). \(kind.title)" }
+    }
+
+    /// Two stops closer than this are the same place: the engine emits the exterior waypoint at
+    /// its opening's coordinates, and a floor crossing is two `stair` waypoints sharing x/y.
+    static let stopMergeRadiusM = 0.25
+
+    /// The sequence of numbered stops for a route, in walking order.
+    ///
+    /// Coincident candidates collapse into one stop that keeps the EARLIER position and the
+    /// STRONGER meaning: a stair crossing gets a single "take the stairs" on the floor you are
+    /// leaving (not one chip per floor sharing a number), and a door that is also the exit is
+    /// labelled as the exit. Numbering stays dense — 1…n with no gaps — because a gap in the
+    /// sequence reads as a step you missed.
+    static func numberedStops(for route: Route) -> [Stop] {
+        var merged: [(kind: StopKind, waypoint: Waypoint)] = []
+        for waypoint in route.waypoints {
+            guard let kind = StopKind(waypoint.kind) else { continue }
+            if let last = merged.last,
+               hypot(last.waypoint.x - waypoint.x, last.waypoint.y - waypoint.y) <= stopMergeRadiusM {
+                if kind.priority > last.kind.priority {
+                    merged[merged.count - 1].kind = kind
+                }
+                continue
+            }
+            merged.append((kind, waypoint))
+        }
+        return merged.enumerated().map {
+            Stop(number: $0.offset + 1, kind: $0.element.kind, waypoint: $0.element.waypoint)
+        }
+    }
+
     // MARK: - Tube mesh
 
     struct TubeMesh {
@@ -138,9 +285,13 @@ enum RouteGeometry {
     /// Vertex data for a tube following `points`: one ring per point, oriented by
     /// parallel-transport frames (minimal rotation between samples — no twist artifacts on
     /// the vertical stair stubs). Returns nil for degenerate input.
+    ///
+    /// `uRange` maps this tube's `u` coordinate onto a sub-span of a longer path — the whole
+    /// tube by default, one mark's share of the route when the caller is drawing dashes.
     static func tubeMesh(points rawPoints: [SCNVector3],
                          radius: Float,
-                         radialSegments: Int = 8) -> TubeMesh? {
+                         radialSegments: Int = 8,
+                         uRange: ClosedRange<Float> = 0...1) -> TubeMesh? {
         let points = dedupe(rawPoints)
         guard points.count >= 2, radialSegments >= 3, radius > 0 else { return nil }
         let arcs = arcLengths(points)
@@ -169,7 +320,8 @@ enum RouteGeometry {
             let center = simd(points[i])
             let normal = normalsAlong[i]
             let binormal = simd_normalize(simd_cross(tangents[i], normal))
-            let u = CGFloat(arcs[i] / total)
+            let u = CGFloat(uRange.lowerBound
+                            + (arcs[i] / total) * (uRange.upperBound - uRange.lowerBound))
             for j in 0..<radialSegments {
                 let angle = Float(j) / Float(radialSegments) * 2 * .pi
                 let radial = normal * cos(angle) + binormal * sin(angle)
@@ -194,8 +346,10 @@ enum RouteGeometry {
     /// whole path as one continuous animation).
     static func tubeGeometry(points: [SCNVector3],
                              radius: Float,
-                             radialSegments: Int = 8) -> SCNGeometry? {
-        guard let mesh = tubeMesh(points: points, radius: radius, radialSegments: radialSegments)
+                             radialSegments: Int = 8,
+                             uRange: ClosedRange<Float> = 0...1) -> SCNGeometry? {
+        guard let mesh = tubeMesh(points: points, radius: radius,
+                                  radialSegments: radialSegments, uRange: uRange)
         else { return nil }
         let element = SCNGeometryElement(indices: mesh.indices, primitiveType: .triangles)
         return SCNGeometry(

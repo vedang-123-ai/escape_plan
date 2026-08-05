@@ -81,13 +81,51 @@ enum DollhousePalette {
 
     // MARK: - The only color in the scene
 
-    /// Hot safety orange. The most saturated thing in any frame, by design.
-    static let routePrimary = UIColor(hex: 0xFF5A1F)
-    /// The backup route is the SAME hue, lighter and dashed. The old cool-blue secondary is
-    /// retired: against a monochrome model, two hot hues read as two unrelated systems, whereas
-    /// light-orange-dashed reads as "backup of the same plan".
-    static let routeSecondary = UIColor(hex: 0xFF9E6E)
+    // COOL HUES ARE RESERVED FOR ROUTES. WARM HUES ARE RESERVED FOR HAZARD.
+    //
+    // Until the fire-origin hazard visualization landed, the route was the only color in the
+    // frame and its hue could be chosen purely for attention — hence the old safety orange.
+    // A second colored system changes the problem: orange route + red hazard is precisely the
+    // pair a deuteranope cannot separate, and "route" versus "the thing that will kill you"
+    // is the single distinction this app cannot afford to blur.
+    //
+    // So the two systems are split across the color wheel's safest axis. Blue-vs-orange is the
+    // one pairing that survives deuteranopia, protanopia AND tritanopia, because it separates
+    // on the blue-yellow channel rather than the red-green one. Routes took the cool side
+    // (they are the calm instruction), hazard took the warm side (it is the alarm).
+    //
+    // Hue is still only the first layer. `RouteOverlay` also encodes primary-versus-secondary
+    // as solid-versus-dashed geometry and numbers the stops, so the whole system survives with
+    // color removed entirely — which is also what makes the printable black-and-white plan
+    // legible. The luminance separations below are asserted with real numbers in
+    // `RouteEncodingTests`; don't retune a value here without rerunning that suite.
+
+    /// Deep cobalt — the primary escape route. Relative luminance 0.0682, which is 8.22:1
+    /// against `wallWhite`: the strongest ink in the scene, so the route still dominates a
+    /// white model without borrowing the alarm color.
+    static let routePrimary = UIColor(hex: 0x123FB0)
+    /// The backup route: the SAME cool hue, deliberately lighter (relative luminance 0.2132 —
+    /// a 2.23:1 step above the primary, 53 of 255 gray levels apart when printed) and drawn as
+    /// real dashed geometry. Same hue family means "backup of the same plan"; the luminance
+    /// step plus the dashes mean it still reads as the backup in grayscale.
+    static let routeSecondary = UIColor(hex: 0x4180D4)
     static let exitGreen = UIColor(hex: 0x16A34A)
+
+    // MARK: - Reserved warm family: hazard (owned by the fire-origin lane, not by RouteOverlay)
+
+    /// Fire-origin fill — the identity color of the hazard system, and the third member of the
+    /// luminance contract with `routePrimary` / `routeSecondary` (0.3246; the three sit at
+    /// gray 74 / 127 / 154 when printed). Anything that must read as "hazard" at a glance
+    /// uses this.
+    static let hazardCore = UIColor(hex: 0xF97316)
+    /// Deep ember, for the hazard's own outline/ink. Deliberately EXCLUDED from the three-way
+    /// luminance contract: at 0.1123 it sits 0.044 from `routePrimary`, so it is only ever
+    /// legible as the edge of a `hazardCore` mass it is touching. Never use it as a standalone
+    /// line — a lone dark-red line and a lone dark-blue line are one protanopia away from
+    /// identical.
+    static let hazardEdge = UIColor(hex: 0xB91C1C)
+    /// Light warm wash for smoke/falloff gradients, used at low alpha. Not an ink.
+    static let hazardHalo = UIColor(hex: 0xFDBA74)
     static let warningBadge = UIColor(hex: 0xDC2626)
     /// `no_viable_route` is worse than `no_secondary_egress`; its badge darkens to match.
     static let warningBadgeSevere = UIColor(hex: 0x991B1B)
@@ -105,8 +143,10 @@ enum DollhousePalette {
 
     /// Room labels: a quiet warm gray, not black.
     static let labelInk = UIColor(hex: 0x6B6862)
-    /// Selection outline / highlight ring — the app accent (deep safety green), which stays out
-    /// of the route orange's way.
+    /// Selection outline / highlight ring — the app accent (deep safety green). It reads as
+    /// neither route nor hazard: it is greener than the cool route blues and far off the warm
+    /// hazard family, and it only ever appears as an outline on a selected object in the editor,
+    /// where no route is drawn.
     static let selectionTint = UIColor(hex: 0x0E8A3E)
 }
 
@@ -117,6 +157,41 @@ extension UIColor {
                   green: CGFloat((hex >> 8) & 0xFF) / 255,
                   blue: CGFloat(hex & 0xFF) / 255,
                   alpha: 1.0)
+    }
+
+    /// WCAG 2.2 relative luminance (the sRGB channels linearized, then weighted 0.2126 /
+    /// 0.7152 / 0.0722). This is the number that decides whether two colors are still
+    /// different once color itself is gone — a grayscale print, a monochrome accessibility
+    /// filter, or a dichromat looking at two hues that collapse onto each other.
+    var relativeLuminance: CGFloat {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        func linear(_ c: CGFloat) -> CGFloat {
+            c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+    }
+
+    /// WCAG contrast ratio, 1.0 (identical) … 21.0 (black on white).
+    func contrastRatio(to other: UIColor) -> CGFloat {
+        let a = relativeLuminance, b = other.relativeLuminance
+        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+    }
+
+    /// What a black-and-white printer makes of this color: the neutral gray with the same
+    /// relative luminance, as an 8-bit channel value. Two route colors that land on the same
+    /// gray level are the same line on paper, whatever their hues were.
+    var printedGrayLevel: Int {
+        let l = relativeLuminance
+        let c = l <= 0.0031308 ? l * 12.92 : 1.055 * pow(l, 1 / 2.4) - 0.055
+        return Int((c * 255).rounded())
+    }
+
+    /// The color as it survives desaturation — same luminance, no hue. Handy for previewing
+    /// the printable plan without a printer.
+    var luminanceGray: UIColor {
+        let c = CGFloat(printedGrayLevel) / 255
+        return UIColor(red: c, green: c, blue: c, alpha: 1)
     }
 
     /// Mix toward `other` by `amount` (0 = self, 1 = other).

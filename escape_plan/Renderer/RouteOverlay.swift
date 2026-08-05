@@ -8,6 +8,23 @@ import UIKit
 ///
 /// Route data is server truth: tubes follow the engine's waypoints, badges render the engine's
 /// findings verbatim. Nothing here computes, extends, or invents a route.
+///
+/// ## Encoding without color
+///
+/// The route is no longer allowed to mean anything by hue alone. A hazard system in the same
+/// scene owns the warm end of the wheel (see `DollhousePalette`), so this overlay carries three
+/// redundant, color-free channels on top of its cool blues:
+///
+/// 1. **Solid versus dashed.** The primary is one continuous tube; the secondary is real dashed
+///    geometry (`RouteGeometry.dashes`). Desaturate the frame to gray and the backup route is
+///    still obviously the backup.
+/// 2. **Numbered stops.** Meaningful waypoints — room, doorway, stairs, exit — carry sequential
+///    numbered chips. They give the route an explicit direction that does not depend on the
+///    travelling pulse (which Reduce Motion removes), and their captions are the same ordered
+///    list a VoiceOver user should hear.
+/// 3. **A luminance step.** Primary, secondary and the reserved hazard color are separated in
+///    relative luminance, so they stay three distinguishable grays on a black-and-white print.
+///    `RouteEncodingTests` asserts the actual numbers.
 final class RouteOverlay {
 
     private enum TubeStyle {
@@ -23,6 +40,8 @@ final class RouteOverlay {
         var extraLift: Float { self == .primary ? 0 : 0.08 }
         /// Primary sits above secondary where they share a corridor.
         var renderingOrder: Int { self == .primary ? RenderOrder.routes + 1 : RenderOrder.routes }
+        /// The non-color half of "this is the backup route".
+        var isDashed: Bool { self == .secondary }
     }
 
     /// Shades the tube as a cylinder. `_surface.normal` is in view space, so its z component is
@@ -42,19 +61,21 @@ final class RouteOverlay {
     _output.color.rgb += _surface.emission.rgb * pulse * 1.6;
     """
 
-    /// Fragment modifier for the secondary tube: alpha-dashed instead of discard-based —
-    /// SceneKit's GLSL→Metal transpile of `discard` is unreliable across OS versions, and
-    /// alpha 0 with depth writes off renders identically.
-    private static let dashShader = """
-    if (fract(_surface.diffuseTexcoord.x * 24.0) > 0.55) {
-        _output.color.a = 0.0;
-    }
-    """
-
     private weak var dollhouse: DollhouseScene?
     /// Everything show() added, so clear() can remove exactly that and nothing else.
     private var addedNodes: [SCNNode] = []
     private var floorContainers: [String: SCNNode] = [:]
+
+    /// Motion is decoration here, never information: the travelling pulse and the throbbing
+    /// start dot only restate a direction the numbered stops already state statically. So under
+    /// Reduce Motion they are dropped and the route itself is untouched — same tubes, same
+    /// dashes, same numbers, nothing moving.
+    let reduceMotion: Bool
+
+    /// The numbered stops currently drawn, keyed by room id, in walking order. Read this to
+    /// speak the route: `overlay.drawnSteps["bed_1"]?.map(\.caption)` is exactly the sequence
+    /// of chips on screen, so the spoken list and the visible list cannot drift.
+    private(set) var drawnSteps: [String: [RouteGeometry.Stop]] = [:]
 
     private var tourNode: SCNNode?
     private weak var tourView: SCNView?
@@ -64,8 +85,10 @@ final class RouteOverlay {
     /// label fills the whole frame.
     private var tourHiddenLabels: [SCNNode] = []
 
-    init(dollhouse: DollhouseScene) {
+    init(dollhouse: DollhouseScene,
+         reduceMotion: Bool = UIAccessibility.isReduceMotionEnabled) {
         self.dollhouse = dollhouse
+        self.reduceMotion = reduceMotion
     }
 
     // MARK: - Drawing
@@ -85,10 +108,17 @@ final class RouteOverlay {
             if let primary = room.primary {
                 draw(primary, style: .primary, label: room.room_id,
                      knownFloorIDs: knownFloorIDs, issues: &issues)
+                // The ordered-steps encoding is always computed — a caller can speak it even in
+                // the whole-house view — but the chips are only DRAWN for a single selected
+                // route. Numbering every room's route at once would bury the model in digits,
+                // the same reason the start dot is single-room only.
+                let stops = RouteGeometry.numberedStops(for: primary)
+                drawnSteps[room.room_id] = stops
                 // "You start here": only when a single room is shown — one dot per house
                 // would be noise, one dot per selected route is orientation.
                 if rooms.count == 1 {
                     addStartMarker(for: primary, knownFloorIDs: knownFloorIDs)
+                    addStopMarkers(stops, label: room.room_id, knownFloorIDs: knownFloorIDs)
                 }
             }
             if includeSecondary, let secondary = room.secondary {
@@ -110,6 +140,7 @@ final class RouteOverlay {
         for node in addedNodes { node.removeFromParentNode() }
         addedNodes = []
         floorContainers = [:]
+        drawnSteps = [:]
     }
 
     private func draw(_ route: Route, style: TubeStyle, label: String,
@@ -122,7 +153,18 @@ final class RouteOverlay {
             guard let container = container(forFloor: run.floorID) else { continue }
             let lifted = run.points.map { SCNVector3($0.x, $0.y + style.extraLift, $0.z) }
             let smoothed = RouteGeometry.catmullRom(lifted)
-            if let geometry = RouteGeometry.tubeGeometry(points: smoothed, radius: style.radius) {
+            if style.isDashed {
+                // One tube per mark, each carrying its share of the run's `u` span so the
+                // parameterization stays continuous across the gaps.
+                for (i, dash) in RouteGeometry.dashes(smoothed).enumerated() {
+                    guard let geometry = RouteGeometry.tubeGeometry(
+                        points: dash.points, radius: style.radius,
+                        uRange: dash.uStart...max(dash.uEnd, dash.uStart + 1e-5)) else { continue }
+                    addTube(geometry, style: style,
+                            name: "route:\(label):\(run.floorID):dash\(i)", into: container)
+                }
+            } else if let geometry = RouteGeometry.tubeGeometry(points: smoothed,
+                                                                radius: style.radius) {
                 addTube(geometry, style: style, name: "route:\(label):\(run.floorID)",
                         into: container)
             }
@@ -202,10 +244,13 @@ final class RouteOverlay {
         // Constant lighting means the tube gets no shading from the scene's lights (correct — a
         // route must not go dim on the shadowed side of the house), so roundness is shaded into
         // the fragment instead: faces angled away from the viewer darken. Without this the tube
-        // is a flat orange ribbon.
+        // is a flat blue ribbon.
+        //
+        // The dash is NOT here any more. It used to be an alpha stipple in this shader; it is
+        // now real segmented geometry (see `draw`), which is testable, has a fixed physical
+        // period regardless of route length, and is reusable by the printed plan.
         var modifier = Self.roundShader
-        if !occludedPass, style == .primary { modifier += Self.pulseShader }
-        if style == .secondary { modifier += Self.dashShader }
+        if !occludedPass, style == .primary, !reduceMotion { modifier += Self.pulseShader }
         material.shaderModifiers = [.fragment: modifier]
         return material
     }
@@ -246,11 +291,95 @@ final class RouteOverlay {
                                                      y: RouteGeometry.routeLiftM)
         node.renderingOrder = 56
         node.castsShadow = false
-        node.runAction(.repeatForever(.sequence([
-            .scale(to: 1.5, duration: 0.6),
-            .scale(to: 1.0, duration: 0.6),
-        ])))
+        if reduceMotion {
+            // Settle at the midpoint of the throb rather than at its floor, so the static dot
+            // is the same visual weight the animated one averages to.
+            node.scale = SCNVector3(1.25, 1.25, 1.25)
+        } else {
+            node.runAction(.repeatForever(.sequence([
+                .scale(to: 1.5, duration: 0.6),
+                .scale(to: 1.0, duration: 0.6),
+            ])))
+        }
         container.addChildNode(node)
+    }
+
+    // MARK: - Numbered stops
+
+    /// Chip size in meters. Big enough to read a two-digit number from the default overview
+    /// camera, small enough that consecutive stops in a hallway don't overlap.
+    private static let stopChipSizeM: CGFloat = 0.30
+    /// Chips float above the tube (and above the room-name chips) so a stop on a corridor
+    /// doesn't sit inside the line it labels.
+    private static let stopChipLiftM = RouteGeometry.routeLiftM + 0.45
+
+    /// Sequential numbered chips at the route's meaningful waypoints. This is the encoding that
+    /// survives everything: it works in grayscale, it works with Reduce Motion on, and its
+    /// captions are the ordered list a screen reader reads out.
+    private func addStopMarkers(_ stops: [RouteGeometry.Stop], label: String,
+                                knownFloorIDs: Set<String>) {
+        for stop in stops {
+            guard knownFloorIDs.contains(stop.waypoint.floor_id),
+                  let container = container(forFloor: stop.waypoint.floor_id) else { continue }
+
+            let image = Self.stopChipImage(number: stop.number)
+            let plane = SCNPlane(width: Self.stopChipSizeM, height: Self.stopChipSizeM)
+            let material = SCNMaterial()
+            material.lightingModel = .constant
+            material.diffuse.contents = image
+            material.isDoubleSided = true
+            material.writesToDepthBuffer = false
+            // Like the warning badges: a stop you can't see through a wall is a stop you can't
+            // count, and counting them is the whole point of numbering them.
+            material.readsFromDepthBuffer = false
+            plane.firstMaterial = material
+
+            let planeNode = SCNNode(geometry: plane)
+            // Above room labels, below warning badges — a badge outranks a step number.
+            planeNode.renderingOrder = RenderOrder.badges - 1
+            planeNode.castsShadow = false
+
+            let holder = SCNNode()
+            holder.name = "routeStop:\(label):\(stop.number)"
+            holder.accessibilityLabel = stop.caption
+            holder.addChildNode(planeNode)
+            holder.position = DollhouseGeometry.scenePoint(
+                Point(x: stop.waypoint.x, y: stop.waypoint.y), y: Self.stopChipLiftM)
+            holder.constraints = [SCNBillboardConstraint()]
+            container.addChildNode(holder)
+        }
+    }
+
+    /// The chip: a white ring (so it separates from the white model by its edge, not by its
+    /// fill), a primary-route core, and the number knocked out in white — 8.9:1 against the
+    /// core, so the digit stays legible when the chip is small on screen. Stops belong to the
+    /// primary route only, so the core is always `routePrimary`.
+    private static func stopChipImage(number: Int) -> UIImage {
+        let side: CGFloat = 44
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 3
+        format.opaque = false
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
+            .image { _ in
+                let full = CGRect(x: 0, y: 0, width: side, height: side)
+                UIColor.white.withAlphaComponent(0.92).setFill()
+                UIBezierPath(ovalIn: full).fill()
+
+                DollhousePalette.routePrimary.setFill()
+                UIBezierPath(ovalIn: full.insetBy(dx: 3.5, dy: 3.5)).fill()
+
+                let font = UIFont.systemFont(ofSize: 22, weight: .bold)
+                let rounded = font.fontDescriptor.withDesign(.rounded)
+                    .map { UIFont(descriptor: $0, size: 22) } ?? font
+                let text = "\(number)" as NSString
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: rounded,
+                    .foregroundColor: UIColor.white,
+                ]
+                let size = text.size(withAttributes: attributes)
+                text.draw(at: CGPoint(x: (side - size.width) / 2, y: (side - size.height) / 2),
+                          withAttributes: attributes)
+            }
     }
 
     // MARK: - Warning badges
