@@ -26,6 +26,7 @@ from app.config import get_settings, get_thresholds
 from app.convert.converter import convert_scan
 from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
+from app.routing.hazard import EvacuationTimeline, compute_evacuation_timeline
 from app.routing.plan import RoutePlan, RoutingConstraints
 from app.routing.profiles import find_profile
 from app.scoring.findings import Finding
@@ -163,6 +164,41 @@ def routes(request: RoutesRequest) -> RoutePlan:
         get_thresholds(),
         constraints=request.constraints,
         profile=profile,
+    )
+
+
+class EvacuateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    home: HomeModel
+    origin_room_id: str
+    """The room the fire starts in — the room the user tapped."""
+    profile_set_id: Optional[str] = None
+
+
+@app.post(
+    "/evacuate",
+    response_model=EvacuationTimeline,
+    dependencies=[Depends(require_token)],
+)
+def evacuate(request: EvacuateRequest) -> EvacuationTimeline:
+    """Ignite a room and re-solve every occupant's escape around the spread.
+
+    Same deterministic engine as /routes — the hazard walks the S1.1 nav graph
+    and every path is Dijkstra. No AI is involved, and the timeline is
+    explicitly illustrative (see app/routing/hazard.py).
+    """
+    room_ids = {r.id for f in request.home.floors for r in f.rooms}
+    if request.origin_room_id not in room_ids:
+        raise HTTPException(
+            status_code=404,
+            detail=f"no room '{request.origin_room_id}' in this home",
+        )
+    return compute_evacuation_timeline(
+        request.home,
+        get_thresholds(),
+        request.origin_room_id,
+        profile_set_id=request.profile_set_id,
     )
 
 
