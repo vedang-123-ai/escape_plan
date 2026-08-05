@@ -16,15 +16,23 @@ struct ContentView: View {
         TabView {
             HomeScreen()
                 .tabItem { Label("Home", systemImage: "house") }
+                .accessibilityLabel("Home")
+                .accessibilityHint("Your saved homes.")
 
             HouseScreen()
                 .tabItem { Label("House", systemImage: "cube.transparent") }
+                .accessibilityLabel("House")
+                .accessibilityHint("The 3D model of your home, with escape routes.")
 
             AssistantScreen()
                 .tabItem { Label("Assistant", systemImage: "bubble.left.and.bubble.right") }
+                .accessibilityLabel("Assistant")
+                .accessibilityHint("Ask questions about your escape plan.")
 
             SettingsScreen()
                 .tabItem { Label("Settings", systemImage: "gear") }
+                .accessibilityLabel("Settings")
+                .accessibilityHint("Server connection and app information.")
         }
         .onAppear {
             if !onboardingCompleted { showingOnboarding = true }

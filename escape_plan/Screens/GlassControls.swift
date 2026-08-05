@@ -72,12 +72,26 @@ struct GlassChipButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+            // Selected chips used the raw accent as TEXT (4.45:1 on white). `accentText` is
+            // the same hue tuned to clear 4.5:1 in both appearances.
+            .foregroundStyle(isSelected ? Theme.accentText : Color.primary)
             .padding(.horizontal, isCompact ? 11 : 15)
             .padding(.vertical, 9)
             .glassPill(isSelected: isSelected)
+            // Reduce Motion: the press still registers — it just changes opacity in place
+            // instead of scaling, so nothing moves under the finger.
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
-            .animation(.spring(response: 0.3, dampingFraction: 1.0),
+            .opacity(configuration.isPressed && reduceMotion ? 0.7 : 1)
+            .animation(reduceMotion ? .linear(duration: 0.08)
+                                    : .spring(response: 0.3, dampingFraction: 1.0),
                        value: configuration.isPressed)
+            // SC 2.5.8: a compact icon-only chip is ~22pt of glyph plus 11pt padding either
+            // side; the vertical axis is what falls short, so the whole chip gets a floor.
+            .frame(minWidth: WCAG.minimumTargetSize, minHeight: 44)
+            .contentShape(Capsule())
+            // Selection is currently carried by the accent tint alone (SC 1.4.1). VoiceOver
+            // gets it as a trait; sighted colour-blind users still have the glass tint plus
+            // the label, which is why this is a trait and not a second shape.
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }

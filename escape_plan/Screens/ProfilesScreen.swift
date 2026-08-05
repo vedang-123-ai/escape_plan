@@ -44,6 +44,9 @@ struct ProfilesScreen: View {
                         Label("Add Profile", systemImage: "plus")
                     }
                     .disabled(store == nil)
+                    .accessibilityLabel("Add a profile")
+                    .accessibilityHint("Adds a person or pet who lives here, so their escape "
+                                       + "routes can be personalised.")
                 }
             }
             .task { loadIfNeeded() }
@@ -88,6 +91,7 @@ struct ProfilesScreen: View {
                     Text("Add the people (and pets) who live here so escape routes can be personalized to their needs.")
                 } actions: {
                     Button("Add Profile") { showingAdd = true }
+                        .accessibilityHint("Opens the new profile form.")
                 }
             } else {
                 List {
@@ -95,6 +99,7 @@ struct ProfilesScreen: View {
                         Text("Autosave failed: \(saveError)")
                             .font(.caption)
                             .foregroundStyle(Theme.warning)
+                            .accessibilityLabel("Autosave failed. \(saveError)")
                     }
                     ForEach(store.model.profiles) { profile in
                         Button {
@@ -103,33 +108,69 @@ struct ProfilesScreen: View {
                             row(for: profile, in: store.model)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(spoken(profile, in: store.model))
+                        .accessibilityHint("Opens this profile for editing. Swipe up or down "
+                                           + "with one finger to reach Delete.")
+                        .accessibilityAddTraits(.isButton)
                         .swipeActions {
                             Button("Delete", role: .destructive) { deleteCandidate = profile }
+                                .accessibilityLabel("Delete \(profile.name)")
                         }
                     }
                 }
             }
         } else {
             ProgressView("Loading…")
+                .accessibilityLabel("Loading the people who live here.")
         }
+    }
+
+    /// The whole row as one sentence: "Maya. Sleeps in the Back Bedroom. Needs: Child,
+    /// Limited Mobility." Reading name / room / three chips as five separate stops made the
+    /// list unusable at exactly the moment it matters most.
+    private func spoken(_ profile: Profile, in model: HomeModel) -> String {
+        let room = model.locateRoom(profile.bedroom_room_id)?.room.name
+        var sentence = "\(profile.name). "
+        sentence += room.map { "Sleeps in the \($0)." } ?? "Bedroom is missing from this home."
+        if !profile.tags.isEmpty {
+            sentence += " Needs: " + profile.tags.map(\.displayName).joined(separator: ", ") + "."
+        }
+        return sentence
     }
 
     private func row(for profile: Profile, in model: HomeModel) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(profile.name).font(.headline)
-            HStack(spacing: 6) {
-                Label(model.locateRoom(profile.bedroom_room_id)?.room.name ?? "Missing room",
-                      systemImage: "bed.double")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                ForEach(profile.tags, id: \.self) { tag in
-                    Text(tag.displayName)
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(.tint.opacity(0.15), in: Capsule())
-                }
+            // Name + room + N tag chips overflow the row well before AX1, so the metadata line
+            // wraps to a second line rather than truncating the tags that shape the route.
+            ViewThatFits(in: .horizontal) {
+                metadata(for: profile, in: model, axis: .horizontal)
+                metadata(for: profile, in: model, axis: .vertical)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func metadata(for profile: Profile, in model: HomeModel,
+                          axis: Axis) -> some View {
+        let bedroom = Label(model.locateRoom(profile.bedroom_room_id)?.room.name ?? "Missing room",
+                            systemImage: "bed.double")
+            .font(.caption)
+            .foregroundStyle(Theme.supporting)
+        let chips = HStack(spacing: 6) {
+            ForEach(profile.tags, id: \.self) { tag in
+                Text(tag.displayName)
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.tint.opacity(0.15), in: Capsule())
+            }
+        }
+        if axis == .horizontal {
+            HStack(spacing: 6) { bedroom; chips }
+        } else {
+            VStack(alignment: .leading, spacing: 4) { bedroom; chips }
         }
     }
 

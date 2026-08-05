@@ -34,8 +34,12 @@ struct ProfileEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Name") {
+                Section {
                     TextField("Name", text: $name)
+                        .accessibilityLabel("Name")
+                        .accessibilityHint("The name of the person or pet who lives here.")
+                } header: {
+                    Text("Name").accessibilityAddTraits(.isHeader)
                 }
                 Section {
                     ForEach(ProfileTag.allCases, id: \.self) { tag in
@@ -43,25 +47,33 @@ struct ProfileEditorView: View {
                             get: { tags.contains(tag) },
                             set: { on in if on { tags.insert(tag) } else { tags.remove(tag) } }
                         ))
+                        .accessibilityLabel(tag.displayName)
+                        .accessibilityValue(tags.contains(tag) ? "On" : "Off")
+                        .accessibilityHint(tag.routingHint)
                     }
                 } header: {
-                    Text("Needs")
+                    Text("Needs").accessibilityAddTraits(.isHeader)
                 } footer: {
                     Text("Tags shape this person's escape routes — e.g. limited mobility avoids stairs and windows.")
                 }
-                Section("Bedroom") {
+                Section {
                     Picker("Bedroom", selection: $bedroomRoomId) {
                         ForEach(model.floorsByLevel) { floor in
                             Section(floor.name.isEmpty ? "Level \(floor.level)" : floor.name) {
                                 ForEach(floor.rooms) { room in
-                                    Label(room.name,
-                                          systemImage: room.type == .bedroom ? "bed.double" : "square.dashed")
-                                        .tag(room.id)
+                                    roomOption(room)
                                 }
                             }
                         }
                     }
                     .pickerStyle(.navigationLink)
+                    .accessibilityLabel("Bedroom")
+                    .accessibilityValue(model.locateRoom(bedroomRoomId)?.room.name
+                                        ?? "Not chosen")
+                    .accessibilityHint("Escape routes are computed from where this person "
+                                       + "sleeps, so pick the room they're in at night.")
+                } header: {
+                    Text("Bedroom").accessibilityAddTraits(.isHeader)
                 }
             }
             .navigationTitle(existing == nil ? "New Profile" : "Edit Profile")
@@ -69,6 +81,7 @@ struct ProfileEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .accessibilityHint("Closes without saving this profile.")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
@@ -77,9 +90,21 @@ struct ProfileEditorView: View {
                         }
                     }
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .accessibilityHint(name.trimmingCharacters(in: .whitespaces).isEmpty
+                                       ? "Unavailable until you enter a name."
+                                       : "Saves this profile and recomputes their escape route.")
                 }
             }
         }
+    }
+
+    /// One row of the bedroom picker. Extracted because the inline ternary-in-a-Label inside
+    /// two nested ForEach/Section pairs blows the SwiftUI type-checker's budget.
+    private func roomOption(_ room: Room) -> some View {
+        let symbol = room.type == .bedroom ? "bed.double" : "square.dashed"
+        return Label(room.name, systemImage: symbol)
+            .tag(room.id)
+            .accessibilityLabel(room.name)
     }
 
     /// Suggest a bedroom-typed room if the home has one; otherwise the first room of the
@@ -102,6 +127,27 @@ extension ProfileTag {
         case .elderly: return "Elderly"
         case .mobility_limited: return "Limited Mobility"
         case .pet: return "Pet"
+        }
+    }
+
+    /// What turning this tag on actually does to the route. VoiceOver's hint is the only place
+    /// a non-sighted user can learn that "Limited Mobility" is a routing constraint and not a
+    /// label — the visible footer says it once for the whole section, which a screen reader
+    /// reaches only after all four switches.
+    ///
+    /// These sentences must stay true to `backend/app/routing/profiles.py`
+    /// (`constraints_for_profile`) — they describe the deterministic engine's behaviour, not a
+    /// safety opinion. Hard constraint vs soft preference is the distinction that matters.
+    var routingHint: String {
+        switch self {
+        case .child:
+            return "Routes out of a window are used only as a last resort."
+        case .elderly:
+            return "Stair-free routes are preferred where one exists."
+        case .mobility_limited:
+            return "Stairs and window exits are never used."
+        case .pet:
+            return "Listed on the plan. Doesn't change how routes are computed."
         }
     }
 }

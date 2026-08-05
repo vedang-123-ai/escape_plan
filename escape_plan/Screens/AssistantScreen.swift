@@ -15,6 +15,7 @@ import SwiftUI
 struct AssistantScreen: View {
     @Environment(APIClient.self) private var apiClient
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var messages: [AssistantMessage] = []
     @State private var draft = ""
@@ -47,6 +48,8 @@ struct AssistantScreen: View {
                         Label("New Chat", systemImage: "square.and.pencil")
                     }
                     .disabled(messages.isEmpty && errorMessage == nil)
+                    .accessibilityLabel("New chat")
+                    .accessibilityHint("Clears this conversation and starts a fresh one.")
                 }
             }
         }
@@ -64,10 +67,12 @@ struct AssistantScreen: View {
         if let home {
             Label("Grounded in \(home.name)", systemImage: "house")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.supporting)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
                 .background(.bar)
+                .accessibilityLabel("Answers are about your home, \(home.name).")
+                .accessibilityAddTraits(.isHeader)
         } else if let homeLoadError {
             Label(homeLoadError, systemImage: "exclamationmark.triangle")
                 .font(.caption)
@@ -75,6 +80,7 @@ struct AssistantScreen: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
                 .background(.bar)
+                .accessibilityLabel("The assistant has no home to answer about. \(homeLoadError)")
         }
     }
 
@@ -88,10 +94,13 @@ struct AssistantScreen: View {
                     ForEach(messages) { message in
                         MessageBubble(message: message)
                             .id(message.id)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .bottom).combined(with: .opacity),
-                                removal: .opacity
-                            ))
+                            // Reduce Motion: a new message still appears (and still scrolls
+                            // into view), it just fades rather than sliding up from below.
+                            .transition(reduceMotion
+                                        ? .opacity
+                                        : .asymmetric(
+                                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                                            removal: .opacity))
                     }
                     if isSending {
                         typingIndicator.id("typing")
@@ -100,17 +109,28 @@ struct AssistantScreen: View {
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 12)
-                .animation(.spring(duration: 0.35), value: messages.count)
+                .animation(reduceMotion ? .linear(duration: 0.15) : .spring(duration: 0.35),
+                           value: messages.count)
                 .animation(.easeInOut(duration: 0.2), value: isSending)
             }
             .onChange(of: messages.count) {
                 if let last = messages.last {
-                    withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                    // The scroll itself is jumped rather than animated under Reduce Motion —
+                    // it still goes to the newest message, it just doesn't travel there.
+                    if reduceMotion {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    } else {
+                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                    }
                 }
             }
             .onChange(of: isSending) {
                 if isSending {
-                    withAnimation { proxy.scrollTo("typing", anchor: .bottom) }
+                    if reduceMotion {
+                        proxy.scrollTo("typing", anchor: .bottom)
+                    } else {
+                        withAnimation { proxy.scrollTo("typing", anchor: .bottom) }
+                    }
                 }
             }
         }
@@ -135,20 +155,27 @@ struct AssistantScreen: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             Spacer(minLength: 40)
         }
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("Assistant is typing")
+        .accessibilityAddTraits(.updatesFrequently)
     }
 
     private func errorBanner(_ message: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(Theme.caution)
+                .accessibilityHidden(true)
             Text(message)
                 .font(.footnote)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityLabel("The assistant couldn't answer. \(message)")
             if canRetry {
                 Button("Retry") { retry() }
                     .font(.footnote.bold())
                     .disabled(isSending)
+                    .minimumTapTarget()
+                    .accessibilityLabel("Retry")
+                    .accessibilityHint("Sends your last question again.")
             }
         }
         .padding(10)
@@ -164,13 +191,24 @@ struct AssistantScreen: View {
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...4)
                 .onSubmit { send() }
+                .accessibilityLabel("Your question")
+                .accessibilityHint("Ask anything about fire safety or your escape plan.")
             Button {
                 send()
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.title2)
+                    // SC 2.5.8: a `.title2` glyph is ~22pt, under the 24pt minimum target and
+                    // well under Apple's 44pt. The glyph stays its size; the TARGET grows.
+                    .minimumTapTarget()
             }
             .disabled(!canSend)
+            .accessibilityLabel("Send")
+            .accessibilityHint(canSend
+                               ? "Sends your question to the assistant."
+                               : (home == nil
+                                  ? "Unavailable until a home is loaded."
+                                  : "Unavailable until you type a question."))
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -284,11 +322,28 @@ private struct MessageBubble: View {
                 }
             }
             .padding(12)
-            .background(isUser ? Color.accentColor : Color(.secondarySystemBackground))
+            // `Color.accentColor` behind white text measured 2.71:1 in dark mode — the app's
+            // own chat was its worst contrast failure. `Theme.bubbleUser` is a single deep
+            // green that carries white text at 5.04:1 and still clears 3:1 against both pages.
+            .background(isUser ? AnyShapeStyle(Theme.bubbleUser)
+                               : AnyShapeStyle(Color(.secondarySystemBackground)))
             .foregroundStyle(isUser ? Color.white : Color.primary)
             .clipShape(RoundedRectangle(cornerRadius: 16))
             if !isUser { Spacer(minLength: 40) }
         }
+        // Who said it is conveyed by side + fill, neither of which a screen reader can see.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spoken)
+    }
+
+    /// "You asked: …" / "Assistant answered: … Sources: nfpa-escape-plan."
+    private var spoken: String {
+        var sentence = isUser ? "You asked: \(message.content)"
+                              : "Assistant answered: \(message.content)"
+        if !message.citations.isEmpty {
+            sentence += " Sources: \(message.citations.joined(separator: ", "))."
+        }
+        return sentence
     }
 
     private var citationChips: some View {
@@ -307,6 +362,7 @@ private struct FlowLayoutish: View {
                 ForEach(items, id: \.self) { id in
                     Text(id)
                         .font(.caption2.monospaced())
+                        .foregroundStyle(Color.primary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
                         .background(Color(.tertiarySystemBackground))
@@ -314,7 +370,9 @@ private struct FlowLayoutish: View {
                 }
             }
         }
-        .accessibilityLabel("Citations: \(items.joined(separator: ", "))")
+        // Already spoken as part of the bubble's combined label; kept out of the tree so the
+        // ids aren't read twice.
+        .accessibilityHidden(true)
     }
 }
 

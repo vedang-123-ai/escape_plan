@@ -9,11 +9,20 @@ import SwiftUI
 
 struct OnboardingFlowView: View {
     @Environment(APIClient.self) private var apiClient
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var state = OnboardingState()
     /// Set when "Review in Editor" is tapped; the editor is the existing S2.1/S2.2 screen.
     @State private var editingHomeID: String?
 
     var onFinished: () -> Void
+
+    /// The welcome hero and the "You're set" tick are decorative — they repeat what the
+    /// headline beside them already says. They stay a fixed size (and stay hidden from
+    /// VoiceOver) rather than growing with Dynamic Type, because at AX5 a 64pt glyph that
+    /// scales would push the "Take the tour" button off-screen. What we do instead is DROP
+    /// them entirely at accessibility sizes, giving the space back to the text.
+    private var showsDecorativeArt: Bool { dynamicTypeSize < .accessibility1 }
 
     var body: some View {
         NavigationStack {
@@ -28,6 +37,8 @@ struct OnboardingFlowView: View {
             .navigationDestination(item: $editingHomeID) { homeID in
                 HouseScreen(homeID: homeID) { state.reloadSeededHome() }
             }
+            // Reduce Motion: steps still change, they just cut rather than cross-fade.
+            .animation(reduceMotion ? nil : .default, value: state.step)
         }
         .onDisappear { state.cancelWork() }
     }
@@ -37,25 +48,16 @@ struct OnboardingFlowView: View {
     private var welcome: some View {
         VStack(spacing: 16) {
             Spacer()
-            ZStack {
-                Circle()
-                    .fill(.tint.opacity(0.12))
-                    .frame(width: 148, height: 148)
-                Image(systemName: "house.fill")
-                    .font(.system(size: 64))
-                    .foregroundStyle(.tint.opacity(0.35))
-                    .offset(y: -4)
-                Image(systemName: "figure.run")
-                    .font(.system(size: 44, weight: .semibold))
-                    .foregroundStyle(.tint)
-                    .offset(x: 26, y: 14)
+            if showsDecorativeArt {
+                welcomeArt
             }
-            .accessibilityHidden(true)
-            Text("Escape Plan").font(.largeTitle.bold())
+            Text("Escape Plan")
+                .font(.largeTitle.bold())
+                .accessibilityAddTraits(.isHeader)
             Text("Map your home, and every room gets a way out. Practice it together, "
                  + "before you ever need it.")
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.supporting)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Spacer()
@@ -64,11 +66,12 @@ struct OnboardingFlowView: View {
                 Label(seedError, systemImage: "exclamationmark.triangle")
                     .font(.caption)
                     .foregroundStyle(Theme.warning)
+                    .accessibilityLabel("Couldn't set up the demo home. \(seedError)")
             }
             Text("Scanning with the camera needs an iPhone Pro — this tour uses a demo home "
                  + "we prepared, so you can try everything right now.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.supporting)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Button {
@@ -81,10 +84,35 @@ struct OnboardingFlowView: View {
             }
             .buttonStyle(.borderedProminent)
             .padding(.horizontal)
+            .accessibilityLabel("Take the tour")
+            .accessibilityHint("Loads a demo home so you can try escape routes right now, "
+                               + "without scanning anything.")
             Button("Skip — I'll map my own home") { onFinished() }
                 .font(.subheadline)
                 .padding(.bottom)
+                .minimumTapTarget()
+                .accessibilityLabel("Skip the tour")
+                .accessibilityHint("Goes straight to the app so you can scan or build your "
+                                   + "own home.")
         }
+    }
+
+    /// Fixed-size decoration, hidden from VoiceOver and dropped entirely at AX sizes.
+    private var welcomeArt: some View {
+        ZStack {
+            Circle()
+                .fill(.tint.opacity(0.12))
+                .frame(width: 148, height: 148)
+            Image(systemName: "house.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.tint.opacity(0.35))
+                .offset(y: -4)
+            Image(systemName: "figure.run")
+                .font(.system(size: 44, weight: .semibold))
+                .foregroundStyle(.tint)
+                .offset(x: 26, y: 14)
+        }
+        .accessibilityHidden(true)
     }
 
     // MARK: - Step 2: review low-confidence items
@@ -97,30 +125,17 @@ struct OnboardingFlowView: View {
                     if items.isEmpty {
                         Label("Everything looks good — no items need review.",
                               systemImage: "checkmark.seal")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.supporting)
                     } else {
                         ForEach(items) { item in
-                            HStack {
-                                Image(systemName: icon(for: item.kind))
-                                    .foregroundStyle(Theme.caution)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("\(item.kind.rawValue): \(item.name)")
-                                        .font(.subheadline)
-                                    Text(item.floorName).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if let confidence = item.confidence {
-                                    Text("\(Int(confidence * 100))%")
-                                        .font(.caption.monospacedDigit())
-                                        .foregroundStyle(Theme.caution)
-                                }
-                            }
+                            reviewRow(item)
                         }
                     }
                 } header: {
                     Text(items.isEmpty
                          ? "Scan check"
                          : "\(items.count) item\(items.count == 1 ? "" : "s") need\(items.count == 1 ? "s" : "") review")
+                        .accessibilityAddTraits(.isHeader)
                 } footer: {
                     if !items.isEmpty {
                         Text("The scan wasn't fully confident about these. Fix them in the editor, or continue — nothing is dropped silently.")
@@ -135,6 +150,9 @@ struct OnboardingFlowView: View {
                         Text("Review in Editor").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityLabel("Review in editor")
+                    .accessibilityHint("Opens the 3D editor so you can correct the "
+                                       + "\(items.count) uncertain item\(items.count == 1 ? "" : "s").")
                 }
                 Button {
                     state.step = .plan
@@ -144,11 +162,50 @@ struct OnboardingFlowView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityLabel(items.isEmpty ? "Continue" : "Confirm and continue")
+                .accessibilityHint(items.isEmpty
+                                   ? "Works out the escape routes for this home."
+                                   : "Accepts these items as they are and works out the "
+                                     + "escape routes.")
             }
             .padding()
         }
         .navigationTitle("Review your scan")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// One row, one sentence. The confidence percentage is meaningless read on its own, and
+    /// the amber glyph carries no information a screen reader can use — hence the explicit
+    /// "the scan was only 60 percent sure".
+    private func reviewRow(_ item: ReviewItem) -> some View {
+        HStack {
+            Image(systemName: icon(for: item.kind))
+                .foregroundStyle(Theme.caution)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(item.kind.rawValue): \(item.name)")
+                    .font(.subheadline)
+                Text(item.floorName).font(.caption).foregroundStyle(Theme.supporting)
+            }
+            Spacer()
+            if let confidence = item.confidence {
+                Text("\(Int(confidence * 100))%")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(Theme.caution)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenReview(item))
+    }
+
+    private func spokenReview(_ item: ReviewItem) -> String {
+        var sentence = "\(item.kind.rawValue) \(item.name), \(item.floorName)."
+        if let confidence = item.confidence {
+            sentence += " The scan was only \(Int(confidence * 100)) percent sure about this."
+        } else {
+            sentence += " Needs review."
+        }
+        return sentence
     }
 
     private func icon(for kind: ReviewItem.Kind) -> String {
@@ -175,6 +232,7 @@ struct OnboardingFlowView: View {
             .buttonStyle(.borderedProminent)
             .padding([.horizontal, .bottom])
             .padding(.top, 8)
+            .accessibilityHint("Finishes the tour.")
         }
         .navigationBarBackButtonHidden()
         .toolbar(.hidden, for: .navigationBar)
@@ -190,15 +248,22 @@ struct OnboardingFlowView: View {
                     ProgressView()
                     Text("Inspecting your home for fire-safety issues…").font(.caption)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Inspecting your home for fire-safety issues.")
+                .accessibilityAddTraits(.updatesFrequently)
             case .loaded(let result):
                 if result.findings.isEmpty {
                     Label("Inspection finished — no issues found.", systemImage: "checkmark.seal")
                         .font(.caption)
+                        .accessibilityLabel("Inspection finished. No fire-safety issues found.")
                 } else {
                     Label("\(result.findings.count) safety finding\(result.findings.count == 1 ? "" : "s")",
                           systemImage: "exclamationmark.triangle.fill")
                         .font(.caption.bold())
                         .foregroundStyle(Theme.caution)
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityLabel("Inspection found \(result.findings.count) "
+                                            + "fire-safety issue\(result.findings.count == 1 ? "" : "s").")
                     ScrollView {
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(result.findings) { finding in
@@ -206,26 +271,32 @@ struct OnboardingFlowView: View {
                                     Text(finding.finding).font(.caption)
                                     Text(finding.recommendation)
                                         .font(.caption2)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(Theme.supporting)
                                 }
+                                .accessibilityElement(children: .combine)
+                                .accessibilityLabel("\(finding.finding). "
+                                                    + "What to do: \(finding.recommendation)")
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxHeight: 110)
+                    // A fixed 110pt box clips its own scroll content at AX sizes; scaling it
+                    // with the text keeps roughly two findings visible at every size.
+                    .frame(maxHeight: findingsHeight)
                 }
             case .failed(let message):
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle")
-                    Text(message).font(.caption)
-                    Button("Retry") { state.runAnalyze(api: apiClient) }.font(.caption.bold())
+                statusRow(symbol: "exclamationmark.triangle", text: message,
+                          spoken: "Safety inspection failed. \(message)",
+                          retryLabel: "Retry the safety inspection") {
+                    state.runAnalyze(api: apiClient)
                 }
             case .offline:
-                HStack(spacing: 8) {
-                    Image(systemName: "wifi.exclamationmark")
-                    Text("Offline — the safety inspection will run when you're back online.")
-                        .font(.caption)
-                    Button("Retry") { state.runAnalyze(api: apiClient) }.font(.caption.bold())
+                statusRow(symbol: "wifi.exclamationmark",
+                          text: "Offline — the safety inspection will run when you're back online.",
+                          spoken: "You're offline. The safety inspection will run when you're "
+                                  + "back online.",
+                          retryLabel: "Retry the safety inspection") {
+                    state.runAnalyze(api: apiClient)
                 }
             }
 
@@ -237,21 +308,26 @@ struct OnboardingFlowView: View {
                     ProgressView()
                     Text("Computing preparedness score…").font(.caption)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Computing your preparedness score.")
+                .accessibilityAddTraits(.updatesFrequently)
             case .loaded(let breakdown):
                 Label("Preparedness score: \(breakdown.score)/100",
                       systemImage: "checkmark.shield")
                     .font(.caption.bold())
+                    .accessibilityLabel("Preparedness score: \(breakdown.score) out of 100.")
             case .failed(let message):
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle")
-                    Text(message).font(.caption)
-                    Button("Retry") { state.runScore(api: apiClient) }.font(.caption.bold())
+                statusRow(symbol: "exclamationmark.triangle", text: message,
+                          spoken: "Couldn't compute your preparedness score. \(message)",
+                          retryLabel: "Retry the preparedness score") {
+                    state.runScore(api: apiClient)
                 }
             case .offline:
-                HStack(spacing: 8) {
-                    Image(systemName: "wifi.exclamationmark")
-                    Text("Offline — score needs the backend.").font(.caption)
-                    Button("Retry") { state.runScore(api: apiClient) }.font(.caption.bold())
+                statusRow(symbol: "wifi.exclamationmark",
+                          text: "Offline — score needs the backend.",
+                          spoken: "You're offline. The preparedness score needs the server.",
+                          retryLabel: "Retry the preparedness score") {
+                    state.runScore(api: apiClient)
                 }
             }
         }
@@ -261,15 +337,55 @@ struct OnboardingFlowView: View {
         .padding(.horizontal)
     }
 
+    /// The findings box scales with the text inside it instead of clipping at a fixed 110pt.
+    @ScaledMetric(relativeTo: .caption) private var findingsHeight: CGFloat = 110
+
+    /// A failed/offline strip: glyph, message, Retry. Reads as one sentence, and Retry keeps a
+    /// 44pt target even though its label is caption-sized (SC 2.5.8).
+    private func statusRow(symbol: String, text: String, spoken: String,
+                           retryLabel: String, retry: @escaping () -> Void) -> some View {
+        // At AX sizes a caption, a glyph and a Retry button cannot share one line.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) { statusMessage(symbol: symbol, text: text, spoken: spoken)
+                                 retryButton(retryLabel, retry) }
+            VStack(alignment: .leading, spacing: 6) {
+                statusMessage(symbol: symbol, text: text, spoken: spoken)
+                retryButton(retryLabel, retry)
+            }
+        }
+    }
+
+    private func statusMessage(symbol: String, text: String, spoken: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol).accessibilityHidden(true)
+            Text(text).font(.caption)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spoken)
+    }
+
+    private func retryButton(_ label: String, _ action: @escaping () -> Void) -> some View {
+        Button("Retry", action: action)
+            .font(.caption.bold())
+            .minimumTapTarget()
+            .accessibilityLabel(label)
+    }
+
     // MARK: - Step 4: done
 
     private var done: some View {
         VStack(spacing: 16) {
             Spacer()
-            Image(systemName: "checkmark.circle")
-                .font(.system(size: 56))
-                .foregroundStyle(Theme.accent)
-            Text("You're set").font(.largeTitle.bold())
+            if showsDecorativeArt {
+                // Decorative: "You're set" is right underneath it. Fixed size, hidden.
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 56))
+                    .foregroundStyle(Theme.accent)
+                    .accessibilityHidden(true)
+            }
+            Text("You're set")
+                .font(.largeTitle.bold())
+                .accessibilityAddTraits(.isHeader)
             VStack(alignment: .leading, spacing: 8) {
                 Label("Your home lives in the Home tab", systemImage: "house")
                 Label("Escape routes are on the House tab", systemImage: "figure.run")
@@ -288,6 +404,8 @@ struct OnboardingFlowView: View {
             }
             .buttonStyle(.borderedProminent)
             .padding([.horizontal, .bottom])
+            .accessibilityLabel("Finish")
+            .accessibilityHint("Closes the tour and opens the app.")
         }
     }
 }

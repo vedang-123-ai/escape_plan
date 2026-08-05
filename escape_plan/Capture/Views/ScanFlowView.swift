@@ -13,12 +13,35 @@
 
 import SwiftUI
 
+//  Accessibility (lane D1): the three hero glyphs here were `.system(size: 56/48/48)` — fixed
+//  point sizes that ignore Dynamic Type. Each is decorative (the headline directly beneath
+//  says the same thing), so each is now hidden from VoiceOver and dropped at accessibility
+//  sizes rather than scaled, which would push the primary action off-screen on a small phone.
+
+/// Shared by every scan step: whether the decorative hero glyph earns its space at the
+/// current text size.
+private struct ScanHeroGlyph: View {
+    let systemName: String
+    let tint: Color
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        if dynamicTypeSize < .accessibility1 {
+            Image(systemName: systemName)
+                .font(.system(size: 52))
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
 struct ScanFlowView: View {
     /// Called once the scan's artifacts are on disk.
     var onFinished: (ScanArtifacts) -> Void
     /// Called if the user backs out before finishing.
     var onCancel: () -> Void = {}
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var controller = RoomCaptureController()
 
     var body: some View {
@@ -62,7 +85,9 @@ struct ScanFlowView: View {
                 )
             }
         }
-        .animation(.default, value: controller.phase)
+        // Reduce Motion: steps still swap, they just cut instead of cross-fading. The flow is
+        // unchanged — only the transition is.
+        .animation(reduceMotion ? nil : .default, value: controller.phase)
     }
 
     @ViewBuilder
@@ -75,9 +100,11 @@ struct ScanFlowView: View {
             VStack(spacing: 12) {
                 Text("Walk the walls slowly. Keep doors open.")
                     .font(.subheadline)
+                    .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(.ultraThinMaterial, in: Capsule())
+                    .accessibilityAddTraits(.isStaticText)
 
                 Button {
                     controller.finishCurrentRoom()
@@ -88,9 +115,14 @@ struct ScanFlowView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .padding(.horizontal, 24)
+                .accessibilityLabel("Done with this room")
+                .accessibilityHint("Stops capturing this room and lets you scan the next one.")
             }
             .padding(.bottom, 32)
         }
+        // The live camera view is the content; VoiceOver users can't drive a LiDAR scan from
+        // it, so the controls carry the whole interaction and get read first.
+        .accessibilityElement(children: .contain)
         #else
         // Simulator / no RoomPlan: the flow is still navigable for UI work.
         ScanUnsupportedView(onCancel: onCancel)
@@ -110,11 +142,15 @@ struct ScanInstructionsView: View {
         VStack(alignment: .leading, spacing: 20) {
             Text(capturedRoomCount == 0 ? "Scan your home" : "Scan the next room")
                 .font(.largeTitle.bold())
+                .accessibilityAddTraits(.isHeader)
 
             if capturedRoomCount > 0 {
                 Label("\(capturedRoomCount) room\(capturedRoomCount == 1 ? "" : "s") captured so far",
                       systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(Theme.accent)
+                    // Accent as TEXT needs 4.5:1; the fill accent measures 4.45:1 on white.
+                    .foregroundStyle(Theme.accentText)
+                    .accessibilityLabel("\(capturedRoomCount) "
+                                        + "room\(capturedRoomCount == 1 ? "" : "s") captured so far.")
             }
 
             VStack(alignment: .leading, spacing: 14) {
@@ -139,7 +175,7 @@ struct ScanInstructionsView: View {
                       + "You can still build your home in the editor.",
                       systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.supporting)
             }
 
             Button(action: onStart) {
@@ -149,9 +185,14 @@ struct ScanInstructionsView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(!isSupported)
+            .accessibilityLabel(capturedRoomCount == 0 ? "Start scanning" : "Scan next room")
+            .accessibilityHint(isSupported
+                               ? "Opens the camera to capture the room you're standing in."
+                               : "Unavailable — this device has no LiDAR scanner.")
 
             Button("Cancel", action: onCancel)
                 .frame(maxWidth: .infinity)
+                .accessibilityHint("Leaves the scan without saving anything.")
         }
         .padding(24)
     }
@@ -162,17 +203,24 @@ struct ScanTipRow: View {
     var title: String
     var detail: String
 
+    /// The glyph column scales with the text, so the tip text doesn't collide with it at large
+    /// sizes the way a hard-coded 28pt column did.
+    @ScaledMetric(relativeTo: .title3) private var iconColumn: CGFloat = 28
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.title3)
-                .frame(width: 28)
+                .frame(width: iconColumn)
                 .foregroundStyle(.tint)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline)
-                Text(detail).font(.subheadline).foregroundStyle(.secondary)
+                Text(detail).font(.subheadline).foregroundStyle(Theme.supporting)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title). \(detail)")
     }
 }
 
@@ -185,16 +233,15 @@ struct ScanRoomFinishedView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(Theme.accent)
+            ScanHeroGlyph(systemName: "checkmark.circle.fill", tint: Theme.accent)
 
             Text("Room captured")
                 .font(.title.bold())
+                .accessibilityAddTraits(.isHeader)
             Text("\(capturedRoomCount) room\(capturedRoomCount == 1 ? "" : "s") so far. "
                  + "Walk to the next room without closing the app so the rooms line up.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.supporting)
                 .multilineTextAlignment(.center)
 
             Spacer()
@@ -204,12 +251,15 @@ struct ScanRoomFinishedView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .accessibilityHint("Captures another room and adds it to this home.")
 
             Button(action: onFinish) {
                 Text("Finish scan").frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+            .accessibilityHint("Merges the \(capturedRoomCount) captured "
+                               + "room\(capturedRoomCount == 1 ? "" : "s") into one home model.")
         }
         .padding(24)
     }
@@ -226,9 +276,12 @@ struct ScanProcessingView: View {
                 .font(.headline)
             Text("Merging rooms and saving the scan.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.supporting)
         }
         .padding(24)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Building your home model. Merging rooms and saving the scan.")
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }
 
@@ -244,31 +297,38 @@ struct ScanReviewView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Scan complete")
                 .font(.largeTitle.bold())
+                .accessibilityAddTraits(.isHeader)
 
             Label("\(artifacts.roomCount) room\(artifacts.roomCount == 1 ? "" : "s") captured",
                   systemImage: "square.split.bltr")
+                .accessibilityLabel("\(artifacts.roomCount) "
+                                    + "room\(artifacts.roomCount == 1 ? "" : "s") captured.")
 
             Label(artifacts.usdz == nil ? "3D preview unavailable" : "3D preview saved",
                   systemImage: artifacts.usdz == nil ? "cube.transparent" : "cube.fill")
-                .foregroundStyle(artifacts.usdz == nil ? .secondary : .primary)
+                .foregroundStyle(artifacts.usdz == nil ? AnyShapeStyle(Theme.supporting)
+                                                       : AnyShapeStyle(.primary))
 
             if let fallbackReason {
                 Label(fallbackReason, systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
                     .foregroundStyle(Theme.caution)
+                    .accessibilityLabel("Heads up. \(fallbackReason)")
             }
 
             Text("The scan is a starting point, not the final map — you'll fix walls, "
                  + "doors and windows in the editor next.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.supporting)
 
             // Surfaced so a tester can find the files to copy off the device for
-            // schema/fixtures/scans/ (S1.4's handoff artifact).
+            // schema/fixtures/scans/ (S1.4's handoff artifact). Was `.tertiary` — ~1.74:1 on
+            // white, i.e. unreadable to the exact tester who needs to read it.
             Text(artifacts.directory.lastPathComponent)
                 .font(.caption.monospaced())
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Theme.supporting)
                 .textSelection(.enabled)
+                .accessibilityLabel("Scan saved in folder \(artifacts.directory.lastPathComponent)")
 
             Spacer()
 
@@ -277,12 +337,14 @@ struct ScanReviewView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .accessibilityHint("Turns this scan into an editable home model.")
 
             Button(action: onRescan) {
                 Text("Scan again").frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+            .accessibilityHint("Discards this scan and starts over.")
         }
         .padding(24)
     }
@@ -298,21 +360,21 @@ struct ScanFailureView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(Theme.caution)
+            ScanHeroGlyph(systemName: "exclamationmark.triangle.fill", tint: Theme.caution)
 
-            Text("Scan interrupted").font(.title.bold())
+            Text("Scan interrupted")
+                .font(.title.bold())
+                .accessibilityAddTraits(.isHeader)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.supporting)
                 .multilineTextAlignment(.center)
 
             if capturedRoomCount > 0 {
                 Text("Your \(capturedRoomCount) captured room\(capturedRoomCount == 1 ? "" : "s") "
                      + "\(capturedRoomCount == 1 ? "is" : "are") safe — retrying keeps them.")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.supporting)
                     .multilineTextAlignment(.center)
             }
 
@@ -323,9 +385,13 @@ struct ScanFailureView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .accessibilityHint(capturedRoomCount > 0
+                               ? "Restarts the scan. The rooms you already captured are kept."
+                               : "Restarts the scan.")
 
             Button("Cancel", action: onCancel)
                 .frame(maxWidth: .infinity)
+                .accessibilityHint("Leaves the scan.")
         }
         .padding(24)
     }
@@ -336,19 +402,19 @@ struct ScanUnsupportedView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "iphone.slash")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
+            ScanHeroGlyph(systemName: "iphone.slash", tint: Theme.supporting)
             Text("Scanning needs a LiDAR device")
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
             Text("Run on an iPhone/iPad Pro to capture a room. "
                  + "The editor works everywhere.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.supporting)
                 .multilineTextAlignment(.center)
             Button("Back", action: onCancel)
                 .buttonStyle(.bordered)
                 .controlSize(.large)
+                .accessibilityHint("Goes back without scanning.")
         }
         .padding(24)
     }

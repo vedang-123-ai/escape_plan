@@ -29,26 +29,34 @@ struct BuildFromPlanView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Describe your home") {
+                Section {
                     TextField(
                         "e.g. Single-story 2-bed bungalow, front door into the living room…",
                         text: $descriptionText,
                         axis: .vertical
                     )
                     .lineLimit(4...10)
+                    .accessibilityLabel("Describe your home")
+                    .accessibilityHint("Say how many floors and rooms there are, and where the "
+                                       + "outside doors are.")
+                } header: {
+                    Text("Describe your home").accessibilityAddTraits(.isHeader)
                 }
-                Section("Or attach a floor plan") {
+                Section {
                     PhotosPicker(selection: $photoItem, matching: .images) {
                         Label("Choose a photo", systemImage: "photo")
                     }
+                    .accessibilityLabel("Choose a photo")
+                    .accessibilityHint("Attaches a photo of a floor plan from your library.")
                     Button {
                         showingPDFImporter = true
                     } label: {
                         Label("Choose a PDF", systemImage: "doc")
                     }
+                    .accessibilityHint("Attaches the first page of a floor-plan PDF.")
                     if let attachedLabel = imageLabel {
                         HStack {
-                            Text(attachedLabel).font(.caption).foregroundStyle(.secondary)
+                            Text(attachedLabel).font(.caption).foregroundStyle(Theme.supporting)
                             Spacer()
                             Button("Remove") {
                                 imageData = nil
@@ -56,8 +64,14 @@ struct BuildFromPlanView: View {
                                 photoItem = nil
                             }
                             .font(.caption)
+                            .minimumTapTarget()
+                            .accessibilityLabel("Remove attachment")
+                            .accessibilityHint("Detaches the floor plan you attached.")
                         }
+                        .accessibilityElement(children: .contain)
                     }
+                } header: {
+                    Text("Or attach a floor plan").accessibilityAddTraits(.isHeader)
                 }
                 Section {
                     Button {
@@ -73,6 +87,17 @@ struct BuildFromPlanView: View {
                         }
                     }
                     .disabled(isBuilding || (trimmedDescription == nil && imageData == nil))
+                    .accessibilityLabel(isBuilding ? "Building your draft home"
+                                                   : "Build draft home")
+                    .accessibilityValue(isBuilding ? "In progress, this can take a minute" : "")
+                    .accessibilityHint(isBuilding
+                                       ? ""
+                                       : (trimmedDescription == nil && imageData == nil
+                                          ? "Unavailable until you describe your home or attach "
+                                            + "a floor plan."
+                                          : "Drafts a 3D model you'll review before any escape "
+                                            + "route is computed."))
+                    .accessibilityAddTraits(isBuilding ? [.updatesFrequently] : [])
                 } footer: {
                     Text("""
                     The AI drafts a 3D model of your home for you to review. Nothing is \
@@ -82,14 +107,21 @@ struct BuildFromPlanView: View {
                 }
                 if let errorMessage {
                     Section {
-                        Text(errorMessage).font(.caption).foregroundStyle(Theme.warning)
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundStyle(Theme.warning)
+                            .accessibilityLabel("Couldn't build your home. \(errorMessage)")
                     }
                 }
             }
             .navigationTitle("Import a plan")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }.disabled(isBuilding)
+                    Button("Cancel") { dismiss() }
+                        .disabled(isBuilding)
+                        .accessibilityHint(isBuilding
+                                           ? "Unavailable while your draft is being built."
+                                           : "Closes without building anything.")
                 }
             }
         }
