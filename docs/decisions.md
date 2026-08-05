@@ -890,3 +890,60 @@ is not a tidy tower.
 **Also fixed in passing:** `RenderOrder.routes` was declared but never used — `RouteOverlay`
 hardcoded 50/52/55/56, outside the ledger the band system exists to enforce. All route ordering now
 goes through the enum, and the render-band test covers it.
+
+
+## 2026-08-05 — UI/UX pass: chrome, icon, launch, people, thumbnails
+
+Follow-on to the same day's White Model dollhouse overhaul, covering the app *around* the 3D
+view. Full gate green (editorcore 192, iOS 337, backend 264, corpus valid). No new dependencies.
+
+**Chrome contains no route orange.** This was the real finding, not a styling preference. Seven
+screens used SwiftUI's `.orange` for warnings and advisories — scan fallbacks, rejected edits,
+onboarding hints, the Settings status dot, the mid band of the score ring. The dollhouse's one
+governing rule is that the escape route is the only hot colour in the frame; chrome orange broke
+it outside the 3D view, where a user could see route-orange and warning-orange in one scroll with
+no way to know they meant different things. `Screens/Theme.swift` now owns the semantic scale:
+`accent` (the deep safety green, also the selection ring), `caution` (#B45309, a dark amber that
+reads as ink rather than as a lit line), `warning` (the palette's #DC2626), `supporting`. Colours
+bridge from `DollhousePalette` so renderer and chrome cannot drift. `routeInk`/`exitInk` exist
+only for legends that label an actual route or exit.
+
+**One backend-failure classifier.** `Networking/BackendFailure.swift` replaced six hand-rolled
+`catch` ladders that disagreed with each other; every one of them offered Retry regardless of
+whether retrying could work. The backend has distinguished 502 (an operator must act — no
+Anthropic credit, bad key) from 503 (retryable) since 2026-08-04, and the app was collapsing
+both to one sentence. Now 502 shows no Retry button at all and names what still works ("your
+escape routes still work"), which is the architecture's own argument stated in the UI. 8 tests.
+
+**People layer diverges from the design handoff on purpose.** The handoff asked for one route
+colour per household member. Rejected: four saturated hues is precisely the problem the White
+Model overhaul removed, and it would put three or four hot colours in direct competition with
+the route and the exit green. Instead the figures are made of the same white as everything else,
+identity comes from a name pill, and the *selected* person's figure takes the accent green — the
+same signal the selection ring uses everywhere. Whose route is on screen is answered by
+selecting the person, not by memorising a colour key. 6 tests.
+
+**Opening markers are parametric.** `UnifiedSceneController.highlightPlacement` replaces
+`highlightCenter`. An opening's ring is derived from its host wall segment (`edge_index` + `t`),
+not from a cached coordinate, so it follows a dragged wall — the same invariant the schema
+imposes on the openings themselves. The ring stands upright in the wall plane via two nested
+nodes rather than euler angles, because composing a 90° tilt with a yaw depends on SceneKit's
+rotation order and nesting does not.
+
+**Thumbnails turn shadows and SSAO off.** `Renderer/HomeThumbnail.swift` renders offscreen with
+`SCNRenderer`. At ~74×54 pt the shadow map samples far below its own texel density and speckles
+every wall face; the tile reads as noise rather than as a white model. Ambient takes over the
+shadow's share so the model doesn't go flat. Cached by home id + modified date.
+
+**Launch screen has no logo, deliberately.** `INFOPLIST_KEY_UILaunchScreen_BackgroundColor` +
+a `LaunchBackground` colorset (light/dark), no image. Per Apple's HIG a launch screen should
+resemble the app's first screen rather than act as a splash; matching the background makes
+launch feel instant instead of like a branding interstitial. This also closes the item deferred
+on 2026-07-23 for pbxproj contention — no lane holds the project file now.
+
+**App icon** (`scripts/make_app_icon.swift`, regenerated): white house in section, orange route,
+green exit pad, replacing the navy/ember icon that shared no vocabulary with the renderer. The
+artwork is laid out in round numbers and fitted to the canvas by one transform, so recomposing
+does not mean nudging twenty coordinates. The tinted variant encodes importance as luminance
+(route brightest, cut faces next, interior recessed) since iOS composites tinted icons from
+luminance alone.

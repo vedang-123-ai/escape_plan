@@ -1,6 +1,12 @@
 # Everything still to do
 
-_Last verified: 2026-08-04 on `main` (full-app test sweep) — **every suite re-run this session
+_Last verified: 2026-08-05 on `main` (UI/UX pass) — full gate re-run and green: backend **264**
+not-live (13 live-deselected), EditorCore **192**, iOS **337** (was 323 — +8 BackendFailure,
++6 PeopleLayer), corpus valid (11 sources, 6 files). The deployed backend answered `/health` in
+0.6 s (warm, not a cold start) via `scripts/demo-preflight.py`; `/explain` still 502s on credit.
+See `notes/2026-08-05-uiux-pass.md`._
+
+_Prior stamp, 2026-08-04 on `main` (full-app test sweep) — **every suite re-run this session
 and green**: backend **264** not-live (13 live-deselected), EditorCore **186**, iOS **320**
 (315 unit + UI, 8 skipped), corpus valid. Endpoints exercised by hand too: `/routes` on all
 three fixtures (16/16 rooms routed), `/convert` on two synthetic scans, `/score` on all three.
@@ -42,8 +48,8 @@ This is the single source of truth for open work. It replaces the old `board.md`
 |---|---|---|
 | Backend pytest | 264 pass, 13 live-deselected (2026-08-04) | `python3 -m pytest backend/tests/ -m "not live"` |
 | Backend live suites | 12 pass (2026-07-24); the 13th (`agent_bungalow_blocked`) has never run. **Blocked on credits as of 2026-08-04, not just on a key** | `set -a; . ./.env; set +a; python3 -m pytest backend/tests/ -m "live"` (latency bounds can flake on API variance) |
-| EditorCore (SwiftPM) | 186 pass (2026-08-04) | `swift test --package-path tools/editorcore` |
-| iOS (unit + UI) | 320 pass, 8 skipped (2026-08-04) — **~1-in-3 launch flake, re-run before believing a red** | `xcodebuild test -scheme escape_plan …` |
+| EditorCore (SwiftPM) | 192 pass (2026-08-05) | `swift test --package-path tools/editorcore` |
+| iOS (unit + UI) | 337 unit pass (2026-08-05) — **~1-in-3 launch flake, re-run before believing a red** | `xcodebuild test -scheme escape_plan …` |
 | Corpus | 11 sources, 6 files (2026-08-04) | `python3 backend/corpus/validate.py` |
 
 **Heads-up on `python3`:** on at least one machine the system `python3` is 3.9 and cannot
@@ -113,6 +119,10 @@ in the same session (200 in 26.0s, good grounded output), so this happened just 
 in `.env` is valid, the balance is not. The deterministic half (`/routes`, `/score`,
 `/convert`) is completely unaffected, which is the architecture working as designed.
 
+Re-confirmed still dry on 2026-08-05 via `python3 scripts/demo-preflight.py` (new — see below):
+`/explain` → 502 `Your credit balance is too low`. The 502-vs-503 split shipped 2026-08-04 is
+working, so the failure now names itself instead of hiding in a generic 500.
+
 - [ ] **Top up the Anthropic account.** Blocks: the AI half of the demo, the never-executed
       `agent_bungalow_blocked` live golden, all 13 `-m live` tests, and any filming that shows
       the assistant. Nothing else on this list is closer to the critical path.
@@ -123,11 +133,11 @@ in `.env` is valid, the balance is not. The deterministic half (`/routes`, `/sco
       **502** (operator must act: no credit, bad key) or **503** (retryable: rate limit,
       overload, network), with the API's own sentence as `detail`. Verified against the real
       dry account. 6 tests (backend 258 → 264). See decisions.md 2026-08-04.
-- [ ] Decide what the **app** shows for the new 502 vs 503. The backend now distinguishes
-      "retry may work" from "an operator must act", but Swift's `APIClientError` only carries
-      `unexpectedResponse(statusCode:)` — so both still render as one generic failure. Cheapest
-      version: map 503 → banner with a Retry button, 502 → "AI features are unavailable right
-      now" with no retry. (S1.6/S4.4)
+- [x] ~~Decide what the **app** shows for the new 502 vs 503~~ — done 2026-08-05.
+      `Networking/BackendFailure.swift` is now the one classifier; it replaced six disagreeing
+      `catch` ladders. 502 → "AI features are unavailable right now" plus what still works, and
+      **no Retry button** (retrying a dry account cannot help); 503 → busy, with Retry.
+      `BackendFailureBanner` is the single notice component. 8 tests. (S1.6/S4.4)
 
 ## Blocked on a real API key
 
@@ -158,6 +168,14 @@ what a dev machine cannot close.
 The simulator has no LiDAR, so none of this can be closed from a dev machine. The scan entry
 point and the `/convert` upload path were wired 2026-07-22 and are reachable in the app; what
 is unverified is the round-trip against a real scan.
+
+**Everything in this section is one device trip.** The procedure — hardware gate, pre-flight,
+capture technique, triage loop, symptom→cause table, and which acceptance line each step
+closes — is written up in [`field-test-lidar.md`](field-test-lidar.md) (2026-08-05). Run
+`python3 backend/scripts/triage_scan.py <raw.roomplan.json>` on each export before touching
+any code: it checks the converter's _assumed_ format assumptions (transform majorness first)
+rather than just whether conversion succeeded, because the worst failure mode converts
+cleanly and silently produces bounding boxes.
 
 - [ ] Scan a real 2–3 room space; confirm the raw JSON export has walls/doors/windows. (S1.4)
 - [ ] Scan the same space twice in a row without crashing. (S1.4)
@@ -217,25 +235,39 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       delete-under-editor seam only protects the HomeScreen→Editor push path. Cross-tab
       delete while the House tab holds the same home is still unguarded — share one library
       instance (or an app-level environment object) if that matters. (Lane A)
-- [ ] NOT STARTED, deliberately out of scope on 2026-08-05 — the design handoff's remaining
-      two thirds. Owner scoped this session to the renderer core only:
-      - "People" layer from `swift-implementation-notes.md`: capsule mannequins per family
-        member, one route color per person, name pills, tap-to-isolate a person's routes.
-        Needs `/routes` fetched for EVERY profile at once, not just the selected one — a real
-        `HouseScreen` + `APIClient+Routes` change, not a rendering change.
-      - Spec §10-12 app chrome pass: apply the new accent through Home/Score/Assistant/
-        Settings, typography rhythm, one signature moment per screen, live 3D thumbnails in
-        the homes list.
-      - Spec §11 app icon redesign (white extruded house cross-section, hot route line, green
-        exit pad) across the light/dark/tinted trio.
+- [x] ~~Spec §10-12 app chrome pass~~ — done 2026-08-05. `Screens/Theme.swift` is the
+      semantic scale (accent / caution / warning / supporting + a type scale). The substance
+      was not "apply the accent": it was that **seven screens used `.orange` for warnings**, so
+      route-orange and warning-orange appeared in the same product. Chrome now contains no
+      route orange at all; advisories use a dark amber that cannot be mistaken for a lit route.
+      `Theme.routeInk`/`exitInk` exist only for legends that label an actual route or exit.
+- [x] ~~Live 3D thumbnails in the homes list~~ — done 2026-08-05. `Renderer/HomeThumbnail.swift`
+      renders offscreen via `SCNRenderer`; `HomeThumbnailView` caches by home id + modified
+      date. Shadows and SSAO are off for tiles — at ~74×54 pt the shadow map samples below its
+      own texel density and speckles every wall face.
+- [x] ~~Spec §11 app icon redesign~~ — done 2026-08-05. `scripts/make_app_icon.swift` regenerates
+      the light/dark/tinted trio: white house in section, orange route, green exit pad.
+- [x] ~~"People" layer~~ — done 2026-08-05, **with a deliberate divergence**: the handoff asked
+      for one route colour per person; that is rejected. Four saturated hues is the exact
+      problem the White Model overhaul removed, and route orange must stay the only hot colour.
+      Instead `Renderer/PeopleLayer.swift` + `Fixtures/PersonFixture.swift` stand a white figure
+      with a name pill in each profile's bedroom, and the **selected** person's figure takes the
+      accent green. 6 tests. See decisions.md 2026-08-05.
+- [ ] Tap a figure in the 3D view to select that person (`PeopleLayer.profileID(forHit:)` exists
+      and is tested; the picker is currently the only way in). Needs an `onPersonTapped` hook in
+      `UnifiedSceneController` alongside `onFloorTapped`. (White Model overhaul)
+- [ ] Per-profile routes fetched together, so "Everyone" can show whose route is whose without
+      re-fetching on each pick. Needs `/routes` for every profile at once — an `APIClient+Routes`
+      change, not a rendering one. (S3.4)
       Brief + prototype: Claude Design project `344e3e53-37d2-4471-831c-aa50067e9d55`.
-- [ ] Selecting an opening or stairs draws no marker in the 3D view
-      (`UnifiedSceneController.highlightCenter` returns nil for both — deferred since S2.2).
-      The inspector bar makes the selection legible; a visible marker needs Lane B's renderer
-      touch. (S2.2/Lane B)
-- [ ] Custom launch screen (branded color/image instead of the generated blank): needs a
-      pbxproj edit (storyboard ref or physical Info.plist), deliberately deferred to the
-      integration window while Lane A holds the project file — decisions.md 2026-07-23. (S4.4)
+- [x] ~~Selecting an opening or stairs draws no marker in the 3D view~~ — done 2026-08-05.
+      `highlightPlacement` replaces `highlightCenter`: openings get an upright ring standing in
+      the host wall's plane at the opening's mid-height (derived from the parametric wall
+      segment, so it follows a dragged wall), stairs get a floor ring on their footprint.
+- [x] ~~Custom launch screen~~ — done 2026-08-05 via `INFOPLIST_KEY_UILaunchScreen_BackgroundColor`
+      + a `LaunchBackground` colorset (light/dark). No logo on purpose — per Apple's HIG a launch
+      screen should look like the app's first screen, not a splash; matching the background makes
+      launch feel instant instead of like a branding interstitial. (S4.4)
 - [ ] Real-device check of the renderer: 60fps on all FOUR fixtures (bungalow, apartment,
       twostory, jagged) on a physical phone, and haptics feel (simulator can't verify either).
       The White Model overhaul made walls opaque and shadow-casting and turned on SSAO — both
@@ -252,6 +284,13 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       (`{"bearer_token": "..."}`, gitignored) on the build machine before any demo/device
       build — without it a fresh install reaches the Render URL but gets 401s until the
       token is typed in Settings. Mechanism + decision: decisions.md 2026-07-23. (S4.4)
+      **Confirmed missing on this machine 2026-08-05** by `scripts/demo-preflight.py`.
+- [ ] Run `python3 scripts/demo-preflight.py` immediately before filming (new 2026-08-05).
+      It checks, against the deployed backend and in the app's own terms: the bearer token
+      file, `/health` (and whether Render's free tier was asleep — a ~50s cold start reads on
+      camera as a broken app), `/routes` + `/score`, and `/explain`, which is the check that
+      catches a dry Anthropic account or a missing Render env var. Exit 0 = ready to film.
+      Baseline run 2026-08-05: `/health` 0.6s warm, token file absent, credits still dry.
 
 ## Client/server contract (added 2026-08-02)
 

@@ -181,7 +181,7 @@ struct DrillScreen: View {
             Label("Plan practiced — your preparedness score updates on the Score screen.",
                   systemImage: "checkmark.seal.fill")
                 .font(.subheadline)
-                .foregroundStyle(.green)
+                .foregroundStyle(Theme.accent)
         } else {
             Button {
                 markPracticed()
@@ -267,11 +267,11 @@ struct DrillScreen: View {
                 routePlan = plan
                 start(profile: profile, plan: plan)
             } catch is CancellationError {
-            } catch APIClientError.unexpectedResponse(let statusCode) where statusCode == 401 {
-                routesError = "The server didn't accept the access token — check it in Settings."
             } catch {
                 guard !Task.isCancelled else { return }
-                routesError = "Couldn't get the route — check your connection and try again. (\(error.localizedDescription))"
+                // Shared classifier: this screen's own 401 ladder said the same thing as
+                // HouseScreen's but drifted on everything else, including 502 vs 503.
+                routesError = BackendFailure(error, while: .routes).message
             }
         }
     }

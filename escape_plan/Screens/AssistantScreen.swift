@@ -71,7 +71,7 @@ struct AssistantScreen: View {
         } else if let homeLoadError {
             Label(homeLoadError, systemImage: "exclamationmark.triangle")
                 .font(.caption)
-                .foregroundStyle(.red)
+                .foregroundStyle(Theme.warning)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
                 .background(.bar)
@@ -141,7 +141,7 @@ struct AssistantScreen: View {
     private func errorBanner(_ message: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
+                .foregroundStyle(Theme.caution)
             Text(message)
                 .font(.footnote)
                 .frame(maxWidth: .infinity, alignment: .leading)

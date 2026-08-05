@@ -391,3 +391,93 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - M escape_plan/Screens/RouteFindingViews.swift
   - …and 7 more
 
+## 2026-08-05T20:22:26Z · Anish Yarrakonda · `main` @ `870eb3d`
+
+**Commits this session**
+  - 870eb3d Add jagged floor plan and new rendering fixtures for exit markers and furniture
+
+## 2026-08-05T20:37:10Z · Anish Yarrakonda · `main` @ `870eb3d`
+
+**Commits this session**
+  - 870eb3d Add jagged floor plan and new rendering fixtures for exit markers and furniture
+
+**Uncommitted working-tree changes (7)**
+  - M docs/tracker/README.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - ?? backend/scripts/triage_scan.py
+  - ?? docs/tracker/field-test-lidar.md
+  - ?? docs/tracker/notes/2026-08-05-field-test-and-preflight-tooling.md
+  - ?? scripts/demo-preflight.py
+
+## 2026-08-05T21:08:52Z · Anish Yarrakonda · `main` @ `870eb3d`
+
+**Uncommitted working-tree changes (7)**
+  - M docs/tracker/README.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - ?? backend/scripts/triage_scan.py
+  - ?? docs/tracker/field-test-lidar.md
+  - ?? docs/tracker/notes/2026-08-05-field-test-and-preflight-tooling.md
+  - ?? scripts/demo-preflight.py
+
+## 2026-08-05T21:38:36Z · Anish Yarrakonda · `main` @ `870eb3d`
+
+**Uncommitted working-tree changes (36)**
+  - M docs/decisions.md
+  - M docs/tracker/README.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan.xcodeproj/project.pbxproj
+  - M escape_plan/Assets.xcassets/AppIcon.appiconset/AppIcon-dark.png
+  - M escape_plan/Assets.xcassets/AppIcon.appiconset/AppIcon-tinted.png
+  - M escape_plan/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+  - M escape_plan/Capture/Views/ScanFlowView.swift
+  - M escape_plan/DrillMode/DrillScreen.swift
+  - M escape_plan/Onboarding/OnboardingFlowView.swift
+  - M escape_plan/Renderer/UnifiedSceneController.swift
+  - M escape_plan/Screens/AssistantScreen.swift
+  - M escape_plan/Screens/BuildFromPlanView.swift
+  - M escape_plan/Screens/HomeScreen.swift
+  - M escape_plan/Screens/HouseScreen.swift
+  - M escape_plan/Screens/ProfilesScreen.swift
+  - M escape_plan/Screens/ScoreScreen.swift
+  - M escape_plan/Screens/SettingsScreen.swift
+  - M scripts/make_app_icon.swift
+  - ?? backend/scripts/triage_scan.py
+  - ?? docs/capabilities.md
+  - ?? docs/tracker/field-test-lidar.md
+  - ?? docs/tracker/notes/2026-08-05-field-test-and-preflight-tooling.md
+  - ?? docs/tracker/notes/2026-08-05-uiux-pass.md
+  - …and 11 more
+
+## 2026-08-05T23:04:59Z · Anish Yarrakonda · `main` @ `870eb3d`
+
+**Uncommitted working-tree changes (36)**
+  - M docs/decisions.md
+  - M docs/tracker/README.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan.xcodeproj/project.pbxproj
+  - M escape_plan/Assets.xcassets/AppIcon.appiconset/AppIcon-dark.png
+  - M escape_plan/Assets.xcassets/AppIcon.appiconset/AppIcon-tinted.png
+  - M escape_plan/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+  - M escape_plan/Capture/Views/ScanFlowView.swift
+  - M escape_plan/DrillMode/DrillScreen.swift
+  - M escape_plan/Onboarding/OnboardingFlowView.swift
+  - M escape_plan/Renderer/UnifiedSceneController.swift
+  - M escape_plan/Screens/AssistantScreen.swift
+  - M escape_plan/Screens/BuildFromPlanView.swift
+  - M escape_plan/Screens/HomeScreen.swift
+  - M escape_plan/Screens/HouseScreen.swift
+  - M escape_plan/Screens/ProfilesScreen.swift
+  - M escape_plan/Screens/ScoreScreen.swift
+  - M escape_plan/Screens/SettingsScreen.swift
+  - M scripts/make_app_icon.swift
+  - ?? backend/scripts/triage_scan.py
+  - ?? docs/capabilities.md
+  - ?? docs/tracker/field-test-lidar.md
+  - ?? docs/tracker/notes/2026-08-05-field-test-and-preflight-tooling.md
+  - ?? docs/tracker/notes/2026-08-05-uiux-pass.md
+  - …and 11 more
+

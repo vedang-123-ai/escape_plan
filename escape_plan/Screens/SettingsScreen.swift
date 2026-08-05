@@ -93,11 +93,11 @@ struct SettingsScreen: View {
             ProgressView()
         case .reachable:
             Label("Connected", systemImage: "circle.fill")
-                .foregroundStyle(.green)
+                .foregroundStyle(Theme.accent)
                 .labelStyle(DotLabelStyle())
         case .failed(let message):
             Label(message, systemImage: "circle.fill")
-                .foregroundStyle(.orange)
+                .foregroundStyle(Theme.caution)
                 .labelStyle(DotLabelStyle())
         }
     }

@@ -61,7 +61,7 @@ struct ScoreScreen: View {
                 Section {
                     Label(errorMessage, systemImage: "wifi.exclamationmark")
                         .font(.caption)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Theme.warning)
                     Button("Retry") { refresh() }
                         .font(.caption)
                 }
@@ -110,11 +110,14 @@ struct ScoreScreen: View {
         .padding(.vertical, 8)
     }
 
+    /// The score ring is the biggest colour surface in the app outside the 3D view, so it has
+    /// to obey the same rule: no route orange in chrome. The mid band uses `Theme.caution`
+    /// (dark amber), not SwiftUI's `.orange`.
     private func scoreTint(_ score: Int) -> Color {
         switch score {
-        case 80...: .green
-        case 50..<80: .orange
-        default: .red
+        case 80...: Theme.accent
+        case 50..<80: Theme.caution
+        default: Theme.warning
         }
     }
 
@@ -271,7 +274,7 @@ struct ScoreScreen: View {
             // A newer toggle superseded this request.
         } catch {
             guard !Task.isCancelled else { return }
-            errorMessage = "The score couldn't update — check your connection and try again. (\(error.localizedDescription))"
+            errorMessage = BackendFailure(error, while: .score).message
         }
     }
 }

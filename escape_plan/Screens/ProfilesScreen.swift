@@ -94,7 +94,7 @@ struct ProfilesScreen: View {
                     if let saveError {
                         Text("Autosave failed: \(saveError)")
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Theme.warning)
                     }
                     ForEach(store.model.profiles) { profile in
                         Button {

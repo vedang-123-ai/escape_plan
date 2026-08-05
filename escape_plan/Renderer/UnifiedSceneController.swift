@@ -218,18 +218,29 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
         return d > 1e-6 ? d : 0.01
     }
 
+    /// Where and how a selection's marker sits. Openings live on a wall at a height, not on
+    /// the floor, so a single plan-space point can't place all of them.
+    private enum HighlightPlacement {
+        /// Ring lying flat on the floor, centred on this plan point.
+        case floor(Point)
+        /// Ring standing upright in the plane of a wall: plan point, height above the floor,
+        /// and the wall's heading in plan space (radians).
+        case wall(Point, height: Double, heading: Double)
+    }
+
     func highlight(_ selection: Selection) {
         highlightNode.childNodes.forEach { $0.removeFromParentNode() }
 
-        guard let home = currentHome, let center = highlightCenter(selection, in: home) else {
+        guard let home = currentHome,
+              let placement = highlightPlacement(selection, in: home) else {
             highlightNode.isHidden = true
             scnView.setNeedsDisplay()
             return
         }
 
-        // A ring lying on the floor rather than a yellow ball floating over it: the ball read as
-        // a stray object in the scene, and yellow is a third saturated hue in a model that is
-        // meant to have exactly two. The accent green stays clear of the route orange.
+        // A ring rather than a yellow ball floating over the model: the ball read as a stray
+        // object in the scene, and yellow is a third saturated hue in a model that is meant to
+        // have exactly two. The accent green stays clear of the route orange.
         let ring = SCNTorus(ringRadius: 0.26, pipeRadius: 0.022)
         ring.firstMaterial?.diffuse.contents = DollhousePalette.selectionTint
         ring.firstMaterial?.emission.contents = DollhousePalette.selectionTint
@@ -238,16 +249,63 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
         let marker = SCNNode(geometry: ring)
         marker.renderingOrder = RenderOrder.exitMarkers
         marker.castsShadow = false
-        marker.position = DollhouseGeometry.scenePoint(center, y: floorPlaneY + 0.02)
-        highlightNode.addChildNode(marker)
+
+        switch placement {
+        case .floor(let center):
+            marker.position = DollhouseGeometry.scenePoint(center, y: floorPlaneY + 0.02)
+            highlightNode.addChildNode(marker)
+
+        case .wall(let center, let height, let heading):
+            // Two nested nodes instead of eulerAngles: an SCNTorus lies in its local XZ plane,
+            // so it needs a 90° tilt to stand up AND a yaw to face along the wall. Composing
+            // those as euler angles depends on SceneKit's rotation order; nesting does not.
+            marker.eulerAngles.x = .pi / 2
+            let yaw = SCNNode()
+            // Plan +y maps to scene −z, so a plan heading θ becomes a scene yaw of θ about +y.
+            yaw.eulerAngles.y = Float(heading)
+            yaw.position = DollhouseGeometry.scenePoint(center, y: floorPlaneY + height)
+            yaw.addChildNode(marker)
+            highlightNode.addChildNode(yaw)
+        }
+
         highlightNode.isHidden = false
         scnView.setNeedsDisplay()
+    }
+
+    private func highlightPlacement(_ selection: Selection,
+                                    in home: HomeModel) -> HighlightPlacement? {
+        switch selection {
+        case .opening(let openingId):
+            // Openings are parametric: the marker is derived from the host wall segment, so it
+            // follows the door when the wall is dragged instead of drifting off it.
+            for floor in home.floors {
+                guard let opening = floor.openings.first(where: { $0.id == openingId }),
+                      let (_, room) = home.locateRoom(opening.wall_segment.room_id),
+                      let edge = Geometry.edge(room.polygon, opening.wall_segment.edge_index)
+                else { continue }
+                let t = (opening.wall_segment.t0 + opening.wall_segment.t1) / 2
+                let center = Point(x: edge.a.x + (edge.b.x - edge.a.x) * t,
+                                   y: edge.a.y + (edge.b.y - edge.a.y) * t)
+                return .wall(center,
+                             height: opening.sill_height_m + opening.height_m / 2,
+                             heading: atan2(edge.b.y - edge.a.y, edge.b.x - edge.a.x))
+            }
+            return nil
+        case .stairs(let stairsId):
+            guard let stairs = home.locateStairs(stairsId),
+                  !stairs.footprint.isEmpty else { return nil }
+            return .floor(Geometry.centroid(stairs.footprint))
+        case .none:
+            return nil
+        default:
+            return highlightCenter(selection, in: home).map { .floor($0) }
+        }
     }
 
     private func highlightCenter(_ selection: Selection, in home: HomeModel) -> Point? {
         switch selection {
         case .none, .opening, .stairs:
-            // Opening/stairs markers still deferred (S2.2 decisions.md).
+            // Handled by highlightPlacement above — these are not floor-plane markers.
             return nil
         case .room(let roomId):
             guard let (_, room) = home.locateRoom(roomId) else { return nil }

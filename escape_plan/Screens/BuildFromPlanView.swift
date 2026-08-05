@@ -82,7 +82,7 @@ struct BuildFromPlanView: View {
                 }
                 if let errorMessage {
                     Section {
-                        Text(errorMessage).font(.caption).foregroundStyle(.red)
+                        Text(errorMessage).font(.caption).foregroundStyle(Theme.warning)
                     }
                 }
             }

@@ -81,6 +81,18 @@ struct HouseScreen: View {
         var selectedRoomID: String?
         var model: HomeModel?
 
+        // The household figures live under the same stale-closure discipline as the routes:
+        // a rebuild replaces the scene, so the layer is re-created and re-shown from cached
+        // inputs rather than from @State the closure can't see.
+        var people: PeopleLayer?
+        var highlightedProfileID: String?
+
+        func redrawPeople() {
+            guard let people, let model else { return }
+            people.show(profiles: model.profiles, home: model,
+                        highlighted: highlightedProfileID)
+        }
+
         /// Redraw from cached inputs only — safe to call from `onRebuild`. Returns the
         /// overlay's issues.
         @discardableResult
@@ -97,7 +109,7 @@ struct HouseScreen: View {
     // Route layer (server truth — S2.3 semantics preserved).
     @State private var overlayHolder = RouteOverlayHolder()
     @State private var routePlan: RoutePlan?
-    @State private var routesError: String?
+    @State private var routesFailure: BackendFailure?
     @State private var isFetchingRoutes = false
     @State private var cachedPlanDate: Date?
     /// nil = "Everyone": primary routes + badges for the whole house.
@@ -180,10 +192,10 @@ struct HouseScreen: View {
                             }
                             inspector(for: store)
                             if let rejection {
-                                Text(rejection).font(.caption).foregroundStyle(.orange).padding(.horizontal)
+                                Text(rejection).font(.caption).foregroundStyle(Theme.caution).padding(.horizontal)
                             }
                             if let saveError {
-                                Text("Autosave failed: \(saveError)").font(.caption).foregroundStyle(.red)
+                                Text("Autosave failed: \(saveError)").font(.caption).foregroundStyle(Theme.warning)
                                     .padding(.horizontal)
                             }
                             viewControls(for: store)
@@ -227,8 +239,10 @@ struct HouseScreen: View {
             // be re-created against the NEW dollhouse and the routes redrawn — from the
             // holder's cached inputs, never from this closure's captured (stale) @State.
             overlayHolder.overlay = RouteOverlay(dollhouse: dollhouse)
+            overlayHolder.people = PeopleLayer(dollhouse: dollhouse)
             applyViewState(to: dollhouse)
             overlayHolder.redraw()
+            overlayHolder.redrawPeople()
         }
         if let dollhouse = controller.dollhouse {
             controller.onRebuild?(dollhouse)
@@ -407,15 +421,9 @@ struct HouseScreen: View {
             .padding(10)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
             .padding(.top, 8)
-        } else if let routesError {
-            HStack(spacing: 8) {
-                Image(systemName: "wifi.exclamationmark")
-                Text(routesError).font(.caption)
-                Button("Retry") { fetchRoutes() }.font(.caption.bold())
-            }
-            .padding(10)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
-            .padding(.top, 8)
+        } else if let routesFailure {
+            BackendFailureBanner(failure: routesFailure, retry: { fetchRoutes() })
+                .padding(.top, 8)
         }
     }
 
@@ -532,7 +540,7 @@ struct HouseScreen: View {
             routePlan = nil
             return
         }
-        routesError = nil
+        routesFailure = nil
         isFetchingRoutes = true
         routesTask = Task {
             defer { isFetchingRoutes = false }
@@ -550,15 +558,13 @@ struct HouseScreen: View {
                     guard cached.plan.home_id == model.home_id else { return }
                     cachedPlanDate = cached.savedAt
                     routePlan = cached.plan
-                    routesError = "You're offline — showing your last saved routes from \(cached.savedAt.formatted(date: .abbreviated, time: .shortened))."
+                    routesFailure = .showingCachedRoutes(savedAt: cached.savedAt)
                 }
                 applyOverlay()
             } catch is CancellationError {
-            } catch APIClientError.unexpectedResponse(let statusCode) where statusCode == 401 {
-                routesError = "The server didn't accept the access token — check it in Settings."
             } catch {
                 guard !Task.isCancelled else { return }
-                routesError = "Couldn't get routes — check your connection and try again. (\(error.localizedDescription))"
+                routesFailure = BackendFailure(error, while: .routes)
             }
         }
     }
@@ -587,6 +593,11 @@ struct HouseScreen: View {
         overlayHolder.plan = routePlan
         overlayHolder.selectedRoomID = selectedRoomID
         overlayHolder.model = session?.store.model
+        // Selecting a person lights their figure in the accent green — the same signal the
+        // selection ring uses — so the picker's effect is visible in the model, not just in
+        // the line that gets drawn.
+        overlayHolder.highlightedProfileID = selectedProfileID
+        overlayHolder.redrawPeople()
         let issues = overlayHolder.redraw()
         // May run inside updateUIView (via onRebuild): only touch @State when the value
         // actually changed, or the view invalidates itself from within its own update forever.

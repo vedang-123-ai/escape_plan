@@ -1,0 +1,182 @@
+//  BackendFailure.swift
+//  Networking — one place that decides what a backend failure means to the user.
+//
+//  Before this, six screens each hand-rolled their own `catch` ladder over raw status codes
+//  (HouseScreen, HomeScreen, DrillScreen, BuildFromPlanView, OnboardingState, the chat
+//  client), and they disagreed: some special-cased 401, some didn't; every one of them
+//  offered a Retry button regardless of whether retrying could possibly help.
+//
+//  The backend distinguishes these cases properly as of 2026-08-04 — an app-level
+//  `anthropic.APIError` handler returns **502** when an operator must act (no credit, bad
+//  key) and **503** when a retry may work (rate limit, overload, network). That distinction
+//  was being thrown away here, because `APIClientError` only carried a status code and every
+//  screen collapsed it to one generic sentence.
+//
+//  Foundation only: no SwiftUI, so the classification is unit-testable without a view.
+
+import Foundation
+
+/// A backend failure translated into something a person can act on.
+struct BackendFailure: Equatable {
+
+    /// What actually went wrong, in the only terms the UI needs to branch on.
+    enum Kind: Equatable {
+        /// No usable connection — URLError, or the request never reached us.
+        case offline
+        /// 401/403 — the shared bearer token is missing or wrong. Settings fixes it.
+        case unauthorized
+        /// 502 — the server reached the AI and the AI refused: no credit, bad key,
+        /// misconfiguration. **Retrying cannot help**; a human has to change something.
+        case aiUnavailable
+        /// 503 — rate limited, overloaded, or a transient network fault upstream.
+        /// Retrying is exactly the right move.
+        case serverBusy
+        /// 422 — we sent something the server could not use. Usually a scan too incomplete
+        /// to convert; retrying the same input will fail the same way.
+        case rejectedInput
+        /// Any other non-200.
+        case server(statusCode: Int)
+    }
+
+    /// The operation that failed, which supplies the noun and the honest fallback line.
+    /// Nothing here promises a capability the app doesn't have.
+    enum Operation {
+        case routes
+        case scanConversion
+        case score
+        case analysis
+        case assistant
+
+        var noun: String {
+            switch self {
+            case .routes: return "your escape routes"
+            case .scanConversion: return "the scan"
+            case .score: return "your preparedness score"
+            case .analysis: return "the home inspection"
+            case .assistant: return "the assistant"
+            }
+        }
+
+        /// What still works when this particular thing doesn't. Only the AI-backed operations
+        /// have one, because only they can fail while the deterministic half is fine — which
+        /// is the whole point of keeping routing out of the model.
+        var fallback: String? {
+            switch self {
+            case .analysis, .assistant:
+                return "Your escape routes still work."
+            case .score:
+                return "Your escape routes still work."
+            case .routes, .scanConversion:
+                return nil
+            }
+        }
+    }
+
+    var kind: Kind
+    var message: String
+    /// Whether a Retry button should be offered at all. Showing one on a 502 trains people to
+    /// mash a button that cannot work.
+    var isRetryable: Bool
+    /// Whether to point the user at Settings.
+    var suggestsSettings: Bool
+    var symbol: String
+
+    // MARK: - Classification
+
+    init(_ error: Error, while operation: Operation) {
+        let fallback = operation.fallback.map { " " + $0 } ?? ""
+
+        if error is CancellationError {
+            // Callers should filter these out before constructing a failure; treat as busy
+            // rather than inventing an alarming message.
+            self.init(kind: .serverBusy,
+                      message: "That took too long. Try again.",
+                      isRetryable: true, suggestsSettings: false,
+                      symbol: "arrow.clockwise")
+            return
+        }
+
+        guard case APIClientError.unexpectedResponse(let statusCode) = error else {
+            let urlError = error as? URLError
+            let offline = urlError.map {
+                [.notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost,
+                 .timedOut, .dataNotAllowed].contains($0.code)
+            } ?? false
+            if offline {
+                self.init(kind: .offline,
+                          message: "You're offline. Getting \(operation.noun) needs a "
+                                 + "connection — reconnect and try again.",
+                          isRetryable: true, suggestsSettings: false,
+                          symbol: "wifi.slash")
+            } else {
+                self.init(kind: .server(statusCode: -1),
+                          message: "Couldn't reach the server. Check your connection, or the "
+                                 + "server address in Settings.",
+                          isRetryable: true, suggestsSettings: true,
+                          symbol: "exclamationmark.triangle")
+            }
+            return
+        }
+
+        switch statusCode {
+        case 401, 403:
+            self.init(kind: .unauthorized,
+                      message: "The server didn't accept the access token — check it in Settings.",
+                      isRetryable: false, suggestsSettings: true,
+                      symbol: "key.slash")
+
+        case 422:
+            let detail: String
+            switch operation {
+            case .scanConversion:
+                detail = "The scan couldn't be turned into a floor plan — it may be incomplete. "
+                       + "Try scanning again, walking the full perimeter of each room."
+            default:
+                detail = "The server couldn't use what we sent for \(operation.noun)."
+            }
+            self.init(kind: .rejectedInput, message: detail,
+                      isRetryable: false, suggestsSettings: false,
+                      symbol: "questionmark.folder")
+
+        case 502:
+            // The operator-must-act case. Deliberately no Retry.
+            self.init(kind: .aiUnavailable,
+                      message: "AI features are unavailable right now — the server needs "
+                             + "attention.\(fallback)",
+                      isRetryable: false, suggestsSettings: false,
+                      symbol: "sparkles.slash")
+
+        case 503:
+            self.init(kind: .serverBusy,
+                      message: "The server is busy. Try again in a moment.",
+                      isRetryable: true, suggestsSettings: false,
+                      symbol: "clock.arrow.circlepath")
+
+        default:
+            self.init(kind: .server(statusCode: statusCode),
+                      message: "The server had a problem (\(statusCode)). Try again in a moment.",
+                      isRetryable: true, suggestsSettings: false,
+                      symbol: "exclamationmark.triangle")
+        }
+    }
+
+    private init(kind: Kind, message: String, isRetryable: Bool,
+                 suggestsSettings: Bool, symbol: String) {
+        self.kind = kind
+        self.message = message
+        self.isRetryable = isRetryable
+        self.suggestsSettings = suggestsSettings
+        self.symbol = symbol
+    }
+
+    /// Not a failure: routes are being shown from the offline cache. Same banner treatment so
+    /// there is one notice component rather than two that drift apart.
+    static func showingCachedRoutes(savedAt: Date) -> BackendFailure {
+        BackendFailure(
+            kind: .offline,
+            message: "You're offline — showing your last saved routes from "
+                   + savedAt.formatted(date: .abbreviated, time: .shortened) + ".",
+            isRetryable: true, suggestsSettings: false,
+            symbol: "arrow.down.circle")
+    }
+}

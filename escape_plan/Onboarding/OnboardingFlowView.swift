@@ -63,7 +63,7 @@ struct OnboardingFlowView: View {
                 // Seeding is fully local; this only fires if Documents itself is broken.
                 Label(seedError, systemImage: "exclamationmark.triangle")
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.warning)
             }
             Text("Scanning with the camera needs an iPhone Pro — this tour uses a demo home "
                  + "we prepared, so you can try everything right now.")
@@ -102,7 +102,7 @@ struct OnboardingFlowView: View {
                         ForEach(items) { item in
                             HStack {
                                 Image(systemName: icon(for: item.kind))
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Theme.caution)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("\(item.kind.rawValue): \(item.name)")
                                         .font(.subheadline)
@@ -112,7 +112,7 @@ struct OnboardingFlowView: View {
                                 if let confidence = item.confidence {
                                     Text("\(Int(confidence * 100))%")
                                         .font(.caption.monospacedDigit())
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(Theme.caution)
                                 }
                             }
                         }
@@ -198,7 +198,7 @@ struct OnboardingFlowView: View {
                     Label("\(result.findings.count) safety finding\(result.findings.count == 1 ? "" : "s")",
                           systemImage: "exclamationmark.triangle.fill")
                         .font(.caption.bold())
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Theme.caution)
                     ScrollView {
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(result.findings) { finding in
@@ -268,7 +268,7 @@ struct OnboardingFlowView: View {
             Spacer()
             Image(systemName: "checkmark.circle")
                 .font(.system(size: 56))
-                .foregroundStyle(.green)
+                .foregroundStyle(Theme.accent)
             Text("You're set").font(.largeTitle.bold())
             VStack(alignment: .leading, spacing: 8) {
                 Label("Your home lives in the Home tab", systemImage: "house")

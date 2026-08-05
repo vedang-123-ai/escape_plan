@@ -114,7 +114,7 @@ struct ScanInstructionsView: View {
             if capturedRoomCount > 0 {
                 Label("\(capturedRoomCount) room\(capturedRoomCount == 1 ? "" : "s") captured so far",
                       systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Theme.accent)
             }
 
             VStack(alignment: .leading, spacing: 14) {
@@ -187,7 +187,7 @@ struct ScanRoomFinishedView: View {
         VStack(spacing: 20) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 56))
-                .foregroundStyle(.green)
+                .foregroundStyle(Theme.accent)
 
             Text("Room captured")
                 .font(.title.bold())
@@ -255,7 +255,7 @@ struct ScanReviewView: View {
             if let fallbackReason {
                 Label(fallbackReason, systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Theme.caution)
             }
 
             Text("The scan is a starting point, not the final map — you'll fix walls, "
@@ -300,7 +300,7 @@ struct ScanFailureView: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(.orange)
+                .foregroundStyle(Theme.caution)
 
             Text("Scan interrupted").font(.title.bold())
             Text(message)

@@ -123,19 +123,10 @@ struct HomeScreen: View {
         }
     }
 
+    /// Delegates to the shared classifier so this alert says the same thing about a 401 or a
+    /// 502 as every other screen does — this ladder used to be one of six that disagreed.
     private func scanFailureMessage(for error: Error) -> String {
-        guard case APIClientError.unexpectedResponse(let statusCode) = error else {
-            return "\(error.localizedDescription) Check your connection, or the server address in Settings."
-        }
-        switch statusCode {
-        case 422:
-            return "The scan couldn't be turned into a floor plan — it may be incomplete. "
-                + "Try scanning again, walking the full perimeter of each room."
-        case 401, 403:
-            return "The server didn't accept the access token — check it in Settings."
-        default:
-            return "The server had a problem (\(statusCode)). Please try again in a moment."
-        }
+        BackendFailure(error, while: .scanConversion).message
     }
 
     @ViewBuilder
@@ -157,17 +148,22 @@ struct HomeScreen: View {
         } else {
             List {
                 if let error = library.loadError {
-                    Text(error).font(.caption).foregroundStyle(.red)
+                    Text(error).font(.caption).foregroundStyle(Theme.warning)
                 }
                 ForEach(library.homes) { home in
                     Button {
                         openHomeID = home.id
                     } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(home.name).font(.headline)
-                            Text(subtitle(for: home))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        HStack(spacing: 12) {
+                            // A real render of the real model: shape is what makes a home
+                            // recognisable, and two lines of text never showed it.
+                            HomeThumbnailView(summary: home, store: library.store)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(home.name).font(.headline)
+                                Text(subtitle(for: home))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     .buttonStyle(.plain)
@@ -177,7 +173,7 @@ struct HomeScreen: View {
                     }
                     .swipeActions(edge: .leading) {
                         Button("Score", systemImage: "checkmark.shield") { scoreHomeID = home.id }
-                            .tint(.green)
+                            .tint(Theme.accent)
                         Button {
                             profilesHomeID = home.id
                         } label: {
@@ -189,7 +185,7 @@ struct HomeScreen: View {
                         } label: {
                             Label("Drill", systemImage: "figure.run")
                         }
-                        .tint(.orange)
+                        .tint(Theme.caution)
                     }
                     .contextMenu {
                         Button("Preparedness Score", systemImage: "checkmark.shield") {
