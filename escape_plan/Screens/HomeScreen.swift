@@ -21,6 +21,9 @@ struct HomeScreen: View {
     @State private var scoreHomeID: String?
     @State private var profilesHomeID: String?
     @State private var drillHomeID: String?
+    /// Printable one-page-per-floor PDF (Export/). A sheet, not a destination — it ends in a
+    /// share sheet rather than in another screen.
+    @State private var exportTarget: ExportTarget?
     @State private var showingNewHome = false
     @State private var showingBuildFromPlan = false
     @State private var initError: String?
@@ -68,6 +71,9 @@ struct HomeScreen: View {
                         library.refresh()
                         openHomeID = homeID
                     }
+                }
+                .sheet(item: $exportTarget) { target in
+                    ExportPlanSheet(homeID: target.id, store: library.store)
                 }
                 .fullScreenCover(isPresented: $showingScan) {
                     ScanFlowView(
@@ -200,6 +206,11 @@ struct HomeScreen: View {
                             drillHomeID = home.id
                         } label: {
                             Label("Practice Drill", systemImage: "figure.run")
+                        }
+                        Button {
+                            exportTarget = ExportTarget(id: home.id)
+                        } label: {
+                            Label("Printable Plan", systemImage: "printer")
                         }
                     }
                 }
