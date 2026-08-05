@@ -361,3 +361,33 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - a6a23d8 Update activity log with recent session commits and uncommitted changes
   - 8b99155 Fix AI error handling (bare 500s) and the Score screenshot test
 
+## 2026-08-05T20:14:09Z · Anish Yarrakonda · `main` @ `80b73d2`
+
+**Uncommitted working-tree changes (32)**
+  - M docs/decisions.md
+  - M docs/tools-used.md
+  - M docs/tracker/TODO.md
+  - M escape_plan/Assets.xcassets/AccentColor.colorset/Contents.json
+  - M escape_plan/DrillMode/DrillScreen.swift
+  - M escape_plan/Editor/Core/CameraRigModel.swift
+  - M escape_plan/Editor/SceneKit/EditorSceneView.swift
+  - M escape_plan/Models/FixtureLoader.swift
+  - M escape_plan/Renderer/DollhousePalette.swift
+  - M escape_plan/Renderer/DollhouseScene.swift
+  - M escape_plan/Renderer/FixtureLibrary.swift
+  - M escape_plan/Renderer/Fixtures/DoorFixture.swift
+  - M escape_plan/Renderer/Fixtures/FixtureKit.swift
+  - M escape_plan/Renderer/Fixtures/FloorFixture.swift
+  - M escape_plan/Renderer/Fixtures/StairFixture.swift
+  - M escape_plan/Renderer/Fixtures/WallFixture.swift
+  - M escape_plan/Renderer/Fixtures/WindowFixture.swift
+  - M escape_plan/Renderer/OrbitCameraRig.swift
+  - M escape_plan/Renderer/RenderOrder.swift
+  - M escape_plan/Renderer/RoomLabelSprite.swift
+  - M escape_plan/Renderer/RouteOverlay.swift
+  - M escape_plan/Renderer/UnifiedSceneController.swift
+  - M escape_plan/Renderer/UnifiedSceneView.swift
+  - M escape_plan/Screens/HouseScreen.swift
+  - M escape_plan/Screens/RouteFindingViews.swift
+  - …and 7 more
+

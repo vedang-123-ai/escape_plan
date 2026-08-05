@@ -145,8 +145,12 @@ final class CameraRigModelTests: XCTestCase {
         XCTAssertEqual(rig.pivot.x, 5, accuracy: 1e-12)
         XCTAssertEqual(rig.pivot.y, 5.4 * 0.35, accuracy: 1e-12)
         XCTAssertEqual(rig.pivot.z, -4, accuracy: 1e-12)
-        XCTAssertEqual(rig.distance, 19, accuracy: 1e-12)
+        // 2.2 × extent: the 35° long lens sees a narrower span than the old 50°, so the camera
+        // backs off to frame the same house. Same number the recenter chip springs back to.
+        XCTAssertEqual(rig.distance, 22, accuracy: 1e-12)
         XCTAssertTrue(rig.pitchRange.contains(rig.pitch))
+        XCTAssertTrue(rig.distanceRange.contains(rig.distance),
+                      "the opening shot must sit inside the zoom limits, not on their edge")
         // The camera must sit above the house looking down at it.
         XCTAssertGreaterThan(rig.position.y, rig.pivot.y)
     }
@@ -155,5 +159,60 @@ final class CameraRigModelTests: XCTestCase {
         let rig = CameraRigModel.framing(center: .zero, extent: 0, totalHeight: 0)
         XCTAssertGreaterThan(rig.distance, 0)
         XCTAssertTrue(rig.distanceRange.contains(rig.distance))
+    }
+
+    // MARK: - White Model overhaul (Aug 2026): bounds, rubber band, axis lock
+
+    func testPitchClampKeepsTheCameraOutOfOpaqueWalls() {
+        var rig = CameraRigModel(pivot: .zero, yaw: 0, pitch: 0, distance: 10)
+        rig.orbit(deltaYaw: 0, deltaPitch: -10)
+        XCTAssertEqual(rig.pitch, 12 * .pi / 180, accuracy: 1e-9,
+                       "5° let the camera skim inside walls once they became opaque")
+        rig.orbit(deltaYaw: 0, deltaPitch: 10)
+        XCTAssertEqual(rig.pitch, 80 * .pi / 180, accuracy: 1e-9)
+    }
+
+    func testFramingTiesZoomLimitsToTheHouseSize() {
+        let rig = CameraRigModel.framing(center: .zero, extent: 10, totalHeight: 5)
+        XCTAssertEqual(rig.distanceRange.lowerBound, 8.0, accuracy: 1e-9)
+        XCTAssertEqual(rig.distanceRange.upperBound, 40.0, accuracy: 1e-9)
+        XCTAssertTrue(rig.distanceRange.contains(rig.distance))
+    }
+
+    func testPanCannotPushTheHouseOffScreen() {
+        var rig = CameraRigModel.framing(center: .zero, extent: 10, totalHeight: 5)
+        rig.yaw = 0
+        rig.truck(rightMeters: 500, upMeters: 0)
+        let bounds = try? XCTUnwrap(rig.pivotBounds)
+        XCTAssertNotNil(bounds)
+        XCTAssertLessThanOrEqual(rig.pivot.x, bounds!.maxX + 1e-9,
+                                 "unbounded pan was the 'I lost the house' bug")
+    }
+
+    func testSoftClampAllowsOvershootAndSettleBringsItBack() {
+        var rig = CameraRigModel.framing(center: .zero, extent: 10, totalHeight: 5)
+        rig.yaw = 0
+        let maxX = rig.pivotBounds!.maxX
+        rig.truck(rightMeters: 100, upMeters: 0, soft: true)
+        XCTAssertGreaterThan(rig.pivot.x, maxX, "a gesture in progress may overshoot…")
+        XCTAssertLessThan(rig.pivot.x, maxX + 100, "…but only by a damped fraction")
+        XCTAssertEqual(rig.settled().pivot.x, maxX, accuracy: 1e-9, "…and springs back on release")
+    }
+
+    func testAxisLockPicksTurntableOnlyForClearlyHorizontalDrags() {
+        XCTAssertTrue(CameraRigModel.shouldLockToYaw(dx: 40, dy: 5))
+        XCTAssertFalse(CameraRigModel.shouldLockToYaw(dx: 40, dy: 30))
+        XCTAssertFalse(CameraRigModel.shouldLockToYaw(dx: 5, dy: 40))
+        XCTAssertFalse(CameraRigModel.shouldLockToYaw(dx: 3, dy: 1),
+                       "below the sample threshold the gesture is still undecided")
+    }
+
+    func testRecenteredSnapsYawToTheNearestDiagonal() {
+        var rig = CameraRigModel.framing(center: .zero, extent: 10, totalHeight: 5)
+        rig.yaw = 0.9 * .pi / 4          // just under a diagonal
+        let framed = rig.recentered(on: CameraRigModel.Vec3(x: 1, y: 2, z: 3), extent: 10)
+        XCTAssertEqual(framed.yaw, .pi / 4, accuracy: 1e-9)
+        XCTAssertEqual(framed.pitch, 38 * .pi / 180, accuracy: 1e-9)
+        XCTAssertEqual(framed.distance, 22, accuracy: 1e-9)
     }
 }

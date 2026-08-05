@@ -19,8 +19,10 @@ struct StyledDoorFixture: DoorFixtureBuilding {
 
         let jamb = FixtureStyle.frameSectionM
         let depth = spec.wallThickness + FixtureStyle.frameRevealM * 2
-        let frameMaterial = FixtureStyle.material(
-            DollhousePalette.openingFrame(kind: .door, isExit: spec.isExit), roughness: 0.8)
+        // Frames are recessed, so they run a hair darker than the leaf they hold. Exits are NOT
+        // colored here — a green door leaf was the old renderer's loudest "board game token"
+        // tell. Exits are called out by their marker pad on the plate outside (ExitMarkerFixture).
+        let frameMaterial = FixtureStyle.white(DollhousePalette.frameWhite, roughness: 0.8)
 
         // Side jambs and head — the frame the wall cutout was cut for.
         let left = FixtureStyle.detailBox(width: jamb, height: spec.height, length: depth,
@@ -42,8 +44,10 @@ struct StyledDoorFixture: DoorFixtureBuilding {
         let innerWidth = max(spec.width - jamb * 2, 0.05)
         let leafHeight = max(spec.height - jamb, 0.05)
         let leafThickness = 0.045
-        let leafMaterial = FixtureStyle.material(
-            DollhousePalette.opening(kind: .door, isExit: spec.isExit), roughness: 0.72)
+        // The leaf sits proud and catches light, so it runs a hair brighter than the frame.
+        // Standing ajar is what makes it read instantly as a door in monochrome — and the swing
+        // wedge quietly communicates circulation, which is what an escape-plan app is about.
+        let leafMaterial = FixtureStyle.white(DollhousePalette.doorLeafWhite, roughness: 0.72)
 
         let hinge = SCNNode()
         hinge.position = SCNVector3(Float(-innerWidth / 2), Float(-jamb / 2), 0)
@@ -57,7 +61,7 @@ struct StyledDoorFixture: DoorFixtureBuilding {
         hinge.addChildNode(leaf)
 
         // Handle on each face, near the free edge, at hand height within the leaf.
-        let handleMaterial = FixtureStyle.material(DollhousePalette.doorHandle, roughness: 0.4)
+        let handleMaterial = FixtureStyle.white(DollhousePalette.doorLeafWhite, roughness: 0.5)
         for side: Float in [1, -1] {
             let knob = SCNSphere(radius: 0.024)
             knob.firstMaterial = handleMaterial

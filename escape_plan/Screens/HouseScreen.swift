@@ -44,21 +44,19 @@ struct HouseScreen: View {
 
     // Unified-view state.
     @State private var controller: UnifiedSceneController?
-    @State private var explode: Double = 0
-    /// Non-nil = spotlight this floor: everything else fades back.
-    @State private var spotlightFloorID: String?
-
-    /// Explode/spotlight ALSO live in a stable class box: the `onRebuild` closure is captured
+    /// The focused floor ALSO lives in a stable class box: the `onRebuild` closure is captured
     /// once (at attach) and reads through a stale copy of this struct — @State reads from that
     /// copy returned the values from attach time, so every editor rebuild silently reset the
-    /// exploded view and spotlight fade back to defaults. The box is the same fix
-    /// `RouteOverlayHolder` (below) already is for the overlay: closures read the live values
-    /// through the reference. The @State vars above stay as the UI's render source; every
-    /// write goes to both.
+    /// view back to defaults. The box is the same fix `RouteOverlayHolder` (below) already is
+    /// for the overlay: closures read the live values through the reference.
+    ///
+    /// The exploded-view slider and the spotlight toggle both lived here and are gone: the
+    /// White Model overhaul makes floor focus intrinsic to the render (active floor solid,
+    /// the rest ghosted), which answers "let me see the floor under this one" without taking
+    /// the model apart or spending permanent screen space on a slider.
     @MainActor
     private final class SceneViewStateHolder {
-        var explode: Double = 0
-        var spotlightFloorID: String?
+        var activeFloorID: String?
     }
     @State private var viewStateHolder = SceneViewStateHolder()
 
@@ -213,6 +211,17 @@ struct HouseScreen: View {
     /// view state (explode, spotlight) survive the editor's rebuild-on-every-commit strategy.
     private func attach(_ controller: UnifiedSceneController) {
         self.controller = controller
+        // Tapping a ghosted floor in the model focuses it — the same path the chips take, so
+        // the chips and the 3D can never disagree about which floor is active.
+        controller.onFloorTapped = { id in
+            session?.store.setActiveFloor(id)
+            focusFloor(id)
+        }
+        // Seed focus from the store, not from "whatever the builder opened on". Without this the
+        // chips said Ground Floor while the render kept the top floor solid.
+        if viewStateHolder.activeFloorID == nil {
+            viewStateHolder.activeFloorID = session?.store.activeFloorId
+        }
         controller.onRebuild = { dollhouse in
             // A rebuild throws away the old scene (and its route tubes), so the overlay must
             // be re-created against the NEW dollhouse and the routes redrawn — from the
@@ -229,12 +238,20 @@ struct HouseScreen: View {
     /// Reads through `viewStateHolder`, never the @State vars — this runs from the captured
     /// `onRebuild` closure, where @State reads are stale (see SceneViewStateHolder).
     private func applyViewState(to dollhouse: DollhouseScene) {
-        dollhouse.setExplode(viewStateHolder.explode)
-        for floor in dollhouse.floors {
-            let faded = viewStateHolder.spotlightFloorID != nil
-                && floor.id != viewStateHolder.spotlightFloorID
-            dollhouse.setFloorFade(floor.id, opacity: faded ? 0.22 : 1.0)
-        }
+        guard let id = viewStateHolder.activeFloorID ?? dollhouse.floors.last?.id else { return }
+        // A rebuild produces a brand-new scene, so there is nothing to animate FROM — snap.
+        dollhouse.setActiveFloor(id, animated: false)
+        overlayHolder.overlay?.refreshFloorFocus()
+    }
+
+    /// The one path floor focus changes through, whether it came from a chip or from a tap on
+    /// the model itself — both must land in the same place or the chips and the 3D disagree.
+    private func focusFloor(_ id: String) {
+        viewStateHolder.activeFloorID = id
+        controller?.dollhouse?.setActiveFloor(id)
+        controller?.focusCamera(onFloor: id)
+        overlayHolder.overlay?.refreshFloorFocus()
+        controller?.scnView.setNeedsDisplay()
     }
 
     private func reapplyViewState() {
@@ -266,11 +283,6 @@ struct HouseScreen: View {
                 floatingSceneControls(for: store)
                 routesBanner
                 Spacer(minLength: 0)
-                // The dock carries explode normally; in immersive there is no dock, so it
-                // floats here rather than becoming unreachable.
-                if isImmersive, store.model.floorsByLevel.count > 1 {
-                    floatingExplodeStrip
-                }
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
@@ -302,6 +314,7 @@ struct HouseScreen: View {
                     let isActive = store.activeFloorId == floor.id
                     Button {
                         store.setActiveFloor(floor.id)
+                        focusFloor(floor.id)
                     } label: {
                         Text(floor.name.isEmpty ? "Level \(floor.level)" : floor.name)
                     }
@@ -310,21 +323,19 @@ struct HouseScreen: View {
                     .accessibilityAddTraits(isActive ? [.isSelected] : [])
                 }
 
-                Button {
-                    spotlightFloorID = spotlightFloorID == store.activeFloorId
-                        ? nil : store.activeFloorId
-                    viewStateHolder.spotlightFloorID = spotlightFloorID
-                    reapplyViewState()
-                } label: {
-                    Image(systemName: spotlightFloorID == nil ? "lightbulb" : "lightbulb.fill")
-                }
-                .buttonStyle(GlassChipButtonStyle(isSelected: spotlightFloorID != nil,
-                                                  isCompact: true))
-                .disabled(isTouring)
-                .accessibilityLabel("Spotlight this floor")
             }
 
             Spacer(minLength: 0)
+
+            Button {
+                controller?.recenterCamera()
+            } label: {
+                Image(systemName: "location.viewfinder")
+            }
+            .buttonStyle(GlassChipButtonStyle(isCompact: true))
+            .disabled(isTouring)
+            .accessibilityLabel("Recenter on the home")
+            .accessibilityIdentifier("house.recenter")
 
             Button {
                 withAnimation(reduceMotion ? .easeInOut(duration: 0.2)
@@ -345,25 +356,7 @@ struct HouseScreen: View {
         .glassGroup()
     }
 
-    /// Immersive-only explode control, in the same glass vocabulary as the top strip.
-    private var floatingExplodeStrip: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "square.3.layers.3d.down.right")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            Slider(value: Binding(
-                get: { explode },
-                set: { explode = $0; viewStateHolder.explode = $0; reapplyViewState() }
-            ), in: 0...1)
-            .disabled(isTouring)
-            .accessibilityLabel("Explode floors")
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .glassPanel()
-    }
-
-    // MARK: - View controls (explode, routes)
+    // MARK: - View controls (routes)
 
     /// Quiet section header — the dock's wayfinding. Sentence case, secondary, no chrome.
     private func dockHeader(_ title: String) -> some View {
@@ -375,18 +368,8 @@ struct HouseScreen: View {
     @ViewBuilder
     private func viewControls(for store: HomeModelStore) -> some View {
         VStack(alignment: .leading, spacing: 18) {
-            // Floor picking and spotlight moved onto the model itself (floatingSceneControls);
-            // explode stays here, self-labeled, so the dock opens on route content.
-            if store.model.floorsByLevel.count > 1 {
-                HStack(spacing: 10) {
-                    Text("Explode").font(.caption).foregroundStyle(.secondary)
-                    Slider(value: Binding(
-                        get: { explode },
-                        set: { explode = $0; viewStateHolder.explode = $0; reapplyViewState() }
-                    ), in: 0...1)
-                    .disabled(isTouring)
-                }
-            }
+            // Floor picking lives on the model itself (floatingSceneControls) and focus is now
+            // intrinsic to the render, so the dock is purely route content.
             if let routePlan {
                 routeControls(for: routePlan)
             }
@@ -630,13 +613,9 @@ struct HouseScreen: View {
 
     private func startTour(along route: Route) {
         guard let overlay = overlayHolder.overlay, let controller else { return }
-        // The tour flies the stacked house; explode/spotlight would put the camera in empty
-        // space or inside faded geometry.
-        explode = 0
-        spotlightFloorID = nil
-        viewStateHolder.explode = 0
-        viewStateHolder.spotlightFloorID = nil
-        reapplyViewState()
+        // The tour flies the whole stacked house at eye level, so it must not fly through
+        // ghosted floors: solidify everything for the duration.
+        controller.dollhouse?.setAllFloorsSolid()
         isTouring = true
         Haptics.begin()
         overlay.startTour(along: route, in: controller.scnView,
@@ -646,6 +625,8 @@ struct HouseScreen: View {
     private func stopTour() {
         overlayHolder.overlay?.cancelTour()
         isTouring = false
+        // Restore floor focus the tour suspended.
+        reapplyViewState()
     }
 
     // MARK: - Placement hint

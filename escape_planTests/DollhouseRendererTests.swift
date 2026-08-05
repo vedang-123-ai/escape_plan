@@ -187,39 +187,100 @@ final class DollhouseRendererTests: XCTestCase {
         XCTAssertNotNil(built.dollhouse.scene.rootNode.childNode(withName: "stairs:s_main", recursively: true))
     }
 
-    func testExplodedViewSeparatesFloorsAndReturnsToRest() throws {
+    /// The flagship interaction: exactly one floor is solid and every other floor ghosts.
+    /// Replaces the exploded-view tests — floors no longer move at all.
+    func testActiveFloorIsSolidAndOthersGhost() throws {
         let home = try FixtureLibrary.load(.twostory)
         let dollhouse = DollhouseSceneBuilder.build(home).dollhouse
         let upper = try XCTUnwrap(dollhouse.floors.first { $0.level == 1 })
         let ground = try XCTUnwrap(dollhouse.floors.first { $0.level == 0 })
 
-        dollhouse.setExplode(0)
-        XCTAssertEqual(upper.node.position.y, Float(upper.baseY), accuracy: 1e-4)
+        dollhouse.setActiveFloor(ground.id, animated: false)
+        XCTAssertEqual(dollhouse.activeFloorID, ground.id)
 
-        dollhouse.setExplode(1)
-        XCTAssertGreaterThan(upper.node.position.y, Float(upper.baseY),
-                             "the upper floor must lift when exploded")
-        XCTAssertEqual(ground.node.position.y, Float(ground.baseY), accuracy: 1e-4,
-                       "the bottom floor stays put — everything separates upward from it")
-
-        dollhouse.setExplode(0)
+        // Nothing translates: the house is one object, always.
         XCTAssertEqual(upper.node.position.y, Float(upper.baseY), accuracy: 1e-4)
+        XCTAssertEqual(ground.node.position.y, Float(ground.baseY), accuracy: 1e-4)
+
+        let groundWall = try XCTUnwrap(ground.entries.first { $0.part == .structure })
+        XCTAssertEqual(groundWall.node.geometry?.firstMaterial?.transparency ?? 0, 1.0,
+                       accuracy: 1e-6, "the active floor must be fully opaque")
+
+        let upperWall = try XCTUnwrap(upper.entries.first { $0.part == .structure })
+        XCTAssertEqual(upperWall.node.geometry?.firstMaterial?.transparency ?? 0,
+                       DollhousePalette.ghostOpacityAbove, accuracy: 1e-6,
+                       "a floor ABOVE the active one ghosts to the 'above' opacity")
+        XCTAssertFalse(upperWall.node.castsShadow, "ghosted geometry must not cast")
+
+        // …and flipping focus flips the treatment.
+        dollhouse.setActiveFloor(upper.id, animated: false)
+        let groundWallAfter = try XCTUnwrap(ground.entries.first { $0.part == .structure })
+        XCTAssertEqual(groundWallAfter.node.geometry?.firstMaterial?.transparency ?? 0,
+                       DollhousePalette.ghostOpacityBelow, accuracy: 1e-6,
+                       "a floor BELOW the active one ghosts less — you look down through the top")
     }
 
-    func testExplodeAmountIsClamped() throws {
+    /// Slabs ghost heavier than walls (their silhouette is what communicates a jagged
+    /// footprint), and the outline that makes a ghosted footprint legible only shows while
+    /// ghosted.
+    func testGhostSlabsAreHeavierThanGhostWallsAndOutlinesOnlyShowWhenGhosted() throws {
+        let home = try FixtureLibrary.load(.jagged)
+        let dollhouse = DollhouseSceneBuilder.build(home).dollhouse
+        let basement = try XCTUnwrap(dollhouse.floors.first { $0.level == -1 })
+        let ground = try XCTUnwrap(dollhouse.floors.first { $0.level == 0 })
+
+        dollhouse.setActiveFloor(ground.id, animated: false)
+
+        let slab = try XCTUnwrap(basement.entries.first { $0.part == .slab })
+        let wall = try XCTUnwrap(basement.entries.first { $0.part == .structure })
+        XCTAssertGreaterThan(slab.node.geometry?.firstMaterial?.transparency ?? 0,
+                             wall.node.geometry?.firstMaterial?.transparency ?? 0)
+        XCTAssertLessThanOrEqual(slab.node.geometry?.firstMaterial?.transparency ?? 0,
+                                 DollhousePalette.ghostSlabOpacityCap)
+
+        let outline = try XCTUnwrap(basement.entries.first { $0.part == .outline })
+        XCTAssertFalse(outline.node.isHidden, "a ghosted floor shows its slab outline")
+        let label = try XCTUnwrap(basement.entries.first { $0.part == .hidden })
+        XCTAssertTrue(label.node.isHidden, "ghosted floors hide labels, glass and markers")
+
+        dollhouse.setActiveFloor(basement.id, animated: false)
+        XCTAssertTrue(outline.node.isHidden, "the active floor hides the outline again")
+        XCTAssertFalse(label.node.isHidden)
+    }
+
+    /// The tour flies at eye level through the whole stack, so it must not fly through fog.
+    func testTourSolidifiesEveryFloor() throws {
         let home = try FixtureLibrary.load(.twostory)
         let dollhouse = DollhouseSceneBuilder.build(home).dollhouse
-        let upper = try XCTUnwrap(dollhouse.floors.first { $0.level == 1 })
+        let ground = try XCTUnwrap(dollhouse.floors.first { $0.level == 0 })
+        dollhouse.setActiveFloor(ground.id, animated: false)
 
-        dollhouse.setExplode(1)
-        let atMax = upper.node.position.y
-        dollhouse.setExplode(9)
-        XCTAssertEqual(upper.node.position.y, atMax, accuracy: 1e-4)
+        dollhouse.setAllFloorsSolid()
+        for floor in dollhouse.floors {
+            for entry in floor.entries where entry.part == .structure {
+                XCTAssertEqual(entry.node.geometry?.firstMaterial?.transparency ?? 0, 1.0,
+                               accuracy: 1e-6)
+            }
+        }
+    }
 
-        dollhouse.setExplode(0)
-        let atRest = upper.node.position.y
-        dollhouse.setExplode(-5)
-        XCTAssertEqual(upper.node.position.y, atRest, accuracy: 1e-4)
+    /// The jagged stack is the acceptance model: three levels whose footprints do not line up.
+    func testJaggedFixtureBuildsThreeMisalignedFloors() throws {
+        let home = try FixtureLibrary.load(.jagged)
+        let built = DollhouseSceneBuilder.build(home)
+        XCTAssertTrue(built.issues.isEmpty,
+                      "jagged fixture must build clean: \(built.issues.map(\.message))")
+        XCTAssertEqual(built.dollhouse.floors.count, 3)
+        XCTAssertEqual(built.dollhouse.floors.map(\.level), [-1, 0, 1],
+                       "floors stack by level, so the basement is first")
+        // The base plate sizes to the UNION and sits at the LOWEST floor's base, which is
+        // below zero once a basement exists.
+        let plate = try XCTUnwrap(built.dollhouse.scene.rootNode.childNode(withName: "basePlate",
+                                                                           recursively: true))
+        let plateBox = try XCTUnwrap(plate.childNodes.first?.geometry as? SCNBox)
+        XCTAssertGreaterThan(Double(plateBox.width), 20.0, "plate spans the widest floor + apron")
+        XCTAssertLessThan(plate.childNodes.first?.position.y ?? 0, 0,
+                          "a basement pushes the plinth below the ground floor")
     }
 
     func testFloorVisibilityToggles() throws {
@@ -241,9 +302,14 @@ final class DollhouseRendererTests: XCTestCase {
     /// hand-set renderingOrder is the kind of regression that only shows up as "walls look
     /// wrong from some angles".
     func testEveryNodeSitsInItsRenderOrderBand() throws {
-        let knownBands: Set<Int> = [RenderOrder.opaque, RenderOrder.objects, RenderOrder.fixtures,
+        let knownBands: Set<Int> = [RenderOrder.opaque, RenderOrder.opaque + 1,
+                                    RenderOrder.objects, RenderOrder.fixtures,
                                     RenderOrder.walls, RenderOrder.glass,
-                                    RenderOrder.glow, RenderOrder.routes, RenderOrder.labels,
+                                    RenderOrder.ghostSlab, RenderOrder.ghostSlab + 1,
+                                    RenderOrder.ghostWall,
+                                    RenderOrder.routes, RenderOrder.routes - 1,
+                                    RenderOrder.routes + 1,
+                                    RenderOrder.exitMarkers, RenderOrder.labels,
                                     RenderOrder.badges, RenderOrder.badgeGlyphs]
         for fixture in Fixture.allCases {
             let home = try FixtureLibrary.load(fixture)
@@ -272,12 +338,17 @@ final class DollhouseRendererTests: XCTestCase {
         let node = try XCTUnwrap(built.dollhouse.scene.rootNode.childNode(withName: "object:o_test",
                                                                           recursively: true))
         XCTAssertEqual(node.renderingOrder, RenderOrder.objects)
-        let box = try XCTUnwrap(node.geometry as? SCNBox)
-        XCTAssertEqual(Double(box.width), 2.0, accuracy: 1e-6)
-        XCTAssertEqual(Double(box.length), 0.9, accuracy: 1e-6)
-        XCTAssertEqual(Double(box.height), 0.8, accuracy: 1e-6)
-        // Sitting ON the slab: center at half height; plan (2.5, 2.0) → scene (2.5, _, -2.0).
-        XCTAssertEqual(node.position.y, 0.4, accuracy: 1e-4)
+        // Furniture is a white mini assembled from several parts now (seat + back + arms for a
+        // sofa), not one prism — but it must still be ONE node with that name, because the
+        // editor's selection and drag key off it.
+        XCTAssertNil(node.geometry, "the mini is a container; its parts are children")
+        XCTAssertFalse(node.childNodes.isEmpty)
+        let (minB, maxB) = node.boundingBox
+        XCTAssertEqual(Double(maxB.x - minB.x), 2.0, accuracy: 0.12)
+        XCTAssertEqual(Double(maxB.z - minB.z), 0.9, accuracy: 0.12)
+        XCTAssertEqual(Double(maxB.y - minB.y), 0.8, accuracy: 0.12)
+        // Sitting ON the slab: the mini's origin is at floor level, not at half height.
+        XCTAssertEqual(node.position.y, 0.0, accuracy: 1e-4)
         XCTAssertEqual(node.position.z, -2.0, accuracy: 1e-4)
         XCTAssertEqual(Double(node.eulerAngles.y), .pi / 2, accuracy: 1e-6)
     }

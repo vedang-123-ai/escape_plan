@@ -14,8 +14,7 @@ struct StyledWindowFixture: WindowFixtureBuilding {
 
         let section = FixtureStyle.frameSectionM * 0.85
         let depth = spec.wallThickness + FixtureStyle.frameRevealM * 2
-        let frameMaterial = FixtureStyle.material(
-            DollhousePalette.openingFrame(kind: .window, isExit: spec.isExit), roughness: 0.75)
+        let frameMaterial = FixtureStyle.white(DollhousePalette.frameWhite, roughness: 0.75)
 
         // Frame: two uprights, a head, and a sill ledge that stands proud of the wall faces.
         for side: Float in [-1, 1] {
@@ -40,28 +39,35 @@ struct StyledWindowFixture: WindowFixtureBuilding {
         let innerHeight = max(spec.height - section - 0.045, 0.04)
         let mullionMaterial = frameMaterial
 
-        let vertical = FixtureStyle.detailBox(width: 0.024, height: innerHeight, length: 0.03,
-                                              chamfer: 0.002, material: mullionMaterial)
-        vertical.position.y = Float(-0.0225 + section / 2)
-        container.addChildNode(vertical)
+        let paneY = Float(-0.0225 + section / 2)
+
+        // A center mullion only once the opening is wide enough to need one; narrow windows
+        // read cleaner as a single light.
+        if spec.width > 1.1 {
+            let vertical = FixtureStyle.detailBox(width: 0.024, height: innerHeight, length: 0.03,
+                                                  chamfer: 0.002, material: mullionMaterial)
+            vertical.position.y = paneY
+            container.addChildNode(vertical)
+        }
 
         let horizontal = FixtureStyle.detailBox(width: innerWidth, height: 0.024, length: 0.03,
                                                 chamfer: 0.002, material: mullionMaterial)
-        horizontal.position.y = vertical.position.y
+        horizontal.position.y = paneY
         container.addChildNode(horizontal)
 
-        // The pane: translucent, low-roughness, depth-write-off like the walls, drawn in the
-        // glass band so it blends over the wall segments that surround it.
+        // The pane is all but invisible: 8% white at very low roughness. A window in a white
+        // model reads by its bright frame and a specular glint off the glazing, never by a blue
+        // tint — the old pale-blue pane was one more hue competing with the routes.
         let glass = SCNBox(width: CGFloat(innerWidth), height: CGFloat(innerHeight),
                            length: 0.012, chamferRadius: 0)
-        let glassMaterial = FixtureStyle.material(DollhousePalette.windowGlass, roughness: 0.08)
-        glassMaterial.transparency = 0.42
+        let glassMaterial = FixtureStyle.material(DollhousePalette.glassWhite, roughness: 0.05)
+        glassMaterial.transparency = DollhousePalette.glassTransparency
         glassMaterial.isDoubleSided = true
         glassMaterial.writesToDepthBuffer = false
         glass.firstMaterial = glassMaterial
 
         let pane = SCNNode(geometry: glass)
-        pane.position.y = vertical.position.y
+        pane.position.y = paneY
         pane.renderingOrder = RenderOrder.glass
         pane.castsShadow = false
         container.addChildNode(pane)

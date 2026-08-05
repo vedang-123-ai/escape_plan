@@ -50,8 +50,29 @@ struct CameraRigModel: Equatable {
     /// leave the house a speck.
     var distance: Double
 
-    var pitchRange: ClosedRange<Double> = (5 * .pi / 180)...(85 * .pi / 180)
+    /// 12° rather than 5°: now that the walls are opaque, a very low camera skims *inside* them
+    /// and the view fills with wall interior. 80° rather than 85° keeps yaw from going
+    /// degenerate at the top.
+    var pitchRange: ClosedRange<Double> = (12 * .pi / 180)...(80 * .pi / 180)
     var distanceRange: ClosedRange<Double> = 0.5...200
+
+    /// Region the pivot is allowed to occupy — the house bounds plus an apron. Without this,
+    /// panning is unbounded and the house can be pushed off screen with no way back, which was
+    /// the single most-reported "I lost the house" bug. `nil` disables clamping.
+    var pivotBounds: Bounds?
+
+    /// An axis-aligned box in world space.
+    struct Bounds: Equatable {
+        var minX: Double, maxX: Double
+        var minY: Double, maxY: Double
+        var minZ: Double, maxZ: Double
+
+        init(minX: Double, maxX: Double, minY: Double, maxY: Double, minZ: Double, maxZ: Double) {
+            self.minX = min(minX, maxX); self.maxX = max(minX, maxX)
+            self.minY = min(minY, maxY); self.maxY = max(minY, maxY)
+            self.minZ = min(minZ, maxZ); self.maxZ = max(minZ, maxZ)
+        }
+    }
 
     init(pivot: Vec3, yaw: Double, pitch: Double, distance: Double) {
         self.pivot = pivot
@@ -92,22 +113,66 @@ struct CameraRigModel: Equatable {
     }
 
     /// Pan: slide the pivot in the camera's right/up plane. Deltas in meters at pivot depth.
-    mutating func truck(rightMeters: Double, upMeters: Double) {
+    ///
+    /// `soft` is what a gesture in progress passes: motion past the bounds is allowed but
+    /// resisted, so the pan feels elastic at the edge instead of hitting a wall. On release the
+    /// caller springs to `settled()`.
+    mutating func truck(rightMeters: Double, upMeters: Double, soft: Bool = false) {
         pivot = pivot + right * rightMeters + up * upMeters
+        clampPivot(soft: soft)
+    }
+
+    /// Pull the pivot back inside `pivotBounds`. Beyond the edge, `soft` keeps only a quarter of
+    /// the overshoot — the standard rubber-band feel.
+    mutating func clampPivot(soft: Bool = false) {
+        guard let b = pivotBounds else { return }
+        let limit: (Double, Double, Double) -> Double = soft
+            ? { v, lo, hi in v < lo ? lo + (v - lo) * 0.25 : (v > hi ? hi + (v - hi) * 0.25 : v) }
+            : { v, lo, hi in min(max(v, lo), hi) }
+        pivot = Vec3(x: limit(pivot.x, b.minX, b.maxX),
+                     y: limit(pivot.y, b.minY, b.maxY),
+                     z: limit(pivot.z, b.minZ, b.maxZ))
+    }
+
+    /// Where a soft-clamped rig should spring back to when the gesture ends: everything hard
+    /// clamped into range.
+    func settled() -> CameraRigModel {
+        var copy = self
+        copy.clampPivot(soft: false)
+        copy.distance = min(max(distance, distanceRange.lowerBound), distanceRange.upperBound)
+        copy.pitch = min(max(pitch, pitchRange.lowerBound), pitchRange.upperBound)
+        return copy
+    }
+
+    /// Decide whether a drag should be a pure turntable (yaw only) or free yaw+pitch, from the
+    /// first few points of travel.
+    ///
+    /// A single pan gesture driving both axes means a mostly-horizontal swipe still picks up a
+    /// few degrees of pitch wobble, which is what made orbiting feel unsteady. Locking to yaw
+    /// once the gesture is clearly horizontal gives a clean turntable and still allows tilting
+    /// when the user actually means to.
+    static func shouldLockToYaw(dx: Double, dy: Double, sampleThreshold: Double = 12) -> Bool {
+        guard abs(dx) + abs(dy) >= sampleThreshold else { return false }
+        return abs(dx) > 2 * abs(dy)
     }
 
     /// Zoom by `scale` (>1 zooms in) keeping `anchor` fixed on screen: the distance shrinks by
     /// the scale and the pivot slides toward the anchor by the same proportion, so the point
     /// under the user's fingers stays under their fingers.
-    mutating func zoom(scale: Double, towardAnchor anchor: Vec3) {
+    mutating func zoom(scale: Double, towardAnchor anchor: Vec3, soft: Bool = false) {
         guard scale > 1e-9 else { return }
         let target = distance / scale
-        let clamped = min(max(target, distanceRange.lowerBound), distanceRange.upperBound)
+        let lo = distanceRange.lowerBound, hi = distanceRange.upperBound
+        let clamped = soft
+            ? (target < lo ? lo + (target - lo) * 0.25
+                           : (target > hi ? hi + (target - hi) * 0.25 : target))
+            : min(max(target, lo), hi)
         // If the distance clamp bites, shrink the pivot slide to match — otherwise the pivot
         // keeps drifting into the anchor while the view no longer zooms.
         let effectiveScale = distance / clamped
         distance = clamped
         pivot = anchor + (pivot - anchor) * (1 / effectiveScale)
+        clampPivot(soft: soft)
     }
 
     /// Zoom about the pivot itself (no anchor — e.g. keyboard/slider zoom).
@@ -137,10 +202,42 @@ struct CameraRigModel: Equatable {
         var rig = CameraRigModel(
             pivot: Vec3(x: center.x, y: totalHeight * 0.35, z: center.z),
             yaw: .pi * 0.2,
-            pitch: 35 * .pi / 180,
-            distance: safeExtent * 1.9
+            pitch: 38 * .pi / 180,
+            distance: safeExtent * openingDistanceFactor
         )
-        rig.distanceRange = 0.5...(safeExtent * 20)
+        // Tied to the model's own size instead of the old absolute 0.5…extent×20, which let the
+        // user zoom until the house was a speck or until the near plane was inside a wall.
+        rig.distanceRange = (safeExtent * 0.8)...(safeExtent * 4.0)
+        // Pan is bounded to the house plus a quarter-extent apron, vertically to the stack.
+        let apron = safeExtent * 0.25
+        rig.pivotBounds = Bounds(minX: center.x - apron, maxX: center.x + apron,
+                                 minY: 0, maxY: max(totalHeight, 1.0),
+                                 minZ: center.z - apron, maxZ: center.z + apron)
+        rig.clampPivot()
         return rig
+    }
+
+    /// How far back the opening shot and the recenter chip sit, as a multiple of the plan extent.
+    ///
+    /// Derived, not guessed: the old framing was 1.9 × extent at a 50° field of view. The White
+    /// Model overhaul drops to a 35° long lens to kill wide-angle distortion, which narrows the
+    /// visible span by tan(25°)/tan(17.5°) ≈ 1.48× — so the camera has to back off by the same
+    /// factor to frame the same house. A further margin covers the diagonal, since at a 45° yaw
+    /// the model presents √2 × its extent across the frame.
+    static let openingDistanceFactor = 2.2
+
+    /// The shot the recenter chip springs to: framed on `center`, backed off by the opening
+    /// distance, tilted to 38°, and yawed to the nearest 45° diagonal so the house sits
+    /// square-ish in frame.
+    func recentered(on center: Vec3, extent: Double) -> CameraRigModel {
+        let safeExtent = max(extent, 1.0)
+        var copy = self
+        copy.pivot = center
+        copy.pitch = 38 * .pi / 180
+        copy.distance = safeExtent * CameraRigModel.openingDistanceFactor
+        let step = Double.pi / 4
+        copy.yaw = (yaw / step).rounded() * step
+        copy.clampPivot()
+        return copy
     }
 }

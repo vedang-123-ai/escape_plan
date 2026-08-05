@@ -178,7 +178,13 @@ is unverified is the round-trip against a real scan.
 
 - [ ] All three fixtures render legibly at 60fps on-device. Observed working on simulator;
       the frame-rate claim needs real hardware. (S1.3)
-- [ ] Two-story exploded view and floor toggling on-device. (S1.3)
+- [ ] Floor toggling on-device — chips AND tapping a ghosted floor in the 3D view, with the
+      0.35 s focus glide. (The exploded view this line used to name was REMOVED in the
+      2026-08-05 White Model overhaul; ghost-floor stacking replaced it.) (S1.3)
+- [ ] `jagged` fixture on-device: activate the basement, confirm the two floors above ghost,
+      all three slab outlines stay legible at once, and there is no z-fighting or murk. This
+      is the stacking acceptance model and it has only been verified in the simulator.
+      (White Model overhaul, `notes/2026-08-05-white-model-dollhouse.md`)
 - [ ] Build the bungalow shape by hand on-device in under 5 min from an empty model, and
       confirm drags feel smooth. (S2.1)
 - [ ] Confirm no gesture can produce an invalid model. (S2.1)
@@ -211,6 +217,18 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       delete-under-editor seam only protects the HomeScreen→Editor push path. Cross-tab
       delete while the House tab holds the same home is still unguarded — share one library
       instance (or an app-level environment object) if that matters. (Lane A)
+- [ ] NOT STARTED, deliberately out of scope on 2026-08-05 — the design handoff's remaining
+      two thirds. Owner scoped this session to the renderer core only:
+      - "People" layer from `swift-implementation-notes.md`: capsule mannequins per family
+        member, one route color per person, name pills, tap-to-isolate a person's routes.
+        Needs `/routes` fetched for EVERY profile at once, not just the selected one — a real
+        `HouseScreen` + `APIClient+Routes` change, not a rendering change.
+      - Spec §10-12 app chrome pass: apply the new accent through Home/Score/Assistant/
+        Settings, typography rhythm, one signature moment per screen, live 3D thumbnails in
+        the homes list.
+      - Spec §11 app icon redesign (white extruded house cross-section, hot route line, green
+        exit pad) across the light/dark/tinted trio.
+      Brief + prototype: Claude Design project `344e3e53-37d2-4471-831c-aa50067e9d55`.
 - [ ] Selecting an opening or stairs draws no marker in the 3D view
       (`UnifiedSceneController.highlightCenter` returns nil for both — deferred since S2.2).
       The inspector bar makes the selection legible; a visible marker needs Lane B's renderer
@@ -218,8 +236,18 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
 - [ ] Custom launch screen (branded color/image instead of the generated blank): needs a
       pbxproj edit (storyboard ref or physical Info.plist), deliberately deferred to the
       integration window while Lane A holds the project file — decisions.md 2026-07-23. (S4.4)
-- [ ] Real-device check of the S4.4 renderer work: 60fps on all three fixtures on a physical
-      phone, and haptics feel (simulator can't verify either). (S4.4)
+- [ ] Real-device check of the renderer: 60fps on all FOUR fixtures (bungalow, apartment,
+      twostory, jagged) on a physical phone, and haptics feel (simulator can't verify either).
+      The White Model overhaul made walls opaque and shadow-casting and turned on SSAO — both
+      cost fill rate, so this number genuinely needs re-measuring, not just re-asserting.
+      (S4.4 / White Model overhaul)
+- [ ] On-device check of orthographic framing specifically. `orthographicScale` is a
+      half-HEIGHT, so portrait aspect correction is the difference between a framed house and
+      one cropped at both sides — and it is invisible on a square-ish simulator window.
+      (White Model overhaul)
+- [ ] Camera feel on hardware: turntable axis lock, release inertia, pan rubber-band spring,
+      double-tap zoom, and the recenter chip's appear/disappear threshold. All are tuned by
+      numbers that only a real finger can judge. (White Model overhaul)
 - [ ] Drop the real shared bearer token into `escape_plan/BackendConfig.local.json`
       (`{"bearer_token": "..."}`, gitignored) on the build machine before any demo/device
       build — without it a fresh install reaches the Render URL but gets 401s until the

@@ -16,10 +16,10 @@ import SwiftUI
 struct UnifiedSceneView: UIViewRepresentable {
     let dollhouse: DollhouseScene
     let home: HomeModel
-    var explode: Double
     var hiddenFloorIDs: Set<String>
-    /// Floors faded (not hidden) to spotlight another floor. id → opacity.
-    var floorFades: [String: Double] = [:]
+    /// The floor in focus: it renders solid, every other floor ghosts to a translucent shell.
+    /// Replaces the old explode slider and per-floor fade map — see `DollhouseScene`.
+    var activeFloorID: String?
     /// The route overlay's pulse shader animates on `u_time`, which only advances while the
     /// view redraws — flip this on while routes are shown, off for the static scene.
     var wantsContinuousRendering: Bool = false
@@ -62,9 +62,6 @@ struct UnifiedSceneView: UIViewRepresentable {
                 context.coordinator.homeID = home.home_id
             }
             rig.attach(to: dollhouse.scene, view: view)
-            if isTouring {
-                // Attach set pointOfView to the rig; the tour node owns it until it finishes.
-            }
             if let onViewReady {
                 DispatchQueue.main.async { onViewReady(view, rig) }
             }
@@ -79,10 +76,13 @@ struct UnifiedSceneView: UIViewRepresentable {
     }
 
     private func apply(to view: SCNView) {
-        dollhouse.setExplode(explode)
         for floor in dollhouse.floors {
             dollhouse.setFloor(floor.id, visible: !hiddenFloorIDs.contains(floor.id))
-            dollhouse.setFloorFade(floor.id, opacity: floorFades[floor.id] ?? 1.0)
+        }
+        // Only re-focus when the selection actually changed: setActiveFloor animates, and
+        // SwiftUI calls updateUIView far more often than the floor changes.
+        if let activeFloorID, activeFloorID != dollhouse.activeFloorID {
+            dollhouse.setActiveFloor(activeFloorID)
         }
         view.setNeedsDisplay()
     }

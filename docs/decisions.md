@@ -816,3 +816,77 @@ that ever fails is the user's app, at runtime, on the demo home.
 
 Also added: `AnalyzeModelsTests` (6 tests). `AnalyzeModels` had shipped with no test file
 at all, which is part of why its sibling break in `ScoreModels` went unnoticed.
+
+---
+
+## 2026-08-05 — "White Model" dollhouse overhaul (design-project handoff)
+
+Implements the approved brief `DOLLHOUSE-REDESIGN-SPEC.md` and the locked prototype values in
+`swift-implementation-notes.md`, from Claude Design project `344e3e53-37d2-4471-831c-aa50067e9d55`
+(three.js prototype: `Dollhouse Prototype.dc.html` + `dollhouse-three.js`). Deviations and
+judgement calls, with reasons:
+
+**Scope: renderer core only.** The locked notes also describe a "people" layer (capsule
+mannequins per family member, one route color per person, tap-to-isolate) and §10–12 describe an
+app-wide chrome pass and an icon redesign. Both are deliberately NOT in this change. The people
+layer needs routes fetched for every profile at once, not just the selected one — a real
+`/routes` + `HouseScreen` change, not a rendering change. Owner confirmed renderer-only.
+
+**Stayed on SceneKit.** SceneKit was soft-deprecated at WWDC 2025 (maintenance mode, no
+hard-deprecation date). The redesign is materials + lighting + camera + fixture swaps — exactly
+the seams `FixtureCatalog`, `DollhousePalette` and `CameraRigModel` already abstract. A
+RealityKit migration would touch the editor bridge, hit-testing, gesture arbitration, route
+overlay, drill mode and label sprites for zero visible gain, and the CAC deadline favors shipping
+the look. Phase 1 was kept migration-friendly: camera math stays engine-free, colors stay in one
+file, fixture specs stay pure structs. See spec §8.
+
+**Walls are opaque; the exploded-view slider is gone.** These are one decision. The old renderer
+answered "let me see inside" with always-translucent walls, and "let me see the floor below" with
+a slider that separated the stack vertically. Stacked translucent layers multiply into gray murk
+(that was the "reads as CAD" complaint), and the slider broke the model into floating slices while
+costing permanent screen space. Both are replaced by: solid opaque walls + an open top + exactly
+one ACTIVE floor rendered solid while every other floor ghosts (0.12 above / 0.18 below). Removed
+`setExplode`, `setFloorFade`, `explodeGapM`, the `explode` state and both slider UIs, plus the
+floor-spotlight toggle (ghosting subsumes it).
+
+**Ghost floors swap materials rather than setting node opacity.** `node.opacity = 0.12` on a
+subtree of overlapping boxes stacks every interior face and reproduces the murk. Each ghosted
+floor's geometry swaps to one flat unlit back-face-culled white so a wall contributes exactly ONE
+translucent layer. Materials are cached per node at build time (`DollhouseScene.GhostEntry`) so
+the swap is reversible without a rebuild, and classification keys off the render band a fixture
+already assigned — custom `FixtureCatalog` builders keep working for free.
+
+**Two-pass route occlusion instead of `.greater` depth.** The spec asked for a second pass with
+`depthFunc = .greater`. `SCNMaterial` exposes no depth-comparison function, so the same read is
+achieved with ordering: pass B draws first ignoring depth at 55%, pass A draws after with a normal
+depth test at full strength. Occluded stretches ghost, visible stretches are hot — no `SCNTechnique`
+needed. The old single depth-off pass made routes float flatly over the house.
+
+**Framing distance is 2.2 × extent, not the spec's 1.35 ×.** The spec's number assumed the old 50°
+field of view. Dropping to a 35° long lens (to kill wide-angle distortion) narrows the visible span
+by tan(25°)/tan(17.5°) ≈ 1.48×, so at 1.35× the house rendered cropped on every side. 1.35 × 1.48
+≈ 2.0, plus margin for the diagonal presented at a 45° yaw → 2.2. Verified on the simulator.
+
+**Orthographic scale is aspect-corrected.** `orthographicScale` is a half-HEIGHT; on a portrait
+viewport the visible width is `scale × aspect`, so a house framed to fit vertically loses both
+sides. The rig now divides by the aspect below 1. Without this, ortho framing is wrong on phones
+specifically — the one form factor this app ships on.
+
+**Accent color: deep safety green `#0E8A3E`** (spec §10 option B, owner's pick). Green chrome keeps
+orange reserved exclusively for routes, so nothing in the UI competes with the escape path. Also
+retires the yellow selection sphere in favor of an accent ring on the floor.
+
+**Exits are ground markers, not colored doors.** `opening(kind:isExit:)` returned saturated green
+door leaves and teal exit windows. Replaced by `ExitMarkerFixture`: a green pad with chevrons on
+the plate outside each exit, readable from any orbit angle and present whether or not routes are
+shown. `RouteOverlay.addExitGlow` deleted with it.
+
+**New fixture `jagged.json`** (both `schema/fixtures/` and the bundled `escape_plan/Fixtures/`,
+registered in `HomeFixture` and `Fixture`): basement 4×5 m in one corner, 20×20 m ground floor,
+12×8 m upper offset to the opposite corner. This is the acceptance model for stacking — it is what
+proves ghost opacities, slab outlines and the union-sized base plate read correctly when the stack
+is not a tidy tower.
+
+**Also fixed in passing:** `RenderOrder.routes` was declared but never used — `RouteOverlay`
+hardcoded 50/52/55/56, outside the ledger the band system exists to enforce. All route ordering now
+goes through the enum, and the render-band test covers it.

@@ -1,116 +1,124 @@
 import SceneKit
 import UIKit
 
-/// Warm "architectural model" palette: cream paper backdrop, wood-toned slabs, calm room
-/// accents. Kept in one place so the editor (S2.x) and the route overlay (S2.3) key off the
-/// same colors instead of inventing a second palette.
+/// "White Model" palette — the visual overhaul of Aug 2026 (`DOLLHOUSE-REDESIGN-SPEC.md` §3.3,
+/// tuned values locked in `swift-implementation-notes.md`).
 ///
-/// S4.4 rework: the dollhouse used to read as CAD gray, and the route tubes — the whole point
-/// of the app — were dimmed to invisibility behind stacked translucent walls. The palette now
-/// distinguishes exterior from interior walls, warms every structural tone, and pushes the
-/// route colors hot enough to read from across the room.
+/// The governing idea: ONE white material family for every wall, door, window, stair, slab and
+/// piece of furniture. Form is read through shading — a soft key light, ambient occlusion in
+/// the corners, and a bright cut top on every sliced wall — the way a white ball against a
+/// bright sky still reads as a sphere because its underside is dark. Nothing here is
+/// hand-tinted per element; the tones differ only by a few points of luminance so the family
+/// reads as one material under one light.
+///
+/// The ONLY color in the scene is the escape-route system and the exit markers. That is the
+/// deliberate divergence (spec §3.2): this is a life-safety app, so the route must be the
+/// hottest thing on screen and everything else must get out of its way. When routes are hidden
+/// (editor mode) the scene is fully monochrome.
+///
+/// Replaces the previous warm "diorama" palette, whose per-room accents, clay exterior walls and
+/// saturated door/window panels put 10+ hues in one view and left the routes competing for
+/// attention with the furniture.
 enum DollhousePalette {
 
-    /// Warm paper backdrop — reads as a diorama table, not a void.
-    static let background = UIColor(red: 0.957, green: 0.937, blue: 0.902, alpha: 1.0)
-    /// Slab top: pale warm oak.
-    static let slab = UIColor(red: 0.914, green: 0.875, blue: 0.812, alpha: 1.0)
-    /// Interior partitions: light warm plaster.
-    static let wall = UIColor(red: 0.851, green: 0.816, blue: 0.769, alpha: 1.0)
-    /// Exterior shell: deeper clay tone, clearly the "outside" of the model.
-    static let exteriorWall = UIColor(red: 0.639, green: 0.557, blue: 0.494, alpha: 1.0)
-    static let stairs = UIColor(red: 0.706, green: 0.627, blue: 0.545, alpha: 1.0)
-    static let label = UIColor(red: 0.216, green: 0.192, blue: 0.161, alpha: 1.0)
+    // MARK: - Environment
 
-    /// Interior walls stay airy so the floor plan (and the routes on it) read from outside…
-    static let wallOpacity: CGFloat = 0.18
-    /// …while the exterior shell keeps enough body that the house reads as a solid object.
-    static let exteriorWallOpacity: CGFloat = 0.34
+    /// Studio cyc — neutral-warm light gray, a touch darker than the model so the white object
+    /// reads bright against it.
+    static let background = UIColor(hex: 0xE9E8E6)
+    /// Bottom of the background gradient.
+    static let backgroundLower = UIColor(hex: 0xE0DEDB)
+    /// The "table" the house sits on.
+    static let basePlate = UIColor(hex: 0xDFDDD9)
+    /// Soft radial shadow under the whole model. Used at `contactShadowAlpha` or below.
+    static let contactShadow = UIColor(hex: 0xB9B5AF)
+    /// Kept low on purpose: the key light's shadow map already draws the shaped shadow, and this
+    /// is only the soft ambient darkening under the model. Any stronger and the radial falloff
+    /// reads as a smudge on the plate wherever the house doesn't actually sit.
+    static let contactShadowAlpha: CGFloat = 0.18
 
-    /// How far a room slab leans toward its accent (0 = pure slab). Was 0.28 effective —
-    /// too washed out for the rooms to have identities.
-    static let roomAccentStrength: CGFloat = 0.52
+    // MARK: - The white family (every structural surface)
 
-    static func accent(for type: RoomType) -> UIColor {
-        switch type {
-        case .bedroom: return UIColor(red: 0.475, green: 0.576, blue: 0.816, alpha: 1.0)
-        case .living:  return UIColor(red: 0.522, green: 0.729, blue: 0.545, alpha: 1.0)
-        case .kitchen: return UIColor(red: 0.918, green: 0.694, blue: 0.376, alpha: 1.0)
-        case .hall:    return UIColor(red: 0.780, green: 0.729, blue: 0.643, alpha: 1.0)
-        case .bath:    return UIColor(red: 0.494, green: 0.741, blue: 0.780, alpha: 1.0)
-        case .garage:  return UIColor(red: 0.647, green: 0.588, blue: 0.671, alpha: 1.0)
-        case .other:   return UIColor(red: 0.753, green: 0.722, blue: 0.671, alpha: 1.0)
-        }
-    }
+    static let wallWhite = UIColor(hex: 0xF7F6F3)
+    /// Top face of a cut wall — the BRIGHTEST surface in the scene. This is the single most
+    /// important perceptual flip versus the old palette, which rimmed wall tops in a dark cap:
+    /// a white architectural model reads its cut edge as the brightest face, not the darkest,
+    /// and that one change is most of what makes the dollhouse look sliced rather than unfinished.
+    static let wallTopCut = UIColor(hex: 0xFFFFFF)
+    /// Room slabs — 2–3% darker than the walls so the plan reads without any tinting.
+    static let floorWhite = UIColor(hex: 0xF1EFEA)
+    /// Extruded slab side faces.
+    static let slabEdge = UIColor(hex: 0xE8E5DF)
+    /// Same white as the walls on purpose — shared material identity is the whole point.
+    static let furnitureWhite = UIColor(hex: 0xF7F6F3)
+    static let stairWhite = UIColor(hex: 0xF4F2EE)
+    /// Door leaves sit proud of the wall and catch light, so they run a hair brighter…
+    static let doorLeafWhite = UIColor(hex: 0xFAF9F7)
+    /// …and jambs/frames are recessed, so they run a hair darker.
+    static let frameWhite = UIColor(hex: 0xEFEDE8)
+    /// Window panes are near-invisible: read by their frame and a specular kick, never by a
+    /// blue tint. Used at `glassTransparency`.
+    static let glassWhite = UIColor.white
+    static let glassTransparency: CGFloat = 0.08
 
-    // S2.3 route overlay. Primary is the hottest color in the scene on purpose — the escape
-    // path is the thing the eye must find first. Secondary is cool and dashed so the two
-    // never read as interchangeable.
-    /// Object prisms (v1.1): muted per-category tints so furniture reads as context, never
-    /// competing with routes or warnings.
-    static func object(category: ObjectCategory) -> UIColor {
-        switch category {
-        case .bed: return UIColor(red: 0.62, green: 0.70, blue: 0.82, alpha: 1.0)
-        case .sofa: return UIColor(red: 0.64, green: 0.74, blue: 0.68, alpha: 1.0)
-        case .table: return UIColor(red: 0.78, green: 0.72, blue: 0.62, alpha: 1.0)
-        case .wardrobe: return UIColor(red: 0.72, green: 0.66, blue: 0.76, alpha: 1.0)
-        case .appliance: return UIColor(red: 0.68, green: 0.72, blue: 0.76, alpha: 1.0)
-        case .storage: return UIColor(red: 0.76, green: 0.70, blue: 0.66, alpha: 1.0)
-        case .other: return UIColor(red: 0.72, green: 0.72, blue: 0.72, alpha: 1.0)
-        }
-    }
+    // MARK: - Ghost treatment for inactive floors (spec §4)
 
-    static let routePrimary = UIColor(red: 1.0, green: 0.420, blue: 0.102, alpha: 1.0)
-    static let routeSecondary = UIColor(red: 0.302, green: 0.537, blue: 0.870, alpha: 1.0)
-    static let exitGlow = UIColor(red: 0.180, green: 0.820, blue: 0.443, alpha: 1.0)
-    static let warningBadge = UIColor(red: 0.90, green: 0.30, blue: 0.25, alpha: 1.0)
+    /// Inactive floors swap to a single flat unlit white so each wall contributes exactly ONE
+    /// translucent layer. Lighting variation on a 12%-alpha surface is just noise, and stacking
+    /// lit translucent boxes is what produced the old renderer's gray murk.
+    static let ghostWhite = UIColor(hex: 0xF7F6F3)
+    /// Floors ABOVE the active one curtain the view down through the open top, so they thin out
+    /// more than floors below.
+    static let ghostOpacityAbove: CGFloat = 0.12
+    static let ghostOpacityBelow: CGFloat = 0.18
+    /// Ghost slabs render heavier than ghost walls — the slab silhouette is what communicates a
+    /// jagged footprint (a small basement under a wide ground floor).
+    static let ghostSlabBoost: CGFloat = 2.0
+    static let ghostSlabOpacityCap: CGFloat = 0.55
+    /// 1px outline on ghost slab edges so stacked footprints stay legible.
+    static let ghostEdge = UIColor(hex: 0x6B6862)
+    static let ghostEdgeAlpha: CGFloat = 0.25
+
+    // MARK: - The only color in the scene
+
+    /// Hot safety orange. The most saturated thing in any frame, by design.
+    static let routePrimary = UIColor(hex: 0xFF5A1F)
+    /// The backup route is the SAME hue, lighter and dashed. The old cool-blue secondary is
+    /// retired: against a monochrome model, two hot hues read as two unrelated systems, whereas
+    /// light-orange-dashed reads as "backup of the same plan".
+    static let routeSecondary = UIColor(hex: 0xFF9E6E)
+    static let exitGreen = UIColor(hex: 0x16A34A)
+    static let warningBadge = UIColor(hex: 0xDC2626)
     /// `no_viable_route` is worse than `no_secondary_egress`; its badge darkens to match.
-    static let warningBadgeSevere = UIColor(red: 0.62, green: 0.15, blue: 0.13, alpha: 1.0)
+    static let warningBadgeSevere = UIColor(hex: 0x991B1B)
 
-    /// Exits read differently from interior openings on purpose — an exit is the thing the whole
-    /// app is about, and a judge should be able to find them without a legend.
-    static func opening(kind: OpeningKind, isExit: Bool) -> UIColor {
-        switch (kind, isExit) {
-        case (.door, true):   return UIColor(red: 0.129, green: 0.694, blue: 0.365, alpha: 1.0)
-        case (.door, false):  return UIColor(red: 0.729, green: 0.478, blue: 0.286, alpha: 1.0)
-        case (.window, true): return UIColor(red: 0.239, green: 0.718, blue: 0.831, alpha: 1.0)
-        case (.window, false):return UIColor(red: 0.588, green: 0.749, blue: 0.827, alpha: 1.0)
-        }
-    }
+    // MARK: - Lighting
 
-    // MARK: - Fixture kit tones (UI revamp, Jul 2026)
-    //
-    // Every tone below is DERIVED from the base palette above, so restyling the app stays a
-    // one-place change and the fixtures always read as one family with the walls and slabs.
+    /// Key light: warm, from the upper left (azimuth 315°, elevation 50°).
+    static let keyLight = UIColor(hex: 0xFFF6EA)
+    /// Fill: cool-neutral, opposite side, so shadowed faces stay luminous.
+    static let fillLight = UIColor(hex: 0xF0F2F5)
+    /// Shadows are warm gray — never neutral black.
+    static let shadowInk = UIColor(hex: 0x4A453E)
 
-    /// The diorama table the house sits on — darker than the backdrop so shadows land on it.
-    static let basePlate = background.blended(with: exteriorWall, amount: 0.24)
-    /// Cut edge of a floor slab (the extruded side face).
-    static let slabSide = slab.blended(with: exteriorWall, amount: 0.55)
-    static let slabUnderside = slab.blended(with: exteriorWall, amount: 0.35)
+    // MARK: - In-scene UI
 
-    /// The darker rim along the top of every wall — the "cut line" that makes the dollhouse
-    /// read as deliberately sliced rather than unfinished.
-    static func wallCap(isExterior: Bool) -> UIColor {
-        (isExterior ? exteriorWall : wall).blended(with: label, amount: 0.30)
-    }
-
-    /// Door/window frames sit a shade darker than their leaf/glass so the trim reads.
-    static func openingFrame(kind: OpeningKind, isExit: Bool) -> UIColor {
-        opening(kind: kind, isExit: isExit).blended(with: label, amount: 0.32)
-    }
-
-    static let doorHandle = UIColor(red: 0.36, green: 0.33, blue: 0.30, alpha: 1.0)
-    /// Glass gets its blue from the window family, kept pale so routes stay the hot colors.
-    static let windowGlass = UIColor(red: 0.73, green: 0.85, blue: 0.90, alpha: 1.0)
-
-    static let stairTread = stairs
-    static let stairRiser = stairs.blended(with: label, amount: 0.16)
-    static let stairStringer = stairs.blended(with: label, amount: 0.30)
-    static let stairRail = stairs.blended(with: label, amount: 0.42)
+    /// Room labels: a quiet warm gray, not black.
+    static let labelInk = UIColor(hex: 0x6B6862)
+    /// Selection outline / highlight ring — the app accent (deep safety green), which stays out
+    /// of the route orange's way.
+    static let selectionTint = UIColor(hex: 0x0E8A3E)
 }
 
 extension UIColor {
+    /// `UIColor(hex: 0xF7F6F3)` — the palette is specified in sRGB hex, so it's written that way.
+    convenience init(hex: UInt32) {
+        self.init(red: CGFloat((hex >> 16) & 0xFF) / 255,
+                  green: CGFloat((hex >> 8) & 0xFF) / 255,
+                  blue: CGFloat(hex & 0xFF) / 255,
+                  alpha: 1.0)
+    }
+
     /// Mix toward `other` by `amount` (0 = self, 1 = other).
     func blended(with other: UIColor, amount: CGFloat) -> UIColor {
         var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0

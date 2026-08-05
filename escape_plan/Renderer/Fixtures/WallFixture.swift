@@ -18,10 +18,10 @@ struct StyledWallFixture: WallFixtureBuilding {
     func node(for spec: WallFixtureSpec) -> SCNNode {
         let container = SCNNode()
 
-        let color = spec.isExterior ? DollhousePalette.exteriorWall : DollhousePalette.wall
-        let opacity = spec.isExterior
-            ? DollhousePalette.exteriorWallOpacity : DollhousePalette.wallOpacity
-        let shellMaterial = wallMaterial(color, transparency: opacity)
+        // One white for every wall, interior and exterior alike. Exterior walls are thicker
+        // (the scene builder picks the thickness), never differently colored — in a white model
+        // it is mass that distinguishes the shell from a partition, not hue.
+        let shellMaterial = FixtureStyle.white(DollhousePalette.wallWhite)
 
         let capHeight = min(FixtureStyle.wallCapHeightM, spec.height * 0.25)
         let bodyHeight = spec.height - capHeight
@@ -47,18 +47,19 @@ struct StyledWallFixture: WallFixtureBuilding {
         addBody(from: cursor, to: spec.length, spec: spec,
                 bodyHeight: bodyHeight, material: shellMaterial, into: container)
 
-        // The cap rim runs the full length regardless of holes — it is the cut line of the
-        // dollhouse, and over a full-height opening it reads as a lintel.
-        let capMaterial = wallMaterial(DollhousePalette.wallCap(isExterior: spec.isExterior),
-                                       transparency: min(opacity + 0.28, 0.9))
+        // The cut cap runs the full length regardless of holes — it is the slice line of the
+        // dollhouse, and over a full-height opening it reads as a lintel. It is the BRIGHTEST
+        // surface in the scene (pure white against the walls' F7F6F3), which is what makes the
+        // model read as deliberately sectioned. The chamfer catches the key light along the
+        // whole run and draws the fine contour line seen in the reference render.
+        let capMaterial = FixtureStyle.white(DollhousePalette.wallTopCut, roughness: 0.8)
         let cap = SCNBox(width: CGFloat(spec.length), height: CGFloat(capHeight),
-                         length: CGFloat(spec.thickness + 0.02), chamferRadius: 0.008)
+                         length: CGFloat(spec.thickness),
+                         chamferRadius: CGFloat(min(FixtureStyle.chamferM, capHeight / 2)))
         cap.firstMaterial = capMaterial
         let capNode = SCNNode(geometry: cap)
         capNode.position = SCNVector3(0, Float(spec.height / 2 - capHeight / 2), 0)
         decorate(capNode)
-        // Added last: within the walls band SceneKit keeps graph order, and the rim must
-        // blend over the body segments behind it.
         container.addChildNode(capNode)
 
         return container
@@ -135,19 +136,12 @@ struct StyledWallFixture: WallFixtureBuilding {
 
     // MARK: - Shared setup
 
-    private func wallMaterial(_ color: UIColor, transparency: CGFloat) -> SCNMaterial {
-        let m = FixtureStyle.material(color)
-        m.transparency = transparency
-        m.isDoubleSided = true
-        // Transparent surfaces that write depth hide whatever draws behind them afterwards —
-        // for a see-through dollhouse that is exactly the content you want visible.
-        m.writesToDepthBuffer = false
-        return m
-    }
-
     private func decorate(_ node: SCNNode) {
         node.renderingOrder = RenderOrder.walls
-        // Translucent walls throwing hard shadows would read as solid slabs on the floor.
-        node.castsShadow = false
+        // Walls are opaque now, so they CAST — and that is the point. You see inside the house
+        // because the top is open and the camera is above it, not because the walls are ghosts.
+        // Real shadows off real walls are where the model gets its weight; the old translucent
+        // shell could not cast at all, which is why the floors used to float.
+        node.castsShadow = true
     }
 }

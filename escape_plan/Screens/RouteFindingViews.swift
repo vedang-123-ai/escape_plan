@@ -89,7 +89,7 @@ struct RouteAllClearRow: View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.subheadline)
-                .foregroundStyle(Color(DollhousePalette.opening(kind: .door, isExit: true)))
+                .foregroundStyle(Color(DollhousePalette.exitGreen))
             Text("No issues flagged for this view")
                 .font(.caption)
                 .foregroundStyle(.secondary)

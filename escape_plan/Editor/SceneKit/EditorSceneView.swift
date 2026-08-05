@@ -71,6 +71,13 @@ struct EditorSceneView: UIViewRepresentable {
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         view.addGestureRecognizer(tap)
 
+        let doubleTap = UITapGestureRecognizer(target: context.coordinator,
+                                               action: #selector(Coordinator.handleDoubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        view.addGestureRecognizer(doubleTap)
+        // A single tap must not wait on the double-tap unless a second tap is actually coming.
+        tap.require(toFail: doubleTap)
+
         // ONE pan for both fingers-counts, branched at .began — a `maximumNumberOfTouches`
         // split into two recognizers silently swallowed XCUITest's synthesized press-drags
         // (the pan never left .possible), and a single unconstrained pan is also what the old
@@ -142,6 +149,14 @@ struct EditorSceneView: UIViewRepresentable {
                 }
             } else {
                 bridge?.handleTap(at: location)
+                // A tap that landed on a floor other than the active one focuses that floor —
+                // the direct-manipulation twin of the floor chips. The bridge's own selection
+                // handling already ran, so this only ever ADDS focus, never steals a selection.
+                if let controller,
+                   let hit = controller.floorID(atScreenPoint: location),
+                   hit != controller.activeFloorId {
+                    controller.onFloorTapped?(hit)
+                }
             }
         }
 
@@ -165,6 +180,9 @@ struct EditorSceneView: UIViewRepresentable {
                     panMode = bridge?.dragIntent(at: start) == .edit ? .edit : .orbit
                 }
                 logDebug("pan=\(panMode)@\(Int(start.x)),\(Int(start.y)) \(bridge?.debugProbe(at: start) ?? "")", on: view)
+                // Any camera gesture cancels leftover inertia immediately — including an
+                // edit-drag, which must never happen against a still-moving camera.
+                controller.rig.beginOrbit()
                 if panMode == .edit {
                     bridge?.handleDrag(.began, at: start)
                     // Feed the recognition drift as the first movement so the geometry
@@ -184,19 +202,37 @@ struct EditorSceneView: UIViewRepresentable {
                 let delta = recognizer.translation(in: view)
                 recognizer.setTranslation(.zero, in: view)
                 controller.rig.orbit(byScreenDelta: delta, in: view)
+                if recognizer.state == .ended {
+                    controller.rig.endOrbit(velocity: recognizer.velocity(in: view), in: view)
+                }
                 view.setNeedsDisplay()
             case .truck:
                 let delta = recognizer.translation(in: view)
                 recognizer.setTranslation(.zero, in: view)
                 controller.rig.truck(byScreenDelta: delta, in: view)
+                // Pan rubber-bands past the bounds while the finger is down, then springs back.
+                if recognizer.state == .ended || recognizer.state == .cancelled {
+                    controller.rig.settle()
+                }
                 view.setNeedsDisplay()
             }
         }
 
         @objc func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
             guard interactionEnabled, let view = recognizer.view as? SCNView, let controller else { return }
+            if recognizer.state == .began { controller.rig.beginOrbit() }
             controller.rig.pinch(scale: recognizer.scale, centroid: recognizer.location(in: view), in: view)
             recognizer.scale = 1
+            if recognizer.state == .ended || recognizer.state == .cancelled {
+                controller.rig.settle()
+            }
+            view.setNeedsDisplay()
+        }
+
+        @objc func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
+            guard interactionEnabled, let view = recognizer.view as? SCNView, let controller,
+                  let home = controller.currentHome else { return }
+            controller.rig.doubleTap(at: recognizer.location(in: view), in: view, home: home)
             view.setNeedsDisplay()
         }
 

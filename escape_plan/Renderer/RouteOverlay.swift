@@ -14,15 +14,24 @@ final class RouteOverlay {
         case primary
         case secondary
 
-        var radius: Float { self == .primary ? 0.10 : 0.055 }
+        /// Thinner than the old 0.10/0.055: against an opaque white model the tube no longer has
+        /// to shout through stacked translucency to be seen, and a finer line reads as a drawn
+        /// path rather than a pipe.
+        var radius: Float { self == .primary ? 0.065 : 0.04 }
         var color: UIColor { self == .primary ? DollhousePalette.routePrimary : DollhousePalette.routeSecondary }
         /// Secondary rides slightly higher so shared corridor stretches don't z-fight.
         var extraLift: Float { self == .primary ? 0 : 0.08 }
-        /// Above the walls' renderingOrder (10): with depth reads off, routes draw x-ray
-        /// through every wall — the S4.4 fix for tubes vanishing behind stacked translucent
-        /// surfaces. Primary sits above secondary where they share a corridor.
-        var renderingOrder: Int { self == .primary ? 55 : 50 }
+        /// Primary sits above secondary where they share a corridor.
+        var renderingOrder: Int { self == .primary ? RenderOrder.routes + 1 : RenderOrder.routes }
     }
+
+    /// Shades the tube as a cylinder. `_surface.normal` is in view space, so its z component is
+    /// how directly a fragment faces the camera: the centerline stays bright and the silhouette
+    /// edges fall off, which is what makes a constant-lit tube read as round from any orbit angle.
+    private static let roundShader = """
+    float facing = clamp(abs(_surface.normal.z), 0.0, 1.0);
+    _output.color.rgb *= mix(0.55, 1.35, facing);
+    """
 
     /// Fragment modifier for the primary tube: a bright band travels start → exit. `u` is
     /// arc-length-normalized, so the band moves at constant speed along the whole path — the
@@ -76,7 +85,6 @@ final class RouteOverlay {
             if let primary = room.primary {
                 draw(primary, style: .primary, label: room.room_id,
                      knownFloorIDs: knownFloorIDs, issues: &issues)
-                addExitGlow(exitID: primary.exit_id, issues: &issues)
                 // "You start here": only when a single room is shown — one dot per house
                 // would be noise, one dot per selected route is orientation.
                 if rooms.count == 1 {
@@ -86,12 +94,15 @@ final class RouteOverlay {
             if includeSecondary, let secondary = room.secondary {
                 draw(secondary, style: .secondary, label: room.room_id,
                      knownFloorIDs: knownFloorIDs, issues: &issues)
-                addExitGlow(exitID: secondary.exit_id, issues: &issues)
             }
             for finding in room.findings {
                 addBadge(for: finding, home: home, issues: &issues)
             }
         }
+        // Exits are no longer glowing shells wrapped around the door fixture — they are green
+        // pads on the ground built by the scene builder (ExitMarkerFixture), so they are present
+        // whether or not a route is on screen. Nothing to add here.
+        refreshFloorFocus()
         return issues
     }
 
@@ -112,24 +123,55 @@ final class RouteOverlay {
             let lifted = run.points.map { SCNVector3($0.x, $0.y + style.extraLift, $0.z) }
             let smoothed = RouteGeometry.catmullRom(lifted)
             if let geometry = RouteGeometry.tubeGeometry(points: smoothed, radius: style.radius) {
-                geometry.firstMaterial = tubeMaterial(style)
-                let node = SCNNode(geometry: geometry)
-                node.name = "route:\(label):\(run.floorID)"
-                // Routes are the payload of the whole view — drawn after the translucent
-                // shell so they read through walls and floors.
-                node.renderingOrder = style.renderingOrder
-                node.castsShadow = false
-                container.addChildNode(node)
+                addTube(geometry, style: style, name: "route:\(label):\(run.floorID)",
+                        into: container)
             }
-            // Where the route crosses floors, a glowing stub on each side marks "continues via
-            // these stairs". Stubs live floor-local, so under explode the pair separates
-            // cleanly instead of needing bridge geometry recomputed per frame.
+            // Where the route crosses floors, a stub on each side marks "continues via these
+            // stairs". Stubs live floor-local, so floor focus and visibility apply for free.
             if run.endsAtStair, let end = run.points.last {
                 container.addChildNode(stairStub(at: end, style: style))
             }
             if run.startsAtStair, let start = run.points.first {
                 container.addChildNode(stairStub(at: start, style: style))
             }
+        }
+    }
+
+    /// Adds a route tube as TWO passes, which is what gives the route depth without making the
+    /// whole model look like an x-ray.
+    ///
+    /// - Pass B draws first and ignores the depth buffer, so it paints the entire path at 55%
+    ///   even where walls and floors are in front of it.
+    /// - Pass A draws after and DOES depth-test, so it repaints the unoccluded stretches at full
+    ///   strength.
+    ///
+    /// The net read is a hot solid line where the path is in the open and a ghost where it runs
+    /// behind something — you can see the whole route at once and still tell what is in front of
+    /// what. The previous single depth-off pass made the route float flatly over the house.
+    private func addTube(_ geometry: SCNGeometry, style: TubeStyle, name: String,
+                         into container: SCNNode) {
+        let ghost = SCNNode(geometry: geometry)
+        ghost.name = "\(name):occluded"
+        ghost.geometry = geometry.copy() as? SCNGeometry
+        ghost.geometry?.firstMaterial = tubeMaterial(style, occludedPass: true)
+        ghost.renderingOrder = RenderOrder.routes - 1
+        ghost.castsShadow = false
+        container.addChildNode(ghost)
+
+        let solid = SCNNode(geometry: geometry)
+        solid.name = name
+        solid.geometry?.firstMaterial = tubeMaterial(style, occludedPass: false)
+        solid.renderingOrder = style.renderingOrder
+        solid.castsShadow = false
+        container.addChildNode(solid)
+    }
+
+    /// Dim route segments that aren't on the floor the user is looking at, so the hot wire
+    /// visibly dives between layers instead of every floor's routes competing at once.
+    func refreshFloorFocus() {
+        guard let activeID = dollhouse?.activeFloorID else { return }
+        for (floorID, container) in floorContainers {
+            container.opacity = floorID == activeID ? 1.0 : 0.45
         }
     }
 
@@ -146,23 +188,25 @@ final class RouteOverlay {
         return container
     }
 
-    private func tubeMaterial(_ style: TubeStyle) -> SCNMaterial {
+    private func tubeMaterial(_ style: TubeStyle, occludedPass: Bool) -> SCNMaterial {
         let material = SCNMaterial()
         material.lightingModel = .constant
         material.diffuse.contents = style.color
         material.emission.contents = style.color
         material.isDoubleSided = true
         material.writesToDepthBuffer = false
-        // X-ray: the route must never disappear behind a wall — it's the one thing the
-        // screen exists to show.
-        material.readsFromDepthBuffer = false
+        material.readsFromDepthBuffer = !occludedPass
+        material.transparency = occludedPass ? 0.55 : 1.0
         material.blendMode = .alpha
-        switch style {
-        case .primary:
-            material.shaderModifiers = [.fragment: Self.pulseShader]
-        case .secondary:
-            material.shaderModifiers = [.fragment: Self.dashShader]
-        }
+
+        // Constant lighting means the tube gets no shading from the scene's lights (correct — a
+        // route must not go dim on the shadowed side of the house), so roundness is shaded into
+        // the fragment instead: faces angled away from the viewer darken. Without this the tube
+        // is a flat orange ribbon.
+        var modifier = Self.roundShader
+        if !occludedPass, style == .primary { modifier += Self.pulseShader }
+        if style == .secondary { modifier += Self.dashShader }
+        material.shaderModifiers = [.fragment: modifier]
         return material
     }
 
@@ -207,52 +251,6 @@ final class RouteOverlay {
             .scale(to: 1.0, duration: 0.6),
         ])))
         container.addChildNode(node)
-    }
-
-    // MARK: - Exit glow
-
-    /// A pulsing translucent shell around the exit's opening marker. Added as a sibling so the
-    /// builder's opening node and material are never touched.
-    private func addExitGlow(exitID: String, issues: inout [String]) {
-        guard let dollhouse else { return }
-        // Same exit may be shared by many routes — one glow is enough.
-        let glowName = "exitglow:\(exitID)"
-        guard dollhouse.scene.rootNode.childNode(withName: glowName, recursively: true) == nil else { return }
-        guard let opening = dollhouse.scene.rootNode.childNode(withName: "opening:\(exitID)",
-                                                               recursively: true),
-              let parent = opening.parent else {
-            issues.append("exit '\(exitID)' has no opening marker in the scene — glow skipped")
-            return
-        }
-
-        // Openings are fixture containers (frame + leaf/glass), not single boxes — size the
-        // shell from the container's local bounds so any fixture builder gets a fitting glow.
-        let (minB, maxB) = opening.boundingBox
-        let shell = SCNBox(width: CGFloat(maxB.x - minB.x) + 0.16,
-                           height: CGFloat(maxB.y - minB.y) + 0.16,
-                           length: CGFloat(maxB.z - minB.z) + 0.16, chamferRadius: 0.04)
-        let material = SCNMaterial()
-        material.lightingModel = .constant
-        material.diffuse.contents = DollhousePalette.exitGlow
-        material.emission.contents = DollhousePalette.exitGlow
-        material.transparency = 0.55
-        material.writesToDepthBuffer = false
-        // The way out must be findable from any camera angle, walls or not.
-        material.readsFromDepthBuffer = false
-        shell.firstMaterial = material
-
-        let node = SCNNode(geometry: shell)
-        node.name = glowName
-        node.position = opening.position
-        node.eulerAngles = opening.eulerAngles
-        node.renderingOrder = 52
-        node.castsShadow = false
-        node.runAction(.repeatForever(.sequence([
-            .fadeOpacity(to: 0.35, duration: 0.7),
-            .fadeOpacity(to: 0.9, duration: 0.7),
-        ])))
-        parent.addChildNode(node)
-        addedNodes.append(node)
     }
 
     // MARK: - Warning badges

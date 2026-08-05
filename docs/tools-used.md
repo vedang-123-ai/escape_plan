@@ -30,6 +30,25 @@ Every library, framework, API, and tool used in this project — required for Co
 | PDFKit + PhotosUI (Apple SDK) | iOS 17+ SDK | Revamp C2 plan-import: PhotosPicker for floor-plan photos; PDFKit rasterizes page 1 of a PDF plan to PNG client-side so the backend never needs a PDF dependency | Apple SDK |
 | idb (Facebook iOS Development Bridge) | idb-companion 1.1.8 (brew) + fb-idb 1.1.7 (pip) | **Dev/test only, never shipped**: sends real HID taps/swipes/text to the iOS simulator for the 2026-07-22 device-acceptance pass (no XCUITest edits needed). Installed on the dev machine, not in the repo | MIT |
 
+### White Model dollhouse overhaul (2026-08-05)
+
+No new dependencies. The overhaul is materials, lighting, camera and geometry built on APIs the
+project already used — recorded here explicitly because "did you add a library for that?" is a
+fair originality question and the answer is no.
+
+| Capability | Where it comes from | Note |
+|---|---|---|
+| Screen-space ambient occlusion | `SCNCamera.screenSpaceAmbientOcclusion*` (Apple SDK) | The single biggest contributor to the white model reading as solid. Replaces the three.js prototype's baked-gradient AO hack — no post-processing library, no `SCNTechnique`. |
+| Orthographic projection | `SCNCamera.usesOrthographicProjection` (Apple SDK) | Scale is driven from the rig's distance so ortho and perspective frame identically. |
+| Soft shadows | `SCNLight` deferred shadow mode, 2048 map (Apple SDK) | Shadow *strength* is dialled by splitting the key between a casting light and a shadowless twin — SceneKit exposes no shadow-opacity property. |
+| Route occlusion ghosting | Two draw passes ordered via `renderingOrder` + `readsFromDepthBuffer` (Apple SDK) | Deliberately avoids `SCNTechnique`; `SCNMaterial` has no depth-comparison function to set. |
+| White furniture, exit markers, slab outlines | `SCNBox` / `SCNShape` / `SCNGeometry` primitives, built parametrically | No modeled assets, no `.usdz` files — everything is generated from the HomeModel schema at build time. |
+
+Design source: Claude Design project `344e3e53-37d2-4471-831c-aa50067e9d55` — brief
+`DOLLHOUSE-REDESIGN-SPEC.md`, three.js prototype `Dollhouse Prototype.dc.html` +
+`dollhouse-three.js`, locked values `swift-implementation-notes.md`. The prototype is our own work
+product, used as a visual spec; none of its code ships in the app.
+
 ## Content sources (grounding corpus, not code dependencies)
 
 Full index with URLs and retrieval dates: `backend/corpus/sources.json`. Orgs: NFPA (escape planning, smoke-alarm fire statistics, disability evacuation guide), USFA/FEMA (smoke alarms, escape plans, disability fire safety), American Red Cross (escape plan steps, two-minute campaign, planning fact sheet), ICC (2021 IRC §R310/§R311 egress requirements). All corpus content is paraphrased with per-claim citations.

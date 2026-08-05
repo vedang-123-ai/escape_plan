@@ -203,8 +203,13 @@ enum FixtureStyle {
     static let frameRevealM = 0.016
     /// Frame/jamb section for doors and windows.
     static let frameSectionM = 0.055
-    /// The darker rim strip along the top of every cut wall.
-    static let wallCapHeightM = 0.04
+    /// The bright cut-top strip along the top of every sliced wall. 12 mm: thin enough to read
+    /// as a cut line rather than a coping, thick enough to catch the key light. This is the
+    /// biggest single depth cue in the White Model look — do not thicken it casually.
+    static let wallCapHeightM = 0.012
+    /// Micro-chamfer on white geometry. Catches a specular highlight along every edge, which is
+    /// what draws the fine white-on-white contour lines in the reference render.
+    static let chamferM = 0.008
     /// Target riser height for stairs; the flight rounds to a whole step count near this.
     static let targetRiserM = 0.185
 
@@ -221,18 +226,43 @@ enum FixtureStyle {
         return m
     }
 
+    /// The White Model default: matte, unsaturated, non-metallic. Roughness 0.88 is what makes
+    /// the face-orientation value ramp (top faces brightest, away faces darkest) happen for
+    /// free under the key/fill rig — never hand-tint faces to fake it.
+    static func white(_ color: UIColor, roughness: CGFloat = 0.88) -> SCNMaterial {
+        material(color, roughness: roughness)
+    }
+
+    /// The material an INACTIVE floor swaps to (spec §4.2). Flat and unlit on purpose: lighting
+    /// variation across a 12%-alpha surface is noise, and front-face culling means each wall
+    /// contributes exactly one translucent layer instead of two — which is what stops a stack of
+    /// ghosted floors from multiplying into gray murk the way the old always-translucent walls did.
+    static func ghost(opacity: CGFloat) -> SCNMaterial {
+        let m = SCNMaterial()
+        m.diffuse.contents = DollhousePalette.ghostWhite
+        m.lightingModel = .constant
+        m.transparency = opacity
+        m.isDoubleSided = false
+        m.cullMode = .back
+        m.writesToDepthBuffer = false
+        return m
+    }
+
     /// A box node in the fixture band with fixture defaults applied.
+    ///
+    /// `castsShadow` now defaults to true: the White Model's structure is opaque, and shadow is
+    /// how it communicates depth. (It was forced off when everything lived inside a translucent
+    /// shell and stray shadows read as clutter.)
     static func detailBox(width: Double, height: Double, length: Double,
-                          chamfer: Double = 0.006, material: SCNMaterial) -> SCNNode {
+                          chamfer: Double = 0.006, material: SCNMaterial,
+                          castsShadow: Bool = true) -> SCNNode {
         let box = SCNBox(width: CGFloat(width), height: CGFloat(height),
                          length: CGFloat(length),
                          chamferRadius: CGFloat(min(chamfer, min(width, min(height, length)) / 2)))
         box.firstMaterial = material
         let node = SCNNode(geometry: box)
         node.renderingOrder = RenderOrder.fixtures
-        // Fixture detail floats inside a translucent shell — hard shadows off it would read
-        // as clutter on the slabs below.
-        node.castsShadow = false
+        node.castsShadow = castsShadow
         return node
     }
 }

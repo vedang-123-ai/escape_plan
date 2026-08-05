@@ -66,8 +66,10 @@ struct DrillScreen: View {
                 UnifiedSceneView(
                     dollhouse: built.dollhouse,
                     home: homeModel,
-                    explode: 0,               // tour flies the stacked house — never exploded
                     hiddenFloorIDs: [],
+                    // The tour flies the whole stacked house, so leave the builder's default
+                    // focus alone rather than ghosting the floors the camera flies through.
+                    activeFloorID: nil,
                     wantsContinuousRendering: routePlan != nil,
                     isTouring: isFlying,
                     onViewReady: { view, rig in

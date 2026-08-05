@@ -23,7 +23,7 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
     let scnView: SCNView
     let rig: OrbitCameraRig
     private(set) var dollhouse: DollhouseScene?
-    private var activeFloorId: String = ""
+    private(set) var activeFloorId: String = ""
     private let highlightNode = SCNNode()
 
     /// Set by the screen after every commit — needed to resolve a `Selection` into a world
@@ -56,6 +56,78 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
         scnView.antialiasingMode = .multisampling4X
         scnView.backgroundColor = DollhousePalette.background
         scnView.rendersContinuously = false
+        // The rig drives itself during inertia and spring-backs; give it a way to redraw and to
+        // turn continuous rendering on ONLY while it is actually animating.
+        rig.onChange = { [weak self] in self?.scnView.setNeedsDisplay() }
+        rig.continuousRenderingSink = { [weak self] animating in
+            self?.scnView.rendersContinuously = animating
+        }
+    }
+
+    /// Called when the user taps a floor in the 3D view (as opposed to a floor chip).
+    var onFloorTapped: ((String) -> Void)?
+
+    /// Spring the camera back onto the home — the recenter chip's action.
+    func recenterCamera() {
+        guard let currentHome else { return }
+        rig.recenter(on: currentHome,
+                     focusY: dollhouse?.focusHeight(of: activeFloorId))
+        scnView.setNeedsDisplay()
+    }
+
+    /// Glide the orbit centre to a newly focused floor's mid-height.
+    func focusCamera(onFloor id: String) {
+        guard let y = dollhouse?.focusHeight(of: id) else { return }
+        rig.focus(onHeight: y)
+        scnView.setNeedsDisplay()
+    }
+
+    var isCameraOffHome: Bool {
+        guard let currentHome else { return false }
+        return rig.isOffHome(currentHome)
+    }
+
+    /// Resolve a tap to the floor it landed on, so tapping a ghosted floor brings it into focus.
+    ///
+    /// Hit-testing by opacity does not work here: a ghost wall at 12% alpha is still geometry and
+    /// SceneKit will happily report it. Instead each floor's subtree carries its own
+    /// `categoryBitMask` (set by the scene builder), and the hit is attributed by mask.
+    ///
+    /// Disambiguation: the ACTIVE floor wins when it is hit at all — you are working on it, and a
+    /// stray tap must not yank focus away — unless the ghost hit is more than 1.5 m nearer along
+    /// the ray, which means the user genuinely reached past the active floor to the one in front.
+    func floorID(atScreenPoint point: CGPoint) -> String? {
+        guard let dollhouse else { return nil }
+        let hits = scnView.hitTest(point, options: [
+            .ignoreHiddenNodes: true,
+            .searchMode: SCNHitTestSearchMode.all.rawValue,
+        ])
+        guard !hits.isEmpty else { return nil }
+
+        var best: (id: String, depth: Float)?
+        var activeHit: Float?
+        for hit in hits {
+            guard let floor = dollhouse.floors.first(where: { handle in
+                hit.node.categoryBitMask & handle.node.categoryBitMask != 0
+                    && handle.node.categoryBitMask != 0
+            }) else { continue }
+            let depth = distanceFromCamera(hit.worldCoordinates)
+            if floor.id == activeFloorId {
+                if activeHit == nil || depth < activeHit! { activeHit = depth }
+            } else if best == nil || depth < best!.depth {
+                best = (floor.id, depth)
+            }
+        }
+
+        guard let candidate = best else { return activeHit != nil ? activeFloorId : nil }
+        if let active = activeHit, candidate.depth > active - 1.5 { return activeFloorId }
+        return candidate.id
+    }
+
+    private func distanceFromCamera(_ point: SCNVector3) -> Float {
+        let c = rig.node.position
+        let dx = point.x - c.x, dy = point.y - c.y, dz = point.z - c.z
+        return (dx * dx + dy * dy + dz * dz).squareRoot()
     }
 
     /// Fired at the end of every `rebuild` with the freshly built scene. The route overlay
@@ -107,7 +179,10 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
         scnView.pointOfView = topDownNode
     }
 
-    /// World-space Y of the active floor's ground plane as currently *presented* (base height
+    /// World-space Y of the active floor's ground plane. With the exploded view gone this is
+    /// simply the floor's base height — there is no longer a presentation offset to account for.
+    /// (Kept as a computed property reading the node so a future transform still flows through.)
+    /// Original note preserved: world-space Y of the active floor's ground plane as presented
     /// plus any explode lift) — the plane taps and drags are unprojected onto.
     private var floorPlaneY: Double {
         guard let handle = dollhouse?.floors.first(where: { $0.id == activeFloorId }) else { return 0 }
@@ -152,12 +227,18 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
             return
         }
 
-        let marker = SCNNode(geometry: SCNSphere(radius: 0.12))
-        marker.geometry?.firstMaterial?.diffuse.contents = UIColor.systemYellow
-        marker.geometry?.firstMaterial?.lightingModel = .constant
-        marker.geometry?.firstMaterial?.writesToDepthBuffer = false
-        marker.renderingOrder = RenderOrder.glow
-        marker.position = DollhouseGeometry.scenePoint(center, y: floorPlaneY + 0.05)
+        // A ring lying on the floor rather than a yellow ball floating over it: the ball read as
+        // a stray object in the scene, and yellow is a third saturated hue in a model that is
+        // meant to have exactly two. The accent green stays clear of the route orange.
+        let ring = SCNTorus(ringRadius: 0.26, pipeRadius: 0.022)
+        ring.firstMaterial?.diffuse.contents = DollhousePalette.selectionTint
+        ring.firstMaterial?.emission.contents = DollhousePalette.selectionTint
+        ring.firstMaterial?.lightingModel = .constant
+        ring.firstMaterial?.writesToDepthBuffer = false
+        let marker = SCNNode(geometry: ring)
+        marker.renderingOrder = RenderOrder.exitMarkers
+        marker.castsShadow = false
+        marker.position = DollhouseGeometry.scenePoint(center, y: floorPlaneY + 0.02)
         highlightNode.addChildNode(marker)
         highlightNode.isHidden = false
         scnView.setNeedsDisplay()

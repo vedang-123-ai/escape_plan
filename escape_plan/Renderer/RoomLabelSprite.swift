@@ -23,13 +23,14 @@ enum RoomLabelSprite {
     private static let fontSize: CGFloat = 30
     private static let hPadding: CGFloat = 18
     private static let vPadding: CGFloat = 10
-    private static let dotDiameter: CGFloat = 12
-    private static let dotGap: CGFloat = 9
     private static let renderScale: CGFloat = 3
     /// Keep pathological names from becoming banners across the model.
     private static let maxNameLength = 22
 
-    static func make(name: String, accent: UIColor) -> Sprite {
+    /// The room-type accent dot is gone with the White Model overhaul: it was one more hue in a
+    /// scene that is meant to have exactly two (route orange, exit green), and rooms are now
+    /// identified by their walls and their name, not by color coding.
+    static func make(name: String) -> Sprite {
         let displayName = name.count > maxNameLength
             ? String(name.prefix(maxNameLength - 1)) + "…"
             : name
@@ -37,12 +38,12 @@ enum RoomLabelSprite {
         let font = roundedFont(ofSize: fontSize, weight: .semibold)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: DollhousePalette.label,
+            .foregroundColor: DollhousePalette.labelInk,
         ]
         let textSize = (displayName as NSString).size(withAttributes: attributes)
 
         let height = ceil(textSize.height + vPadding * 2)
-        let width = ceil(hPadding + dotDiameter + dotGap + textSize.width + hPadding)
+        let width = ceil(hPadding + textSize.width + hPadding)
         let size = CGSize(width: width, height: height)
 
         let format = UIGraphicsImageRendererFormat()
@@ -53,23 +54,16 @@ enum RoomLabelSprite {
         let image = renderer.image { context in
             let capsule = UIBezierPath(roundedRect: CGRect(origin: .zero, size: size),
                                        cornerRadius: height / 2)
-            // Warm paper surface, slightly translucent so the chip sits IN the diorama
-            // rather than floating as UI; hairline in the label ink for edge definition.
-            DollhousePalette.background.withAlphaComponent(0.94).setFill()
+            // A white chip on a white model: it sits IN the scene rather than floating as UI,
+            // and a hairline of label ink gives it just enough edge to separate from the slab.
+            UIColor.white.withAlphaComponent(0.85).setFill()
             capsule.fill()
-            DollhousePalette.label.withAlphaComponent(0.14).setStroke()
+            DollhousePalette.labelInk.withAlphaComponent(0.14).setStroke()
             capsule.lineWidth = 1.5
             capsule.stroke()
 
-            let dotRect = CGRect(x: hPadding,
-                                 y: (height - dotDiameter) / 2,
-                                 width: dotDiameter, height: dotDiameter)
-            accent.setFill()
-            UIBezierPath(ovalIn: dotRect).fill()
-
             (displayName as NSString).draw(
-                at: CGPoint(x: hPadding + dotDiameter + dotGap,
-                            y: (height - textSize.height) / 2),
+                at: CGPoint(x: hPadding, y: (height - textSize.height) / 2),
                 withAttributes: attributes)
 
             _ = context // silence unused-parameter lint without discarding the renderer API

@@ -9,6 +9,12 @@ enum HomeFixture: String, CaseIterable {
     case bungalow
     case apartment
     case twostory
+    /// Three levels with deliberately mismatched footprints (4×5 m basement in one corner,
+    /// 20×20 m ground floor, 12×8 m upper offset to the opposite corner). This is the
+    /// acceptance model for floor stacking: it is the fixture that proves ghosted floors,
+    /// slab outlines and the union-sized base plate all read correctly when the stack is
+    /// jagged rather than a tidy tower.
+    case jagged
 }
 
 enum FixtureLoaderError: Error {

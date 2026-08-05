@@ -23,10 +23,13 @@ struct StyledStairFixture: StairFixtureBuilding {
         let stringerInset = 0.045
         let treadWidth = max(spec.width - stringerInset * 2, 0.2)
 
-        let treadMaterial = FixtureStyle.material(DollhousePalette.stairTread, roughness: 0.8)
-        let riserMaterial = FixtureStyle.material(DollhousePalette.stairRiser)
-        let stringerMaterial = FixtureStyle.material(DollhousePalette.stairStringer)
-        let railMaterial = FixtureStyle.material(DollhousePalette.stairRail, roughness: 0.6)
+        // One white for the whole flight. The old four blended browns were doing the job that
+        // shadow should do — and a stair is the strongest shadow-maker in the model, so with
+        // real lighting the steps read better in a single tone than they ever did tinted.
+        let treadMaterial = FixtureStyle.white(DollhousePalette.stairWhite, roughness: 0.8)
+        let riserMaterial = FixtureStyle.white(DollhousePalette.stairWhite)
+        let stringerMaterial = FixtureStyle.white(DollhousePalette.stairWhite)
+        let railMaterial = FixtureStyle.white(DollhousePalette.stairWhite, roughness: 0.6)
 
         for i in 0..<stepCount {
             // Tread: a thin slab with a 2 cm nosing overhanging the riser below it.
