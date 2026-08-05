@@ -121,6 +121,25 @@ struct HouseScreen: View {
     /// Debounces the re-fetch while the user is mid-editing-burst.
     @State private var refetchDebounce: Task<Void, Never>?
 
+    // MARK: Fire-origin simulation (POST /evacuate)
+    //
+    // Ignite a room and the engine re-solves every escape route around the spreading hazard.
+    // Exactly like /routes, the timeline is ALWAYS the server's — there is no client-side
+    // fallback and no fabricated timeline when the network is down.
+
+    /// The clock and derived state for the loaded timeline. The renderer lane binds to this
+    /// object; this screen only drives it.
+    @State private var playback = EvacuationPlaybackModel()
+    @State private var isSimulating = false
+    @State private var simulationFailure: BackendFailure?
+    @State private var evacuateTask: Task<Void, Never>?
+    /// The room the last ignition used, so Retry re-runs the same one rather than guessing.
+    @State private var lastIgnitedRoomID: String?
+    /// The VoiceOver-friendly alternative to tapping a room in the 3D model.
+    @State private var ignitePickerPresented = false
+    /// Set while the user drags the scrubber, so playback resumes only if it was playing.
+    @State private var wasPlayingBeforeScrub = false
+
     private let documentStore: HomeDocumentStore?
 
     init(homeID: String?, library: HomeLibrary? = nil, onModelChanged: (() -> Void)? = nil) {
@@ -147,14 +166,26 @@ struct HouseScreen: View {
                 .toolbar { toolbarContent }
         }
         .task { loadIfNeeded() }
+        // Reduce Motion degrades playback to discrete steps — it never disables the feature.
+        // The flag is read HERE (the view layer): EvacuationPlaybackModel lives in Models/,
+        // which is compiled into the pure-Foundation editorcore package with no UIKit.
+        .onAppear { playback.isSteppedMode = reduceMotion }
+        .onChange(of: reduceMotion) { _, newValue in playback.isSteppedMode = newValue }
         .onDisappear {
             routesTask?.cancel()
             refetchDebounce?.cancel()
+            evacuateTask?.cancel()
+            playback.pause()
             unregisterFromLibrary()
         }
         .sheet(isPresented: $addStairsSheetPresented) {
             if let session {
                 addStairsSheet(for: session.store)
+            }
+        }
+        .sheet(isPresented: $ignitePickerPresented) {
+            if let session {
+                ignitePickerSheet(for: session.store)
             }
         }
         .alert(renameTarget?.title ?? "Rename", isPresented: renameAlertPresented,
@@ -293,9 +324,21 @@ struct HouseScreen: View {
                             onOpeningPlaced: { tool = .select },
                             onControllerReady: { attach($0) })
 
+            // INTEGRATION POINT (renderer lane): the figures-and-hazard layer binds to
+            // `playback` — it reads `playback.currentTime_s` for the playhead and
+            // `playback.untenableRoomIDsNow` for the hazard, and derives figure positions
+            // itself via PathSampler. Nothing in this screen draws either; it owns the data,
+            // the clock, and the controls only.
+            PlaybackClock(playback: playback)
+
             VStack(spacing: 8) {
                 floatingSceneControls(for: store)
                 routesBanner
+                simulationBanner
+                // Non-negotiable: while a timeline is on screen, this notice is on screen.
+                // It floats over the model, so it survives immersive mode and cannot be
+                // scrolled away in the dock.
+                illustrativeNotice
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 12)
@@ -387,6 +430,10 @@ struct HouseScreen: View {
             if let routePlan {
                 routeControls(for: routePlan)
             }
+            // The simulation section is always present, with or without a route plan: it is
+            // its own question ("what if it starts here?"), and hiding the entrance until
+            // routes happen to be loaded would make it feel like a mode you can lose.
+            simulationControls(for: store)
         }
         .padding()
         .padding(.bottom, 6)
@@ -425,6 +472,517 @@ struct HouseScreen: View {
             BackendFailureBanner(failure: routesFailure, retry: { fetchRoutes() })
                 .padding(.top, 8)
         }
+    }
+
+    // MARK: - Fire-origin simulation: chrome
+
+    /// Drives the playhead off the display's cadence without a `CADisplayLink` and without
+    /// putting a timer in the model. `TimelineView(.animation)` re-evaluates per frame while
+    /// playing and stops entirely when paused, so an idle screen costs nothing.
+    ///
+    /// The delta is capped: `.animation(paused:)` freezes its date while paused and while the
+    /// app is backgrounded, so the first frame after a resume can report many seconds and
+    /// would otherwise skip the whole animation in one tick. `tick` itself accepts any
+    /// positive delta — the cap is a property of this clock, not of the model.
+    private struct PlaybackClock: View {
+        let playback: EvacuationPlaybackModel
+        /// Roughly three frames at 30 fps. Long enough to absorb a hitch, short enough that a
+        /// resume never jumps.
+        private static let maxFrameDelta_s: Double = 0.1
+
+        var body: some View {
+            TimelineView(.animation(minimumInterval: playback.isSteppedMode ? 0.2 : nil,
+                                    paused: !playback.isPlaying)) { context in
+                Color.clear
+                    .frame(width: 0, height: 0)
+                    .onChange(of: context.date) { oldDate, newDate in
+                        let delta = newDate.timeIntervalSince(oldDate)
+                        playback.tick(deltaTime: min(delta, Self.maxFrameDelta_s))
+                    }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
+    /// The mandatory disclaimer, floating on the model itself.
+    ///
+    /// Presence is unconditional while a timeline is loaded — deliberately not gated on
+    /// `is_illustrative`, because a backend that ever sent `false` (or a decoder default that
+    /// ever changed) would silently remove a safety-critical caveat. `is_illustrative` drives
+    /// the WORDING; the notice being there at all is guaranteed by `playback.hasTimeline`.
+    ///
+    /// It says what the animation is (geometry plus assumed speeds) and, explicitly, what it
+    /// is not (a prediction of survival). Anything softer invites a judge — or a family — to
+    /// read a green figure reaching the door as a promise.
+    @ViewBuilder
+    private var illustrativeNotice: some View {
+        if playback.hasTimeline {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: "exclamationmark.bubble.fill")
+                    .foregroundStyle(Theme.caution)
+                    .accessibilityHidden(true)
+                Text(illustrativeNoticeText)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(10)
+            .glassPanel(cornerRadius: 12)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(illustrativeNoticeText)
+            .accessibilityIdentifier("house.simulation.disclaimer")
+        }
+    }
+
+    private var illustrativeNoticeText: String {
+        playback.isIllustrative
+            ? "Illustrative only: this animates your floor plan and assumed walking speeds. "
+            + "It is not a prediction of how a real fire would spread or who would get out."
+            : "This simulation is a visualization of your floor plan and assumed walking "
+            + "speeds. Treat it as illustrative, not as a prediction of a real fire."
+    }
+
+    /// Progress / failure strip for the simulation, kept separate from `routesBanner` so a
+    /// routes problem and a simulation problem never overwrite each other.
+    @ViewBuilder
+    private var simulationBanner: some View {
+        if isSimulating {
+            HStack(spacing: 8) {
+                ProgressView()
+                Text("Simulating a fire in \(pendingOriginRoomName)…")
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(10)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .accessibilityElement(children: .combine)
+        } else if let simulationFailure {
+            // One classifier, one banner: a 502 (an operator must act) gets no Retry, a 503
+            // does. Nothing is invented client-side to paper over either.
+            BackendFailureBanner(failure: simulationFailure,
+                                 retry: lastIgnitedRoomID.map { id in { ignite(roomID: id) } })
+        }
+    }
+
+    /// The dock's simulation section: ignite when there is nothing loaded, playback and
+    /// findings when there is.
+    @ViewBuilder
+    private func simulationControls(for store: HomeModelStore) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            dockHeader("Fire simulation")
+
+            if playback.hasTimeline {
+                loadedSimulationControls(for: store)
+            } else {
+                igniteControls(for: store)
+            }
+        }
+    }
+
+    // MARK: Ignite
+
+    /// Two ways in, on purpose. Tapping a room in the 3D model already selects it (the editor's
+    /// existing hit-testing), so "selected room → Ignite" needs no new tap handling — and a
+    /// VoiceOver user, who cannot reliably hit a room in a 3D scene, gets an equivalent room
+    /// list instead. Neither path is the "real" one.
+    @ViewBuilder
+    private func igniteControls(for store: HomeModelStore) -> some View {
+        let selected = store.selection.roomId.flatMap { store.model.locateRoom($0) }
+
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Start a fire in one room and the engine re-plans everyone's way out around "
+                 + "it. Nothing about your saved plan changes.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    igniteSelectedButton(selected)
+                    choosePickerButton
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    igniteSelectedButton(selected)
+                    choosePickerButton
+                }
+            }
+
+            if selected == nil {
+                Text("Tap a room in the model to pick it, or choose one from the list.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .disabled(needsDraftReview)
+    }
+
+    @ViewBuilder
+    private func igniteSelectedButton(_ selected: (floorId: String, room: Room)?) -> some View {
+        Button {
+            if let selected { ignite(roomID: selected.room.id) }
+        } label: {
+            Label(selected.map { "Ignite \($0.room.name)" } ?? "Ignite selected room",
+                  systemImage: "flame.fill")
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(Theme.warning)
+        .disabled(selected == nil || isSimulating)
+        .accessibilityLabel(selected.map { "Ignite \($0.room.name)" } ?? "Ignite selected room")
+        .accessibilityHint(selected == nil
+            ? "Unavailable until a room is selected. Choose a room from the list instead."
+            : "Simulates a fire starting in this room and re-plans everyone's escape around it.")
+        .accessibilityIdentifier("house.simulation.ignite")
+    }
+
+    private var choosePickerButton: some View {
+        Button {
+            ignitePickerPresented = true
+        } label: {
+            Label("Choose a room…", systemImage: "list.bullet")
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .buttonStyle(.bordered)
+        .disabled(isSimulating)
+        .accessibilityLabel("Choose a room to ignite")
+        .accessibilityHint("Opens a list of every room in the home.")
+        .accessibilityIdentifier("house.simulation.choose")
+    }
+
+    /// The accessible ignition path: a plain list of every room, grouped by floor. Present
+    /// whether or not VoiceOver is on — a one-handed user on a moving bus benefits too.
+    @ViewBuilder
+    private func ignitePickerSheet(for store: HomeModelStore) -> some View {
+        NavigationStack {
+            List {
+                ForEach(store.model.floorsByLevel) { floor in
+                    Section(floor.name.isEmpty ? "Level \(floor.level)" : floor.name) {
+                        ForEach(floor.rooms) { room in
+                            Button {
+                                ignitePickerPresented = false
+                                ignite(roomID: room.id)
+                            } label: {
+                                Label(room.name, systemImage: "flame")
+                            }
+                            .accessibilityLabel("Start the fire in \(room.name)")
+                            .accessibilityHint("Simulates a fire beginning in this room.")
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Start the fire in…")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { ignitePickerPresented = false }
+                }
+            }
+        }
+    }
+
+    // MARK: Playback
+
+    @ViewBuilder
+    private func loadedSimulationControls(for store: HomeModelStore) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Reversibility, stated plainly and always reachable — igniting is a view mode,
+            // not an edit, and the user must never wonder whether they broke their plan.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    simulationOriginLabel
+                    Spacer(minLength: 8)
+                    clearSimulationButton
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    simulationOriginLabel
+                    clearSimulationButton
+                }
+            }
+
+            transportControls
+            scrubber
+
+            if reduceMotion {
+                Text("Reduce Motion is on, so the simulation steps forward in one-second jumps "
+                     + "instead of animating. Scrubbing works the same.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            simulationFindings(for: store)
+        }
+    }
+
+    private var simulationOriginLabel: some View {
+        Text("Fire starts in \(originRoomName)")
+            .font(.subheadline.weight(.semibold))
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var clearSimulationButton: some View {
+        Button(role: .destructive) {
+            clearSimulation()
+        } label: {
+            Label("Clear simulation", systemImage: "xmark.circle")
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityLabel("Clear simulation")
+        .accessibilityHint("Removes the fire and returns to your normal escape routes.")
+        .accessibilityIdentifier("house.simulation.clear")
+    }
+
+    /// Play/pause, replay, and speed. Speed is a menu rather than a segmented control so it
+    /// cannot clip at the accessibility text sizes.
+    private var transportControls: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                playPauseButton
+                replayButton
+                Spacer(minLength: 8)
+                rateMenu
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    playPauseButton
+                    replayButton
+                }
+                rateMenu
+            }
+        }
+    }
+
+    private var playPauseButton: some View {
+        Button {
+            playback.togglePlayback()
+            Haptics.tick()
+        } label: {
+            Label(playback.isPlaying ? "Pause" : "Play",
+                  systemImage: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                .labelStyle(.iconOnly)
+                .font(.title2)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.accent)
+        .accessibilityLabel(playback.isPlaying ? "Pause simulation" : "Play simulation")
+        .accessibilityValue("\(playback.elapsedLabel) of \(playback.durationLabel)")
+        .accessibilityHint(playback.isPlaying
+            ? "Stops the simulation where it is."
+            : "Runs the simulation forward from the current time.")
+        .accessibilityAddTraits(.startsMediaSession)
+        .accessibilityIdentifier("house.simulation.playPause")
+    }
+
+    private var replayButton: some View {
+        Button {
+            playback.restart()
+        } label: {
+            Label("Replay", systemImage: "arrow.counterclockwise.circle")
+                .labelStyle(.iconOnly)
+                .font(.title3)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.accent)
+        .accessibilityLabel("Replay from the start")
+        .accessibilityHint("Moves back to the moment of ignition and plays.")
+        .accessibilityIdentifier("house.simulation.replay")
+    }
+
+    private var rateMenu: some View {
+        Menu {
+            Picker("Speed", selection: Binding(get: { playback.playbackRate },
+                                               set: { playback.playbackRate = $0 })) {
+                ForEach(EvacuationPlaybackModel.supportedRates, id: \.self) { rate in
+                    Text(Self.rateLabel(rate)).tag(rate)
+                }
+            }
+        } label: {
+            Label("Speed \(Self.rateLabel(playback.playbackRate))", systemImage: "speedometer")
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityLabel("Playback speed")
+        .accessibilityValue(Self.spokenRateLabel(playback.playbackRate))
+        .accessibilityHint("Choose how fast the simulation runs.")
+        .accessibilityIdentifier("house.simulation.rate")
+    }
+
+    private static func rateLabel(_ rate: Double) -> String {
+        rate == rate.rounded() ? "\(Int(rate))×" : "\(rate)×"
+    }
+
+    private static func spokenRateLabel(_ rate: Double) -> String {
+        rate == 1 ? "Normal speed" : "\(rate) times speed"
+    }
+
+    /// Elapsed and total are rendered as TEXT, not inferred from the bar's position — the
+    /// scrubber is a second way to read the time, never the only way.
+    private var scrubber: some View {
+        let span = max(playback.duration_s, 0.001)
+        // A twentieth of the timeline per VoiceOver swipe: enough steps to reach any moment,
+        // few enough that crossing a 90-second timeline isn't a chore.
+        let step = max(playback.duration_s / 20, 1)
+
+        return VStack(alignment: .leading, spacing: 4) {
+            Slider(
+                value: Binding(get: { playback.currentTime_s },
+                               set: { playback.seek(to: $0) }),
+                in: 0...span,
+                onEditingChanged: { editing in
+                    if editing {
+                        wasPlayingBeforeScrub = playback.isPlaying
+                        playback.pause()
+                    } else if wasPlayingBeforeScrub {
+                        playback.play()
+                    }
+                }
+            )
+            .tint(Theme.accent)
+            // Replaces the Slider's own element so the adjustable action, the label, and the
+            // spoken value are all ours and all agree with the visible text below.
+            .accessibilityElement()
+            .accessibilityLabel("Simulation time")
+            .accessibilityValue(
+                "\(EvacuationPlaybackModel.spokenTimeLabel(playback.currentTime_s)) of "
+                + "\(EvacuationPlaybackModel.spokenTimeLabel(playback.duration_s))")
+            .accessibilityHint("Swipe up or down to move through the simulation.")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: playback.seek(to: playback.currentTime_s + step)
+                case .decrement: playback.seek(to: playback.currentTime_s - step)
+                @unknown default: break
+                }
+            }
+            .accessibilityIdentifier("house.simulation.scrubber")
+
+            HStack {
+                Text(playback.elapsedLabel)
+                Spacer(minLength: 8)
+                Text(playback.durationLabel)
+            }
+            .font(.caption2.monospacedDigit())
+            .foregroundStyle(.secondary)
+            .accessibilityHidden(true)  // the scrubber already speaks both values
+        }
+    }
+
+    // MARK: Simulation findings
+
+    /// `overtaken_by_hazard` surfaced in the same component, the same severity vocabulary, and
+    /// the same tier as the routing engine's worst finding. It is an honest negative result:
+    /// it is never hidden, never downgraded, and never delayed until the animation finishes.
+    @ViewBuilder
+    private func simulationFindings(for store: HomeModelStore) -> some View {
+        let overtaken = playback.overtakenTracks
+        let engineFindings = playback.findings
+
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                dockHeader("Simulation check")
+                let count = overtaken.count + engineFindings.count
+                if count > 0 {
+                    Text("\(count)")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Color(DollhousePalette.warningBadgeSevere), in: Capsule())
+                        .accessibilityLabel("\(count) issues")
+                }
+            }
+
+            if overtaken.isEmpty && engineFindings.isEmpty {
+                RouteAllClearRow()
+            } else {
+                ForEach(overtaken) { track in
+                    OvertakenFindingCard(track: track, originRoomName: originRoomName)
+                }
+                // Anything the engine attached to the timeline renders verbatim, exactly like
+                // a /routes finding.
+                ForEach(engineFindings.indices, id: \.self) { i in
+                    RouteFindingCard(finding: engineFindings[i],
+                                     roomName: simulationRoomName(engineFindings[i].room_id,
+                                                                  in: store))
+                }
+            }
+        }
+    }
+
+    // MARK: Simulation naming helpers
+
+    /// Name of the room the loaded timeline's fire starts in. Falls back to the raw id rather
+    /// than inventing a friendlier one.
+    private var originRoomName: String {
+        guard let id = playback.originRoomID else { return "this room" }
+        return session?.store.model.locateRoom(id)?.room.name ?? id
+    }
+
+    /// Name of the room the in-flight ignition is for (the banner reads better than "a room").
+    private var pendingOriginRoomName: String {
+        guard let id = lastIgnitedRoomID else { return "your home" }
+        return session?.store.model.locateRoom(id)?.room.name ?? id
+    }
+
+    private func simulationRoomName(_ roomID: String, in store: HomeModelStore) -> String {
+        store.model.locateRoom(roomID)?.room.name ?? roomID
+    }
+
+    // MARK: - Fire-origin simulation: fetch
+
+    /// Asks the engine for a timeline. There is no offline path on purpose: a fabricated
+    /// timeline would be the app inventing a safety claim, which is the one thing the whole
+    /// architecture exists to prevent. Offline fails honestly through `BackendFailure`, which
+    /// distinguishes "retry may work" (503) from "an operator must act" (502).
+    private func ignite(roomID: String) {
+        evacuateTask?.cancel()
+        guard let model = session?.store.model else { return }
+        guard !needsDraftReview else { return }
+        simulationFailure = nil
+        lastIgnitedRoomID = roomID
+        isSimulating = true
+        Haptics.begin()
+        evacuateTask = Task {
+            defer { isSimulating = false }
+            do {
+                let timeline = try await apiClient.evacuate(home: model, originRoomID: roomID)
+                guard !Task.isCancelled else { return }
+                // A response for a different home means the model moved under an in-flight
+                // request; showing it would animate the wrong house.
+                guard timeline.home_id == model.home_id else { return }
+                playback.load(timeline)
+                playback.isSteppedMode = reduceMotion
+                playback.play()
+                syncContinuousRendering()
+                Haptics.tick()
+            } catch is CancellationError {
+            } catch {
+                guard !Task.isCancelled else { return }
+                // `.routes` is the closest existing operation noun; adding a simulation case
+                // would mean editing BackendFailure.swift, which this lane does not own.
+                simulationFailure = BackendFailure(error, while: .routes)
+            }
+        }
+    }
+
+    /// Igniting is fully reversible and this is the one path back — used by the Clear button
+    /// and by any edit that invalidates the plan the timeline was solved against.
+    private func clearSimulation() {
+        evacuateTask?.cancel()
+        isSimulating = false
+        simulationFailure = nil
+        lastIgnitedRoomID = nil
+        playback.load(nil)
+        syncContinuousRendering()
+    }
+
+    /// The pulse shader and any playback animation only advance while the view redraws, so
+    /// continuous rendering follows "is there anything moving", not any one feature.
+    private func syncContinuousRendering() {
+        controller?.scnView.rendersContinuously = routePlan != nil || playback.hasTimeline
+        controller?.scnView.setNeedsDisplay()
     }
 
     @ViewBuilder
@@ -577,6 +1135,10 @@ struct HouseScreen: View {
         overlayIssues = []
         overlayHolder.plan = nil
         overlayHolder.overlay?.clear()
+        // The timeline was solved against the model as it was; an accepted edit makes it a
+        // picture of a house that no longer exists. Drop it rather than keep animating a
+        // stale answer — the user re-ignites when they're ready.
+        clearSimulation()
         controller?.scnView.rendersContinuously = false
         refetchDebounce?.cancel()
         refetchDebounce = Task {
@@ -604,10 +1166,9 @@ struct HouseScreen: View {
         if issues != overlayIssues {
             overlayIssues = issues
         }
-        // The pulse shader animates on u_time, which only advances while the view redraws —
-        // and only routes need it, so idle scenes stay still.
-        controller?.scnView.rendersContinuously = routePlan != nil
-        controller?.scnView.setNeedsDisplay()
+        // The pulse shader animates on u_time, which only advances while the view redraws, so
+        // idle scenes stay still. A loaded evacuation timeline needs the same thing.
+        syncContinuousRendering()
     }
 
     private func selectedRoom(in plan: RoutePlan) -> RoomRoutePlan? {
