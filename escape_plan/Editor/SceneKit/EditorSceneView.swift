@@ -67,6 +67,7 @@ struct EditorSceneView: UIViewRepresentable {
         let controller = UnifiedSceneController(scnView: view, home: store.model)
         context.coordinator.controller = controller
         context.coordinator.bridge = SceneKitEditorBridge(store: store, scene: controller, undoStack: undoStack)
+        context.coordinator.installCameraGestures(on: controller)
 
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         view.addGestureRecognizer(tap)
@@ -103,10 +104,13 @@ struct EditorSceneView: UIViewRepresentable {
         context.coordinator.interactionEnabled = interactionEnabled
         context.coordinator.onOpeningPlaced = onOpeningPlaced
         controller.currentHome = store.model
-        // Cheap to rebuild unconditionally (see `DollhouseSceneBuilder.build` doc comment: it's
-        // a pure function of the model). The camera survives: the rig node is re-attached, not
-        // rebuilt.
-        controller.rebuild(home: store.model, activeFloorId: store.activeFloorId)
+        // Rebuild only when the geometry inputs actually changed. `DollhouseSceneBuilder.build`
+        // is a pure function of the model, so an unchanged model rebuilds to an identical scene
+        // — pure cost. That was harmless while updates only followed an edit commit, but
+        // HouseScreen's body reads the evacuation playback clock, so this path now runs on every
+        // frame of a simulation; rebuilding there would restart the animation 60×/sec.
+        // The camera survives either way: the rig node is re-attached, not rebuilt.
+        controller.rebuildIfNeeded(home: store.model, activeFloorId: store.activeFloorId)
         controller.highlight(store.selection)
     }
 
@@ -130,13 +134,25 @@ struct EditorSceneView: UIViewRepresentable {
             view.accessibilityValue = debugEvents.suffix(5).joined(separator: " ;; ")
         }
 
-        /// What the in-flight pan is doing, decided at .began and held until it ends — no
-        /// mid-gesture reassignment even if a second finger lands.
-        private enum PanMode { case edit, orbit, truck }
-        private var panMode: PanMode = .orbit
+        /// Edit-or-camera, decided at `.began` and held until the gesture ends. Orbit-vs-truck
+        /// is NOT decided here any more — `CameraGestureDriver`'s arbiter owns that, from live
+        /// touch count, so the two surfaces cannot drift apart again.
+        private enum PanMode { case edit, camera }
+        private var panMode: PanMode = .camera
+
+        /// The shared camera-gesture implementation. Created once the controller exists.
+        private(set) var cameraGestures: CameraGestureDriver?
 
         init(store: HomeModelStore) {
             self.store = store
+        }
+
+        func installCameraGestures(on controller: UnifiedSceneController) {
+            let driver = CameraGestureDriver(rig: controller.rig)
+            driver.onPhaseChange = { [weak controller] inFlight in
+                controller?.isCameraGestureInFlight = inFlight
+            }
+            cameraGestures = driver
         }
 
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
@@ -171,19 +187,20 @@ struct EditorSceneView: UIViewRepresentable {
                 // begin the edit at the TRUE touch-down point.
                 let start = (recognizer as? InitialPointPanGestureRecognizer)?.initialTouchPoint
                     ?? location
-                if recognizer.numberOfTouches >= 2 {
-                    panMode = .truck
-                } else if case .placeOpening = tool {
+                if case .placeOpening = tool {
                     // A pan while a placement tool is armed never edits — placement is tap-only.
-                    panMode = .orbit
+                    panMode = .camera
+                } else if recognizer.numberOfTouches >= 2 {
+                    // Two fingers is unambiguously a camera manipulation; never an edit drag.
+                    panMode = .camera
                 } else {
-                    panMode = bridge?.dragIntent(at: start) == .edit ? .edit : .orbit
+                    panMode = bridge?.dragIntent(at: start) == .edit ? .edit : .camera
                 }
                 logDebug("pan=\(panMode)@\(Int(start.x)),\(Int(start.y)) \(bridge?.debugProbe(at: start) ?? "")", on: view)
-                // Any camera gesture cancels leftover inertia immediately — including an
-                // edit-drag, which must never happen against a still-moving camera.
-                controller.rig.beginOrbit()
                 if panMode == .edit {
+                    // An edit-drag must never run against a still-moving camera. `beginOrbit`
+                    // kills leftover inertia without claiming the gesture.
+                    controller.rig.beginOrbit()
                     bridge?.handleDrag(.began, at: start)
                     // Feed the recognition drift as the first movement so the geometry
                     // catches up to where the finger actually is.
@@ -198,42 +215,20 @@ struct EditorSceneView: UIViewRepresentable {
                 if recognizer.state == .ended {
                     logDebug("end " + (bridge?.debugPolygons() ?? ""), on: view)
                 }
-            case .orbit:
-                let delta = recognizer.translation(in: view)
-                recognizer.setTranslation(.zero, in: view)
-                controller.rig.orbit(byScreenDelta: delta, in: view)
-                if recognizer.state == .ended {
-                    controller.rig.endOrbit(velocity: recognizer.velocity(in: view), in: view)
-                }
-                view.setNeedsDisplay()
-            case .truck:
-                let delta = recognizer.translation(in: view)
-                recognizer.setTranslation(.zero, in: view)
-                controller.rig.truck(byScreenDelta: delta, in: view)
-                // Pan rubber-bands past the bounds while the finger is down, then springs back.
-                if recognizer.state == .ended || recognizer.state == .cancelled {
-                    controller.rig.settle()
-                }
-                view.setNeedsDisplay()
+            case .camera:
+                cameraGestures?.handlePan(recognizer, in: view)
             }
         }
 
         @objc func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
-            guard interactionEnabled, let view = recognizer.view as? SCNView, let controller else { return }
-            if recognizer.state == .began { controller.rig.beginOrbit() }
-            controller.rig.pinch(scale: recognizer.scale, centroid: recognizer.location(in: view), in: view)
-            recognizer.scale = 1
-            if recognizer.state == .ended || recognizer.state == .cancelled {
-                controller.rig.settle()
-            }
-            view.setNeedsDisplay()
+            guard interactionEnabled, let view = recognizer.view as? SCNView else { return }
+            cameraGestures?.handlePinch(recognizer, in: view)
         }
 
         @objc func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
             guard interactionEnabled, let view = recognizer.view as? SCNView, let controller,
                   let home = controller.currentHome else { return }
-            controller.rig.doubleTap(at: recognizer.location(in: view), in: view, home: home)
-            view.setNeedsDisplay()
+            cameraGestures?.handleDoubleTap(at: recognizer.location(in: view), in: view, home: home)
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,

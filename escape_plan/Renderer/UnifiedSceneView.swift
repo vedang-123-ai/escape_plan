@@ -41,9 +41,10 @@ struct UnifiedSceneView: UIViewRepresentable {
 
         let rig = OrbitCameraRig(home: home)
         rig.attach(to: dollhouse.scene, view: view)
-        context.coordinator.install(on: view, rig: rig)
+        context.coordinator.install(on: view, rig: rig, home: home)
+        context.coordinator.wantsContinuousRendering = wantsContinuousRendering
 
-        apply(to: view)
+        apply(to: view, context: context)
         if let onViewReady {
             DispatchQueue.main.async { onViewReady(view, rig) }
         }
@@ -66,24 +67,52 @@ struct UnifiedSceneView: UIViewRepresentable {
                 DispatchQueue.main.async { onViewReady(view, rig) }
             }
         }
-        view.rendersContinuously = wantsContinuousRendering
+        context.coordinator.wantsContinuousRendering = wantsContinuousRendering
         context.coordinator.gesturesEnabled = !isTouring
-        apply(to: view)
+        apply(to: view, context: context)
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(homeID: home.home_id)
     }
 
-    private func apply(to view: SCNView) {
+    /// Push the floor-visibility state into the scene — but only when it has actually changed.
+    ///
+    /// SwiftUI calls `updateUIView` for reasons that have nothing to do with this view (any
+    /// `@State` on the host, a playback clock tick, a re-layout). This used to sweep every
+    /// floor and call `setNeedsDisplay` on each one of those, so unrelated state churn landed
+    /// directly on a drag's frames. The inputs are cached and compared; unchanged is free.
+    private func apply(to view: SCNView, context: Context) {
+        let coordinator = context.coordinator
+        guard coordinator.appliedHiddenFloorIDs != hiddenFloorIDs
+                || coordinator.appliedActiveFloorID != activeFloorID
+                || coordinator.appliedSceneID != ObjectIdentifier(dollhouse.scene) else { return }
+        // Deferred rather than dropped: the same state is re-applied the moment the finger
+        // lifts, so a floor toggled mid-drag still lands, just not on the drag's frames.
+        guard !coordinator.isCameraGestureInFlight else {
+            coordinator.deferredSceneWork = { [dollhouse, hiddenFloorIDs, activeFloorID] in
+                Self.applyNow(hidden: hiddenFloorIDs, active: activeFloorID,
+                              dollhouse: dollhouse, to: view, coordinator: coordinator)
+            }
+            return
+        }
+        Self.applyNow(hidden: hiddenFloorIDs, active: activeFloorID,
+                      dollhouse: dollhouse, to: view, coordinator: coordinator)
+    }
+
+    private static func applyNow(hidden: Set<String>, active: String?, dollhouse: DollhouseScene,
+                                 to view: SCNView, coordinator: Coordinator) {
         for floor in dollhouse.floors {
-            dollhouse.setFloor(floor.id, visible: !hiddenFloorIDs.contains(floor.id))
+            dollhouse.setFloor(floor.id, visible: !hidden.contains(floor.id))
         }
         // Only re-focus when the selection actually changed: setActiveFloor animates, and
         // SwiftUI calls updateUIView far more often than the floor changes.
-        if let activeFloorID, activeFloorID != dollhouse.activeFloorID {
-            dollhouse.setActiveFloor(activeFloorID)
+        if let active, active != dollhouse.activeFloorID {
+            dollhouse.setActiveFloor(active)
         }
+        coordinator.appliedHiddenFloorIDs = hidden
+        coordinator.appliedActiveFloorID = active
+        coordinator.appliedSceneID = ObjectIdentifier(dollhouse.scene)
         view.setNeedsDisplay()
     }
 
@@ -95,17 +124,57 @@ struct UnifiedSceneView: UIViewRepresentable {
         var homeID: String
         var gesturesEnabled = true
         private weak var view: SCNView?
+        private var cameraGestures: CameraGestureDriver?
+        /// The home the double-tap recenter needs; set by `install`.
+        private var home: HomeModel?
+
+        /// Last floor state actually pushed into the scene — the memo behind `apply`'s
+        /// early-exit. `appliedSceneID` catches a rebuilt scene, whose floors need the state
+        /// re-applied even though the inputs did not change.
+        var appliedHiddenFloorIDs: Set<String>?
+        var appliedActiveFloorID: String?
+        var appliedSceneID: ObjectIdentifier?
+
+        private(set) var isCameraGestureInFlight = false
+        var deferredSceneWork: (() -> Void)?
+
+        /// The scene's own reason to keep drawing (route pulse, playback). OR'd with the
+        /// camera's — see `syncContinuousRendering`.
+        var wantsContinuousRendering = false {
+            didSet {
+                guard wantsContinuousRendering != oldValue else { return }
+                syncContinuousRendering()
+                view?.setNeedsDisplay()
+            }
+        }
+        private var cameraWantsContinuousRendering = false
 
         init(homeID: String) {
             self.homeID = homeID
         }
 
-        func install(on view: SCNView, rig: OrbitCameraRig) {
+        func install(on view: SCNView, rig: OrbitCameraRig, home: HomeModel) {
             self.view = view
             self.rig = rig
+            self.home = home
 
-            // ONE pan, branched on touch count at .began (1 = orbit, 2 = truck) — mirrors the
-            // editor's gesture shape (EditorSceneView) so both surfaces feel identical.
+            // This surface used to wire none of the rig's feedback: no redraw hook and no
+            // continuous-rendering sink, so any frame the rig drove itself (inertia, the
+            // spring-back) was computed and never drawn.
+            rig.onChange = { [weak view] in view?.setNeedsDisplay() }
+            rig.continuousRenderingSink = { [weak self] cameraIsMoving in
+                self?.cameraWantsContinuousRendering = cameraIsMoving
+                self?.syncContinuousRendering()
+            }
+
+            let driver = CameraGestureDriver(rig: rig)
+            driver.onPhaseChange = { [weak self] inFlight in
+                self?.setCameraGestureInFlight(inFlight)
+            }
+            cameraGestures = driver
+
+            // ONE pan for both touch counts; `CameraGestureDriver` decides orbit vs truck from
+            // live touch count, so this surface and the editor's cannot diverge again.
             let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
             pan.delegate = self
             view.addGestureRecognizer(pan)
@@ -115,30 +184,38 @@ struct UnifiedSceneView: UIViewRepresentable {
             let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
             pinch.delegate = self
             view.addGestureRecognizer(pinch)
+
+            // Double-tap to zoom in / recenter, same as the editor surface.
+            let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
+            doubleTap.numberOfTapsRequired = 2
+            view.addGestureRecognizer(doubleTap)
         }
 
-        private var panIsTruck = false
+        private func syncContinuousRendering() {
+            view?.rendersContinuously = wantsContinuousRendering || cameraWantsContinuousRendering
+        }
+
+        private func setCameraGestureInFlight(_ inFlight: Bool) {
+            let wasInFlight = isCameraGestureInFlight
+            isCameraGestureInFlight = inFlight
+            guard wasInFlight, !inFlight, let work = deferredSceneWork else { return }
+            deferredSceneWork = nil
+            work()
+        }
 
         @objc private func handlePan(_ g: UIPanGestureRecognizer) {
-            guard gesturesEnabled, let view, let rig else { return }
-            if g.state == .began {
-                panIsTruck = g.numberOfTouches >= 2
-            }
-            let delta = g.translation(in: view)
-            g.setTranslation(.zero, in: view)
-            if panIsTruck {
-                rig.truck(byScreenDelta: delta, in: view)
-            } else {
-                rig.orbit(byScreenDelta: delta, in: view)
-            }
-            view.setNeedsDisplay()
+            guard gesturesEnabled, let view, let cameraGestures else { return }
+            cameraGestures.handlePan(g, in: view)
         }
 
         @objc private func handlePinch(_ g: UIPinchGestureRecognizer) {
-            guard gesturesEnabled, let view, let rig else { return }
-            rig.pinch(scale: g.scale, centroid: g.location(in: view), in: view)
-            g.scale = 1
-            view.setNeedsDisplay()
+            guard gesturesEnabled, let view, let cameraGestures else { return }
+            cameraGestures.handlePinch(g, in: view)
+        }
+
+        @objc private func handleDoubleTap(_ g: UITapGestureRecognizer) {
+            guard gesturesEnabled, let view, let cameraGestures, let home else { return }
+            cameraGestures.handleDoubleTap(at: g.location(in: view), in: view, home: home)
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,

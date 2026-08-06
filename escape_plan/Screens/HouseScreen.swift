@@ -102,6 +102,13 @@ struct HouseScreen: View {
         var people: PeopleLayer?
         var highlightedProfileID: String?
 
+        /// Last issue list the evacuation renderer reported. It lives in the box for the same
+        /// reason everything else here does: the handler can fire from inside a rebuild, where
+        /// a captured @State *read* is stale. Comparing against the box instead means the
+        /// change-check is made against a fresh value, so a genuine change is never swallowed
+        /// and an unchanged list never invalidates the view from within its own update.
+        var evacuationIssues: [String] = []
+
         func redrawPeople() {
             guard let people, let model else { return }
             people.show(profiles: model.profiles, home: model,
@@ -131,6 +138,10 @@ struct HouseScreen: View {
     @State private var selectedRoomID: String?
     @State private var selectedProfileID: String?
     @State private var overlayIssues: [String] = []
+    /// Mirrors `RouteOverlayHolder.evacuationIssues` for display. Deliberately NOT merged into
+    /// `overlayIssues`: `applyOverlay` overwrites that one wholesale with the route layer's
+    /// issues, so two writers to one array would erase each other on every redraw.
+    @State private var evacuationIssues: [String] = []
     @State private var isTouring = false
     @State private var routesTask: Task<Void, Never>?
     /// Debounces the re-fetch while the user is mid-editing-burst.
@@ -305,6 +316,43 @@ struct HouseScreen: View {
         if let dollhouse = controller.dollhouse {
             controller.onRebuild?(dollhouse)
         }
+
+        // The renderer half of the simulation. Both parallel lanes built to this seam and
+        // neither could call it: the engine lane owns `playback` but not the scene, the
+        // renderer lane owns the figures, hazard and playback camera but not this screen. The
+        // coordinator drives those layers from `playback`, which stays the single clock — the
+        // renderer never decides where anyone goes or when a room burns.
+        //
+        // Bound AFTER `onRebuild` is installed, on purpose: the coordinator wraps that closure,
+        // so a scene rebuild re-attaches the animated layers exactly the way it already
+        // re-attaches the route overlay. Binding earlier would wrap a closure that is about to
+        // be replaced.
+        //
+        // Safe to bind with nothing loaded — the coordinator no-ops until a timeline arrives,
+        // and only then suspends the ordinary route.
+        controller.bindEvacuationPlayback(
+            playback,
+            // A provider, not the layer itself: `onRebuild` replaces `overlayHolder.people`,
+            // so the coordinator has to ask again after every rebuild.
+            staticPeopleLayer: { overlayHolder.people },
+            suspendOrdinaryRoutes: {
+                // The pre-fire route answers a different question than the fire-aware one.
+                // Drawing both at once is the one way this screen could actively mislead, so
+                // the ordinary overlay goes away for the duration of the simulation.
+                // Idempotent: clearing an already-cleared overlay is a no-op.
+                overlayHolder.overlay?.clear()
+            },
+            restoreOrdinaryRoutes: {
+                // Redraw from the holder's cached inputs — never from @State, which is stale
+                // on the rebuild path.
+                overlayHolder.redraw()
+            },
+            onIssues: { issues in
+                guard issues != overlayHolder.evacuationIssues else { return }
+                overlayHolder.evacuationIssues = issues
+                evacuationIssues = issues
+            }
+        )
     }
 
     /// Reads through `viewStateHolder`, never the @State vars — this runs from the captured
@@ -658,6 +706,14 @@ struct HouseScreen: View {
                 loadedSimulationControls(for: store)
             } else {
                 igniteControls(for: store)
+            }
+
+            // Same honesty as the route overlay's notice: if a figure or a burning room could
+            // not be placed on the model, say so rather than letting the animation read as
+            // complete. The timeline itself is still correct — this is a drawing failure.
+            if !evacuationIssues.isEmpty {
+                Text("Some of the simulation couldn't be drawn on the model.")
+                    .font(.caption2).foregroundStyle(.secondary)
             }
         }
     }
@@ -1274,7 +1330,11 @@ struct HouseScreen: View {
     /// The pulse shader and any playback animation only advance while the view redraws, so
     /// continuous rendering follows "is there anything moving", not any one feature.
     private func syncContinuousRendering() {
-        controller?.scnView.rendersContinuously = routePlan != nil || playback.hasTimeline
+        // `wantsContinuousRendering`, not `scnView.rendersContinuously`: the camera rig writes
+        // the same SCNView property while it is moving, and the two used to clobber each other
+        // — the rig set it false when inertia stopped and silently froze the route pulse. The
+        // controller ORs the two reasons.
+        controller?.wantsContinuousRendering = routePlan != nil || playback.hasTimeline
         controller?.scnView.setNeedsDisplay()
     }
 
@@ -1447,7 +1507,7 @@ struct HouseScreen: View {
         // picture of a house that no longer exists. Drop it rather than keep animating a
         // stale answer — the user re-ignites when they're ready.
         clearSimulation()
-        controller?.scnView.rendersContinuously = false
+        controller?.wantsContinuousRendering = false
         refetchDebounce?.cancel()
         refetchDebounce = Task {
             try? await Task.sleep(nanoseconds: 900_000_000)

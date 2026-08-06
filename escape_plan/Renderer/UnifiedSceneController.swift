@@ -56,11 +56,73 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
         scnView.antialiasingMode = .multisampling4X
         scnView.backgroundColor = DollhousePalette.background
         scnView.rendersContinuously = false
-        // The rig drives itself during inertia and spring-backs; give it a way to redraw and to
-        // turn continuous rendering on ONLY while it is actually animating.
+        // The rig drives itself during gestures, inertia and spring-backs; give it a way to
+        // redraw and to turn continuous rendering on ONLY while something is actually moving.
         rig.onChange = { [weak self] in self?.scnView.setNeedsDisplay() }
-        rig.continuousRenderingSink = { [weak self] animating in
-            self?.scnView.rendersContinuously = animating
+        rig.continuousRenderingSink = { [weak self] cameraIsMoving in
+            guard let self else { return }
+            self.cameraWantsContinuousRendering = cameraIsMoving
+            self.syncContinuousRendering()
+        }
+    }
+
+    /// The scene's own reason to render continuously — the route pulse shader and evacuation
+    /// playback both advance on `u_time`, which only moves while frames are drawn. Owned by the
+    /// screen; set it, don't touch `scnView.rendersContinuously`.
+    ///
+    /// It is a separate input from the camera's because the two used to be the SAME property
+    /// written from two places: HouseScreen set it true for the route pulse, then the rig's
+    /// sink set it false the moment inertia stopped, silently freezing the pulse. They are OR'd
+    /// now, so neither can switch the other off.
+    var wantsContinuousRendering = false {
+        didSet {
+            guard wantsContinuousRendering != oldValue else { return }
+            syncContinuousRendering()
+            scnView.setNeedsDisplay()
+        }
+    }
+
+    private var cameraWantsContinuousRendering = false
+
+    private func syncContinuousRendering() {
+        scnView.rendersContinuously = wantsContinuousRendering || cameraWantsContinuousRendering
+    }
+
+    /// True between the first camera gesture beginning and the last one ending.
+    ///
+    /// While it is true, scene-affecting work from the SwiftUI update path is deferred: a
+    /// rebuild or a floor-visibility sweep landing on a gesture's frames is exactly the stutter
+    /// the user feels as clunk. Deferred work is flushed on the falling edge, so nothing is
+    /// dropped — only postponed by at most the length of a drag.
+    var isCameraGestureInFlight = false {
+        didSet {
+            guard oldValue && !isCameraGestureInFlight else { return }
+            flushDeferredSceneWork()
+        }
+    }
+
+    /// Set when `rebuildIfNeeded` was asked to rebuild mid-gesture.
+    private var deferredRebuild: (home: HomeModel, activeFloorId: String)?
+    /// Set when a host asked for scene work (floor visibility, focus) mid-gesture.
+    private var deferredSceneWork: (() -> Void)?
+
+    /// Run `work` now, or at the end of the current camera gesture if one is in flight.
+    ///
+    /// Only the LAST request survives — these are all "make the scene match this state"
+    /// operations, so an intermediate state that was never on screen does not need replaying.
+    func afterGesture(_ work: @escaping () -> Void) {
+        guard isCameraGestureInFlight else { return work() }
+        deferredSceneWork = work
+    }
+
+    private func flushDeferredSceneWork() {
+        if let pending = deferredRebuild {
+            deferredRebuild = nil
+            rebuild(home: pending.home, activeFloorId: pending.activeFloorId)
+        }
+        if let work = deferredSceneWork {
+            deferredSceneWork = nil
+            work()
         }
     }
 
@@ -134,9 +196,45 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
     /// hangs nodes off a specific `DollhouseScene`, so it must re-attach after each rebuild.
     var onRebuild: ((DollhouseScene) -> Void)?
 
+    /// The inputs the current scene was actually built from, so the per-update path can tell
+    /// "the model changed" from "SwiftUI re-ran the body for an unrelated reason".
+    private var lastBuiltHome: HomeModel?
+    private var lastBuiltFloorID: String?
+
+    /// The SwiftUI-update path's rebuild: skips the work when nothing affecting geometry
+    /// changed. `DollhouseSceneBuilder.build` is a pure function of `(home, activeFloorId)`,
+    /// so identical inputs give an identical scene and rebuilding is pure cost.
+    ///
+    /// `updateUIView` used to rebuild unconditionally, on the sound reasoning that a rebuild is
+    /// cheap and only follows an edit commit. Evacuation playback broke that assumption:
+    /// HouseScreen's body reads the playback clock, so `@Observable` invalidates the view on
+    /// every tick. Unconditional rebuilding there tore down and re-created the dollhouse, the
+    /// route overlay, the people layer and the animated evacuation layers sixty times a second
+    /// — which also restarted, every frame, the animation it was supposed to be showing.
+    ///
+    /// Selection highlighting is deliberately NOT gated by this: the caller applies it
+    /// separately and it must still run on every update.
+    func rebuildIfNeeded(home: HomeModel, activeFloorId: String) {
+        guard home != lastBuiltHome || activeFloorId != lastBuiltFloorID else { return }
+        // A full scene rebuild during a drag is the single most expensive thing that can land
+        // on a gesture's frames. Nothing is lost by waiting for the finger to lift — the model
+        // is already committed, only its picture is late.
+        guard !isCameraGestureInFlight else {
+            deferredRebuild = (home, activeFloorId)
+            return
+        }
+        rebuild(home: home, activeFloorId: activeFloorId)
+    }
+
     /// Rebuilds the scene from the current model. Called on every commit and floor switch.
     /// The rig node survives the rebuild — the camera stays exactly where the user left it.
+    ///
+    /// Unconditional by design — callers that want the memoized version call
+    /// `rebuildIfNeeded`. Recording the inputs here means a forced rebuild refreshes the memo
+    /// too, so the two entry points can never disagree about what is on screen.
     func rebuild(home: HomeModel, activeFloorId: String) {
+        lastBuiltHome = home
+        lastBuiltFloorID = activeFloorId
         let result = DollhouseSceneBuilder.build(home)
         dollhouse = result.dollhouse
         self.activeFloorId = activeFloorId
