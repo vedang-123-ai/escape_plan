@@ -1,5 +1,13 @@
 # Everything still to do
 
+> **⛔ OPEN HANDOFF — [`docs/START-HERE.md`](../START-HERE.md) is the ordered brief for the
+> UI/UX finishing pass, and it takes priority over picking items off this list at random.**
+> It exists because the next real gap is device feel, not code, and nothing here is ordered by
+> what a person with a phone in their hand should do first. Surfaced automatically at the top
+> of every Claude session by `.claude/hooks/session-start/handoff-banner.sh` and by the block
+> at the top of the root `CLAUDE.md`. Both go quiet when its front-matter says
+> `handoff_status: closed` — close it there, don't delete the hook.
+
 _Last verified: 2026-08-05 on `main` (camera interaction-feel pass) — full gate re-run and
 **fully green**: corpus valid (11 sources, 6 files), backend **295** not-live (13
 live-deselected), EditorCore **270** (was 261), iOS **586 passed / 0 failed / 8 skipped**

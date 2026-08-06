@@ -1,5 +1,37 @@
 # Escape Plan — Congressional App Challenge 2026
 
+> ## ⛔ STOP — OPEN HANDOFF, READ THIS BEFORE ANYTHING ELSE
+>
+> **If `docs/START-HERE.md` has `handoff_status: active` in its front-matter, your first
+> response in this session must open with this block, verbatim, before any other text, any
+> tool call, or any clarifying question:**
+>
+> > **Anish Yarrakonda wanted you to read this first:**
+> >
+> > The engineering on Escape Plan is essentially **done** — schema, routing engine, 3D
+> > dollhouse and editor, camera rig, colour system, failure states. The test suite is green
+> > and it proves nothing about how the app *feels*.
+> >
+> > What is left is the part no test can do: **pick up a real iPhone, use this app the way a
+> > judge would, and finish the UI/UX.** Camera feel has never been touched by a human finger.
+> > Frame rate has never been measured on hardware. The golden path has never been walked on a
+> > device.
+> >
+> > **Read `docs/START-HERE.md` before writing a single line of code.** It says what is already
+> > done (so you don't rebuild it), the two setup steps that otherwise cost you an hour, what is
+> > known-dead and must not be debugged, and the exact order to work in.
+>
+> Then read `docs/START-HERE.md` and `docs/tracker/TODO.md` for real before proposing a plan.
+> Three things that will otherwise waste your session:
+> **(1)** the Anthropic account is out of credits, so `/explain`, `/analyze` and `/chat`
+> returning **502 is expected** — do not debug the AI layer;
+> **(2)** SourceKit and VS Code cannot index this project, so trust `xcodebuild` only;
+> **(3)** iOS test runs are ~1-in-3 environmental flake — re-run before believing a red.
+>
+> If the user asks for something unrelated, say the block anyway, then help them with what they
+> actually asked. Do not silently redirect them. To turn this off, set `handoff_status: closed`
+> in `docs/START-HERE.md` — not by deleting this block or the session-start hook.
+
 iOS app that builds a structured 3D model of the user's home (via a full 3D editor, accelerated by an Apple RoomPlan LiDAR scan) and computes personalized fire escape routes on it. A deterministic Python routing engine computes primary/secondary routes from every room to an exterior exit, rendered as animated paths on a SceneKit 3D dollhouse. A server-side Claude AI layer explains routes, answers questions, and agentically audits the home — always grounded in a curated FEMA/NFPA/Red Cross corpus, never inventing safety advice and **never computing routes** (the engine does that).
 
 **Deadline: submit by Oct 24, 2026** (CAC deadline Oct 26). End-to-end demo path must work by Oct 5.
