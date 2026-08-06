@@ -381,6 +381,9 @@ struct HouseScreen: View {
         overlayHolder.overlay?.clear()
         overlayHolder.overlay = RouteOverlay(dollhouse: dollhouse, reduceMotion: reduceMotion)
         overlayHolder.redraw()
+        // The motion preference decides whether anything in the scene still animates, so the
+        // continuous-rendering answer changes with it.
+        syncContinuousRendering()
         controller?.scnView.setNeedsDisplay()
     }
 
@@ -1334,7 +1337,13 @@ struct HouseScreen: View {
         // the same SCNView property while it is moving, and the two used to clobber each other
         // — the rig set it false when inertia stopped and silently froze the route pulse. The
         // controller ORs the two reasons.
-        controller?.wantsContinuousRendering = routePlan != nil || playback.hasTimeline
+        // Routes need continuous rendering ONLY because the pulse shader advances on `u_time`.
+        // Under Reduce Motion `RouteOverlay` does not install that shader and does not run the
+        // repeating action — so the scene is fully static and this was pinning the renderer at
+        // 60 fps forever, for nothing, on exactly the setting most likely to be chosen for
+        // battery and thermal relief.
+        controller?.wantsContinuousRendering = (routePlan != nil && !reduceMotion)
+            || playback.hasTimeline
         controller?.scnView.setNeedsDisplay()
     }
 

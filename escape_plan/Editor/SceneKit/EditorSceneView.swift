@@ -100,6 +100,7 @@ struct EditorSceneView: UIViewRepresentable {
 
     func updateUIView(_ view: SCNView, context: Context) {
         guard let controller = context.coordinator.controller else { return }
+        context.coordinator.noteUpdatePass(on: view)
         context.coordinator.tool = tool
         context.coordinator.interactionEnabled = interactionEnabled
         context.coordinator.onOpeningPlaced = onOpeningPlaced
@@ -128,6 +129,24 @@ struct EditorSceneView: UIViewRepresentable {
         /// automation camera flag — VoiceOver must never announce it.
         private let debugLogEnabled = UserDefaults.standard.bool(forKey: "editor.topDownCamera")
         private var debugEvents: [String] = []
+        /// Counts SwiftUI update passes, and how many of them landed on a camera gesture's
+        /// frames — the measurement behind #5. Behind its own launch flag
+        /// (`-editor.gestureInstrumentation YES`) and surfaced on the scene view's
+        /// `accessibilityValue`, because log streams do not reach a cloned test simulator
+        /// (decisions.md 2026-07-23). VoiceOver must never announce it.
+        private let instrumentationEnabled =
+            UserDefaults.standard.bool(forKey: "editor.gestureInstrumentation")
+        private var updatePasses = 0
+        private var updatePassesDuringGesture = 0
+
+        func noteUpdatePass(on view: UIView) {
+            guard instrumentationEnabled else { return }
+            updatePasses += 1
+            if cameraGestures?.isGestureInFlight == true { updatePassesDuringGesture += 1 }
+            view.accessibilityValue =
+                "updates=\(updatePasses) duringGesture=\(updatePassesDuringGesture)"
+        }
+
         private func logDebug(_ event: String, on view: UIView) {
             guard debugLogEnabled else { return }
             debugEvents.append(event)
