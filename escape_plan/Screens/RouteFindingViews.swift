@@ -162,7 +162,9 @@ struct RouteAllClearRow: View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.subheadline)
-                .foregroundStyle(Color(DollhousePalette.exitGreen))
+                // Theme.exitInk, not the renderer's raw exitGreen: the pad colour is tuned to
+                // sit on the white model, and on a dark grouped row it drops to 3.42:1.
+                .foregroundStyle(Theme.exitInk)
             Text("No issues flagged for this view")
                 .font(.caption)
                 .foregroundStyle(.secondary)

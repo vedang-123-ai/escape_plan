@@ -11,7 +11,15 @@ struct BackendFailureBanner: View {
     /// Offered only when `failure.isRetryable`.
     var retry: (() -> Void)?
     /// Offered only when `failure.suggestsSettings` — a 502 is not a settings problem.
+    ///
+    /// Leave this nil and the banner presents `SettingsScreen` in a sheet itself. Every call
+    /// site passed nil, so a 401 said "check it in Settings" and then offered no way to get
+    /// there — on a fresh install, where the bearer token is genuinely missing, that is the
+    /// first thing a user hits. A screen with a better destination can still pass its own
+    /// closure; the default just stops the advice from being a dead end.
     var openSettings: (() -> Void)?
+
+    @State private var showingSettings = false
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -28,21 +36,29 @@ struct BackendFailureBanner: View {
                 Button("Retry", action: retry)
                     .font(.caption.bold())
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accentText)
+                    .minimumTapTarget()
                     .accessibilityIdentifier("failure.retry")
+                    .accessibilityLabel("Try again")
             }
-            if failure.suggestsSettings, let openSettings {
-                Button("Settings", action: openSettings)
-                    .font(.caption.bold())
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
-                    .accessibilityIdentifier("failure.settings")
+            if failure.suggestsSettings {
+                Button("Settings") {
+                    if let openSettings { openSettings() } else { showingSettings = true }
+                }
+                .font(.caption.bold())
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.accentText)
+                .minimumTapTarget()
+                .accessibilityIdentifier("failure.settings")
+                .accessibilityLabel("Open Settings")
+                .accessibilityHint("Check the server address and access token.")
             }
         }
         .padding(12)
         .glassPanel(cornerRadius: 14)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(failure.message)
+        .sheet(isPresented: $showingSettings) { SettingsScreen() }
     }
 
     /// Only a genuine fault gets the warning red. Offline and cached-data notices are states,

@@ -1255,9 +1255,7 @@ struct HouseScreen: View {
             } catch is CancellationError {
             } catch {
                 guard !Task.isCancelled else { return }
-                // `.routes` is the closest existing operation noun; adding a simulation case
-                // would mean editing BackendFailure.swift, which this lane does not own.
-                simulationFailure = BackendFailure(error, while: .routes)
+                simulationFailure = BackendFailure(error, while: .simulation)
             }
         }
     }

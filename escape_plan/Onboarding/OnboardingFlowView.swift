@@ -287,7 +287,8 @@ struct OnboardingFlowView: View {
             case .failed(let message):
                 statusRow(symbol: "exclamationmark.triangle", text: message,
                           spoken: "Safety inspection failed. \(message)",
-                          retryLabel: "Retry the safety inspection") {
+                          retryLabel: "Retry the safety inspection",
+                          retryable: state.analysisFailure?.isRetryable ?? true) {
                     state.runAnalyze(api: apiClient)
                 }
             case .offline:
@@ -319,7 +320,8 @@ struct OnboardingFlowView: View {
             case .failed(let message):
                 statusRow(symbol: "exclamationmark.triangle", text: message,
                           spoken: "Couldn't compute your preparedness score. \(message)",
-                          retryLabel: "Retry the preparedness score") {
+                          retryLabel: "Retry the preparedness score",
+                          retryable: state.scoreFailure?.isRetryable ?? true) {
                     state.runScore(api: apiClient)
                 }
             case .offline:
@@ -342,15 +344,22 @@ struct OnboardingFlowView: View {
 
     /// A failed/offline strip: glyph, message, Retry. Reads as one sentence, and Retry keeps a
     /// 44pt target even though its label is caption-sized (SC 2.5.8).
+    ///
+    /// `retryable` defaults to true because the offline states genuinely are. A *failed* state
+    /// passes the classifier's own verdict: a 502 means an operator has to change something, so
+    /// offering Retry there trains people to mash a button that cannot work.
     private func statusRow(symbol: String, text: String, spoken: String,
-                           retryLabel: String, retry: @escaping () -> Void) -> some View {
+                           retryLabel: String, retryable: Bool = true,
+                           retry: @escaping () -> Void) -> some View {
         // At AX sizes a caption, a glyph and a Retry button cannot share one line.
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) { statusMessage(symbol: symbol, text: text, spoken: spoken)
-                                 retryButton(retryLabel, retry) }
+            HStack(spacing: 8) {
+                statusMessage(symbol: symbol, text: text, spoken: spoken)
+                if retryable { retryButton(retryLabel, retry) }
+            }
             VStack(alignment: .leading, spacing: 6) {
                 statusMessage(symbol: symbol, text: text, spoken: spoken)
-                retryButton(retryLabel, retry)
+                if retryable { retryButton(retryLabel, retry) }
             }
         }
     }
