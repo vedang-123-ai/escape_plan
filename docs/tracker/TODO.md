@@ -1,13 +1,10 @@
 # Everything still to do
 
-_Last verified: 2026-08-05 on `main` (fire-origin simulation + accessibility, 8 parallel lanes) —
-full gate re-run and green: corpus valid (11 sources, 6 files), backend **295** not-live (13
-live-deselected, 264 → 295 from the new hazard suite), EditorCore **261** (was 192), iOS
-**563 passed / 8 skipped** (was 337). One red in the full run —
-`EntryPointUITests.testScanEntryPointPresentsCaptureFlow` failed to tap the **Home tab bar
-button** with `no longer valid after interruption handling`, before any of this session's code
-runs; the UI target re-ran clean (5 passed, 0 failed). See
-`notes/2026-08-05-fire-origin-simulation.md`._
+_Last verified: 2026-08-05 on `main` (camera interaction-feel pass) — full gate re-run and
+**fully green**: corpus valid (11 sources, 6 files), backend **295** not-live (13
+live-deselected), EditorCore **270** (was 261), iOS **586 passed / 0 failed / 8 skipped**
+(was 563/1/8). The known `EntryPointUITests` tab-bar flake did not reproduce this run. See
+`notes/2026-08-05-camera-feel.md`._
 
 _Prior stamp, 2026-08-05 on `main` (UI/UX pass) — full gate re-run and green: backend **264**
 not-live (13 live-deselected), EditorCore **192**, iOS **337** (was 323 — +8 BackendFailure,
@@ -120,6 +117,42 @@ Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
       run the live agent suite; the golden writes itself and `pytest.skip`s for review, then
       commit `backend/tests/golden/agent_bungalow_blocked.json`. (S3.2)
 
+## Camera interaction feel (landed 2026-08-05)
+
+Ten defects in how the 3D dollhouse handles orbit/pan/pinch — the scene rendered correctly, the
+controls did not feel connected to the finger. Note: `notes/2026-08-05-camera-feel.md`.
+Shipped: correct ortho-vs-perspective pan math, a pinch anchor resolved once instead of a
+full-scene hit test per frame, one `simdTransform` write in place of `position` + `look(at:)`,
+continuous rendering for the whole gesture, one shared `CameraGestureDriver` for both 3D hosts,
+pan inertia, latching two-finger arbitration, and looser movement limits. Open:
+
+- [ ] **Nothing here has been felt by a human.** Every change is reasoned and test-backed;
+      "feel" is not a thing `xcodebuild` can report. Next action on a device, in this order:
+      (1) hold a corner of the house under your thumb and pan — it must stay under the thumb, in
+      both orientations; (2) pinch and confirm the point between your fingers does not crawl;
+      (3) flick to orbit and confirm it coasts and eases rather than stopping dead; (4) pan to
+      the edge and confirm the rubber band springs back visibly rather than snapping.
+- [ ] **#10 frame-time profiling was NOT done — no target hardware.** MSAA 4X, camera SSAO and
+      the route pulse shader are all still on during gestures. Per the brief's own instruction
+      ("profile before tuning further") nothing was changed on guesswork, and dropping MSAA
+      mid-gesture is a visible change to a scene the brief said not to alter. Next action:
+      Instruments → Game Performance on the oldest supported device, orbiting a two-storey home
+      with routes drawn. If frame time is the binding constraint, the levers are MSAA 4X → 2X
+      and SSAO off for the duration of a gesture, both already isolated behind
+      `CameraGestureDriver.onPhaseChange`.
+- [ ] The tuning constants (#8/#9) are a **starting point, not an answer**: apron `0.6 ×`
+      extent, distance `0.35…4.0 ×` extent, orbit `0.6 π` per view height, axis-lock sample
+      20 pt. Tune by feel on device; the orbit rate and the axis-lock threshold interact.
+- [ ] `RouteRedrawAfterEditUITests` detects the route by counting **orange** pixels
+      (`r > 190, g 80–180, b < 90`). Routes have been blue since the 2026-08-05 colour pass, so
+      that test can no longer pass. It is skipped unless `ROUTE_REDRAW=1`, so it does not gate
+      CI — which is exactly why it will stay broken until someone needs it. Next action: retune
+      the predicate to `DollhousePalette.routePrimary` (`#123FB0`).
+- [ ] `UnifiedSceneView` (DrillScreen) and `EditorSceneView` (HouseScreen) now share
+      `CameraGestureDriver`, but still duplicate their `shouldRecognizeSimultaneouslyWith`
+      policy and their recognizer setup. Fold the recognizer installation into the driver too,
+      so a third surface cannot be added with a fourth gesture model.
+
 ## Fire-origin simulation + accessibility (landed 2026-08-05, 8 parallel lanes)
 
 Shipped this session: `backend/app/routing/hazard.py` + `POST /evacuate` (31 tests);
@@ -133,15 +166,20 @@ per-floor PDF; and one failure classifier everywhere. Note:
       service predates it, so ignite will 404 against the demo backend until a redeploy.
       Next action: push to the branch Render builds, then `curl` `/evacuate` on the bungalow
       fixture with the bearer token and confirm a 200 with tracks. (S1.6)
-- [ ] **Codex/renderer lane binding.** The figure + hazard drawing layer must bind to
-      `EvacuationPlaybackModel` (`Models/EvacuationPlayback.swift`) and take its hazard colours
-      from `DollhousePalette`'s reserved warm family. `HouseScreen` carries a marked
-      `INTEGRATION POINT (renderer lane)` comment where `playback` is passed down — one line.
-      Full interface list in the session note's handoff section.
-- [ ] **`Renderer/Evacuation/EvacuationPalette.swift` duplicates `routeSecondary` as `#4A86D8`,
-      which does not match `DollhousePalette.routeSecondary` `#4180D4`.** Same copy-drift that
-      left `Theme.routeInk` on a retired colour for a session. Next action: delete the duplicate
-      and read `DollhousePalette` directly. (Codex's file — do not edit from this lane.)
+- [x] ~~**Codex/renderer lane binding.**~~ Landed 2026-08-05 (see
+      `notes/2026-08-05-evacuation-renderer-integration.md`). `HouseScreen.attach(_:)` now calls
+      `controller.bindEvacuationPlayback(playback, …)`. `EvacuationPlaybackModel` stays the sole
+      clock; the coordinator suspends the ordinary route overlay for the duration of a timeline
+      and restores it on clear. Renderer issues surface in the simulation dock.
+- [x] ~~**`EvacuationPalette.swift` duplicates `routeSecondary` as `#4A86D8`.**~~ Stale as
+      written — verified 2026-08-05 that every colour in that file references `DollhousePalette`
+      and no hex literal remains. `0x4A86D8` now appears nowhere in the tree.
+- [ ] **Confirm the scene-rebuild gating on hardware.** `UnifiedSceneController.rebuildIfNeeded`
+      now skips a rebuild when `(home, activeFloorId)` is unchanged, because `updateUIView` ran a
+      full dollhouse rebuild on every frame of playback. Unit tests can't see this — it is a
+      frame-rate and animation-continuity change. Next action: run a simulation on device and
+      confirm figures move continuously instead of restarting, and that editing still redraws
+      immediately after a commit. (`notes/2026-08-05-evacuation-renderer-integration.md`)
 - [ ] Device-acceptance for everything above: ignite → playback on hardware, the scrubber's feel,
       Reduce Motion in the camera tour, VoiceOver end-to-end with a real screen reader (not just
       the label assertions), and the PDF printed on actual paper in greyscale. **None of this

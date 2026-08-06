@@ -496,3 +496,303 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-08-05T23:17:12Z · Anish Yarrakonda · `main` @ `2d5a88d`
+
+**Commits this session**
+  - 2d5a88d Update activity-log.md
+  - 6f45c8f UI/UX pass: chrome contains no route orange, plus icon, launch, people, thumbnails
+  - a72139e Field-test tooling: scan triage, demo preflight, capability spec
+
+**Uncommitted working-tree changes (1)**
+  - ?? escape_plan/Models/EvacuationTimeline.swift
+
+## 2026-08-05T23:24:40Z · Anish Yarrakonda · `main` @ `2d5a88d`
+
+**Commits this session**
+  - 2d5a88d Update activity-log.md
+  - 6f45c8f UI/UX pass: chrome contains no route orange, plus icon, launch, people, thumbnails
+  - a72139e Field-test tooling: scan triage, demo preflight, capability spec
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? escape_plan/Models/EvacuationTimeline.swift
+
+## 2026-08-05T23:31:18Z · Anish Yarrakonda · `main` @ `76ac7ed`
+
+**Commits this session**
+  - 76ac7ed Fire-origin simulation: deterministic hazard spread + evacuation timeline
+  - 2d5a88d Update activity-log.md
+  - 6f45c8f UI/UX pass: chrome contains no route orange, plus icon, launch, people, thumbnails
+  - a72139e Field-test tooling: scan triage, demo preflight, capability spec
+
+**Uncommitted working-tree changes (23)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/DrillMode/DrillInstructions.swift
+  - M escape_plan/Renderer/DollhousePalette.swift
+  - M escape_plan/Renderer/RouteGeometry.swift
+  - M escape_plan/Renderer/RouteOverlay.swift
+  - M escape_plan/Screens/HouseScreen.swift
+  - M escape_plan/Screens/ProfileEditorView.swift
+  - M escape_plan/Screens/ProfilesScreen.swift
+  - M escape_plan/Screens/RouteFindingViews.swift
+  - M escape_plan/Screens/ScoreScreen.swift
+  - M escape_plan/Screens/Theme.swift
+  - ?? escape_plan/DrillMode/DrillCitedText.swift
+  - ?? escape_plan/DrillMode/DrillTimeComparison.swift
+  - ?? escape_plan/DrillMode/PracticeLogView.swift
+  - ?? escape_plan/DrillMode/PracticeReminderCard.swift
+  - ?? escape_plan/Export/
+  - ?? escape_plan/Models/EvacuationPlayback.swift
+  - ?? escape_plan/Models/EvacuationTimeline.swift
+  - ?? escape_plan/Networking/APIClient+Evacuate.swift
+  - ?? escape_plan/Persistence/DrillLogStore.swift
+  - ?? escape_plan/Persistence/PracticeReminderScheduler.swift
+  - ?? escape_planTests/RouteEncodingTests.swift
+  - ?? escape_planTests/ThemeContrastTests.swift
+
+## 2026-08-05T23:42:48Z · Anish Yarrakonda · `main` @ `222eb3f`
+
+**Commits this session**
+  - 222eb3f iOS: ignite a room, fetch the timeline, play it back honestly
+  - 76ac7ed Fire-origin simulation: deterministic hazard spread + evacuation timeline
+  - 2d5a88d Update activity-log.md
+  - 6f45c8f UI/UX pass: chrome contains no route orange, plus icon, launch, people, thumbnails
+  - a72139e Field-test tooling: scan triage, demo preflight, capability spec
+
+**Uncommitted working-tree changes (33)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Capture/Views/ScanFlowView.swift
+  - M escape_plan/ContentView.swift
+  - M escape_plan/DrillMode/DrillInstructions.swift
+  - M escape_plan/DrillMode/DrillScreen.swift
+  - M escape_plan/Onboarding/OnboardingFlowView.swift
+  - M escape_plan/Renderer/DollhousePalette.swift
+  - M escape_plan/Renderer/RouteGeometry.swift
+  - M escape_plan/Renderer/RouteOverlay.swift
+  - M escape_plan/Screens/AssistantScreen.swift
+  - M escape_plan/Screens/BuildFromPlanView.swift
+  - M escape_plan/Screens/GlassControls.swift
+  - M escape_plan/Screens/HomeScreen.swift
+  - M escape_plan/Screens/ProfileEditorView.swift
+  - M escape_plan/Screens/ProfilesScreen.swift
+  - M escape_plan/Screens/ScoreScreen.swift
+  - M escape_plan/Screens/SettingsScreen.swift
+  - M escape_plan/Screens/Theme.swift
+  - ?? escape_plan/DrillMode/DrillCitedText.swift
+  - ?? escape_plan/DrillMode/DrillTimeComparison.swift
+  - ?? escape_plan/DrillMode/PracticeLogView.swift
+  - ?? escape_plan/DrillMode/PracticeReminderCard.swift
+  - ?? escape_plan/Editor/Core/GaitCycle.swift
+  - ?? escape_plan/Editor/Core/PathSampler.swift
+  - ?? escape_plan/Export/
+  - …and 8 more
+
+## 2026-08-05T23:44:00Z · Anish Yarrakonda · `main` @ `6fd6220`
+
+**Commits this session**
+  - 6fd6220 Drill mode: practice log, cited reminders, honest time-to-exit
+  - 222eb3f iOS: ignite a room, fetch the timeline, play it back honestly
+  - 76ac7ed Fire-origin simulation: deterministic hazard spread + evacuation timeline
+  - 2d5a88d Update activity-log.md
+  - 6f45c8f UI/UX pass: chrome contains no route orange, plus icon, launch, people, thumbnails
+  - a72139e Field-test tooling: scan triage, demo preflight, capability spec
+
+**Uncommitted working-tree changes (24)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Capture/Views/ScanFlowView.swift
+  - M escape_plan/ContentView.swift
+  - M escape_plan/Onboarding/OnboardingFlowView.swift
+  - M escape_plan/Renderer/DollhousePalette.swift
+  - M escape_plan/Renderer/RouteGeometry.swift
+  - M escape_plan/Renderer/RouteOverlay.swift
+  - M escape_plan/Screens/AssistantScreen.swift
+  - M escape_plan/Screens/BuildFromPlanView.swift
+  - M escape_plan/Screens/GlassControls.swift
+  - M escape_plan/Screens/HomeScreen.swift
+  - M escape_plan/Screens/ProfileEditorView.swift
+  - M escape_plan/Screens/ProfilesScreen.swift
+  - M escape_plan/Screens/ScoreScreen.swift
+  - M escape_plan/Screens/SettingsScreen.swift
+  - M escape_plan/Screens/Theme.swift
+  - ?? escape_plan/Editor/Core/GaitCycle.swift
+  - ?? escape_plan/Editor/Core/PathSampler.swift
+  - ?? escape_plan/Export/
+  - ?? escape_plan/Renderer/Evacuation/
+  - ?? escape_planTests/EscapePlanExportTests.swift
+  - ?? escape_planTests/RouteEncodingTests.swift
+  - ?? escape_planTests/RouteNarrationTests.swift
+  - ?? escape_planTests/ThemeContrastTests.swift
+
+## 2026-08-05T23:45:34Z · Anish Yarrakonda · `main` @ `4e1f7e9`
+
+**Commits this session**
+  - 4e1f7e9 Accessibility pass (part 1): VoiceOver, Dynamic Type, Reduce Motion, WCAG AA
+  - 6fd6220 Drill mode: practice log, cited reminders, honest time-to-exit
+  - 222eb3f iOS: ignite a room, fetch the timeline, play it back honestly
+  - 76ac7ed Fire-origin simulation: deterministic hazard spread + evacuation timeline
+  - 2d5a88d Update activity-log.md
+  - 6f45c8f UI/UX pass: chrome contains no route orange, plus icon, launch, people, thumbnails
+  - a72139e Field-test tooling: scan triage, demo preflight, capability spec
+
+**Uncommitted working-tree changes (12)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Renderer/DollhousePalette.swift
+  - M escape_plan/Renderer/RouteGeometry.swift
+  - M escape_plan/Renderer/RouteOverlay.swift
+  - M escape_plan/Screens/HomeScreen.swift
+  - ?? escape_plan/Editor/Core/GaitCycle.swift
+  - ?? escape_plan/Editor/Core/PathSampler.swift
+  - ?? escape_plan/Export/
+  - ?? escape_plan/Renderer/Evacuation/
+  - ?? escape_planTests/EscapePlanExportTests.swift
+  - ?? escape_planTests/RouteEncodingTests.swift
+  - ?? escape_planTests/RouteNarrationTests.swift
+
+## 2026-08-05T23:53:45Z · Anish Yarrakonda · `main` @ `8c35408`
+
+**Commits this session**
+  - 8c35408 Printable escape plan: one-page-per-floor PDF, legible in greyscale
+  - 4e1f7e9 Accessibility pass (part 1): VoiceOver, Dynamic Type, Reduce Motion, WCAG AA
+  - 6fd6220 Drill mode: practice log, cited reminders, honest time-to-exit
+  - 222eb3f iOS: ignite a room, fetch the timeline, play it back honestly
+  - 76ac7ed Fire-origin simulation: deterministic hazard spread + evacuation timeline
+
+**Uncommitted working-tree changes (12)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Renderer/DollhousePalette.swift
+  - M escape_plan/Renderer/Fixtures/PersonFixture.swift
+  - M escape_plan/Renderer/RouteGeometry.swift
+  - M escape_plan/Renderer/RouteOverlay.swift
+  - ?? escape_plan/Editor/Core/GaitCycle.swift
+  - ?? escape_plan/Editor/Core/PathSampler.swift
+  - ?? escape_plan/Renderer/Evacuation/
+  - ?? escape_planTests/EditorCore/EvacuationMockTimelineTests.swift
+  - ?? escape_planTests/EditorCore/GaitCycleTests.swift
+  - ?? escape_planTests/EditorCore/PathSamplerTests.swift
+  - ?? escape_planTests/RouteEncodingTests.swift
+
+## 2026-08-05T23:58:34Z · Anish Yarrakonda · `main` @ `7ffcb79`
+
+**Commits this session**
+  - 7ffcb79 docs: record the fire-origin sim, the colour rule, and the a11y decisions
+  - 3411258 Colorblind-safe routes: cool hues, real dashes, numbered stops
+  - 8c35408 Printable escape plan: one-page-per-floor PDF, legible in greyscale
+  - 4e1f7e9 Accessibility pass (part 1): VoiceOver, Dynamic Type, Reduce Motion, WCAG AA
+  - 6fd6220 Drill mode: practice log, cited reminders, honest time-to-exit
+  - 222eb3f iOS: ignite a room, fetch the timeline, play it back honestly
+  - 76ac7ed Fire-origin simulation: deterministic hazard spread + evacuation timeline
+
+**Uncommitted working-tree changes (8)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Renderer/Fixtures/PersonFixture.swift
+  - ?? escape_plan/Editor/Core/GaitCycle.swift
+  - ?? escape_plan/Editor/Core/PathSampler.swift
+  - ?? escape_plan/Renderer/Evacuation/
+  - ?? escape_planTests/EditorCore/EvacuationMockTimelineTests.swift
+  - ?? escape_planTests/EditorCore/GaitCycleTests.swift
+  - ?? escape_planTests/EditorCore/PathSamplerTests.swift
+
+## 2026-08-06T00:09:52Z · Anish Yarrakonda · `main` @ `3babbc0`
+
+**Commits this session**
+  - 3babbc0 Offline integrity: one failure classifier everywhere, and an honest offline story
+  - 7ffcb79 docs: record the fire-origin sim, the colour rule, and the a11y decisions
+  - 3411258 Colorblind-safe routes: cool hues, real dashes, numbered stops
+  - 8c35408 Printable escape plan: one-page-per-floor PDF, legible in greyscale
+  - 4e1f7e9 Accessibility pass (part 1): VoiceOver, Dynamic Type, Reduce Motion, WCAG AA
+  - 6fd6220 Drill mode: practice log, cited reminders, honest time-to-exit
+  - 222eb3f iOS: ignite a room, fetch the timeline, play it back honestly
+  - 76ac7ed Fire-origin simulation: deterministic hazard spread + evacuation timeline
+
+**Uncommitted working-tree changes (14)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Export/ExportPlanSheet.swift
+  - M escape_plan/Renderer/DollhousePalette.swift
+  - M escape_plan/Renderer/Fixtures/ExitMarkerFixture.swift
+  - M escape_plan/Renderer/Fixtures/PersonFixture.swift
+  - M escape_plan/Renderer/PeopleLayer.swift
+  - M escape_plan/Screens/HouseScreen.swift
+  - M escape_plan/Screens/Theme.swift
+  - ?? escape_plan/Editor/Core/GaitCycle.swift
+  - ?? escape_plan/Editor/Core/PathSampler.swift
+  - ?? escape_plan/Renderer/Evacuation/
+  - ?? escape_planTests/EditorCore/EvacuationMockTimelineTests.swift
+  - ?? escape_planTests/EditorCore/GaitCycleTests.swift
+  - ?? escape_planTests/EditorCore/PathSamplerTests.swift
+
+## 2026-08-06T00:29:04Z · Anish Yarrakonda · `main` @ `f42c85c`
+
+**Commits this session**
+  - f42c85c tracker: session note + TODO for the fire-origin simulation session
+  - 4503f53 Close the four cross-fence gaps the parallel lanes could only report
+  - 59ba1bc 3D scene VoiceOver, and the two colour bugs the route re-key left behind
+  - 3babbc0 Offline integrity: one failure classifier everywhere, and an honest offline story
+  - 7ffcb79 docs: record the fire-origin sim, the colour rule, and the a11y decisions
+  - 3411258 Colorblind-safe routes: cool hues, real dashes, numbered stops
+  - 8c35408 Printable escape plan: one-page-per-floor PDF, legible in greyscale
+  - 4e1f7e9 Accessibility pass (part 1): VoiceOver, Dynamic Type, Reduce Motion, WCAG AA
+
+**Uncommitted working-tree changes (11)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Renderer/Fixtures/PersonFixture.swift
+  - M escape_plan/Renderer/PeopleLayer.swift
+  - ?? escape_plan/Editor/Core/GaitCycle.swift
+  - ?? escape_plan/Editor/Core/PathSampler.swift
+  - ?? escape_plan/Renderer/Evacuation/
+  - ?? escape_planTests/EditorCore/EvacuationMockTimelineTests.swift
+  - ?? escape_planTests/EditorCore/EvacuationRenderingTests.swift
+  - ?? escape_planTests/EditorCore/EvacuationSceneLayerTests.swift
+  - ?? escape_planTests/EditorCore/GaitCycleTests.swift
+  - ?? escape_planTests/EditorCore/PathSamplerTests.swift
+
+## 2026-08-06T00:42:56Z · Anish Yarrakonda · `main` @ `f42c85c`
+
+**Commits this session**
+  - f42c85c tracker: session note + TODO for the fire-origin simulation session
+  - 4503f53 Close the four cross-fence gaps the parallel lanes could only report
+  - 59ba1bc 3D scene VoiceOver, and the two colour bugs the route re-key left behind
+  - 3babbc0 Offline integrity: one failure classifier everywhere, and an honest offline story
+  - 7ffcb79 docs: record the fire-origin sim, the colour rule, and the a11y decisions
+
+**Uncommitted working-tree changes (17)**
+  - M docs/decisions.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Editor/SceneKit/EditorSceneView.swift
+  - M escape_plan/Renderer/Fixtures/PersonFixture.swift
+  - M escape_plan/Renderer/PeopleLayer.swift
+  - M escape_plan/Renderer/UnifiedSceneController.swift
+  - M escape_plan/Screens/HouseScreen.swift
+  - ?? docs/tracker/notes/2026-08-05-evacuation-renderer-integration.md
+  - ?? escape_plan/Editor/Core/GaitCycle.swift
+  - ?? escape_plan/Editor/Core/PathSampler.swift
+  - ?? escape_plan/Renderer/Evacuation/
+  - ?? escape_planTests/EditorCore/EvacuationMockTimelineTests.swift
+  - ?? escape_planTests/EditorCore/EvacuationRenderingTests.swift
+  - ?? escape_planTests/EditorCore/EvacuationSceneLayerTests.swift
+  - ?? escape_planTests/EditorCore/GaitCycleTests.swift
+  - ?? escape_planTests/EditorCore/PathSamplerTests.swift
+
+## 2026-08-06T01:52:28Z · Anish Yarrakonda · `main` @ `f42c85c`
+
+**Uncommitted working-tree changes (19)**
+  - M docs/decisions.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Editor/Core/CameraRigModel.swift
+  - M escape_plan/Editor/SceneKit/EditorSceneView.swift
+  - M escape_plan/Renderer/Fixtures/PersonFixture.swift
+  - M escape_plan/Renderer/OrbitCameraRig.swift
+  - M escape_plan/Renderer/PeopleLayer.swift
+  - M escape_plan/Renderer/UnifiedSceneController.swift
+  - M escape_plan/Screens/HouseScreen.swift
+  - ?? docs/tracker/notes/2026-08-05-evacuation-renderer-integration.md
+  - ?? escape_plan/Editor/Core/GaitCycle.swift
+  - ?? escape_plan/Editor/Core/PathSampler.swift
+  - ?? escape_plan/Renderer/Evacuation/
+  - ?? escape_planTests/EditorCore/EvacuationMockTimelineTests.swift
+  - ?? escape_planTests/EditorCore/EvacuationRenderingTests.swift
+  - ?? escape_planTests/EditorCore/EvacuationSceneLayerTests.swift
+  - ?? escape_planTests/EditorCore/GaitCycleTests.swift
+  - ?? escape_planTests/EditorCore/PathSamplerTests.swift
+
