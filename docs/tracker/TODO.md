@@ -1,6 +1,15 @@
 # Everything still to do
 
-_Last verified: 2026-08-05 on `main` (UI/UX pass) — full gate re-run and green: backend **264**
+_Last verified: 2026-08-05 on `main` (fire-origin simulation + accessibility, 8 parallel lanes) —
+full gate re-run and green: corpus valid (11 sources, 6 files), backend **295** not-live (13
+live-deselected, 264 → 295 from the new hazard suite), EditorCore **261** (was 192), iOS
+**563 passed / 8 skipped** (was 337). One red in the full run —
+`EntryPointUITests.testScanEntryPointPresentsCaptureFlow` failed to tap the **Home tab bar
+button** with `no longer valid after interruption handling`, before any of this session's code
+runs; the UI target re-ran clean (5 passed, 0 failed). See
+`notes/2026-08-05-fire-origin-simulation.md`._
+
+_Prior stamp, 2026-08-05 on `main` (UI/UX pass) — full gate re-run and green: backend **264**
 not-live (13 live-deselected), EditorCore **192**, iOS **337** (was 323 — +8 BackendFailure,
 +6 PeopleLayer), corpus valid (11 sources, 6 files). The deployed backend answered `/health` in
 0.6 s (warm, not a cold start) via `scripts/demo-preflight.py`; `/explain` still 502s on credit.
@@ -46,11 +55,11 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 | Suite | Count | Command |
 |---|---|---|
-| Backend pytest | 264 pass, 13 live-deselected (2026-08-04) | `python3 -m pytest backend/tests/ -m "not live"` |
+| Backend pytest | 295 pass, 13 live-deselected (2026-08-05) | `python3 -m pytest backend/tests/ -m "not live"` |
 | Backend live suites | 12 pass (2026-07-24); the 13th (`agent_bungalow_blocked`) has never run. **Blocked on credits as of 2026-08-04, not just on a key** | `set -a; . ./.env; set +a; python3 -m pytest backend/tests/ -m "live"` (latency bounds can flake on API variance) |
-| EditorCore (SwiftPM) | 192 pass (2026-08-05) | `swift test --package-path tools/editorcore` |
-| iOS (unit + UI) | 337 unit pass (2026-08-05) — **~1-in-3 launch flake, re-run before believing a red** | `xcodebuild test -scheme escape_plan …` |
-| Corpus | 11 sources, 6 files (2026-08-04) | `python3 backend/corpus/validate.py` |
+| EditorCore (SwiftPM) | 261 pass (2026-08-05) | `swift test --package-path tools/editorcore` |
+| iOS (unit + UI) | 563 pass, 8 skipped (2026-08-05) — **launch flake still real, re-run before believing a red** | `xcodebuild test -scheme escape_plan …` |
+| Corpus | 11 sources, 6 files (2026-08-05) | `python3 backend/corpus/validate.py` |
 
 **Heads-up on `python3`:** on at least one machine the system `python3` is 3.9 and cannot
 import pydantic; that machine needs its own venv. On this one (2026-08-04) system `python3` is
@@ -110,6 +119,45 @@ Notes: `notes/2026-07-23-revamp-a1-camera-rig.md`, `-a2-unified-editing.md`,
       machine-local, so a fresh clone does not inherit it. On the first machine with the key,
       run the live agent suite; the golden writes itself and `pytest.skip`s for review, then
       commit `backend/tests/golden/agent_bungalow_blocked.json`. (S3.2)
+
+## Fire-origin simulation + accessibility (landed 2026-08-05, 8 parallel lanes)
+
+Shipped this session: `backend/app/routing/hazard.py` + `POST /evacuate` (31 tests);
+`Models/EvacuationPlayback.swift` + ignite UI + scrubber; colorblind-safe route encoding (cool
+routes, warm hazard, real dashed geometry, numbered stops); a full accessibility pass over
+sixteen screens; drill practice log + corpus-cited reminders + time-to-exit; the printable
+per-floor PDF; and one failure classifier everywhere. Note:
+`notes/2026-08-05-fire-origin-simulation.md`. Open follow-ups:
+
+- [ ] **Deploy the new backend to Render.** `/evacuate` exists only locally — the deployed
+      service predates it, so ignite will 404 against the demo backend until a redeploy.
+      Next action: push to the branch Render builds, then `curl` `/evacuate` on the bungalow
+      fixture with the bearer token and confirm a 200 with tracks. (S1.6)
+- [ ] **Codex/renderer lane binding.** The figure + hazard drawing layer must bind to
+      `EvacuationPlaybackModel` (`Models/EvacuationPlayback.swift`) and take its hazard colours
+      from `DollhousePalette`'s reserved warm family. `HouseScreen` carries a marked
+      `INTEGRATION POINT (renderer lane)` comment where `playback` is passed down — one line.
+      Full interface list in the session note's handoff section.
+- [ ] **`Renderer/Evacuation/EvacuationPalette.swift` duplicates `routeSecondary` as `#4A86D8`,
+      which does not match `DollhousePalette.routeSecondary` `#4180D4`.** Same copy-drift that
+      left `Theme.routeInk` on a retired colour for a session. Next action: delete the duplicate
+      and read `DollhousePalette` directly. (Codex's file — do not edit from this lane.)
+- [ ] Device-acceptance for everything above: ignite → playback on hardware, the scrubber's feel,
+      Reduce Motion in the camera tour, VoiceOver end-to-end with a real screen reader (not just
+      the label assertions), and the PDF printed on actual paper in greyscale. **None of this
+      has been seen by a human on a device** — the whole session is simulator + unit tests.
+- [ ] `AccentColor.colorset`'s light value is **4.45:1 on white** — passes as a fill, fails as
+      text, which is why `Theme.accentText` exists as a workaround. Darkening the asset to
+      `#0B7233` would let `accentText` be deleted. Deferred because the renderer reads
+      `AccentColor` directly and the 3D consequence needs a device.
+- [ ] `OnboardingState.LoadState.failed` still carries a `String`; the classified
+      `BackendFailure` rides alongside as `analysisFailure`/`scoreFailure`. Retry is now gated
+      correctly, but the payload should become the failure itself so the two cannot disagree.
+- [ ] `RenderOrder` has no named band for route stop chips — they use `RenderOrder.badges - 1`.
+      Promote to `RenderOrder.routeStops`.
+- [ ] The evacuation timeline is deliberately **not** cached for offline use (unlike
+      `RoutePlanCache`). Confirm that's still the right call once the feature has been demoed —
+      a stale timeline is a picture of a fire that isn't happening, which is why it was skipped.
 
 ## BLOCKER — the Anthropic account is out of credits (found 2026-08-04)
 
@@ -371,6 +419,14 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       Disk is the most likely lever (93% used, 31 GB free; the previous blocker was 99%).
       Next action: free disk, run the gate 5× in a row, and record the pass rate here. If it
       persists it will bite during filming. Until then, **re-run before believing a red**.
+      **2026-08-05 adds a second signature, and it is not a launch failure.**
+      `EntryPointUITests.testScanEntryPointPresentsCaptureFlow` failed with
+      `Failed to tap "Home" Button: … is no longer valid after interruption handling` — the app
+      was already up and the *tab bar button* went stale mid-tap, which XCTest attributes to a
+      system interruption. The UI target re-ran clean immediately. So the flake has at least two
+      faces and "launch flake" undersells it; anything that parses for `Simulator device failed
+      to launch` alone will miss this one. There are **no** `addUIInterruptionMonitor` handlers
+      anywhere in `escape_planUITests/` — adding one is the obvious next experiment.
 - [ ] Console output undercounts the iOS suite — `xcodebuild` prints `Executed 16 tests`
       because the unit target runs under Swift Testing, which doesn't emit the old
       `Test Suite` lines. The true count (320) is only in the result bundle. Anything that
