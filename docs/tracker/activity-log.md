@@ -796,3 +796,12 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - ?? escape_planTests/EditorCore/GaitCycleTests.swift
   - ?? escape_planTests/EditorCore/PathSamplerTests.swift
 
+## 2026-08-06T02:16:15Z · Anish Yarrakonda · `main` @ `7da0103`
+
+**Commits this session**
+  - 7da0103 tracker: session note, decisions and TODO for the camera feel pass
+  - 7bcaadf Loosen the movement limits and calm the orbit rate
+  - a94996a Measure what lands on a drag's frames, and stop pinning the renderer on for nothing
+  - 2b0cd0d One camera-gesture implementation, shared by both 3D hosts
+  - d83c184 Camera rig: correct pan projection, a fixed pinch anchor, one transform write
+
