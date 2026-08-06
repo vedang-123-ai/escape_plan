@@ -77,6 +77,38 @@ struct BackendFailureTests {
         #expect(f.isRetryable)
     }
 
+    @Test("Every operation names itself, including the two the app never adopted")
+    func everyOperationHasANoun() {
+        // `.simulation` (POST /evacuate) and `.houseBuilder` (POST /build) were the two calls
+        // still running hand-rolled status ladders. A 422's default wording quotes the noun,
+        // so an empty or placeholder noun would show up as a broken sentence.
+        let operations: [BackendFailure.Operation] =
+            [.routes, .scanConversion, .score, .analysis, .assistant, .simulation, .houseBuilder]
+        for operation in operations {
+            #expect(operation.noun.isEmpty == false)
+            #expect(failure(422, operation).message.contains(operation.noun)
+                    || operation == .scanConversion,
+                    "scan conversion has its own bespoke 422 copy; everything else quotes the noun")
+        }
+    }
+
+    @Test("A simulation failure leaves the saved plan explicitly untouched")
+    func simulationPromisesOnlyWhatIsTrue() {
+        // /evacuate answers "what if it starts here?" — a separate question about the same
+        // model. Failing it changes nothing about the routes already computed and saved.
+        #expect(failure(502, .simulation).message.contains("saved escape routes are unchanged"))
+        #expect(failure(503, .simulation).isRetryable)
+    }
+
+    @Test("Only offline-flavoured failures invite the what-works-offline note")
+    func offlineFlavour() {
+        #expect(BackendFailure(URLError(.notConnectedToInternet), while: .routes)
+            .isOfflineFlavoured)
+        #expect(BackendFailure.showingCachedRoutes(savedAt: Date()).isOfflineFlavoured)
+        #expect(failure(502).isOfflineFlavoured == false)
+        #expect(failure(401).isOfflineFlavoured == false)
+    }
+
     @Test("Cached routes are a notice, not an error")
     func cachedRoutes() {
         let f = BackendFailure.showingCachedRoutes(savedAt: Date(timeIntervalSince1970: 0))

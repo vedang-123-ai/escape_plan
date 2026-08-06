@@ -32,7 +32,13 @@ struct ScoreScreen: View {
     @State private var checklistState: [String: Bool] = [:]
     @State private var isLoading = false
     @State private var isUpdating = false
-    @State private var errorMessage: String?
+    /// The whole classified failure, not `.message`. Flattening it here was how a 502 ("no
+    /// credit — an operator must act") and a 503 ("busy — try again") ended up rendering the
+    /// same sentence with the same Retry button.
+    @State private var failure: BackendFailure?
+    /// Local load problems (a home document that won't decode) aren't backend failures and
+    /// must not be dressed as one.
+    @State private var loadErrorMessage: String?
     @State private var refreshTask: Task<Void, Never>?
 
     private let stateStore = ChecklistStateStore()
@@ -51,16 +57,32 @@ struct ScoreScreen: View {
         } else if isLoading {
             ProgressView("Scoring…")
                 .accessibilityLabel("Working out your preparedness score.")
-        } else if let errorMessage {
+        } else if let loadErrorMessage {
             ContentUnavailableView {
-                Label("Couldn't get your score", systemImage: "exclamationmark.triangle")
+                Label("Couldn't open this home", systemImage: "exclamationmark.triangle")
             } description: {
-                Text(errorMessage)
+                Text(loadErrorMessage)
+            }
+        } else if let failure {
+            ContentUnavailableView {
+                Label("Couldn't get your score", systemImage: failure.symbol)
+            } description: {
+                VStack(spacing: 10) {
+                    Text(failure.message)
+                    if failure.isOfflineFlavoured {
+                        OfflineCapabilityNote()
+                            .frame(maxWidth: 420)
+                    }
+                }
             } actions: {
-                Button("Try Again") { refresh() }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityLabel("Try again")
-                    .accessibilityHint("Asks the server for your preparedness score again.")
+                // No Retry on a 502: the server needs an operator, and a button that provably
+                // cannot work is worse than no button.
+                if failure.isRetryable {
+                    Button("Try Again") { refresh() }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityLabel("Try again")
+                        .accessibilityHint("Asks the server for your preparedness score again.")
+                }
             }
         } else {
             ProgressView()
@@ -74,17 +96,16 @@ struct ScoreScreen: View {
                 scoreHeader(breakdown)
             }
 
-            if let errorMessage {
+            if let failure {
                 Section {
-                    Label(errorMessage, systemImage: "wifi.exclamationmark")
-                        .font(.caption)
-                        .foregroundStyle(Theme.warning)
-                        .accessibilityLabel("Score may be out of date. \(errorMessage)")
-                    Button("Retry") { refresh() }
-                        .font(.caption)
-                        .minimumTapTarget()
-                        .accessibilityLabel("Retry")
-                        .accessibilityHint("Asks the server for an up-to-date score.")
+                    // One banner, one classifier. The stale-score caveat is spoken up front so
+                    // VoiceOver users hear *why* the number below might be wrong.
+                    BackendFailureBanner(failure: failure,
+                                         retry: failure.isRetryable ? { refresh() } : nil)
+                        .accessibilityLabel("This score may be out of date. \(failure.message)")
+                    if failure.isOfflineFlavoured {
+                        OfflineCapabilityNote()
+                    }
                 }
             }
 
@@ -386,8 +407,9 @@ struct ScoreScreen: View {
         defer { isLoading = false }
         do {
             home = try HomeDocumentStore().load(homeID: homeID, as: HomeModel.self)
+            loadErrorMessage = nil
         } catch {
-            errorMessage = "Couldn't load this home: \(error)"
+            loadErrorMessage = "Couldn't load this home: \(error)"
             return
         }
         await fetchScore()
@@ -410,15 +432,15 @@ struct ScoreScreen: View {
         do {
             let new = try await apiClient.score(home: home, checklistState: checklistState)
             guard !Task.isCancelled else { return }
-            withAnimation(.snappy) {
+            withAnimation(reduceMotion ? .linear(duration: 0) : .snappy) {
                 breakdown = new
-                errorMessage = nil
+                failure = nil
             }
         } catch is CancellationError {
             // A newer toggle superseded this request.
         } catch {
             guard !Task.isCancelled else { return }
-            errorMessage = BackendFailure(error, while: .score).message
+            failure = BackendFailure(error, while: .score)
         }
     }
 }

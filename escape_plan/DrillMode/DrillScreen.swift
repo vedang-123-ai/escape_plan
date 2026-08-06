@@ -32,9 +32,8 @@ struct DrillScreen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let homeID: String
 
-    /// The engine's evacuation timeline for this home, when one has been computed. Supplies
-    /// the ONLY legitimate modeled time (`OccupantTrack.egress_time_s`); nil simply means the
-    /// comparison is unavailable, and the UI says so rather than deriving a number.
+    /// An externally supplied timeline (previews, tests, a future caller that already has one).
+    /// Takes precedence over anything this screen fetches; nil is the normal case.
     var timeline: EvacuationTimeline? = nil
 
     @State private var homeModel: HomeModel?
@@ -42,9 +41,32 @@ struct DrillScreen: View {
     @State private var loadError: String?
 
     @State private var routePlan: RoutePlan?
-    @State private var routesError: String?
+    /// The classified backend failure. Was a bare `String`, which discarded `isRetryable` —
+    /// so a 502 (an operator must act) and a 503 (busy, retry) read identically here.
+    @State private var routesFailure: BackendFailure?
+    /// Engine/app-level messages that are NOT transport failures ("no primary route for Ana",
+    /// findings shown verbatim). Kept separate so they never borrow a network banner's wording.
+    @State private var routesNotice: String?
+    /// Set when the plan being walked came out of the offline cache rather than the network.
+    @State private var cachedPlanDate: Date?
     @State private var isFetchingRoutes = false
     @State private var routesTask: Task<Void, Never>?
+
+    // MARK: Fire origin (optional)
+
+    /// Where the fire starts, if the household chose to say. Nil is a first-class answer: the
+    /// drill runs identically, and the time comparison stays honestly unavailable.
+    @State private var originRoomID: String?
+    @State private var fetchedTimeline: EvacuationTimeline?
+    @State private var simulationFailure: BackendFailure?
+    @State private var isSimulating = false
+    @State private var originPickerPresented = false
+    @State private var evacuateTask: Task<Void, Never>?
+
+    /// The one legitimate source of a modeled time. There is deliberately no third branch that
+    /// derives a number from `Route.length_m` and an assumed speed — that would be the app
+    /// fabricating engine output, which the whole architecture exists to prevent.
+    private var effectiveTimeline: EvacuationTimeline? { timeline ?? fetchedTimeline }
 
     @State private var overlay: RouteOverlay?
     @State private var sceneView: SCNView?
@@ -83,6 +105,7 @@ struct DrillScreen: View {
             .task(id: drillStartedAt) { await runTimer() }
             .onDisappear {
                 routesTask?.cancel()
+                evacuateTask?.cancel()
                 overlay?.cancelTour()
                 // Leaving mid-drill is a stopped drill, not a lost one.
                 finish(outcome: .abandoned)
@@ -91,6 +114,9 @@ struct DrillScreen: View {
                 PracticeLogView(homeID: homeID,
                                 store: logStore,
                                 currentProfileIDs: Set(homeModel?.profiles.map(\.id) ?? []))
+            }
+            .sheet(isPresented: $originPickerPresented) {
+                if let homeModel { originPickerSheet(homeModel) }
             }
     }
 
@@ -132,6 +158,7 @@ struct DrillScreen: View {
                             drillCard(for: session)
                         } else {
                             profilePicker(homeModel)
+                            fireOriginSection(homeModel)
                             practiceSection(homeModel)
                         }
                     }
@@ -198,6 +225,186 @@ struct DrillScreen: View {
             parts.append("no drills recorded yet")
         }
         return parts.joined(separator: ", ")
+    }
+
+    // MARK: - Fire origin (optional, and optional on purpose)
+
+    /// The step that makes the time-to-exit comparison possible at all.
+    ///
+    /// `/evacuate` needs to know where the fire starts before the engine can time anyone's
+    /// escape, and nothing in the drill knew that — which is why the comparison always showed
+    /// its "unavailable" branch. Asking is the only honest way to get the number: the
+    /// alternative considered (dividing `Route.length_m` by an assumed walking speed) would be
+    /// the app inventing engine output.
+    ///
+    /// Everything here is skippable. Skipped, offline, or failed, the drill runs exactly as it
+    /// did before and the comparison says plainly that there is nothing to compare against.
+    @ViewBuilder
+    private func fireOriginSection(_ home: HomeModel) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Where does the fire start? (optional)")
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            Text("Pick a room and the engine works out how long the walk out takes with the "
+                 + "fire there. Skip it and the drill still runs — you just won't get a "
+                 + "modeled time to compare your practice against.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if isSimulating {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("Working out the modeled walk from \(originRoomName)…")
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.updatesFrequently)
+            } else if effectiveTimeline != nil {
+                Label("Modeled from a fire starting in \(originRoomName).",
+                      systemImage: "flame.fill")
+                    .font(.caption)
+                    .foregroundStyle(Theme.caution)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel("Modeled from a fire starting in \(originRoomName). "
+                                        + "Your practice will be compared against it.")
+            }
+
+            if let simulationFailure {
+                BackendFailureBanner(
+                    failure: simulationFailure,
+                    retry: simulationFailure.isRetryable
+                        ? { originRoomID.map { fetchTimeline(originRoomID: $0) } }
+                        : nil
+                )
+                if simulationFailure.isOfflineFlavoured {
+                    OfflineCapabilityNote()
+                }
+                Text("The drill itself doesn't need this — you can start walking the route now.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            // Two buttons never share a line at accessibility text sizes.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { originButtons }
+                VStack(alignment: .leading, spacing: 8) { originButtons }
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    @ViewBuilder
+    private var originButtons: some View {
+        Button {
+            originPickerPresented = true
+        } label: {
+            Label(originRoomID == nil ? "Choose a room…" : "Change room",
+                  systemImage: "flame")
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .buttonStyle(.bordered)
+        .disabled(isSimulating)
+        .minimumTapTarget()
+        .accessibilityLabel(originRoomID == nil
+                            ? "Choose the room the fire starts in"
+                            : "Change the room the fire starts in")
+        .accessibilityValue(originRoomID == nil ? "Not set" : originRoomName)
+        .accessibilityHint("Opens a list of every room in this home. Optional — the drill "
+                           + "works without it.")
+        .accessibilityIdentifier("drill.origin.choose")
+
+        if originRoomID != nil {
+            Button("Skip this") { clearOrigin() }
+                .buttonStyle(.bordered)
+                .disabled(isSimulating)
+                .minimumTapTarget()
+                .accessibilityLabel("Skip the fire-origin step")
+                .accessibilityHint("Clears the room and runs the drill without a modeled time "
+                                   + "to compare against.")
+                .accessibilityIdentifier("drill.origin.skip")
+        }
+    }
+
+    /// Falls back to the timeline's own `origin_room_id` so an injected timeline still names
+    /// its assumption rather than saying "the chosen room".
+    private var originRoomName: String {
+        guard let id = originRoomID ?? effectiveTimeline?.origin_room_id else {
+            return "the chosen room"
+        }
+        return homeModel?.locateRoom(id)?.room.name ?? id
+    }
+
+    /// A plain list, grouped by floor — the same accessible pattern HouseScreen's ignition
+    /// picker uses, and the only one that works for someone who can't hit a room in a 3D scene.
+    @ViewBuilder
+    private func originPickerSheet(_ home: HomeModel) -> some View {
+        NavigationStack {
+            List {
+                ForEach(home.floorsByLevel) { floor in
+                    Section(floor.name.isEmpty ? "Level \(floor.level)" : floor.name) {
+                        ForEach(floor.rooms) { room in
+                            Button {
+                                originPickerPresented = false
+                                originRoomID = room.id
+                                fetchTimeline(originRoomID: room.id)
+                            } label: {
+                                Label(room.name, systemImage: "flame")
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .accessibilityLabel("Start the fire in \(room.name)")
+                            .accessibilityHint("Asks the engine to time everyone's walk out "
+                                               + "with the fire in this room.")
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Start the fire in…")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { originPickerPresented = false }
+                        .accessibilityHint("Closes without setting a fire origin.")
+                }
+            }
+        }
+    }
+
+    /// POST /evacuate. There is no offline path and no client-side substitute on purpose —
+    /// failing honestly through `BackendFailure` is the whole point. The drill is unaffected
+    /// either way, which the banner says out loud.
+    private func fetchTimeline(originRoomID roomID: String) {
+        guard let homeModel else { return }
+        evacuateTask?.cancel()
+        simulationFailure = nil
+        fetchedTimeline = nil
+        isSimulating = true
+        evacuateTask = Task {
+            defer { isSimulating = false }
+            do {
+                let result = try await apiClient.evacuate(home: homeModel, originRoomID: roomID)
+                guard !Task.isCancelled else { return }
+                // A timeline for a different home would time a walk through another house.
+                guard result.home_id == homeModel.home_id else { return }
+                fetchedTimeline = result
+            } catch is CancellationError {
+            } catch {
+                guard !Task.isCancelled else { return }
+                simulationFailure = BackendFailure(error, while: .simulation)
+            }
+        }
+    }
+
+    private func clearOrigin() {
+        evacuateTask?.cancel()
+        isSimulating = false
+        originRoomID = nil
+        fetchedTimeline = nil
+        simulationFailure = nil
     }
 
     // MARK: - Practice log + reminders (shown between drills)
@@ -361,6 +568,21 @@ struct DrillScreen: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                if comparison.isAvailable, effectiveTimeline != nil {
+                    // Names the assumption the modeled number rests on. A time computed for a
+                    // fire in the kitchen is not a time for a fire anywhere else, and the card
+                    // must not let that read as a general result.
+                    Text("Modeled with the fire starting in \(originRoomName).")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if !comparison.isAvailable {
+                    Text("Pick where the fire starts before a drill and the engine can work "
+                         + "out a modeled walk to compare against.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 DrillCitedText(text: DrillInstructions.drillTimerGoal, font: .caption2)
             }
             .padding(10)
@@ -405,17 +627,43 @@ struct DrillScreen: View {
             .padding(10)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
             .accessibilityElement(children: .combine)
-        } else if let routesError {
-            HStack(spacing: 8) {
-                Image(systemName: "wifi.exclamationmark")
-                Text(routesError)
-                    .font(.caption)
-                    .fixedSize(horizontal: false, vertical: true)
+        } else {
+            if let routesFailure {
+                // One classifier, one banner. Retry appears only when retrying can work.
+                VStack(alignment: .leading, spacing: 8) {
+                    BackendFailureBanner(
+                        failure: routesFailure,
+                        retry: routesFailure.isRetryable ? { retryRoutes() } : nil
+                    )
+                    if routesFailure.isOfflineFlavoured {
+                        OfflineCapabilityNote()
+                    }
+                }
+                .accessibilityIdentifier("drill.routesFailure")
             }
-            .padding(10)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
-            .accessibilityElement(children: .combine)
+            if let routesNotice {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .accessibilityHidden(true)
+                    Text(routesNotice)
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(10)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(routesNotice)
+            }
         }
+    }
+
+    /// The profile whose route we last tried to fetch, so the banner's Retry has something to
+    /// retry. Cleared when a drill starts.
+    @State private var lastRequestedProfile: Profile?
+
+    private func retryRoutes() {
+        guard let profile = lastRequestedProfile else { return }
+        beginDrill(for: profile)
     }
 
     // MARK: - Loading
@@ -454,19 +702,38 @@ struct DrillScreen: View {
 
     // MARK: - Drill flow
 
+    /// Fetches the route to walk, degrading to the last-good cached plan exactly as HouseScreen
+    /// does — this screen was calling the uncached `fetchRoutes` and dead-ending offline, even
+    /// though everything else about a drill (the stopwatch, the log, the reminders) is local.
+    ///
+    /// The fallback is connection-class only. A 401 or a 422 still surfaces: silently walking a
+    /// stale plan when the token is wrong would hide a configuration problem behind a drill
+    /// that looks like it worked.
     private func beginDrill(for profile: Profile) {
         guard let homeModel else { return }
         routesTask?.cancel()
-        routesError = nil
+        routesFailure = nil
+        routesNotice = nil
+        cachedPlanDate = nil
+        lastRequestedProfile = profile
         isFetchingRoutes = true
         routesTask = Task {
             defer { isFetchingRoutes = false }
             do {
-                let plan = try await apiClient.fetchRoutes(home: homeModel,
-                                                           profileID: profile.id)
+                let result = try await apiClient.fetchRoutesCached(home: homeModel,
+                                                                   profileID: profile.id)
                 guard !Task.isCancelled else { return }
+                let plan: RoutePlan
+                switch result {
+                case .live(let live):
+                    plan = live
+                case .cached(let cached):
+                    plan = cached.plan
+                    cachedPlanDate = cached.savedAt
+                    routesFailure = .showingCachedRoutes(savedAt: cached.savedAt)
+                }
                 guard plan.home_id == homeModel.home_id else {
-                    routesError = "The server answered for a different home — try again."
+                    routesNotice = "The saved plan is for a different home — try again online."
                     return
                 }
                 routePlan = plan
@@ -476,7 +743,7 @@ struct DrillScreen: View {
                 guard !Task.isCancelled else { return }
                 // Shared classifier: this screen's own 401 ladder said the same thing as
                 // HouseScreen's but drifted on everything else, including 502 vs 503.
-                routesError = BackendFailure(error, while: .routes).message
+                routesFailure = BackendFailure(error, while: .routes)
             }
         }
     }
@@ -484,19 +751,19 @@ struct DrillScreen: View {
     private func start(profile: Profile, plan: RoutePlan) {
         guard let homeModel, let overlay else { return }
         guard let room = plan.rooms.first(where: { $0.room_id == profile.bedroom_room_id }) else {
-            routesError = "The engine returned no plan for \(profile.name)'s bedroom."
+            routesNotice = "The engine returned no plan for \(profile.name)'s bedroom."
             return
         }
         guard let primary = room.primary else {
             // Findings are the engine's words, shown verbatim — the app never writes its own
             // safety judgments.
             let detail = room.findings.first.map { " \($0.detail)" } ?? ""
-            routesError = "No primary route for \(profile.name).\(detail)"
+            routesNotice = "No primary route for \(profile.name).\(detail)"
             return
         }
         guard let drill = DrillSession(profile: profile, route: primary,
                                        startRoomName: room.room_name) else {
-            routesError = "The route for \(profile.name) is too short to walk through."
+            routesNotice = "The route for \(profile.name) is too short to walk through."
             return
         }
         overlay.show(rooms: [room], home: homeModel, includeSecondary: false)
@@ -546,6 +813,7 @@ struct DrillScreen: View {
         finish(outcome: .abandoned)
         session = nil
         comparison = nil
+        routesNotice = nil
         routePlan = nil // back to a static scene — stop continuous rendering
     }
 
@@ -559,7 +827,7 @@ struct DrillScreen: View {
         recordedOutcome = outcome
 
         let modeled = DrillTimeComparison.modeledEgressSeconds(forProfileID: session.profile.id,
-                                                              in: timeline)
+                                                              in: effectiveTimeline)
         let record = DrillRecord(homeID: homeID,
                                  roomID: activeRoomID,
                                  roomName: activeRoomName,

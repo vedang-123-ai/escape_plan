@@ -46,6 +46,13 @@ struct BackendFailure: Equatable {
         case score
         case analysis
         case assistant
+        /// POST /evacuate — "what if the fire starts here?". Distinct from `.routes` because a
+        /// failed simulation leaves the saved plan completely intact, and saying so is the
+        /// difference between a broken app and an unavailable extra.
+        case simulation
+        /// POST /build — the LLM house builder behind "Import a plan". AI-backed, so it can be
+        /// down while everything deterministic is fine.
+        case houseBuilder
 
         var noun: String {
             switch self {
@@ -54,18 +61,28 @@ struct BackendFailure: Equatable {
             case .score: return "your preparedness score"
             case .analysis: return "the home inspection"
             case .assistant: return "the assistant"
+            case .simulation: return "the fire simulation"
+            case .houseBuilder: return "the draft home"
             }
         }
 
-        /// What still works when this particular thing doesn't. Only the AI-backed operations
-        /// have one, because only they can fail while the deterministic half is fine — which
-        /// is the whole point of keeping routing out of the model.
+        /// What still works when this particular thing doesn't. Only operations that can fail
+        /// while the deterministic half is fine have one — which is the whole point of keeping
+        /// routing out of the model. Nothing here promises a capability the app doesn't have:
+        /// `.routes` and `.scanConversion` genuinely need the server, so they promise nothing.
         var fallback: String? {
             switch self {
             case .analysis, .assistant:
                 return "Your escape routes still work."
             case .score:
                 return "Your escape routes still work."
+            case .simulation:
+                // The simulation is an extra question asked of the same engine; the saved
+                // plan it was asked about is untouched.
+                return "Your saved escape routes are unchanged."
+            case .houseBuilder:
+                // Honest and true offline: the editor is entirely local.
+                return "You can still build this home by hand in the 3D editor."
             case .routes, .scanConversion:
                 return nil
             }
@@ -80,6 +97,10 @@ struct BackendFailure: Equatable {
     /// Whether to point the user at Settings.
     var suggestsSettings: Bool
     var symbol: String
+
+    /// True when the reason is "no connection" (including the cached-routes notice), which is
+    /// the only case where listing what still works offline is useful rather than noise.
+    var isOfflineFlavoured: Bool { kind == .offline }
 
     // MARK: - Classification
 

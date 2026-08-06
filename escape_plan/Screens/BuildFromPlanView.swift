@@ -24,7 +24,13 @@ struct BuildFromPlanView: View {
     @State private var imageLabel: String?
     @State private var showingPDFImporter = false
     @State private var isBuilding = false
+    /// Local, non-backend problems: an unreadable PDF, or a draft the builder returned but
+    /// couldn't validate. These are not transport failures and must not borrow their wording.
     @State private var errorMessage: String?
+    /// Backend failures go through the one classifier. This file used to carry its own
+    /// `statusCode == 502 / == 401` ladder, which disagreed with every other screen and — the
+    /// real cost — offered the same affordances for "retry may work" and "an operator must act".
+    @State private var buildFailure: BackendFailure?
 
     var body: some View {
         NavigationStack {
@@ -110,7 +116,20 @@ struct BuildFromPlanView: View {
                         Text(errorMessage)
                             .font(.caption)
                             .foregroundStyle(Theme.warning)
+                            .fixedSize(horizontal: false, vertical: true)
                             .accessibilityLabel("Couldn't build your home. \(errorMessage)")
+                    }
+                }
+                if let buildFailure {
+                    Section {
+                        BackendFailureBanner(
+                            failure: buildFailure,
+                            retry: buildFailure.isRetryable ? { buildHome() } : nil
+                        )
+                        .accessibilityIdentifier("build.failure")
+                        if buildFailure.isOfflineFlavoured {
+                            OfflineCapabilityNote()
+                        }
                     }
                 }
             }
@@ -175,6 +194,7 @@ struct BuildFromPlanView: View {
 
     private func buildHome() {
         errorMessage = nil
+        buildFailure = nil
         isBuilding = true
         Task {
             defer { isBuilding = false }
@@ -193,12 +213,11 @@ struct BuildFromPlanView: View {
                 try store.save(model: home)
                 dismiss()
                 onBuilt(home.home_id)
-            } catch APIClientError.unexpectedResponse(let statusCode) where statusCode == 502 {
-                errorMessage = "The AI builder isn't available on the server right now."
-            } catch APIClientError.unexpectedResponse(let statusCode) where statusCode == 401 {
-                errorMessage = "Backend rejected the request — check the bearer token in Settings."
+            } catch is CancellationError {
             } catch {
-                errorMessage = "Build failed: \(error.localizedDescription)"
+                // One classifier for every status: 502 gets no Retry and says the editor still
+                // works, 503 gets one, 401 points at Settings, offline reads as a state.
+                buildFailure = BackendFailure(error, while: .houseBuilder)
             }
         }
     }

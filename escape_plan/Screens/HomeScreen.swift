@@ -31,7 +31,12 @@ struct HomeScreen: View {
     // Scan → /convert → save → open editor.
     @State private var showingScan = false
     @State private var isConverting = false
-    @State private var scanError: String?
+    /// The classified failure, not a flattened sentence: a 502 and a 503 read identically as
+    /// strings, and only the full value knows whether Retry can possibly help.
+    @State private var scanFailure: BackendFailure?
+    /// Kept so Retry re-converts the scan the user already walked, instead of an alert whose
+    /// only button was OK and whose only outcome was losing the capture.
+    @State private var lastScanArtifacts: ScanArtifacts?
 
     init() {
         // `HomeDocumentStore()` only fails if the Documents directory itself can't be created,
@@ -41,7 +46,10 @@ struct HomeScreen: View {
 
     var body: some View {
         NavigationStack {
-            content
+            VStack(spacing: 8) {
+                scanFailureBanner
+                content
+            }
                 .navigationTitle("Homes")
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
@@ -84,17 +92,6 @@ struct HomeScreen: View {
                         onCancel: { showingScan = false }
                     )
                 }
-                .alert(
-                    "Couldn't convert that scan",
-                    isPresented: Binding(
-                        get: { scanError != nil },
-                        set: { if !$0 { scanError = nil } }
-                    )
-                ) {
-                    Button("OK", role: .cancel) { scanError = nil }
-                } message: {
-                    Text(scanError ?? "")
-                }
                 .navigationDestination(item: $openHomeID) { homeID in
                     HouseScreen(homeID: homeID, library: library) { library.refresh() }
                 }
@@ -117,22 +114,51 @@ struct HomeScreen: View {
     /// the editor so low-confidence scan items get reviewed before anyone trusts a route.
     private func importScan(_ artifacts: ScanArtifacts) async {
         isConverting = true
+        lastScanArtifacts = artifacts
         defer { isConverting = false }
         do {
             let name = "Scanned Home \(Date().formatted(date: .abbreviated, time: .shortened))"
             let model = try await apiClient.convertScan(at: artifacts.rawJSON, homeName: name)
             let summary = try library.store.save(model: model)
             library.refresh()
+            scanFailure = nil
+            lastScanArtifacts = nil
             openHomeID = summary.id
         } catch {
-            scanError = scanFailureMessage(for: error)
+            // The shared classifier, kept whole: a 422 (scan too incomplete) offers no Retry
+            // and says how to rescan, a 503 offers one, a 502 says the routes you already have
+            // are unaffected. The old alert collapsed all three into one OK button.
+            scanFailure = BackendFailure(error, while: .scanConversion)
         }
     }
 
-    /// Delegates to the shared classifier so this alert says the same thing about a 401 or a
-    /// 502 as every other screen does — this ladder used to be one of six that disagreed.
-    private func scanFailureMessage(for error: Error) -> String {
-        BackendFailure(error, while: .scanConversion).message
+    /// The scan-conversion notice. An inline banner rather than an alert, because an alert
+    /// forces a modal dismissal, offers no Retry, and threw away the capture on the way out.
+    @ViewBuilder
+    private var scanFailureBanner: some View {
+        if let failure = scanFailure {
+            VStack(alignment: .leading, spacing: 8) {
+                BackendFailureBanner(
+                    failure: failure,
+                    retry: failure.isRetryable ? { retryScanImport() } : nil
+                )
+                if failure.isOfflineFlavoured {
+                    OfflineCapabilityNote()
+                }
+                Button("Dismiss") { scanFailure = nil; lastScanArtifacts = nil }
+                    .font(.caption)
+                    .minimumTapTarget()
+                    .accessibilityLabel("Dismiss")
+                    .accessibilityHint("Hides this message and discards the scan you just took.")
+            }
+            .padding(.horizontal)
+            .accessibilityIdentifier("home.scanFailure")
+        }
+    }
+
+    private func retryScanImport() {
+        guard let artifacts = lastScanArtifacts else { return }
+        Task { await importScan(artifacts) }
     }
 
     @ViewBuilder
@@ -140,6 +166,8 @@ struct HomeScreen: View {
         if isConverting {
             ProgressView("Converting scan…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityLabel("Converting your scan into a floor plan.")
+                .accessibilityAddTraits(.updatesFrequently)
         } else if library.homes.isEmpty {
             ContentUnavailableView {
                 Label("Let's map your home", systemImage: "house")
