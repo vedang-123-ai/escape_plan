@@ -174,9 +174,105 @@ final class CameraRigModelTests: XCTestCase {
 
     func testFramingTiesZoomLimitsToTheHouseSize() {
         let rig = CameraRigModel.framing(center: .zero, extent: 10, totalHeight: 5)
-        XCTAssertEqual(rig.distanceRange.lowerBound, 8.0, accuracy: 1e-9)
+        XCTAssertEqual(rig.distanceRange.lowerBound, 3.5, accuracy: 1e-9,
+                       "0.8 × extent stopped the user short of inspecting a single room")
         XCTAssertEqual(rig.distanceRange.upperBound, 40.0, accuracy: 1e-9)
         XCTAssertTrue(rig.distanceRange.contains(rig.distance))
+    }
+
+    // MARK: - Feel pass (Aug 2026): projection-correct panning, arbitration, looser limits
+
+    func testMetersPerPointUnderOrthographicIgnoresDistanceAndFOV() {
+        var rig = makeRig()
+        // The whole point: under ortho the visible height is 2 × orthographicScale, full stop.
+        let near = rig.metersPerPoint(projection: .orthographic(halfHeight: 6), viewHeightPoints: 800)
+        XCTAssertEqual(near, 12.0 / 800, accuracy: 1e-12)
+
+        rig.distance = 40
+        XCTAssertEqual(rig.metersPerPoint(projection: .orthographic(halfHeight: 6),
+                                          viewHeightPoints: 800),
+                       near, accuracy: 1e-12,
+                       "orthographic meters-per-point cannot depend on camera distance")
+    }
+
+    func testPerspectiveAndOrthographicDisagree() {
+        // The bug: `truck` used the perspective form under the shipping orthographic camera.
+        // At the framing the app actually ships — 35° FOV, and the orthographic scale matched
+        // to it by CameraTuning — the two forms differ by a factor of about 3.2, which is why
+        // the house did not track the finger.
+        let rig = CameraRigModel(pivot: .zero, yaw: 0, pitch: 0.6, distance: 22)
+        let perspective = rig.metersPerPoint(projection: .perspective(fovDegrees: 35),
+                                             viewHeightPoints: 800)
+        // Portrait aspect widening, as OrbitCameraRig.apply does it: scale /= aspect.
+        let orthoHalfHeight = 22 * tan(35 * Double.pi / 180 / 2) / (390.0 / 844.0)
+        let orthographic = rig.metersPerPoint(projection: .orthographic(halfHeight: orthoHalfHeight),
+                                              viewHeightPoints: 800)
+        XCTAssertGreaterThan(orthographic / perspective, 2.0,
+                             "if these agreed, the projection branch would be pointless")
+    }
+
+    func testMetersPerPointRejectsADegenerateViewport() {
+        let rig = makeRig()
+        XCTAssertEqual(rig.metersPerPoint(projection: .orthographic(halfHeight: 6),
+                                          viewHeightPoints: 0), 0.01)
+        XCTAssertEqual(rig.metersPerPoint(projection: .orthographic(halfHeight: 0),
+                                          viewHeightPoints: 800), 0.01,
+                       accuracy: 0.01, "a zero-scale camera must not divide by zero")
+    }
+
+    func testOneFingerPanOrbits() {
+        let arbiter = CameraRigModel.PanArbiter(touchCount: 1)
+        XCTAssertEqual(arbiter.intent, .orbit)
+        XCTAssertFalse(arbiter.orbitSuppressed)
+    }
+
+    func testTwoFingerPanNeverOrbits() {
+        var arbiter = CameraRigModel.PanArbiter(touchCount: 2)
+        XCTAssertEqual(arbiter.intent, .truck)
+        arbiter.update(touchCount: 2)
+        XCTAssertEqual(arbiter.intent, .truck)
+    }
+
+    func testASecondFingerArrivingMidGestureSuppressesOrbitImmediately() {
+        var arbiter = CameraRigModel.PanArbiter(touchCount: 1)
+        XCTAssertEqual(arbiter.intent, .orbit)
+        arbiter.update(touchCount: 2)
+        XCTAssertEqual(arbiter.intent, .truck,
+                       "the pan kept orbiting at the two-finger centroid velocity while the "
+                       + "pinch drove zoom — the camera fought itself")
+    }
+
+    func testOrbitDoesNotResumeWhenTheSecondFingerLifts() {
+        var arbiter = CameraRigModel.PanArbiter(touchCount: 1)
+        arbiter.update(touchCount: 2)
+        arbiter.update(touchCount: 1)
+        XCTAssertEqual(arbiter.intent, .truck)
+        XCTAssertTrue(arbiter.orbitSuppressed)
+        arbiter.update(touchCount: 0)
+        XCTAssertEqual(arbiter.intent, .truck,
+                       "handing the gesture to a different transition halfway through is the "
+                       + "same self-fighting bug in a slower costume")
+    }
+
+    func testPanApronGivesRealRoomBeforeTheRubberBand() {
+        let rig = CameraRigModel.framing(center: .zero, extent: 10, totalHeight: 5)
+        let bounds = rig.pivotBounds!
+        XCTAssertEqual(bounds.maxX, 6.0, accuracy: 1e-9,
+                       "a quarter-extent apron read as 'I can't move the house'")
+        XCTAssertEqual(bounds.minZ, -6.0, accuracy: 1e-9)
+        // The clamp still exists — this is the bug it was added for.
+        var moved = rig
+        moved.yaw = 0
+        moved.truck(rightMeters: 500, upMeters: 0)
+        XCTAssertLessThanOrEqual(moved.pivot.x, bounds.maxX + 1e-9)
+    }
+
+    func testAxisLockNeedsMoreTravelBeforeItCommits() {
+        // 15 pt of travel used to be enough to commit; it is inside the noise of a flick.
+        XCTAssertFalse(CameraRigModel.shouldLockToYaw(dx: 14, dy: 1),
+                       "12 pt let a short flick commit to an axis from a sample that had "
+                       + "barely started")
+        XCTAssertTrue(CameraRigModel.shouldLockToYaw(dx: 40, dy: 5))
     }
 
     func testPanCannotPushTheHouseOffScreen() {

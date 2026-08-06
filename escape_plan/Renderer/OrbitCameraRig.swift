@@ -14,8 +14,13 @@ final class OrbitCameraRig {
     let node: SCNNode
     private(set) var model: CameraRigModel
 
-    /// Full drag across the view height orbits by ~π — brisk but controllable.
-    private let orbitRadiansPerViewHeight = Double.pi
+    /// How far a full-view-height drag orbits.
+    ///
+    /// π — a half turn per screen height — was twitchy: a short flick spun the house further
+    /// than the eye could follow, and combined with an axis lock that committed after only
+    /// 12 pt it made small drags jumpy. 0.6 π settles into a turntable instead. These two
+    /// constants interact; changing one without the other reintroduces the wobble.
+    private let orbitRadiansPerViewHeight = Double.pi * 0.6
 
     /// Called whenever the rig moves itself (inertia, springs), so the host can redraw.
     var onChange: (() -> Void)?
@@ -115,13 +120,16 @@ final class OrbitCameraRig {
         let s = orbitRadiansPerViewHeight / Double(view.bounds.height)
 
         // Decide once per gesture whether this is a turntable spin or a free orbit, from the
-        // first ~12 pt of travel.
+        // first `axisLockSampleThreshold` points of travel — one constant, so the sample the
+        // decision is made from and the travel that triggers it can never disagree.
         gestureTravel.x += delta.x
         gestureTravel.y += delta.y
         if axisLock == nil {
-            let lock = CameraRigModel.shouldLockToYaw(dx: Double(gestureTravel.x),
-                                                      dy: Double(gestureTravel.y))
-            if abs(gestureTravel.x) + abs(gestureTravel.y) >= 12 { axisLock = lock }
+            let travel = abs(Double(gestureTravel.x)) + abs(Double(gestureTravel.y))
+            if travel >= CameraRigModel.axisLockSampleThreshold {
+                axisLock = CameraRigModel.shouldLockToYaw(dx: Double(gestureTravel.x),
+                                                          dy: Double(gestureTravel.y))
+            }
         }
 
         let dYaw = -Double(delta.x) * s
@@ -269,10 +277,16 @@ final class OrbitCameraRig {
         let dx = model.pivot.x - bounds.center.x
         let dz = model.pivot.z + bounds.center.y
         let drift = (dx * dx + dz * dz).squareRoot()
-        return drift > extent * 0.15
+        return drift > extent * 0.35
             || model.distance > extent * 2.4
-            || model.distance < extent * 0.7
+            || model.distance < extent * 0.5
     }
+
+    // The two loosened numbers above follow the loosened limits, and had to. The drift
+    // threshold was 0.15 × extent against a 0.25 × extent apron — over half the pan range
+    // showed the chip. The zoom-in threshold was 0.7 against a floor of 0.8, so it fired on
+    // essentially ANY zoom-in. Now that the user can pan to 0.6 and zoom to 0.35, "off home"
+    // means genuinely far out, not "has touched the camera at all".
 
     // MARK: - Gesture lifecycle
 

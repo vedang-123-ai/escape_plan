@@ -151,7 +151,8 @@ struct CameraRigModel: Equatable {
     /// few degrees of pitch wobble, which is what made orbiting feel unsteady. Locking to yaw
     /// once the gesture is clearly horizontal gives a clean turntable and still allows tilting
     /// when the user actually means to.
-    static func shouldLockToYaw(dx: Double, dy: Double, sampleThreshold: Double = 12) -> Bool {
+    static func shouldLockToYaw(dx: Double, dy: Double,
+                                sampleThreshold: Double = axisLockSampleThreshold) -> Bool {
         guard abs(dx) + abs(dy) >= sampleThreshold else { return false }
         return abs(dx) > 2 * abs(dy)
     }
@@ -264,9 +265,18 @@ struct CameraRigModel: Equatable {
         )
         // Tied to the model's own size instead of the old absolute 0.5…extent×20, which let the
         // user zoom until the house was a speck or until the near plane was inside a wall.
-        rig.distanceRange = (safeExtent * 0.8)...(safeExtent * 4.0)
-        // Pan is bounded to the house plus a quarter-extent apron, vertically to the stack.
-        let apron = safeExtent * 0.25
+        //
+        // The floor was 0.8 × extent, which is barely closer than the 2.2 × opening shot and
+        // stopped the user well short of inspecting a single room — the limit bit long before
+        // it needed to. 0.35 still keeps the near plane clear of a wall on a house-sized model.
+        rig.distanceRange = (safeExtent * minimumDistanceFactor)...(safeExtent * 4.0)
+        // Pan is bounded to the house plus an apron, vertically to the stack.
+        //
+        // The apron was a quarter of the extent, so the rubber band engaged almost as soon as
+        // the pan started and the whole gesture read as "I can't move the house". The clamp
+        // still exists — losing the house entirely with no way back was a real bug — it just
+        // gives meaningfully more room before it does.
+        let apron = safeExtent * panApronFactor
         rig.pivotBounds = Bounds(minX: center.x - apron, maxX: center.x + apron,
                                  minY: 0, maxY: max(totalHeight, 1.0),
                                  minZ: center.z - apron, maxZ: center.z + apron)
@@ -282,6 +292,20 @@ struct CameraRigModel: Equatable {
     /// factor to frame the same house. A further margin covers the diagonal, since at a 45° yaw
     /// the model presents √2 × its extent across the frame.
     static let openingDistanceFactor = 2.2
+
+    /// Closest the camera may get, as a multiple of the plan extent. Sized so a single room
+    /// can be inspected; the hard clamp that keeps the near plane out of a wall stays.
+    static let minimumDistanceFactor = 0.35
+
+    /// How far past the house the pivot may travel, as a multiple of the plan extent.
+    static let panApronFactor = 0.6
+
+    /// Points of travel before the orbit axis lock commits.
+    ///
+    /// 12 pt was inside the noise of a flick: a short drag committed to an axis from a sample
+    /// that had barely started, so small gestures picked up pitch wobble. 20 pt is still well
+    /// under a deliberate drag and gives the direction test something to read.
+    static let axisLockSampleThreshold: Double = 20
 
     /// The shot the recenter chip springs to: framed on `center`, backed off by the opening
     /// distance, tilted to 38°, and yawed to the nearest 45° diagonal so the house sits
