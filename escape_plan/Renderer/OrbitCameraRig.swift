@@ -27,11 +27,21 @@ final class OrbitCameraRig {
     private var lastTick: CFTimeInterval = 0
     private var inertiaYaw: Double = 0
     private var inertiaPitch: Double = 0
+    /// Pan momentum, in meters/second along the camera's own right/up axes.
+    private var inertiaRight: Double = 0
+    private var inertiaUp: Double = 0
+    /// Camera gestures in flight. Counted because pan and pinch recognize simultaneously.
+    private var gestureDepth = 0
+    /// When the current explicit spring/tour animation finishes; until then the view must keep
+    /// redrawing or the animation is invisible on a static scene.
+    private var animationDeadline: CFTimeInterval = 0
     private var lastOrbitRate: (yaw: Double, pitch: Double) = (0, 0)
     /// Accumulated travel of the current gesture, used to pick the orbit axis once.
     private var gestureTravel: CGPoint = .zero
     /// nil = undecided, true = turntable (yaw only), false = free orbit.
     private var axisLock: Bool?
+    /// The world point the in-flight pinch holds fixed, resolved once at `.began` (see #2).
+    private var pinchAnchor: CameraRigModel.Vec3?
 
     init(home: HomeModel) {
         let bounds = DollhouseGeometry.bounds(of: home)
@@ -60,7 +70,7 @@ final class OrbitCameraRig {
         node = SCNNode()
         node.camera = camera
         node.name = "orbitRigCamera"
-        apply()
+        applyNow()
     }
 
     deinit { displayLink?.invalidate() }
@@ -72,7 +82,7 @@ final class OrbitCameraRig {
         scene.rootNode.addChildNode(node)
         view.pointOfView = node
         attachedView = view
-        apply()
+        applyNow()
     }
 
     /// Reset to the opening three-quarter framing for a (possibly different) home.
@@ -87,7 +97,7 @@ final class OrbitCameraRig {
             totalHeight: totalHeight
         )
         node.camera?.zFar = extent * 40
-        apply()
+        applyNow()
     }
 
     // MARK: - Gestures → model
@@ -118,7 +128,7 @@ final class OrbitCameraRig {
         let dPitch = (axisLock == true) ? 0 : -Double(delta.y) * s
         model.orbit(deltaYaw: dYaw, deltaPitch: dPitch)
         lastOrbitRate = (yaw: dYaw, pitch: dPitch)
-        apply()
+        applyNow()
     }
 
     /// Hand the recognizer's exit velocity to the rig so the turntable keeps spinning and eases
@@ -139,19 +149,71 @@ final class OrbitCameraRig {
     }
 
     func truck(byScreenDelta delta: CGPoint, in view: SCNView, soft: Bool = true) {
-        let fov = CameraTuning.fieldOfViewDegrees
-        let mpp = model.metersPerPoint(fovDegrees: fov,
+        let mpp = model.metersPerPoint(projection: projection(in: view),
                                        viewHeightPoints: Double(view.bounds.height))
         model.truck(rightMeters: -Double(delta.x) * mpp, upMeters: Double(delta.y) * mpp,
                     soft: soft)
-        apply()
+        applyNow()
+    }
+
+    /// Hand a pan's exit velocity to the rig so the house coasts and eases out, exactly as an
+    /// orbit flick does. Without this, pan stopped dead on lift while orbit glided — two
+    /// different feels for the same house, from the same finger.
+    func endTruck(velocity: CGPoint, in view: SCNView) {
+        guard view.bounds.height > 0 else { settle(); return }
+        let mpp = model.metersPerPoint(projection: projection(in: view),
+                                       viewHeightPoints: Double(view.bounds.height))
+        // Same sign convention as `truck`: dragging right moves the pivot left.
+        let rightRate = -Double(velocity.x) * mpp
+        let upRate = Double(velocity.y) * mpp
+        guard abs(rightRate) + abs(upRate) >= Self.panInertiaFloor else {
+            settle()
+            return
+        }
+        startInertia(rightRate: rightRate, upRate: upRate)
+    }
+
+    /// The projection the attached camera is ACTUALLY using, read from the camera rather than
+    /// assumed from `CameraTuning`.
+    ///
+    /// `truck` used to convert screen points to meters with perspective math unconditionally,
+    /// while the default projection is orthographic — so under the shipping camera the house
+    /// tracked the finger at a constant wrong ratio. Reading `orthographicScale` back off the
+    /// camera (not recomputing it) also picks up the portrait aspect widening `apply()` does,
+    /// which any independent recomputation would have to duplicate and could drift from.
+    private func projection(in view: SCNView) -> CameraRigModel.Projection {
+        guard let camera = node.camera, camera.usesOrthographicProjection else {
+            return .perspective(fovDegrees: CameraTuning.fieldOfViewDegrees)
+        }
+        return .orthographic(halfHeight: camera.orthographicScale)
+    }
+
+    /// Resolve and cache the world point the pinch holds fixed. Call once at `.began`.
+    ///
+    /// The hit test behind this walks the whole dollhouse — walls, doors, windows, furniture,
+    /// route tubes, figures. Doing it per recognizer update meant 60–120 full-scene hit tests a
+    /// second, and it was wrong as well as slow: zoom-toward-anchor is defined against a FIXED
+    /// point, so re-resolving mid-pinch let the anchor crawl under the fingers.
+    func beginPinch(at centroid: CGPoint, in view: SCNView) {
+        stopInertia()
+        pinchAnchor = anchor(at: centroid, in: view)
     }
 
     /// `scale` is the incremental pinch scale since the last call (caller resets the
-    /// recognizer's scale to 1 each time). The world point under the pinch stays put.
+    /// recognizer's scale to 1 each time). The world point captured at `.began` stays put.
+    ///
+    /// `centroid` is only a fallback for callers that never called `beginPinch` (and for a
+    /// recognizer whose `.began` was missed); the cached anchor wins whenever it exists.
     func pinch(scale: CGFloat, centroid: CGPoint, in view: SCNView, soft: Bool = true) {
-        model.zoom(scale: Double(scale), towardAnchor: anchor(at: centroid, in: view), soft: soft)
-        apply()
+        let target = pinchAnchor ?? anchor(at: centroid, in: view)
+        pinchAnchor = target
+        model.zoom(scale: Double(scale), towardAnchor: target, soft: soft)
+        applyNow()
+    }
+
+    /// Release the cached anchor so the next pinch resolves a fresh one.
+    func endPinch() {
+        pinchAnchor = nil
     }
 
     /// Spring back inside the limits after a rubber-banded pan or pinch.
@@ -212,43 +274,120 @@ final class OrbitCameraRig {
             || model.distance < extent * 0.7
     }
 
-    // MARK: - Inertia & animation
+    // MARK: - Gesture lifecycle
 
-    private func startInertia(yawRate: Double, pitchRate: Double) {
-        inertiaYaw = yawRate
-        inertiaPitch = pitchRate
-        lastTick = CACurrentMediaTime()
-        let link = CADisplayLink(target: DisplayLinkProxy { [weak self] in self?.tickInertia() },
-                                 selector: #selector(DisplayLinkProxy.tick))
-        link.add(to: .main, forMode: .common)
-        displayLink = link
-        continuousRenderingSink?(true)
+    /// Bracket every camera gesture with these.
+    ///
+    /// They exist for the redraw model: between them the view renders continuously, so a drag
+    /// is drawn on the frame it happens rather than whenever `setNeedsDisplay` next gets
+    /// serviced. Per-event `setNeedsDisplay` alone gives a one-frame-behind, unevenly spaced
+    /// drag on a static scene, which is a large part of what "laggy" was.
+    ///
+    /// Counted, not a flag: pan and pinch are recognized simultaneously, so both are live
+    /// during a two-finger manipulation and whichever ends first must not drop the other's
+    /// continuous rendering.
+    func beginCameraGesture() {
+        gestureDepth += 1
+        syncMotionState()
     }
 
-    private func tickInertia() {
+    func endCameraGesture() {
+        gestureDepth = max(0, gestureDepth - 1)
+        syncMotionState()
+    }
+
+    // MARK: - Inertia & animation
+
+    /// Exit-velocity half-life, shared by orbit and pan so the two read as the same instrument.
+    /// Pan used to stop dead the instant the finger lifted while orbit coasted, which is why
+    /// they felt like different controls on the same house.
+    private static let inertiaHalfLife: TimeInterval = 0.25
+    /// Below these the motion is not visible; carrying it further only burns frames.
+    private static let orbitInertiaFloor = 0.02   // radians/second
+    private static let panInertiaFloor = 0.01     // meters/second
+
+    private func startInertia(yawRate: Double = 0, pitchRate: Double = 0,
+                              rightRate: Double = 0, upRate: Double = 0) {
+        inertiaYaw = yawRate
+        inertiaPitch = pitchRate
+        inertiaRight = rightRate
+        inertiaUp = upRate
+        lastTick = CACurrentMediaTime()
+        syncMotionState()
+    }
+
+    private func tickMotion() {
         let now = CACurrentMediaTime()
         let dt = min(now - lastTick, 1.0 / 20)
         lastTick = now
-        // Exponential decay with a ~0.25 s half-life.
-        let decay = pow(0.5, dt / 0.25)
-        inertiaYaw *= decay
-        inertiaPitch *= decay
-        model.orbit(deltaYaw: inertiaYaw * dt, deltaPitch: inertiaPitch * dt)
-        apply()
-        onChange?()
-        if abs(inertiaYaw) + abs(inertiaPitch) < 0.02 {
-            stopInertia()
-            settle()
+
+        if hasInertia {
+            let decay = pow(0.5, dt / Self.inertiaHalfLife)
+            inertiaYaw *= decay
+            inertiaPitch *= decay
+            inertiaRight *= decay
+            inertiaUp *= decay
+            if inertiaYaw != 0 || inertiaPitch != 0 {
+                model.orbit(deltaYaw: inertiaYaw * dt, deltaPitch: inertiaPitch * dt)
+            }
+            if inertiaRight != 0 || inertiaUp != 0 {
+                // Soft, like the gesture that launched it: coasting into the bounds should
+                // rubber-band and spring back, not stop against a wall.
+                model.truck(rightMeters: inertiaRight * dt, upMeters: inertiaUp * dt, soft: true)
+            }
+            applyNow()
+            if !hasInertia {
+                // Ran out of momentum: stop, then spring back from any rubber-band overshoot.
+                stopInertia()
+                onChange?()
+                settle()
+                return
+            }
         }
+
+        onChange?()
+        if !isCameraMoving { stopMotionTicker() }
+    }
+
+    /// True while any axis still carries enough velocity to be worth drawing.
+    private var hasInertia: Bool {
+        abs(inertiaYaw) + abs(inertiaPitch) >= Self.orbitInertiaFloor
+            || abs(inertiaRight) + abs(inertiaUp) >= Self.panInertiaFloor
     }
 
     private func stopInertia() {
-        displayLink?.invalidate()
-        displayLink = nil
         inertiaYaw = 0
         inertiaPitch = 0
-        // Continuous rendering is a battery cost; it stays on only while something is moving.
-        continuousRenderingSink?(false)
+        inertiaRight = 0
+        inertiaUp = 0
+        syncMotionState()
+    }
+
+    /// Is the camera moving right now, for any reason — a finger, coasting momentum, or an
+    /// explicit spring still running? This is the ONLY question continuous rendering answers.
+    private var isCameraMoving: Bool {
+        gestureDepth > 0 || hasInertia || CACurrentMediaTime() < animationDeadline
+    }
+
+    /// Start or stop the ticker and the host's continuous rendering to match `isCameraMoving`.
+    private func syncMotionState() {
+        let moving = isCameraMoving
+        if moving && displayLink == nil {
+            lastTick = CACurrentMediaTime()
+            let link = CADisplayLink(target: DisplayLinkProxy { [weak self] in self?.tickMotion() },
+                                     selector: #selector(DisplayLinkProxy.tick))
+            link.add(to: .main, forMode: .common)
+            displayLink = link
+        } else if !moving {
+            stopMotionTicker()
+        }
+        continuousRenderingSink?(moving)
+    }
+
+    private func stopMotionTicker() {
+        displayLink?.invalidate()
+        displayLink = nil
+        continuousRenderingSink?(isCameraMoving)
     }
 
     private func animate(to target: CameraRigModel, duration: TimeInterval) {
@@ -259,6 +398,11 @@ final class OrbitCameraRig {
         model = target
         apply()
         SCNTransaction.commit()
+        // An SCNTransaction animation interpolates the node, but on a static scene nothing
+        // asks for the intermediate frames — the spring-back used to SNAP, one redraw at the
+        // end. Hold the ticker open for the animation's duration so it is actually seen.
+        animationDeadline = max(animationDeadline, CACurrentMediaTime() + duration)
+        syncMotionState()
         onChange?()
     }
 
@@ -285,11 +429,44 @@ final class OrbitCameraRig {
                                    z: Double(near.z) + t * Double(far.z - near.z))
     }
 
+    /// Write the model through to the node with no implicit animation.
+    ///
+    /// Every gesture-driven write goes through this rather than bare `apply()`. Without an
+    /// explicit zero-duration transaction the write inherits whatever ambient `SCNTransaction`
+    /// is open — SceneKit's default is a 0.25 s implicit animation — so a finger-tracking drag
+    /// lands a frame or more late and the camera eases toward where the finger *was*.
+    private func applyNow() {
+        SCNTransaction.begin()
+        SCNTransaction.animationDuration = 0
+        apply()
+        SCNTransaction.commit()
+    }
+
     /// Write the model through to the node.
     private func apply() {
+        // One transform write, not `position` + `look(at:)`.
+        //
+        // `look(at:)` is a second transform solve per frame, and — because it lands as a
+        // separate property write — inside an animating transaction the position and the
+        // orientation interpolate on their own curves. The camera then swims through an arc
+        // between two poses instead of moving along the straight line the model describes.
+        // Composing the basis here is both cheaper and exact.
+        //
+        // The basis is identical to what `look(at:)` produced with the default world up, so the
+        // tour handoff in PlaybackCameraController still lines up: camera +Z is `toCamera`
+        // (away from the pivot), +X is `model.right`, +Y is `model.up`. CameraRigModelTests
+        // already pins that basis as orthonormal, non-rolling and up-positive; the pitch clamp
+        // at 80° keeps it out of the gimbal case where world-up and +Z would be parallel.
         let p = model.position
-        node.position = SCNVector3(Float(p.x), Float(p.y), Float(p.z))
-        node.look(at: SCNVector3(Float(model.pivot.x), Float(model.pivot.y), Float(model.pivot.z)))
+        let back = model.toCamera
+        let right = model.right
+        let up = model.up
+        node.simdTransform = simd_float4x4(
+            SIMD4<Float>(Float(right.x), Float(right.y), Float(right.z), 0),
+            SIMD4<Float>(Float(up.x), Float(up.y), Float(up.z), 0),
+            SIMD4<Float>(Float(back.x), Float(back.y), Float(back.z), 0),
+            SIMD4<Float>(Float(p.x), Float(p.y), Float(p.z), 1)
+        )
         // Under an orthographic projection, moving the camera along its own axis changes nothing
         // on screen — `distance` only reads as zoom if it drives orthographicScale. Keeping the
         // rig's distance as the single source of truth is what lets the same pinch/framing math

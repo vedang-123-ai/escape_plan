@@ -156,6 +156,36 @@ struct CameraRigModel: Equatable {
         return abs(dx) > 2 * abs(dy)
     }
 
+    /// What a pan gesture drives.
+    enum PanIntent: Equatable { case orbit, truck }
+
+    /// The one rule for orbit-vs-pan arbitration, as a state machine.
+    ///
+    /// Both gesture hosts latched `numberOfTouches >= 2` at `.began` only, while pinch and pan
+    /// were allowed to recognize simultaneously. Start with one finger, add a second, and the
+    /// pan kept ORBITING at the two-finger centroid velocity while the pinch drove zoom — the
+    /// camera fought itself. The rule is now explicit and lives in exactly one place:
+    ///
+    /// **Two-finger input is pan and zoom. It never orbits.**
+    ///
+    /// Suppression latches: once a second finger has touched down, lifting back to one finger
+    /// does NOT resume orbiting. Handing the gesture back to a different transition halfway
+    /// through is the same self-fighting bug in a slower costume.
+    struct PanArbiter: Equatable {
+        private(set) var intent: PanIntent = .orbit
+        /// True once a second finger has been seen at any point in this gesture.
+        private(set) var orbitSuppressed = false
+
+        init(touchCount: Int) {
+            update(touchCount: touchCount)
+        }
+
+        mutating func update(touchCount: Int) {
+            if touchCount >= 2 { orbitSuppressed = true }
+            intent = orbitSuppressed ? .truck : .orbit
+        }
+    }
+
     /// Zoom by `scale` (>1 zooms in) keeping `anchor` fixed on screen: the distance shrinks by
     /// the scale and the pivot slides toward the anchor by the same proportion, so the point
     /// under the user's fingers stays under their fingers.
@@ -180,12 +210,39 @@ struct CameraRigModel: Equatable {
         zoom(scale: scale, towardAnchor: pivot)
     }
 
+    /// How the camera projects, for screen→world conversion.
+    ///
+    /// This is an enum rather than two loose parameters because getting it wrong is silent: a
+    /// pan converted with perspective math under an orthographic camera still moves the house,
+    /// just at a constant wrong ratio, so it reads as "panning feels floaty" rather than as a
+    /// bug. Making the call site name its projection means it cannot be defaulted past.
+    enum Projection: Equatable {
+        /// Vertical field of view, degrees.
+        case perspective(fovDegrees: Double)
+        /// `SCNCamera.orthographicScale` — a HALF-height in world meters, and already
+        /// aspect-corrected by whoever wrote it to the camera.
+        case orthographic(halfHeight: Double)
+    }
+
     /// Meters spanned by one screen point at the pivot's depth, for converting pan gestures.
-    /// `fovDegrees` is the camera's vertical field of view, `viewHeightPoints` the view height.
-    func metersPerPoint(fovDegrees: Double, viewHeightPoints: Double) -> Double {
+    ///
+    /// Under perspective the visible height depends on distance and FOV. Under orthographic it
+    /// depends on neither — it is exactly `2 · orthographicScale`, which is why the FOV form
+    /// gives an answer that is wrong by a constant factor when applied to an ortho camera.
+    func metersPerPoint(projection: Projection, viewHeightPoints: Double) -> Double {
         guard viewHeightPoints > 0 else { return 0.01 }
-        let worldHeight = 2 * distance * tan(fovDegrees * .pi / 180 / 2)
-        return worldHeight / viewHeightPoints
+        switch projection {
+        case .perspective(let fovDegrees):
+            return 2 * distance * tan(fovDegrees * .pi / 180 / 2) / viewHeightPoints
+        case .orthographic(let halfHeight):
+            return 2 * max(halfHeight, 1e-6) / viewHeightPoints
+        }
+    }
+
+    /// Perspective-only convenience, kept because the framing math and its tests speak in FOV.
+    func metersPerPoint(fovDegrees: Double, viewHeightPoints: Double) -> Double {
+        metersPerPoint(projection: .perspective(fovDegrees: fovDegrees),
+                       viewHeightPoints: viewHeightPoints)
     }
 
     private mutating func clamp() {
