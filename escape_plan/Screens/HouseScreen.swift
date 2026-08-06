@@ -64,6 +64,21 @@ struct HouseScreen: View {
     /// full-bleed. Purely presentational — no model or route state depends on it.
     @State private var isImmersive = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The dock's height tracks the text size instead of being a hard 240. At the accessibility
+    /// sizes a 240pt box shows about one and a half rows of the route controls; scaled it shows
+    /// the same content it always did. Capped so the scene never loses more than it must — the
+    /// dock scrolls internally, so the cap costs nothing but a scroll.
+    @ScaledMetric(relativeTo: .body) private var dockHeight: CGFloat = 240
+    private static let maxDockHeight: CGFloat = 420
+
+    /// The ordered-steps sheet: the VoiceOver alternative to reading a glowing line, and a
+    /// perfectly good way for anyone to get the route as text.
+    @State private var routeStepsPresented = false
+    /// Reduce Motion replaces the camera fly-through with a stop-by-stop walk. `nil` = not
+    /// running; otherwise the index of the stop being shown.
+    @State private var steppedTourIndex: Int?
 
     /// Overlay lives in a stable class box, NOT directly in @State: `onRebuild` fires inside
     /// `updateUIView`, and reassigning an @State var there invalidates the view from within
@@ -170,7 +185,16 @@ struct HouseScreen: View {
         // The flag is read HERE (the view layer): EvacuationPlaybackModel lives in Models/,
         // which is compiled into the pure-Foundation editorcore package with no UIKit.
         .onAppear { playback.isSteppedMode = reduceMotion }
-        .onChange(of: reduceMotion) { _, newValue in playback.isSteppedMode = newValue }
+        .onChange(of: reduceMotion) { _, newValue in
+            playback.isSteppedMode = newValue
+            // `RouteOverlay` reads the flag once, at construction, so a user who turns Reduce
+            // Motion on while looking at a pulsing route would keep the pulse until the next
+            // scene rebuild. Rebuild the overlay instead — same routes, same numbers, motion
+            // dropped immediately.
+            rebuildOverlayForMotionPreference(newValue)
+            // A fly-through in progress is exactly what the setting is asking us to stop.
+            if newValue, isTouring { stopTour() }
+        }
         .onDisappear {
             routesTask?.cancel()
             refetchDebounce?.cancel()
@@ -187,6 +211,9 @@ struct HouseScreen: View {
             if let session {
                 ignitePickerSheet(for: session.store)
             }
+        }
+        .sheet(isPresented: $routeStepsPresented) {
+            routeStepsSheet
         }
         .alert(renameTarget?.title ?? "Rename", isPresented: renameAlertPresented,
                presenting: renameTarget) { target in
@@ -233,7 +260,7 @@ struct HouseScreen: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(height: 240)
+                    .frame(height: min(dockHeight, Self.maxDockHeight))
                     .background(.regularMaterial)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -299,6 +326,16 @@ struct HouseScreen: View {
         controller?.scnView.setNeedsDisplay()
     }
 
+    /// Re-creates the route overlay against the live dollhouse with the new motion preference
+    /// and redraws it from the holder's cached inputs.
+    private func rebuildOverlayForMotionPreference(_ reduceMotion: Bool) {
+        guard let dollhouse = controller?.dollhouse else { return }
+        overlayHolder.overlay?.clear()
+        overlayHolder.overlay = RouteOverlay(dollhouse: dollhouse, reduceMotion: reduceMotion)
+        overlayHolder.redraw()
+        controller?.scnView.setNeedsDisplay()
+    }
+
     private func reapplyViewState() {
         guard let dollhouse = controller?.dollhouse else { return }
         applyViewState(to: dollhouse)
@@ -323,6 +360,22 @@ struct HouseScreen: View {
                             undoStack: session.undoStack,
                             onOpeningPlaced: { tool = .select },
                             onControllerReady: { attach($0) })
+                // A SceneKit surface is an unlabelled rectangle to VoiceOver: nothing to swipe
+                // to, nothing to read, and its content is not reachable by touch exploration in
+                // any meaningful way. So it becomes ONE element that says what it is showing,
+                // with custom actions for the two things a screen-reader user actually needs
+                // from it. Every one of those actions is also a real on-screen control — the
+                // 3D is never the only way to do anything.
+                .accessibilityElement()
+                .accessibilityLabel(sceneAccessibilityLabel)
+                .accessibilityHint("Use the actions to hear this route as numbered steps.")
+                .accessibilityIdentifier("house.scene")
+                .accessibilityAction(named: Text("Route steps")) {
+                    routeStepsPresented = true
+                }
+                .accessibilityAction(named: Text("Recenter on the home")) {
+                    controller?.recenterCamera()
+                }
 
             // INTEGRATION POINT (renderer lane): the figures-and-hazard layer binds to
             // `playback` — it reads `playback.currentTime_s` for the playhead and
@@ -367,17 +420,26 @@ struct HouseScreen: View {
         let floors = store.model.floorsByLevel
         HStack(spacing: 8) {
             if floors.count > 1 {
-                ForEach(floors) { floor in
+                ForEach(Array(floors.enumerated()), id: \.element.id) { index, floor in
                     let isActive = store.activeFloorId == floor.id
+                    let name = floor.name.isEmpty ? "Level \(floor.level)" : floor.name
                     Button {
                         store.setActiveFloor(floor.id)
                         focusFloor(floor.id)
                     } label: {
-                        Text(floor.name.isEmpty ? "Level \(floor.level)" : floor.name)
+                        // The chip strip is fixed-height so it can never resize the scene; at
+                        // the accessibility sizes a long floor name must therefore shorten
+                        // rather than grow the strip. It still reads in full to VoiceOver.
+                        Text(name)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                     }
                     .buttonStyle(GlassChipButtonStyle(isSelected: isActive))
                     .disabled(isTouring)
+                    .accessibilityLabel("\(name), floor \(index + 1) of \(floors.count)")
+                    .accessibilityHint("Shows this floor solid and ghosts the others.")
                     .accessibilityAddTraits(isActive ? [.isSelected] : [])
+                    .accessibilityIdentifier("house.floorChip.\(floor.id)")
                 }
 
             }
@@ -444,16 +506,16 @@ struct HouseScreen: View {
     @ViewBuilder
     private var routesBanner: some View {
         if needsDraftReview {
-            HStack(spacing: 8) {
-                Image(systemName: "wand.and.stars")
-                Text("AI draft — review the layout, then confirm to compute escape routes.")
-                    .font(.caption)
-                Button("Confirm draft") {
-                    dispatch(.confirmAIDraft)
-                    fetchRoutes()
+            let draftText = "AI draft — review the layout, then confirm to compute escape routes."
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { draftIcon; draftMessage(draftText); confirmDraftButton }
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        draftIcon
+                        draftMessage(draftText)
+                    }
+                    confirmDraftButton
                 }
-                .font(.caption.bold())
-                .accessibilityIdentifier("house.confirmDraft")
             }
             .padding(10)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
@@ -472,6 +534,26 @@ struct HouseScreen: View {
             BackendFailureBanner(failure: routesFailure, retry: { fetchRoutes() })
                 .padding(.top, 8)
         }
+    }
+
+    private var draftIcon: some View {
+        Image(systemName: "wand.and.stars").accessibilityHidden(true)
+    }
+
+    private func draftMessage(_ text: String) -> some View {
+        Text(text).font(.caption).fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var confirmDraftButton: some View {
+        Button("Confirm draft") {
+            dispatch(.confirmAIDraft)
+            fetchRoutes()
+        }
+        .font(.caption.bold())
+        .minimumTapTarget()
+        .accessibilityLabel("Confirm the AI draft")
+        .accessibilityHint("Accepts the drafted layout so the routing engine can plan on it.")
+        .accessibilityIdentifier("house.confirmDraft")
     }
 
     // MARK: - Fire-origin simulation: chrome
@@ -930,6 +1012,219 @@ struct HouseScreen: View {
         store.model.locateRoom(roomID)?.room.name ?? roomID
     }
 
+    // MARK: - Accessibility: the 3D scene, and the route as ordered steps
+
+    /// The summary VoiceOver reads for the SceneKit surface. Assembled here, worded in
+    /// `HouseSceneAccessibility` (which is unit-tested).
+    private var sceneAccessibilityLabel: String {
+        guard let store = session?.store else { return "3D model of your home. Loading." }
+        let model = store.model
+        let floors = model.floorsByLevel
+        let activeIndex = floors.firstIndex { $0.id == store.activeFloorId } ?? 0
+        let activeFloor = floors.indices.contains(activeIndex) ? floors[activeIndex] : nil
+
+        return HouseSceneAccessibility.sceneLabel(
+            homeName: model.name,
+            floorName: activeFloor.map { $0.name.isEmpty ? "Level \($0.level)" : $0.name } ?? "",
+            floorNumber: activeIndex + 1,
+            floorCount: floors.count,
+            roomCount: activeFloor?.rooms.count ?? 0,
+            personName: selectedProfileID.flatMap { id in
+                model.profiles.first { $0.id == id }?.name
+            },
+            roomName: narrationRoom?.room_name,
+            hasRoutes: routePlan != nil,
+            simulation: simulationAccessibilityState(in: model))
+    }
+
+    /// nil when nothing is simulated — the summary then says nothing about a fire, rather than
+    /// saying "no fire", which would be noise on every other screen read.
+    private func simulationAccessibilityState(in model: HomeModel)
+        -> HouseSceneAccessibility.SimulationState? {
+        guard playback.hasTimeline else { return nil }
+        let untenable = playback.untenableRoomIDsNow
+            .map { model.locateRoom($0)?.room.name ?? $0 }
+            .sorted()
+        return HouseSceneAccessibility.SimulationState(
+            originRoomName: originRoomName,
+            isPlaying: playback.isPlaying,
+            elapsedSpoken: EvacuationPlaybackModel.spokenTimeLabel(playback.currentTime_s),
+            durationSpoken: EvacuationPlaybackModel.spokenTimeLabel(playback.duration_s),
+            untenableRoomNames: untenable,
+            overtakenPeopleNames: playback.overtakenTracks.map(\.profile_name))
+    }
+
+    /// Which room's route the steps describe. The selected room when there is one; otherwise
+    /// the selected person's bedroom; otherwise the first room the engine returned — so the
+    /// affordance is never dead, and it never guesses a route the engine did not compute.
+    private var narrationRoom: RoomRoutePlan? {
+        guard let plan = routePlan else { return nil }
+        if let selectedRoomID, let room = plan.rooms.first(where: { $0.room_id == selectedRoomID }) {
+            return room
+        }
+        if let profileID = selectedProfileID,
+           let bedroom = session?.store.model.profiles.first(where: { $0.id == profileID })?
+               .bedroom_room_id,
+           let room = plan.rooms.first(where: { $0.room_id == bedroom }) {
+            return room
+        }
+        return plan.rooms.first { $0.primary != nil } ?? plan.rooms.first
+    }
+
+    /// The chips currently drawn for that room, so the spoken numbering IS the drawn numbering.
+    private var narrationDrawnStops: [RouteGeometry.Stop]? {
+        guard let id = narrationRoom?.room_id else { return nil }
+        return overlayHolder.overlay?.drawnSteps[id]
+    }
+
+    private var narrationSteps: [HouseSceneAccessibility.StepLine] {
+        guard let room = narrationRoom, let model = session?.store.model else { return [] }
+        return HouseSceneAccessibility.steps(for: room, in: model,
+                                             drawn: narrationDrawnStops,
+                                             meetingPoint: savedMeetingPoint)
+    }
+
+    /// The household's outside meeting place, if they have entered one in the export sheet. It
+    /// becomes the last spoken step — the same last step the printed plan carries.
+    private var savedMeetingPoint: String? {
+        guard let id = session?.store.model.home_id else { return nil }
+        let text = MeetingPointStore().meetingPoint(forHomeID: id)
+        return text.isEmpty ? nil : text
+    }
+
+    /// The affordance itself. A real, focusable button in the dock — not a gesture on the 3D,
+    /// not a hidden accessibility-only element. Anyone can use it; a VoiceOver user must.
+    private var routeStepsButton: some View {
+        Button {
+            routeStepsPresented = true
+        } label: {
+            Label("Route steps", systemImage: "list.number")
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .buttonStyle(.bordered)
+        .minimumTapTarget()
+        .disabled(narrationRoom == nil)
+        .accessibilityLabel(narrationRoom.map { "Route steps for the \($0.room_name)" }
+                            ?? "Route steps")
+        .accessibilityHint("Reads the escape route as a numbered list you can move through "
+                           + "one step at a time.")
+        .accessibilityIdentifier("house.routeSteps")
+    }
+
+    /// The steps as text. Numbers match the chips on the model; the sentences are the same
+    /// narrator the printable PDF uses.
+    @ViewBuilder
+    private var routeStepsSheet: some View {
+        NavigationStack {
+            List {
+                if let room = narrationRoom, let plan = routePlan {
+                    routeStepsContent(room: room, plan: plan)
+                } else {
+                    Section {
+                        Text("No escape routes have been computed for this home yet. The app "
+                             + "never invents one — the routing engine has to return it first.")
+                            .font(.callout)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .navigationTitle("Route steps")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { routeStepsPresented = false }
+                        .accessibilityHint("Closes the route steps.")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func routeStepsContent(room: RoomRoutePlan, plan: RoutePlan) -> some View {
+        let steps = narrationSteps
+
+        Section {
+            Text(room.room_name)
+                .font(Theme.screenTitle)
+                .fixedSize(horizontal: false, vertical: true)
+            if let primary = room.primary {
+                Text(RouteNarration.summaryLine(for: primary))
+                    .font(.callout)
+                    .foregroundStyle(Theme.supporting)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } header: {
+            Text("Primary route")
+        } footer: {
+            Text("The numbers here are the numbers on the model — step 3 spoken is the "
+                 + "circled 3 you can see.")
+        }
+
+        if steps.isEmpty {
+            Section {
+                Text("The routing engine returned no route for the \(room.room_name).")
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } else {
+            Section("Steps") {
+                ForEach(steps) { step in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(step.number). \(step.title)")
+                            .font(.callout.weight(.semibold))
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let detail = step.detail {
+                            Text(detail)
+                                .font(.footnote)
+                                .foregroundStyle(Theme.supporting)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(step.spoken)
+                }
+            }
+        }
+
+        // The engine's findings, verbatim, in the same place — a route you can hear but whose
+        // warning you cannot would be worse than no route at all.
+        if !room.findings.isEmpty, let model = session?.store.model {
+            Section("Route check") {
+                ForEach(room.findings.indices, id: \.self) { i in
+                    Text(RouteNarration.findingSentence(room.findings[i], in: model))
+                        .font(.footnote)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+
+        if let secondary = room.secondary, let model = session?.store.model {
+            Section {
+                ForEach(Array(RouteNarration.sentences(for: secondary, from: room.room_id,
+                                                       in: model,
+                                                       meetingPoint: savedMeetingPoint)
+                              .enumerated()), id: \.offset) { index, sentence in
+                    Text("\(index + 1). \(sentence)")
+                        .font(.footnote)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } header: {
+                Text("Backup route")
+            } footer: {
+                Text("Drawn as a dashed line on the model. Numbered separately from the "
+                     + "primary route, because it is a different walk.")
+            }
+        }
+
+        if plan.rooms.count > 1 {
+            Section {
+                Text("Pick a different room in Escape routes to hear its steps.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.supporting)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     // MARK: - Fire-origin simulation: fetch
 
     /// Asks the engine for a timeline. There is no offline path on purpose: a fabricated
@@ -1003,6 +1298,10 @@ struct HouseScreen: View {
                 }
                 .pickerStyle(.segmented)
                 .disabled(isTouring || isFetchingRoutes)
+                .accessibilityLabel("Who is escaping")
+                .accessibilityHint("Re-runs the routing engine with this person's constraints "
+                                   + "and jumps to their bedroom.")
+                .accessibilityIdentifier("plan.profile.picker")
                 .onChange(of: selectedProfileID) { _, newValue in
                     selectedRoomID = newValue.flatMap { id in
                         model.profiles.first { $0.id == id }?.bedroom_room_id
@@ -1011,32 +1310,42 @@ struct HouseScreen: View {
                 }
             }
 
-            HStack {
-                Picker("Route", selection: $selectedRoomID) {
-                    Text("Everyone").tag(String?.none)
-                    ForEach(plan.rooms) { room in
-                        Text(room.room_name).tag(Optional(room.room_id))
-                    }
-                }
-                .accessibilityIdentifier("plan.route.picker")
-                .disabled(isTouring)
-                .onChange(of: selectedRoomID) { _, _ in applyOverlay() }
-
-                Spacer()
-
-                if let room = selectedRoom(in: plan), let primary = room.primary {
-                    Button {
-                        isTouring ? stopTour() : startTour(along: primary)
-                    } label: {
-                        Label(isTouring ? "Stop" : "Tour",
-                              systemImage: isTouring ? "stop.circle" : "play.circle")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("plan.tour.button")
-                } else if selectedRoomID == nil {
-                    Text("Pick a room to tour").font(.caption2).foregroundStyle(.secondary)
+            let routePicker = Picker("Route", selection: $selectedRoomID) {
+                Text("Everyone").tag(String?.none)
+                ForEach(plan.rooms) { room in
+                    Text(room.room_name).tag(Optional(room.room_id))
                 }
             }
+            .accessibilityIdentifier("plan.route.picker")
+            .accessibilityLabel("Route to show")
+            .accessibilityHint("Choose whose route is drawn on the model.")
+            .disabled(isTouring)
+            .onChange(of: selectedRoomID) { _, _ in applyOverlay() }
+
+            // At the accessibility text sizes the picker and the buttons cannot share a line;
+            // they stack rather than truncate.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    routePicker
+                    Spacer(minLength: 8)
+                    routeStepsButton
+                    tourButton(in: plan)
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    routePicker
+                    HStack(spacing: 10) {
+                        routeStepsButton
+                        tourButton(in: plan)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    routePicker
+                    routeStepsButton
+                    tourButton(in: plan)
+                }
+            }
+
+            steppedTourControls(in: plan)
         }
 
         let findings = shownFindings(in: plan)
@@ -1133,6 +1442,7 @@ struct HouseScreen: View {
         routesTask?.cancel()
         routePlan = nil
         overlayIssues = []
+        steppedTourIndex = nil
         overlayHolder.plan = nil
         overlayHolder.overlay?.clear()
         // The timeline was solved against the model as it was; an accepted edit makes it a
@@ -1182,6 +1492,131 @@ struct HouseScreen: View {
     }
 
     // MARK: - Tour
+    //
+    // Reduce Motion does not turn the tour off. A camera flying through a house at eye level is
+    // exactly the vestibular trigger the setting exists for, so under Reduce Motion the tour
+    // becomes what it always was underneath: a walk through the route's numbered stops, one at
+    // a time, user-paced. Same stops, same numbers, same route drawn on the model — the only
+    // thing removed is the continuous camera motion between them.
+
+    @ViewBuilder
+    private func tourButton(in plan: RoutePlan) -> some View {
+        if let room = selectedRoom(in: plan), let primary = room.primary {
+            Button {
+                if reduceMotion {
+                    steppedTourIndex == nil ? startSteppedTour(in: plan) : stopSteppedTour()
+                } else {
+                    isTouring ? stopTour() : startTour(along: primary)
+                }
+            } label: {
+                Label(isTourRunning ? "Stop" : (reduceMotion ? "Walk it" : "Tour"),
+                      systemImage: isTourRunning ? "stop.circle" : "play.circle")
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .buttonStyle(.borderedProminent)
+            .minimumTapTarget()
+            .accessibilityLabel(isTourRunning
+                ? "Stop the tour"
+                : (reduceMotion ? "Walk the route stop by stop" : "Tour the route"))
+            .accessibilityHint(reduceMotion
+                ? "Reduce Motion is on, so this steps between the numbered stops instead of "
+                  + "flying the camera along the route."
+                : "Flies the camera along the primary route at eye level.")
+            .accessibilityIdentifier("plan.tour.button")
+        } else if selectedRoomID == nil {
+            Text("Pick a room to tour")
+                .font(.caption2)
+                .foregroundStyle(Theme.supporting)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var isTourRunning: Bool { isTouring || steppedTourIndex != nil }
+
+    /// The stops the stepped tour walks — the SAME list the chips are drawn from, so "stop 3"
+    /// here is the circled 3 on the model and the third line in the route-steps sheet.
+    private func steppedTourStops(in plan: RoutePlan) -> [RouteGeometry.Stop] {
+        guard let room = selectedRoom(in: plan), let primary = room.primary else { return [] }
+        return overlayHolder.overlay?.drawnSteps[room.room_id]
+            ?? RouteGeometry.numberedStops(for: primary)
+    }
+
+    @ViewBuilder
+    private func steppedTourControls(in plan: RoutePlan) -> some View {
+        let stops = steppedTourStops(in: plan)
+        if let index = steppedTourIndex, stops.indices.contains(index) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Stop \(index + 1) of \(stops.count): \(stops[index].kind.title)")
+                    .font(.subheadline.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.updatesFrequently)
+                    .accessibilityIdentifier("plan.tour.steppedStatus")
+
+                Text("Reduce Motion is on, so the tour steps between stops instead of flying "
+                     + "the camera. The route on the model is unchanged.")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.supporting)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 10) {
+                    Button {
+                        showSteppedStop(index - 1, in: plan)
+                    } label: {
+                        Label("Previous stop", systemImage: "chevron.backward")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.bordered)
+                    .minimumTapTarget()
+                    .disabled(index == 0)
+                    .accessibilityLabel("Previous stop")
+                    .accessibilityIdentifier("plan.tour.previousStop")
+
+                    Button {
+                        showSteppedStop(index + 1, in: plan)
+                    } label: {
+                        Label("Next stop", systemImage: "chevron.forward")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.bordered)
+                    .minimumTapTarget()
+                    .disabled(index >= stops.count - 1)
+                    .accessibilityLabel("Next stop")
+                    .accessibilityIdentifier("plan.tour.nextStop")
+
+                    Spacer(minLength: 8)
+                }
+            }
+        }
+    }
+
+    private func startSteppedTour(in plan: RoutePlan) {
+        guard !steppedTourStops(in: plan).isEmpty else { return }
+        Haptics.begin()
+        showSteppedStop(0, in: plan)
+    }
+
+    private func stopSteppedTour() {
+        steppedTourIndex = nil
+        reapplyViewState()
+    }
+
+    /// Moves the walk to one stop. Floor focus is a CUT, never a glide — Reduce Motion is the
+    /// whole reason this path exists, so it must not reintroduce the motion by the back door.
+    private func showSteppedStop(_ index: Int, in plan: RoutePlan) {
+        let stops = steppedTourStops(in: plan)
+        guard stops.indices.contains(index) else { return }
+        steppedTourIndex = index
+        Haptics.tick()
+
+        let floorID = stops[index].waypoint.floor_id
+        guard let store = session?.store, store.activeFloorId != floorID,
+              store.model.floors.contains(where: { $0.id == floorID }) else { return }
+        store.setActiveFloor(floorID)
+        viewStateHolder.activeFloorID = floorID
+        controller?.dollhouse?.setActiveFloor(floorID, animated: false)
+        overlayHolder.overlay?.refreshFloorFocus()
+        controller?.scnView.setNeedsDisplay()
+    }
 
     private func startTour(along route: Route) {
         guard let overlay = overlayHolder.overlay, let controller else { return }
@@ -1197,6 +1632,7 @@ struct HouseScreen: View {
     private func stopTour() {
         overlayHolder.overlay?.cancelTour()
         isTouring = false
+        steppedTourIndex = nil
         // Restore floor focus the tour suspended.
         reapplyViewState()
     }
@@ -1205,16 +1641,39 @@ struct HouseScreen: View {
 
     @ViewBuilder
     private func placementHint(kind: OpeningKind) -> some View {
-        HStack {
-            Image(systemName: kind == .door ? "door.left.hand.open" : "window.vertical.open")
-            Text("Tap a wall to place the \(kind.rawValue). Interior vs. exterior is automatic.")
-                .font(.caption)
-            Spacer()
-            Button("Cancel") { tool = .select }.font(.caption.bold())
+        let text = "Tap a wall to place the \(kind.rawValue). "
+            + "Interior vs. exterior is automatic."
+        let icon = Image(systemName: kind == .door ? "door.left.hand.open"
+                                                   : "window.vertical.open")
+            .accessibilityHidden(true)
+        let message = Text(text)
+            .font(.caption)
+            .fixedSize(horizontal: false, vertical: true)
+        let cancel = Button("Cancel") { tool = .select }
+            .font(.caption.bold())
+            .minimumTapTarget()
+            .accessibilityLabel("Cancel placing the \(kind.rawValue)")
+            .accessibilityIdentifier("house.placement.cancel")
+
+        return ViewThatFits(in: .horizontal) {
+            HStack {
+                icon
+                message
+                Spacer()
+                cancel
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    icon
+                    message
+                }
+                cancel
+            }
         }
         .padding(.horizontal)
         .padding(.vertical, 6)
         .background(.thinMaterial)
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Inspector (selection-driven entry points)
@@ -1230,8 +1689,16 @@ struct HouseScreen: View {
                     } label: {
                         Label(room.name, systemImage: "pencil")
                             .labelStyle(.titleAndIcon)
-                            .lineLimit(1)
+                            // Was a hard `.lineLimit(1)`: at the accessibility text sizes a
+                            // real room name ("Downstairs Back Bedroom") lost its tail, and the
+                            // truncation hid which room you were about to rename or delete.
+                            .lineLimit(dynamicTypeSize >= .accessibility1 ? nil : 1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
+                    .minimumTapTarget()
+                    .accessibilityLabel("Rename \(room.name)")
+                    .accessibilityHint("Opens a text field for a new room name.")
+                    .accessibilityIdentifier("house.inspector.renameRoom")
                     Picker("Type", selection: Binding(
                         get: { room.type },
                         set: { dispatch(.setRoomType(roomId: roomId, type: $0)) }
@@ -1241,12 +1708,21 @@ struct HouseScreen: View {
                         }
                     }
                     .pickerStyle(.menu)
+                    .accessibilityLabel("Room type")
+                    .accessibilityValue(room.type.rawValue.capitalized)
+                    .accessibilityHint("Bedrooms and kitchens change how the engine plans "
+                                       + "around this room.")
+                    .accessibilityIdentifier("house.inspector.roomType")
                     Spacer()
                     Button(role: .destructive) {
                         dispatch(.deleteRoom(roomId: roomId))
                     } label: {
                         Label("Delete Room", systemImage: "trash").labelStyle(.iconOnly)
                     }
+                    .minimumTapTarget()
+                    .accessibilityLabel("Delete \(room.name)")
+                    .accessibilityHint("Removes the room and everything attached to it.")
+                    .accessibilityIdentifier("house.inspector.deleteRoom")
                 }
             }
         case .opening(let openingId):
@@ -1261,27 +1737,47 @@ struct HouseScreen: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(maxWidth: 180)
+                    // A hard 180pt segmented control clipped "Window" at the accessibility
+                    // sizes; the cap only applies while the text still fits inside it.
+                    .frame(maxWidth: dynamicTypeSize >= .accessibility1 ? .infinity : 180)
+                    .accessibilityLabel("Opening kind")
+                    .accessibilityHint("Doors and windows are routed differently by the engine.")
+                    .accessibilityIdentifier("house.inspector.openingKind")
                     Text(opening.isExit ? "Exterior" : "Interior")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.supporting)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel(opening.isExit
+                            ? "This opening leads outside — the engine can use it as an exit."
+                            : "Interior opening.")
                     Spacer()
                     Button(role: .destructive) {
                         dispatch(.deleteOpening(openingId: openingId))
                     } label: {
                         Label("Delete Opening", systemImage: "trash").labelStyle(.iconOnly)
                     }
+                    .minimumTapTarget()
+                    .accessibilityLabel("Delete this \(opening.kind.rawValue)")
+                    .accessibilityHint("Removes it from the wall and re-plans the routes.")
+                    .accessibilityIdentifier("house.inspector.deleteOpening")
                 }
             }
         case .stairs(let stairsId):
             inspectorBar {
-                Label("Stairs", systemImage: "figure.stairs").font(.caption)
+                Label("Stairs", systemImage: "figure.stairs")
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 Button(role: .destructive) {
                     dispatch(.deleteStairs(stairsId: stairsId))
                 } label: {
                     Label("Delete Stairs", systemImage: "trash").labelStyle(.iconOnly)
                 }
+                .minimumTapTarget()
+                .accessibilityLabel("Delete these stairs")
+                .accessibilityHint("Removes the link between the two floors and re-plans "
+                                   + "the routes.")
+                .accessibilityIdentifier("house.inspector.deleteStairs")
             }
         case .object(let objectId):
             if let object = store.model.floors.flatMap(\.objects).first(where: { $0.id == objectId }) {
@@ -1295,6 +1791,9 @@ struct HouseScreen: View {
                         }
                     }
                     .pickerStyle(.menu)
+                    .accessibilityLabel("Object type")
+                    .accessibilityValue(object.category.rawValue.capitalized)
+                    .accessibilityIdentifier("house.inspector.objectType")
                     Button {
                         dispatch(.rotateObject(objectId: objectId,
                                                rotation_deg: (object.rotation_deg + 45)
@@ -1303,12 +1802,19 @@ struct HouseScreen: View {
                         Label("Rotate 45°", systemImage: "rotate.right")
                             .labelStyle(.iconOnly)
                     }
+                    .minimumTapTarget()
+                    .accessibilityLabel("Rotate 45 degrees")
+                    .accessibilityValue("\(Int(object.rotation_deg)) degrees")
+                    .accessibilityIdentifier("house.inspector.rotateObject")
                     Spacer()
                     Button(role: .destructive) {
                         dispatch(.deleteObject(objectId: objectId))
                     } label: {
                         Label("Delete Object", systemImage: "trash").labelStyle(.iconOnly)
                     }
+                    .minimumTapTarget()
+                    .accessibilityLabel("Delete this \(object.category.rawValue)")
+                    .accessibilityIdentifier("house.inspector.deleteObject")
                 }
             }
         case .none, .wall, .vertex:
@@ -1335,6 +1841,9 @@ struct HouseScreen: View {
                 Label("Undo", systemImage: "arrow.uturn.backward")
             }
             .disabled(!(session?.undoStack.canUndo ?? false))
+            .accessibilityLabel("Undo")
+            .accessibilityHint("Reverses the last edit to the home and re-plans the routes.")
+            .accessibilityIdentifier("house.undo")
         }
         ToolbarItem(placement: .navigationBarLeading) {
             Button {
@@ -1343,6 +1852,9 @@ struct HouseScreen: View {
                 Label("Redo", systemImage: "arrow.uturn.forward")
             }
             .disabled(!(session?.undoStack.canRedo ?? false))
+            .accessibilityLabel("Redo")
+            .accessibilityHint("Re-applies the edit you just undid.")
+            .accessibilityIdentifier("house.redo")
         }
         ToolbarItem(placement: .primaryAction) {
             Menu {
@@ -1387,6 +1899,9 @@ struct HouseScreen: View {
                 Label("Add", systemImage: "plus")
             }
             .disabled(session == nil)
+            .accessibilityLabel("Add to the home")
+            .accessibilityHint("Rooms, doors, windows, objects, stairs and floors.")
+            .accessibilityIdentifier("house.addMenu")
         }
         ToolbarItem(placement: .primaryAction) {
             Menu {
@@ -1411,6 +1926,9 @@ struct HouseScreen: View {
                 Label("More", systemImage: "ellipsis.circle")
             }
             .disabled(session == nil)
+            .accessibilityLabel("More actions")
+            .accessibilityHint("Rename the home or the floor, or delete this floor.")
+            .accessibilityIdentifier("house.moreMenu")
         }
     }
 
@@ -1629,6 +2147,215 @@ struct HouseScreen: View {
             stairs: [],
             meta: Meta(created: now, modified: now)
         )
+    }
+}
+
+// MARK: - The 3D scene, in words
+
+/// What VoiceOver reads instead of the dollhouse, and what the "Route steps" sheet lists.
+///
+/// **The acceptance criterion this exists for:** a VoiceOver user must be able to hear their
+/// route as an ordered list of steps. A SceneKit surface is an opaque rectangle to a screen
+/// reader — there is nothing to swipe to and nothing to read — so the scene becomes ONE
+/// labelled element with a summary, and the steps live in a real, focusable control that never
+/// requires touching the 3D at all.
+///
+/// Pure and view-free on purpose, so `A11yHouseSceneTests` can assert the exact strings without
+/// a running scene, a simulator window, or a timeline. Nothing here invents safety content:
+///
+///   * the ordered steps come from `RouteNarration` (one narrator, shared with the printable
+///     PDF — never a second, drifting copy), and
+///   * the NUMBERS come from `RouteGeometry.numberedStops`, the same pure function that
+///     produces `RouteOverlay.drawnSteps` and therefore the numbered chips drawn on the model.
+///     So "step 3" spoken is the circled 3 a sighted user is looking at.
+///
+/// The one thing that is NOT unified: `RouteNarration` and `RouteGeometry` number different
+/// things. The drawing numbers every meaningful waypoint including "you start here"; the
+/// narration numbers instructions, and standing still is not an instruction, so it skips the
+/// start and folds an exterior waypoint into the doorway step that reaches it. Rather than
+/// keep two numberings, the drawn numbering wins (it is the one on screen) and each narration
+/// sentence is attached to the stop it happens at, matched on the waypoint the engine emitted.
+/// Collapsing the two numbering schemes at the source would mean editing
+/// `RouteGeometry.numberedStops`, which is outside this lane's fence.
+enum HouseSceneAccessibility {
+
+    /// Everything the scene summary says about a running simulation.
+    ///
+    /// The wording of the hazard lines deliberately matches the finding cards
+    /// (`RouteFindingStyle.overtakenByHazard` — "Hazard reaches them first"). A screen reader
+    /// gets the same honest sentence a sighted user gets; it is never softened for being
+    /// spoken, and it is never withheld until the animation finishes.
+    struct SimulationState: Equatable {
+        var originRoomName: String
+        var isPlaying: Bool
+        var elapsedSpoken: String
+        var durationSpoken: String
+        /// Rooms the ENGINE models as untenable at the current playhead, resolved to names.
+        var untenableRoomNames: [String] = []
+        /// People the ENGINE flagged `overtaken_by_hazard`.
+        var overtakenPeopleNames: [String] = []
+    }
+
+    /// One row of the ordered route-steps list.
+    struct StepLine: Equatable, Identifiable {
+        /// Matches the numbered chip drawn on the model.
+        var number: Int
+        /// The chip's own caption text ("Through the doorway").
+        var title: String
+        /// The narrated instruction for that moment, when there is one. The start of a route
+        /// has no instruction, by design.
+        var detail: String?
+
+        var id: Int { number }
+
+        /// "2. Through the doorway. Leave the Bedroom through the door into the Hall."
+        var spoken: String {
+            guard let detail, !detail.isEmpty else { return "\(number). \(title)" }
+            return "\(number). \(title). \(detail)"
+        }
+    }
+
+    // MARK: - Scene summary
+
+    /// The summary label for the SceneKit surface.
+    ///
+    /// Order is deliberate: what the object is, where you are in it, what is drawn, and only
+    /// then the simulation — because the simulation lines are the longest and a screen reader
+    /// user must not have to sit through them to learn which floor they are on.
+    static func sceneLabel(homeName: String,
+                           floorName: String,
+                           floorNumber: Int,
+                           floorCount: Int,
+                           roomCount: Int,
+                           personName: String?,
+                           roomName: String?,
+                           hasRoutes: Bool,
+                           simulation: SimulationState?) -> String {
+        var parts: [String] = ["3D model of \(homeName)."]
+
+        let floorLabel = floorName.trimmingCharacters(in: .whitespaces).isEmpty
+            ? "this floor" : floorName
+        let rooms = "\(roomCount) \(roomCount == 1 ? "room" : "rooms")"
+        parts.append(floorCount > 1
+            ? "Showing \(floorLabel), floor \(floorNumber) of \(floorCount), \(rooms)."
+            : "\(floorLabel), \(rooms).")
+
+        parts.append(routeSentence(personName: personName,
+                                   roomName: roomName,
+                                   hasRoutes: hasRoutes))
+
+        if let simulation {
+            parts.append(contentsOf: simulationSentences(simulation))
+        }
+        return parts.joined(separator: " ")
+    }
+
+    private static func routeSentence(personName: String?,
+                                      roomName: String?,
+                                      hasRoutes: Bool) -> String {
+        guard hasRoutes else {
+            return "No escape routes are drawn yet."
+        }
+        switch (personName, roomName) {
+        case let (person?, room?):
+            return "Showing the escape route for \(person), starting in the \(room)."
+        case let (person?, nil):
+            return "Showing the escape route for \(person)."
+        case let (nil, room?):
+            return "Showing the escape route from the \(room)."
+        case (nil, nil):
+            return "Showing the primary escape route for everyone."
+        }
+    }
+
+    private static func simulationSentences(_ state: SimulationState) -> [String] {
+        var parts = ["Fire simulation loaded. The fire starts in the \(state.originRoomName).",
+                     "\(state.elapsedSpoken) of \(state.durationSpoken), "
+                     + "\(state.isPlaying ? "playing" : "paused")."]
+
+        if state.untenableRoomNames.isEmpty {
+            parts.append("No rooms are untenable yet at this point in the simulation.")
+        } else {
+            let count = state.untenableRoomNames.count
+            parts.append("The engine models \(count) \(count == 1 ? "room" : "rooms") as "
+                         + "untenable at this point: \(list(state.untenableRoomNames)).")
+        }
+
+        if !state.overtakenPeopleNames.isEmpty {
+            let names = list(state.overtakenPeopleNames)
+            parts.append(state.overtakenPeopleNames.count == 1
+                ? "Hazard reaches them first: in this simulation the modeled fire reaches a "
+                  + "room on \(names)'s way out before they clear it."
+                : "Hazard reaches them first: in this simulation the modeled fire reaches a "
+                  + "room on the way out of \(names) before they clear it.")
+        }
+        return parts
+    }
+
+    /// "Kitchen, Hall and Landing" — Oxford-free, because VoiceOver reads the comma anyway.
+    static func list(_ items: [String]) -> String {
+        switch items.count {
+        case 0: return ""
+        case 1: return items[0]
+        default: return items.dropLast().joined(separator: ", ") + " and " + items[items.count - 1]
+        }
+    }
+
+    // MARK: - Ordered steps
+
+    /// The ordered steps for one room's primary route.
+    ///
+    /// `drawn` is `RouteOverlay.drawnSteps[room_id]` — the chips literally on screen. When the
+    /// overlay has not drawn that room (nothing selected yet, or a rebuild in flight) the same
+    /// pure function the overlay uses is called directly, so the numbering is identical either
+    /// way rather than merely similar.
+    static func steps(for room: RoomRoutePlan,
+                      in home: HomeModel,
+                      drawn: [RouteGeometry.Stop]?,
+                      meetingPoint: String? = nil) -> [StepLine] {
+        guard let primary = room.primary else { return [] }
+        let stops = drawn ?? RouteGeometry.numberedStops(for: primary)
+        let anchors = RouteNarration.stepAnchors(for: primary, startingIn: room.room_id)
+        let sentences = RouteNarration.sentences(for: primary, from: room.room_id,
+                                                 in: home, meetingPoint: meetingPoint)
+
+        var used = Set<Int>()
+        var lines: [StepLine] = stops.map { stop in
+            let match = anchors.first { anchor in
+                !used.contains(anchor.number) && anchor.waypoint == stop.waypoint
+            }
+            var detail: String?
+            if let match, sentences.indices.contains(match.number - 1) {
+                used.insert(match.number)
+                detail = sentences[match.number - 1]
+            }
+            return StepLine(number: stop.number, title: stop.kind.title, detail: detail)
+        }
+
+        // Anything the narration says that has no chip on the model — most importantly the
+        // meeting-point step, which is outside the building and deliberately undrawn. It is
+        // appended rather than dropped: "and then go to the oak across the street" is the last
+        // thing a household needs to hear, not the first thing to lose to a layout rule.
+        var next = (lines.last?.number ?? 0) + 1
+        for (index, sentence) in sentences.enumerated() where !used.contains(index + 1) {
+            lines.append(StepLine(number: next, title: sentence, detail: nil))
+            next += 1
+        }
+        return lines
+    }
+
+    /// The whole route spoken as one string — used for the scene element's custom action
+    /// announcement and by anything that wants the narration in a single utterance.
+    static func spokenSteps(for room: RoomRoutePlan,
+                            in home: HomeModel,
+                            drawn: [RouteGeometry.Stop]?,
+                            meetingPoint: String? = nil) -> String {
+        let lines = steps(for: room, in: home, drawn: drawn, meetingPoint: meetingPoint)
+        guard !lines.isEmpty else {
+            return "The routing engine returned no route for the \(room.room_name)."
+        }
+        return (["Route from the \(room.room_name), \(lines.count) steps."]
+                + lines.map(\.spoken)).joined(separator: " ")
     }
 }
 

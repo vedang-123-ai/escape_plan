@@ -1,17 +1,24 @@
 //  Theme.swift
 //  Screens — the semantic colour and type scale for app chrome.
 //
-//  The 3D model has exactly one rule: the escape route is the only hot colour in the frame.
-//  That rule was being broken by the chrome around it. Seven screens used SwiftUI's `.orange`
-//  for warnings and advisories — scan fallbacks, rejected edits, onboarding hints, the
-//  Settings status dot — so a user could see route-orange and warning-orange in the same
-//  scroll and have no way to know they meant different things.
+//  The 3D model has exactly one rule about colour: **cool hues are routes, warm hues are
+//  hazard.** Chrome has to hold the same line, because a user who sees route-blue in a legend
+//  and hazard-orange in a banner must be able to trust that those two colours mean two
+//  different things everywhere in the app.
 //
-//  So: **chrome contains no route orange.** `Theme.routeInk` exists only for legends that are
-//  literally labelling a route, and nothing else in this file is allowed to approach that hue.
-//  Advisories use a dark amber that cannot be mistaken for a lit route at a glance; genuine
-//  faults use the palette's warning red; positive states use the app accent, which is the
-//  deep safety green chosen precisely so it stays out of orange's way.
+//  History worth keeping, because the comments used to lie about it: routes were originally
+//  safety orange (#FF5A1F), back when the route was the only colour in the frame. The
+//  fire-origin hazard visualization put a second coloured system on screen, and orange route
+//  plus red/orange hazard is the textbook deuteranopia collision — so `DollhousePalette`
+//  re-keyed routes to cool (#123FB0 / #4180D4) and reserved warm for hazard. This file did not
+//  follow, and `routeInkComponents` sat on the retired orange for a while: every legend
+//  claiming to show "the route colour" showed a colour no route used. Fixed below.
+//
+//  So: **chrome contains no hazard warm except `hazardInk`, and no route cool except the two
+//  route inks.** Those exist only for legends literally labelling a route, an exit or the
+//  hazard. Advisories use a dark amber that cannot be mistaken for either system; genuine
+//  faults use the palette's warning red; positive states use the app accent, the deep safety
+//  green.
 //
 //  ## Accessibility pass (lane D1)
 //
@@ -154,20 +161,51 @@ enum Theme {
     /// Worth noticing, not broken: a low-confidence scan item, a rejected edit, a caveat.
     ///
     /// Deliberately amber rather than SwiftUI's `.orange` (~#FF9500). At a glance the
-    /// difference from route orange (#FF5A1F) is obvious — one is an amber ink, the other is a
-    /// lit line — which is the entire reason this constant exists. The dark value is lighter
+    /// difference from a route (a cool blue line) and from the hazard ink is obvious — this is
+    /// an amber ink for "worth noticing", not a system colour. The dark value is lighter
     /// (#F59E0B) because the light value reads at 3.39:1 on a dark row and fails AA.
     static let caution = AppearancePair(light: 0x9A4A08, dark: 0xF59E0B).color
     static let cautionComponents = AppearancePair(light: 0x9A4A08, dark: 0xF59E0B)
 
-    /// ONLY for swatches and legends that label an actual escape route. Never for state.
-    static let routeInk = Color(DollhousePalette.routePrimary)
-    /// ONLY for swatches and legends that label an actual exit.
-    static let exitInk = Color(DollhousePalette.exitGreen)
+    // MARK: - Legend inks (the ONLY chrome allowed to show route / exit / hazard colour)
+    //
+    // These four mirror the 3D systems in `DollhousePalette` so a legend swatch and the thing
+    // it labels read as the same idea. They are NOT the same hex values, and that is
+    // deliberate: the renderer's colours are tuned against the white model under a key light,
+    // these are tuned against iOS system backgrounds in both appearances. Two of them cannot
+    // be bridged directly at all —
+    //
+    //   * `DollhousePalette.routePrimary` (#123FB0) measures **2.36:1 on black**, so it cannot
+    //     be the dark-appearance value; the dark half is a lightened cobalt.
+    //   * `DollhousePalette.hazardCore` (#F97316) measures **2.80:1 on white**, so it must
+    //     never be used as a light-mode legend swatch or text; `hazardInk` is a darker ember
+    //     that clears the bar in both appearances.
+    //
+    // Every pair below is asserted in `ThemeContrastTests` against the real surfaces.
 
-    /// The measured components of the two legend inks, audited as non-text components (3:1).
-    static let routeInkComponents = AppearancePair(both: 0xFF5A1F)
-    static let exitInkComponents = AppearancePair(both: 0x16A34A)
+    /// ONLY for swatches and legends that label an actual PRIMARY escape route. Never for state.
+    /// Light half is `DollhousePalette.routePrimary` verbatim (8.88:1 on white).
+    static let routeInk = routeInkComponents.color
+    /// ONLY for swatches and legends that label the BACKUP route. Light half is
+    /// `DollhousePalette.routeSecondary` verbatim (3.99:1 on white).
+    static let routeSecondaryInk = routeSecondaryInkComponents.color
+    /// ONLY for swatches and legends that label an actual exit.
+    static let exitInk = exitInkComponents.color
+    /// ONLY for swatches and legends that label the fire/hazard system.
+    static let hazardInk = hazardInkComponents.color
+
+    /// The measured components of the legend inks, audited as non-text components (3:1).
+    static let routeInkComponents = AppearancePair(light: 0x123FB0, dark: 0x6FA8F5)
+    /// Dimmer than `routeInkComponents.dark` on purpose, so the primary reads as the stronger
+    /// ink in dark mode exactly as it does in light mode (8.88 vs 3.99 on white).
+    static let routeSecondaryInkComponents = AppearancePair(light: 0x4180D4, dark: 0x4E97E8)
+    /// Light half is `DollhousePalette.exitGreen` verbatim; the dark half is lightened because
+    /// the (now darkened) 3D green measures 2.74:1 on #2C2C2E.
+    static let exitInkComponents = AppearancePair(light: 0x0F8140, dark: 0x35B265)
+    /// One value for both appearances: 5.18:1 on white and 4.06:1 on black. (It measures
+    /// 2.69:1 on tertiarySystemBackground-dark #2C2C2E — the assistant's citation chips — so a
+    /// hazard swatch does not belong there. Nothing places one there today.)
+    static let hazardInkComponents = AppearancePair(both: 0xC2410C)
 
     /// Quiet supporting text. Named so screens stop reaching for `.secondary` in some places
     /// and `.gray` in others.

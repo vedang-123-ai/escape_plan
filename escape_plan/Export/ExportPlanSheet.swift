@@ -22,6 +22,7 @@ struct ExportPlanSheet: View {
     private let exporter: EscapePlanExporter
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var preview: EscapePlanExporter.Preview?
     @State private var meetingPoint = ""
@@ -62,8 +63,10 @@ struct ExportPlanSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
+                        .minimumTapTarget()
                         .accessibilityLabel("Done")
                         .accessibilityHint("Closes the printable plan without exporting.")
+                        .accessibilityIdentifier("export.done")
                 }
             }
         }
@@ -83,12 +86,17 @@ struct ExportPlanSheet: View {
         Form {
             Section {
                 TextField("The big oak across the street", text: $meetingPoint, axis: .vertical)
-                    .lineLimit(1...3)
+                    // Grows to five lines at the accessibility text sizes: a three-line cap
+                    // that fits "the big oak across the street" at default type scrolls the
+                    // user's own words out of sight at AX3.
+                    .lineLimit(dynamicTypeSize >= .accessibility1 ? 1...5 : 1...3)
                     .textInputAutocapitalization(.sentences)
                     .accessibilityLabel("Outside meeting place")
+                    .accessibilityValue(meetingPoint.isEmpty ? "Empty" : meetingPoint)
                     .accessibilityHint(
                         "The place everyone gathers once they are out. It is printed in large "
                         + "type on every page and saved for next time.")
+                    .accessibilityIdentifier("export.meetingPoint")
             } header: {
                 Text("Outside meeting place")
             } footer: {
@@ -131,9 +139,11 @@ struct ExportPlanSheet: View {
                     }
                 }
                 .disabled(isGenerating)
+                .minimumTapTarget()
                 .accessibilityLabel(isGenerating ? "Creating PDF" : "Create PDF")
                 .accessibilityHint("Builds the printable escape plan, then opens the share sheet "
                                    + "so you can print it, save it to Files, or AirDrop it.")
+                .accessibilityIdentifier("export.createPDF")
             }
         }
     }

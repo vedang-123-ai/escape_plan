@@ -109,7 +109,27 @@ enum DollhousePalette {
     /// real dashed geometry. Same hue family means "backup of the same plan"; the luminance
     /// step plus the dashes mean it still reads as the backup in grayscale.
     static let routeSecondary = UIColor(hex: 0x4180D4)
-    static let exitGreen = UIColor(hex: 0x16A34A)
+
+    /// Exit pads and chevrons. **Darkened from #16A34A in the accessibility pass**, and the
+    /// reason is a measurement rather than a preference:
+    ///
+    ///   #16A34A sits at relative luminance 0.2686 and `hazardCore` at 0.3246 — a gap of
+    ///   **0.056**, i.e. a **1.18:1** contrast ratio between them. Green-versus-orange is
+    ///   exactly the pair deuteranopia collapses, and with the luminance channel carrying
+    ///   almost nothing there was no second cue left. The moment the fire simulation runs,
+    ///   both are on screen at once: the thing that saves you and the thing that kills you,
+    ///   rendered as the same colour.
+    ///
+    ///   #0F8140 sits at 0.1617 — a **0.163** gap from `hazardCore` (2.9× wider) at
+    ///   **1.77:1**, while keeping a **0.094** gap from `routePrimary` (0.0682), which clears
+    ///   the palette's own 0.08 luminance-gap floor. It measures 4.59:1 against `wallWhite`
+    ///   (up from 3.05:1), so the pad also reads better on the white model than it did.
+    ///
+    /// Hue is still not allowed to be the only cue: `ExitMarkerFixture` draws the pad with a
+    /// white rim and a white outward-pointing chevron knocked into it (4.96:1 *inside* the
+    /// marker), so an exit is identifiable with colour removed entirely. `A11yHouseSceneTests`
+    /// holds both the numbers and the presence of the non-colour cue.
+    static let exitGreen = UIColor(hex: 0x0F8140)
 
     // MARK: - Reserved warm family: hazard (owned by the fire-origin lane, not by RouteOverlay)
 
