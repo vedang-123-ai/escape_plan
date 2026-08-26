@@ -193,3 +193,71 @@ def test_object_free_fixtures_keep_straight_legs(thresholds) -> None:
                     continue
                 assert all(w.kind != "path" for w in route.waypoints)
             assert all(f.kind != "blocked_opening" for f in room.findings)
+
+
+# ---------------------------------------------------------------------------
+# narrows_route reaching the RoutePlan (2026-08-25). The obstruction layer had
+# computed these since B3; the engine only ever looked up obstructions for
+# openings already in `graph.blocked_openings`, and a narrowing is by definition
+# NOT blocked — so nothing could ever surface one.
+
+
+def _plan_for(fixture_name: str, thresholds):
+    return compute_route_plan(
+        HomeModel.model_validate(load_fixture(fixture_name)), thresholds
+    )
+
+
+def _findings(plan, kind: str):
+    return [
+        (room.room_id, f)
+        for room in plan.rooms
+        for f in room.findings
+        if f.kind == kind
+    ]
+
+
+def test_a_narrowing_reaches_the_route_plan(thresholds) -> None:
+    plan = _plan_for("bungalow-narrow.json", thresholds)
+    narrowings = _findings(plan, "narrows_route")
+    assert len(narrowings) == 1, "the planted squeeze must surface as a finding"
+    room_id, finding = narrowings[0]
+    assert room_id == "r_bedroom"
+    assert finding.object_ids == ["o_wardrobe_narrowing"]
+
+
+def test_a_narrowing_does_not_also_report_a_blockage(thresholds) -> None:
+    """The two kinds are disjoint by construction. If a squeeze ever also emits
+    `blocked_opening`, the user sees one problem described twice at two
+    different severities."""
+    plan = _plan_for("bungalow-narrow.json", thresholds)
+    assert _findings(plan, "blocked_opening") == []
+
+
+def test_a_narrowing_does_not_cost_the_room_its_routes(thresholds) -> None:
+    """The whole point of the kind: the way out still works. A squeeze that
+    removed the route would be a blockage, and mislabelled."""
+    plan = _plan_for("bungalow-narrow.json", thresholds)
+    bedroom = next(r for r in plan.rooms if r.room_id == "r_bedroom")
+    assert bedroom.primary is not None
+
+
+def test_a_blocked_home_still_reports_a_blockage_not_a_squeeze(thresholds) -> None:
+    plan = _plan_for("bungalow-blocked.json", thresholds)
+    assert len(_findings(plan, "blocked_opening")) == 1
+    assert _findings(plan, "narrows_route") == []
+
+
+def test_furniture_free_homes_gain_no_findings(thresholds) -> None:
+    """Widening the analysis gate from "something is blocked" to "the home has
+    objects" must not change any home that has no furniture."""
+    for name in ("bungalow.json", "apartment.json", "twostory.json"):
+        plan = _plan_for(name, thresholds)
+        assert _findings(plan, "narrows_route") == []
+        assert _findings(plan, "blocked_opening") == []
+
+
+def test_route_plan_is_deterministic_with_narrowings(thresholds) -> None:
+    a = _plan_for("bungalow-narrow.json", thresholds)
+    b = _plan_for("bungalow-narrow.json", thresholds)
+    assert a.model_dump_json() == b.model_dump_json()

@@ -36,3 +36,12 @@ def bungalow_blocked() -> dict:
     """The bungalow with a wardrobe planted in front of the bedroom door —
     the obstruction test bed (see app/routing/obstructions.py)."""
     return load_fixture("bungalow-blocked.json")
+
+
+@pytest.fixture
+def bungalow_narrow() -> dict:
+    """The same bungalow with the wardrobe pulled back until the bedroom door is
+    reachable but tight — the `narrows_route` test bed. Deliberately a separate
+    fixture from `bungalow_blocked`: the two kinds are distinguished by whether a
+    path exists at all, so one file cannot exercise both."""
+    return load_fixture("bungalow-narrow.json")

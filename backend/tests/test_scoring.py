@@ -20,7 +20,7 @@ from app.ai.grounded import GroundingError, Recommendation
 from app.main import app
 from app.models import HomeModel
 from app.routing.engine import compute_route_plan
-from app.scoring.checklist import build_checklist, finding_items
+from app.scoring.checklist import build_checklist, finding_items, route_items
 from app.scoring.findings import Finding, finding_id
 from app.scoring.recommend import _map_recommendations
 from app.scoring.score import ScoreBreakdown, compute_score
@@ -527,3 +527,41 @@ def test_egress_items_are_omitted_when_no_thresholds_are_supplied(twostory):
     breakdown = compute_score(home, plan, [], {})  # no thresholds
 
     assert [i for i in breakdown.checklist if i.category == "egress"] == []
+
+
+# ---------------------------------------------------------------------------
+# narrows_route in the checklist (2026-08-25).
+
+
+def _narrow_plan(bungalow_narrow):
+    return compute_route_plan(
+        HomeModel.model_validate(bungalow_narrow), config.get_thresholds()
+    )
+
+
+def test_a_squeeze_is_not_described_as_having_no_way_out(bungalow_narrow) -> None:
+    """The trap this pins: `route_items` had an `else` that titled anything it did
+    not recognise "<room> has no usable way out". Adding `narrows_route` without a
+    branch would have made a passable-but-tight doorway read as a dead end — a
+    graver claim than the engine made, and one no citation supports."""
+    items = route_items(_narrow_plan(bungalow_narrow), state={})
+    squeeze = [i for i in items if "narrows_route" in i.id]
+    assert len(squeeze) == 1
+    assert "no usable way out" not in squeeze[0].title
+    assert squeeze[0].title == "Widen the way out of Bedroom"
+
+
+def test_squeeze_checklist_item_keys_on_the_object(bungalow_narrow) -> None:
+    """Same reason blocked_opening does: one room can have several pinch points,
+    and keying on the room alone collapses them onto one checkbox."""
+    items = route_items(_narrow_plan(bungalow_narrow), state={})
+    squeeze = next(i for i in items if "narrows_route" in i.id)
+    assert squeeze.id == "routes.narrows_route.r_bedroom.o_wardrobe_narrowing"
+
+
+def test_squeeze_checklist_item_is_non_scoring(bungalow_narrow) -> None:
+    """Like every route item: fixed by changing the home and re-running the
+    engine, which moves the routes components on its own."""
+    items = route_items(_narrow_plan(bungalow_narrow), state={})
+    squeeze = next(i for i in items if "narrows_route" in i.id)
+    assert squeeze.scoring is False

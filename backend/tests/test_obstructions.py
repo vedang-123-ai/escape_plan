@@ -162,3 +162,66 @@ def test_analysis_is_deterministic(thresholds) -> None:
     first = analyze_obstructions(home, thresholds)
     second = analyze_obstructions(home, thresholds)
     assert first == second
+
+
+# ---------------------------------------------------------------------------
+# Narrowings — passable, but tight. Computed since the obstruction layer landed;
+# surfaced as a RouteFinding only from 2026-08-25 (TODO "Surface narrows_route").
+
+
+def _narrow_home() -> HomeModel:
+    return HomeModel.model_validate(
+        json.loads((FIXTURES / "bungalow-narrow.json").read_text())
+    )
+
+
+def test_a_squeeze_is_narrows_route_not_blocks_opening(thresholds) -> None:
+    obstructions = analyze_obstructions(_narrow_home(), thresholds)
+    assert [o.kind for o in obstructions] == ["narrows_route"]
+    found = obstructions[0]
+    assert found.object_ids == ("o_wardrobe_narrowing",)
+    assert found.room_id == "r_bedroom"
+
+
+def test_a_squeeze_stays_wider_than_the_code_minimum(thresholds) -> None:
+    """The distinction that separates the two kinds: a narrowing is still passable
+    at the code clearance. If this ever inverts, the finding is a blockage and
+    calling it a squeeze understates it."""
+    found = analyze_obstructions(_narrow_home(), thresholds)[0]
+    assert found.passable_width_m > found.required_width_m
+    assert found.passable_width_m < found.target_width_m
+
+
+def test_a_squeeze_is_measured_against_the_comfort_width(thresholds) -> None:
+    """`required_width_m` must stay the citable code number; the comfort width is
+    our own margin and lives in `target_width_m` so it can never be reported as
+    though a code mandated it."""
+    found = analyze_obstructions(_narrow_home(), thresholds)[0]
+    assert found.required_width_m == pytest.approx(thresholds.door_min_width_m)
+    assert found.target_width_m == pytest.approx(
+        thresholds.door_min_width_m + 2 * COMFORT_MARGIN_M, abs=1e-3
+    )
+
+
+def test_a_blockage_is_still_measured_against_the_code_width(thresholds) -> None:
+    found = analyze_obstructions(_blocked_home(), thresholds)[0]
+    assert found.kind == "blocks_opening"
+    assert found.target_width_m == pytest.approx(found.required_width_m)
+
+
+def test_squeeze_detail_does_not_contradict_itself(thresholds) -> None:
+    """The bug this pins: the sentence used to compare the measured width against
+    the CODE width, printing "squeezes to 0.90 m — under the 0.81 m ...". Both
+    numbers must appear and the comparison must be true."""
+    found = analyze_obstructions(_narrow_home(), thresholds)[0]
+    detail = found.detail
+    assert f"{found.passable_width_m:.2f}" in detail
+    assert f"{found.target_width_m:.2f}" in detail
+    assert found.passable_width_m < found.target_width_m
+    assert "still passable" in detail
+
+
+def test_squeeze_suggests_a_move_that_actually_closes_the_gap(thresholds) -> None:
+    found = analyze_obstructions(_narrow_home(), thresholds)[0]
+    assert found.passable_width_m + found.suggested_move_m >= found.target_width_m
+    assert round(found.suggested_move_m * 100) % 5 == 0
