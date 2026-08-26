@@ -433,6 +433,10 @@ def _dispatch_tool(
                     "object_categories": list(o.object_categories),
                     "passable_width_m": o.passable_width_m,
                     "required_width_m": o.required_width_m,
+                    # The width this particular finding was judged at. Without it the
+                    # model sees a 0.90 m squeeze "failing" a 0.81 m bar and reasonably
+                    # concludes the tool contradicts itself.
+                    "target_width_m": o.target_width_m,
                     "suggested_move_m": o.suggested_move_m,
                     # The engine's own phrasing, carried so the model re-words a
                     # measured sentence instead of composing numbers of its own.

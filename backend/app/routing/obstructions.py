@@ -72,10 +72,18 @@ class Obstruction:
     """Measured width of the narrowest point on the way to the doorway, with the
     objects still in place. 0.0 when the approach is closed outright."""
     required_width_m: float
-    """The corpus door clear-width threshold this is measured against."""
+    """The corpus door clear-width threshold (IRC R311.2). Always the code number,
+    never our comfort margin, so a citation attached to it stays truthful."""
+    target_width_m: float
+    """The width THIS finding is measured against, which is not always the code
+    number: a `blocks_opening` is judged at `required_width_m`, a `narrows_route`
+    at the comfort width (code + `COMFORT_MARGIN_M` per side). Kept separate from
+    `required_width_m` so the comfort margin — our judgement, not a code threshold —
+    can never be reported as though a standard mandated it."""
     suggested_move_m: float
     """How much width has to be recovered — the least the object must move to
-    clear the approach. Rounded up to 0.05 m; never below 0.05 m."""
+    clear the approach, measured against `target_width_m`. Rounded up to 0.05 m;
+    never below 0.05 m."""
 
     @property
     def detail(self) -> str:
@@ -93,9 +101,11 @@ class Obstruction:
             )
         return (
             f"The path to '{self.opening_id}' from inside {self.room_name} squeezes to "
-            f"{self.passable_width_m:.2f} m past {objects} — under the "
-            f"{self.required_width_m:.2f} m a door needs to be comfortably passable in "
-            f"the dark. Moving it about {self.suggested_move_m:.2f} m widens the gap."
+            f"{self.passable_width_m:.2f} m past {objects} — still passable, but under "
+            f"the {self.target_width_m:.2f} m that keeps a doorway comfortable in the "
+            f"dark ({self.required_width_m:.2f} m of code clearance plus "
+            f"{COMFORT_MARGIN_M:.2f} m of margin each side). Moving it about "
+            f"{self.suggested_move_m:.2f} m restores that."
         )
 
 
@@ -254,6 +264,11 @@ def analyze_obstructions(
                     list(room.polygon), local, start, goal, goal_radius, comfort_c
                 )
                 passable_width = round(2 * tolerated, 3)
+                # A blockage is judged at the code clearance; a squeeze is judged at
+                # the comfort width, which is the only reason it was flagged at all.
+                target_width = (
+                    required_width if not code_ok else 2 * comfort_c
+                )
                 out.append(
                     Obstruction(
                         kind="blocks_opening" if not code_ok else "narrows_route",
@@ -269,8 +284,9 @@ def analyze_obstructions(
                         ),
                         passable_width_m=passable_width,
                         required_width_m=required_width,
+                        target_width_m=round(target_width, 3),
                         suggested_move_m=_suggested_move_m(
-                            passable_width, required_width
+                            passable_width, target_width
                         ),
                     )
                 )
