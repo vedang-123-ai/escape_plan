@@ -156,8 +156,10 @@ final class RoutePlanDecodeErrorTests: XCTestCase {
 
     /// A finding kind newer than this build must NOT cost the whole plan. Findings are
     /// nested inside RoutePlan, so throwing here means zero routes render — strictly worse
-    /// than one generically-labelled badge. The backend already carries `narrows_route`
-    /// with nothing surfacing it yet, so this is a live path, not a hypothetical.
+    /// than one generically-labelled badge. This stopped being hypothetical the day
+    /// `narrows_route` shipped server-side: builds predating it took this path and still
+    /// rendered their routes. The sample kind below must stay one the engine does NOT
+    /// emit, or this test silently stops testing anything.
     func testUnknownFindingKindDegradesInsteadOfKillingThePlan() throws {
         let plan = """
         {
@@ -170,7 +172,7 @@ final class RoutePlanDecodeErrorTests: XCTestCase {
               "room_name": "Living Room",
               "floor_id": "f1",
               "findings": [
-                { "kind": "narrows_route", "room_id": "r_living",
+                { "kind": "smoke_logged_stairwell", "room_id": "r_living",
                   "detail": "The path to 'd_entry' squeezes to 0.62 m past the sofa." }
               ]
             }
@@ -182,6 +184,63 @@ final class RoutePlanDecodeErrorTests: XCTestCase {
         XCTAssertEqual(decoded.rooms[0].findings[0].kind, .unknown)
         // The engine's prose is what the user actually reads — it must survive intact.
         XCTAssertTrue(decoded.rooms[0].findings[0].detail.contains("0.62 m"))
+    }
+
+    // MARK: - narrows_route (2026-08-25)
+
+    /// The engine computed narrowings from the B3 revamp onward and nothing rendered
+    /// them. Now that it emits them, the kind must decode as ITSELF — landing in
+    /// `.unknown` would still render, which is exactly why the gap survived so long.
+    func testNarrowsRouteDecodesAsItsOwnKindNotUnknown() throws {
+        let plan = """
+        {
+          "home_id": "home-1",
+          "home_name": "Bungalow",
+          "constraints": { "avoid_stairs": false, "avoid_windows": false },
+          "rooms": [
+            {
+              "room_id": "r_bedroom",
+              "room_name": "Bedroom",
+              "floor_id": "f1",
+              "findings": [
+                { "kind": "narrows_route", "room_id": "r_bedroom",
+                  "detail": "The path squeezes to 0.90 m past the wardrobe.",
+                  "object_ids": ["o_wardrobe_narrowing"] }
+              ]
+            }
+          ]
+        }
+        """
+        let finding = try decodePlan(plan).rooms[0].findings[0]
+        XCTAssertEqual(finding.kind, .narrows_route)
+        XCTAssertEqual(finding.object_ids, ["o_wardrobe_narrowing"])
+    }
+
+    /// A squeeze is the mildest thing the engine reports. Giving it the severe tint —
+    /// the one `no_viable_route` uses — would overstate the engine's own answer with
+    /// presentation, which is the one thing this layer must never do.
+    func testNarrowsRouteIsNotStyledAsSevere() {
+        let squeeze = RouteFindingStyle.of(.narrows_route)
+        let severe = RouteFindingStyle.of(.no_viable_route)
+        XCTAssertNotEqual(squeeze.title, severe.title)
+        XCTAssertNotEqual(squeeze.tint, severe.tint)
+        XCTAssertEqual(squeeze.tint, RouteFindingStyle.of(.blocked_opening).tint,
+                       "no new colour: it shares the existing non-severe tier")
+    }
+
+    /// The exported plan is read aloud by VoiceOver and printed in the PDF, so the
+    /// distinction has to survive into prose, not just into a badge colour.
+    func testNarrowsRouteNarratesAsPassableRatherThanBlocked() throws {
+        let home = try FixtureLoader.load(.bungalow)
+        let finding = RouteFinding(kind: .narrows_route,
+                                   room_id: home.floors[0].rooms[0].id,
+                                   detail: "The path squeezes to 0.90 m past the wardrobe.",
+                                   object_ids: [])
+        let sentence = RouteNarration.findingSentence(finding, in: home)
+        XCTAssertTrue(sentence.contains("passable but tight"))
+        XCTAssertTrue(sentence.contains(finding.detail),
+                      "the engine's wording must survive verbatim")
+        XCTAssertFalse(sentence.contains("is blocked"))
     }
 
     // MARK: - Type mismatches
