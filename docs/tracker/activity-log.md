@@ -850,3 +850,14 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - ?? docs/tracker/notes/2026-08-25-narrows-route.md
   - ?? schema/fixtures/bungalow-narrow.json
 
+## 2026-08-26T03:00:55Z · vedang-123-ai · `main` @ `db1d352`
+
+**Commits this session**
+  - db1d352 Tracker: narrows_route closed, plus what it exposed on the way out
+  - 2521d1d iOS tests for narrows_route, and repoint the unknown-kind test
+  - 3a24a55 Tests: a planted squeeze, and the two traps surfacing it exposed
+  - ee5271b Render a squeeze as its own finding: "Tight squeeze"
+  - db8a8a2 Do not tell someone a passable doorway is no way out
+  - a12eb06 Measure a squeeze against the width it is actually judged at
+  - ffbf135 Run the obstruction analysis when there is furniture, not when there is a blockage
+
