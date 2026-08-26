@@ -172,6 +172,15 @@ def route_items(plan: RoutePlan, state: ChecklistState) -> list[ChecklistItem]:
                 # Keeping exits clear is its own corpus claim, not a generic
                 # escape-planning one.
                 citation = "usfa-escape-plans"
+            elif finding.kind == "narrows_route":
+                # Same keying reason as blocked_opening: one room can have several
+                # pinch points. Without this branch a squeeze fell to the `else` and
+                # was titled "has no usable way out" — a far graver claim than the
+                # engine made, on a route that is passable.
+                squeezed = "-".join(finding.object_ids) or "obstruction"
+                item_id = f"routes.{finding.kind}.{room.room_id}.{squeezed}"
+                title = f"Widen the way out of {room.room_name}"
+                citation = "usfa-escape-plans"
             else:
                 title = f"{room.room_name} has no usable way out"
                 item_id = f"routes.{finding.kind}.{room.room_id}"
