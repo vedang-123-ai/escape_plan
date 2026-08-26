@@ -58,13 +58,22 @@ class RouteFinding(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["no_secondary_egress", "no_viable_route", "blocked_opening"]
+    kind: Literal[
+        "no_secondary_egress",
+        "no_viable_route",
+        "blocked_opening",
+        "narrows_route",
+    ]
+    """`blocked_opening` = no path to the doorway at all; `narrows_route` = there is
+    a path but it squeezes below the clear width a door needs in the dark. The two
+    are disjoint by construction — `narrows_route` only fires where the code-clearance
+    path succeeded, which is exactly what keeps the opening out of `blocked_openings`."""
     room_id: str
     detail: str
     object_ids: list[str] = Field(default_factory=list)
-    """Objects the obstruction analysis blamed for a `blocked_opening`, so the app
-    can highlight them and the advice can say WHICH thing to move. Additive and
-    defaulted — an older client simply ignores it."""
+    """Objects the obstruction analysis blamed for a `blocked_opening` or a
+    `narrows_route`, so the app can highlight them and the advice can say WHICH
+    thing to move. Additive and defaulted — an older client simply ignores it."""
 
 
 class RoomRoutePlan(BaseModel):

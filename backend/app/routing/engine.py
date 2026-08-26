@@ -275,14 +275,22 @@ def compute_route_plan(
     constraints = constraints or RoutingConstraints()
     graph = build_graph(home, thresholds)
     openings = _openings_by_id(home)
-    # Only pay for attribution when something is actually blocked; the analysis
-    # re-rasterizes rooms, and the overwhelmingly common case has no blockage.
+    # The analysis re-rasterizes rooms, so it is gated — but on whether the home has
+    # any furniture at all, not on whether something is fully blocked. `narrows_route`
+    # fires precisely where nothing is blocked, so the old `if graph.blocked_openings`
+    # gate could never surface one. A home with no objects still costs nothing:
+    # analyze_obstructions skips every room whose object list is empty.
     obstructions_by_opening: dict[tuple[str, str], Obstruction] = {}
-    if graph.blocked_openings:
+    if graph.blocked_openings or any(floor.objects for floor in home.floors):
         for obstruction in analyze_obstructions(home, thresholds):
             obstructions_by_opening[(obstruction.room_id, obstruction.opening_id)] = (
                 obstruction
             )
+    # Squeezes are reported per room, in the analysis's own deterministic order.
+    narrowings_by_room: dict[str, list[Obstruction]] = {}
+    for (room_id, _), obstruction in obstructions_by_opening.items():
+        if obstruction.kind == "narrows_route":
+            narrowings_by_room.setdefault(room_id, []).append(obstruction)
 
     room_plans: list[RoomRoutePlan] = []
     for floor in home.floors:
@@ -311,6 +319,20 @@ def compute_route_plan(
                             )
                         ),
                         object_ids=list(blamed.object_ids) if blamed else [],
+                    )
+                )
+
+            # A doorway you can still reach, but only sideways. Reported after the
+            # outright blockages so the worse finding reads first; the two never
+            # name the same opening, because a narrowing is by definition passable
+            # at the clearance that decides `blocked_openings`.
+            for narrowing in narrowings_by_room.get(room.id, []):
+                findings.append(
+                    RouteFinding(
+                        kind="narrows_route",
+                        room_id=room.id,
+                        detail=narrowing.detail,
+                        object_ids=list(narrowing.object_ids),
                     )
                 )
 
