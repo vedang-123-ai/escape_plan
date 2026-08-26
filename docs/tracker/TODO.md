@@ -405,10 +405,26 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
 - [x] ~~Enum tolerance sweep~~ — done 2026-08-02, all ten enums checked. `FindingKind`,
       `WaypointKind`, `Severity` made tolerant; the six schema enums left strict on purpose
       (they round-trip user data — see decisions.md). iOS unit suite 309 → 315.
-- [ ] **Surface `narrows_route` as a RouteFinding** — `obstructions.py` computes it and
-      nothing shows it. Now safe to wire up: `FindingKind` degrades gracefully instead of
-      killing the plan, and `RouteFindingViews` has an `.unknown` style. Would have broken
-      routes outright before today. (S2.3/revamp)
+- [x] ~~**Surface `narrows_route` as a RouteFinding**~~ — done 2026-08-25. The engine only
+      ran the obstruction analysis when something was already fully blocked, and a narrowing
+      is by definition NOT blocked, so the finding was computed and thrown away on every
+      request. Gate widened to "the home has furniture"; `narrows_route` now emitted,
+      decoded, styled ("Tight squeeze"), narrated, and given a checklist row. New fixture
+      `schema/fixtures/bungalow-narrow.json`. Backend 295 → 310, iOS +3. (S2.3/revamp)
+- [ ] **Two things surfacing it exposed, both now fixed — read before touching this area.**
+      (1) `route_items` in `checklist.py` had an `else` that titled any unrecognised kind
+      "<room> has no usable way out"; a squeeze would have shipped claiming a passable
+      doorway was a dead end. (2) `Obstruction.detail` compared the measured width against
+      the CODE width for narrowings when they are judged against the COMFORT width, printing
+      "squeezes to 0.90 m — under the 0.81 m a door needs". Both had been latent since B3
+      because nothing rendered the kind. **Any new FindingKind needs an explicit branch in
+      `route_items`, `RouteFindingStyle.of`, and `RouteNarration.findingSentence`** — the
+      first fails silently and the other two are exhaustive switches that fail loudly.
+- [ ] **Consider a third, milder warning tint for `narrows_route`.** It currently shares
+      `warningBadge` with `blocked_opening` and `no_secondary_egress`, so a passable-but-tight
+      doorway looks exactly as grave as "no second way out". Deliberately not invented
+      mid-fix: START-HERE forbids new colours and the White Model overhaul exists to undo
+      colour proliferation. A call for the UI/UX pass. (decisions.md 2026-08-25)
 - [ ] Consider a contract test that diffs the backend's `Literal`/enum values against the
       Swift cases automatically. Today's sweep was by hand and found the gap six days late;
       nothing stops the next one. Cheapest version: a pytest that imports the enums, greps

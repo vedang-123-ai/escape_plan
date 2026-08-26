@@ -829,3 +829,24 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 2b0cd0d One camera-gesture implementation, shared by both 3D hosts
   - d83c184 Camera rig: correct pan projection, a fixed pinch anchor, one transform write
 
+## 2026-08-26T02:40:54Z · vedang-123-ai · `main` @ `e50dcf7`
+
+**Uncommitted working-tree changes (17)**
+  - M backend/app/ai/agent.py
+  - M backend/app/routing/engine.py
+  - M backend/app/routing/obstructions.py
+  - M backend/app/routing/plan.py
+  - M backend/app/scoring/checklist.py
+  - M backend/tests/conftest.py
+  - M backend/tests/test_obstacles.py
+  - M backend/tests/test_obstructions.py
+  - M backend/tests/test_scoring.py
+  - M docs/decisions.md
+  - M docs/tracker/TODO.md
+  - M escape_plan/Export/RouteNarration.swift
+  - M escape_plan/Models/RoutePlan.swift
+  - M escape_plan/Screens/RouteFindingViews.swift
+  - M escape_planTests/RoutePlanDecodeErrorTests.swift
+  - ?? docs/tracker/notes/2026-08-25-narrows-route.md
+  - ?? schema/fixtures/bungalow-narrow.json
+
