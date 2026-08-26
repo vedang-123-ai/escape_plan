@@ -396,6 +396,10 @@ enum RouteNarration {
         case .blocked_opening:
             let suffix = blamed.isEmpty ? "" : " Blocked by: \(blamed)."
             return "A way out of the \(room) is blocked. \(finding.detail)\(suffix)"
+        case .narrows_route:
+            let suffix = blamed.isEmpty ? "" : " Narrowed by: \(blamed)."
+            return "The way out of the \(room) is passable but tight. "
+                + "\(finding.detail)\(suffix)"
         case .unknown:
             return "\(room): \(finding.detail)"
         }

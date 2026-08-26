@@ -31,6 +31,15 @@ struct RouteFindingStyle {
             RouteFindingStyle(title: "Blocked doorway",
                               icon: "door.left.hand.closed",
                               tint: Color(DollhousePalette.warningBadge))
+        case .narrows_route:
+            // The mildest finding the engine emits: the way out still works, it is
+            // just tight. Deliberately shares `warningBadge` with the tiers above
+            // rather than introducing a third colour — the White Model overhaul
+            // removed exactly that kind of proliferation, and route orange is
+            // reserved for lit routes. Icon and title carry the distinction.
+            RouteFindingStyle(title: "Tight squeeze",
+                              icon: "arrow.down.right.and.arrow.up.left",
+                              tint: Color(DollhousePalette.warningBadge))
         case .unknown:
             // A kind newer than this build. The engine's `detail` still reads fine, so
             // show the warning rather than hiding a real safety finding behind a

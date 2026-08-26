@@ -150,16 +150,22 @@ struct RouteFinding: Codable, Equatable {
 
     /// Tolerant on purpose. This enum is nested inside RoutePlan, so a kind this build
     /// has never heard of would fail the WHOLE plan decode and the app would render no
-    /// routes at all — a worse outcome than one unlabelled warning badge. The backend
-    /// already carries `narrows_route` (`ObstructionKind` in obstructions.py) that nothing
-    /// surfaces yet; the day someone wires it into a finding, this is what stops routes
-    /// from disappearing. Precedent: ChecklistCategory, decisions.md 2026-08-02.
+    /// routes at all — a worse outcome than one unlabelled warning badge. This is
+    /// exactly what let `narrows_route` be added server-side without stranding older
+    /// builds: they render it as `.unknown` with the engine's own `detail` intact
+    /// rather than dropping the whole plan. Precedent: ChecklistCategory,
+    /// decisions.md 2026-08-02.
     enum FindingKind: String, Codable {
         case no_secondary_egress
         case no_viable_route
-        /// v1.1 revamp: an object blocks a doorway (or narrows its approach
-        /// below the egress clearance) from inside this room.
+        /// v1.1 revamp: an object blocks a doorway from inside this room — there is
+        /// no path to it at all.
         case blocked_opening
+        /// The doorway is still reachable, but the way to it squeezes below the width
+        /// a door needs to be comfortable in the dark. Strictly milder than
+        /// `blocked_opening`, and disjoint from it: the engine only emits this where
+        /// the code-clearance path succeeded.
+        case narrows_route
         /// A kind added server-side after this build shipped. `detail` is written by the
         /// engine and stays readable, so the badge degrades to "unlabelled", not "absent".
         case unknown
