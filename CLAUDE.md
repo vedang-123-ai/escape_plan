@@ -72,6 +72,13 @@ Work is organized into checkpointed sessions (S0.1–S5.3) with owners, prerequi
 - AI layer: grounded in `backend/corpus/` only; citations validated against `sources.json`; low temperature; the AI explains and audits — routing is always the deterministic engine.
 - Small PRs; anything touching `schema/` goes through PR review.
 - Locked scope: fire only, iOS only, LiDAR scan only, no user accounts (local persistence + anonymous device id). Out of scope (deliberate): furniture detection, camera-only capture, Android, multi-user sync, other disasters.
+  - **Contested as of 2026-09-05 — read before you rely on the line above.** The S6 readiness
+    arc (`docs/playbook/06-pivot-intro.md`, `S6-1.md`…`S6-9.md`) proposes adding **earthquake and
+    severe weather**, which directly contradicts "fire only" and "other disasters" here. It is
+    scoped in detail but **explicitly not approved** — see `docs/decisions.md` (2026-09-05) and the
+    first line of `docs/tracker/TODO.md`, which is the pivot-or-finish decision itself. Until that
+    decision is recorded, **this lock stands and the S6 arc is a proposal, not sanctioned work.**
+    If it is answered "pivot", amend this line — do not work around it.
 
 ## Detailed rules (auto-loaded)
 
