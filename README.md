@@ -89,6 +89,10 @@ exists so it gets caught early next time.
 
 ## Scope
 
-Fire only. iOS only. LiDAR scan only. No user accounts — local persistence and an anonymous
-device id. Deliberately out of scope: furniture detection, camera-only capture, Android,
-multi-user sync, other disaster types.
+Fire, earthquake, and severe weather (tornado). iOS only. LiDAR scan only. No user accounts —
+local persistence and an anonymous device id. Deliberately out of scope: furniture detection,
+camera-only capture, Android, multi-user sync, disaster types beyond those three.
+
+Multi-peril was approved 2026-09-05 with the S6 readiness arc
+([`docs/playbook/06-pivot-intro.md`](docs/playbook/06-pivot-intro.md)); the scope was fire-only
+before that, and no S6 session has been built yet.

@@ -9,6 +9,7 @@
 - **PRs**: small; anything touching `schema/` goes through PR review.
 - **Citations**: corpus content uses inline `[cite: source-id]` tags resolving against
   `backend/corpus/sources.json` (see rules/paths/corpus.md).
-- **Scope locks** (do not relitigate): fire only, iOS only, LiDAR scan only, no user accounts.
-  Out of scope on purpose: furniture detection, camera-only capture, Android, multi-user sync,
-  other disasters.
+- **Scope locks** (do not relitigate): fire, earthquake and severe weather (tornado); iOS only;
+  LiDAR scan only; no user accounts. Out of scope on purpose: furniture detection, camera-only
+  capture, Android, multi-user sync, disasters beyond those three.
+  Multi-peril was approved 2026-09-05 with the S6 readiness arc — it was fire-only before that.

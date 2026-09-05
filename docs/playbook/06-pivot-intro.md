@@ -1,6 +1,8 @@
 # PART VI — THE READINESS PIVOT (S6.x)
 
-**Status: proposed, not started. Scoped 2026-09-05.** Nothing in this part has been built.
+**Status: APPROVED 2026-09-05 by the owner. Not started.** Scoped 2026-09-05, approved the same
+day. Nothing in this part has been built yet — but it is sanctioned work, not a proposal, and the
+scope locks in `CLAUDE.md` and `.claude/rules/global/conventions.md` were updated to match.
 
 ## What changes, and why
 

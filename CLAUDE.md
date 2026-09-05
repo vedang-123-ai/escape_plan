@@ -71,14 +71,12 @@ Work is organized into checkpointed sessions (S0.1–S5.3) with owners, prerequi
 - Anthropic API key lives server-side only (env var), never in the app or git.
 - AI layer: grounded in `backend/corpus/` only; citations validated against `sources.json`; low temperature; the AI explains and audits — routing is always the deterministic engine.
 - Small PRs; anything touching `schema/` goes through PR review.
-- Locked scope: fire only, iOS only, LiDAR scan only, no user accounts (local persistence + anonymous device id). Out of scope (deliberate): furniture detection, camera-only capture, Android, multi-user sync, other disasters.
-  - **Contested as of 2026-09-05 — read before you rely on the line above.** The S6 readiness
-    arc (`docs/playbook/06-pivot-intro.md`, `S6-1.md`…`S6-9.md`) proposes adding **earthquake and
-    severe weather**, which directly contradicts "fire only" and "other disasters" here. It is
-    scoped in detail but **explicitly not approved** — see `docs/decisions.md` (2026-09-05) and the
-    first line of `docs/tracker/TODO.md`, which is the pivot-or-finish decision itself. Until that
-    decision is recorded, **this lock stands and the S6 arc is a proposal, not sanctioned work.**
-    If it is answered "pivot", amend this line — do not work around it.
+- Locked scope: **fire, earthquake, and severe weather (tornado)**, iOS only, LiDAR scan only, no user accounts (local persistence + anonymous device id). Out of scope (deliberate): furniture detection, camera-only capture, Android, multi-user sync, disasters beyond those three.
+  - **Multi-peril approved 2026-09-05.** Scope was fire-only until the S6 readiness arc
+    (`docs/playbook/06-pivot-intro.md`, `S6-1.md`…`S6-9.md`) was approved by the owner. Earthquake
+    and severe weather are now in scope, and the S6 arc is **sanctioned work, not a proposal**.
+    The rest of the lock is unchanged — iOS only, LiDAR only, no accounts — and is still not open
+    for relitigation. See `docs/decisions.md` (2026-09-05, approval).
 
 ## Detailed rules (auto-loaded)
 
