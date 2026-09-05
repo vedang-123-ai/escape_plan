@@ -2,13 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://escape-plan.app/schema/homemodel.schema.json",
   "title": "HomeModel",
-  "description": "THE contract of the Escape Plan project (v1.1; v1.0 finalized in S0.2, v1.1 adds per-floor furniture objects and the ai_plan source for the LLM house builder — 2026-07-23 revamp). One JSON document describes a home: the scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. All linear units are meters; room footprints are 2D polygons in floor-local coordinates (3D is derived by extrusion — meshes are never stored). Structural invariants that JSON Schema cannot express (CCW non-self-intersecting polygons, cross-references, global id uniqueness) are enforced by backend/app/models.py; both validators must pass.",
+  "description": "THE contract of the Escape Plan project (v2.0; v1.0 finalized in S0.2, v1.1 adds per-floor furniture objects and the ai_plan source for the LLM house builder — 2026-07-23 revamp; v2.0 adds the readiness-pivot fields — household facts, sensory profile tags, utility safety points, secured furniture and scan freshness — S6.1, 2026-09-05). One JSON document describes a home: the scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. All linear units are meters; room footprints are 2D polygons in floor-local coordinates (3D is derived by extrusion — meshes are never stored). Structural invariants that JSON Schema cannot express (CCW non-self-intersecting polygons, cross-references, global id uniqueness) are enforced by backend/app/models.py; both validators must pass.",
   "type": "object",
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "1.1",
-      "description": "Version of this contract. Any change to the schema after S0.2 requires bumping this value plus team sign-off. 1.0 → 1.1: added floor.objects and the 'ai_plan' source."
+      "const": "2.0",
+      "description": "Version of this contract. Any change to the schema after S0.2 requires bumping this value plus team sign-off. 1.0 → 1.1: added floor.objects and the 'ai_plan' source. 1.1 → 2.0: added household, floor.safety_points, object.secured, meta.last_scanned and the hearing_impaired/vision_impaired profile tags. Every 2.0 addition is OPTIONAL, so a 1.1 document is a structurally valid 2.0 document with the new fields absent — only the version stamp needs rewriting."
     },
     "home_id": {
       "type": "string",
@@ -38,6 +38,7 @@
       "default": [],
       "description": "Household member profiles. Tags map deterministically to routing constraints (e.g. mobility_limited → avoid_stairs + avoid_windows) and personalize explanations."
     },
+    "household": { "$ref": "#/$defs/household" },
     "meta": { "$ref": "#/$defs/meta" }
   },
   "required": ["schema_version", "home_id", "name", "floors", "meta"],
@@ -233,6 +234,12 @@
           "items": { "$ref": "#/$defs/object" },
           "default": [],
           "description": "Furniture and other large objects on this floor (v1.1). Rendered as simple prisms; the routing engine treats them as obstacles in within-room pathfinding. Deliberately low-detail — box primitives only."
+        },
+        "safety_points": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safety_point" },
+          "default": [],
+          "description": "Utility shutoffs and the electrical panel on this floor (v2.0). Knowing where these are is the single most operationally useful thing a responder can be told about a house, and locating them is a checklist item the readiness score pays out on. Routing ignores them entirely — they are landmarks, not obstacles."
         }
       },
       "required": ["id", "level", "name", "height_m", "rooms"],
@@ -277,12 +284,42 @@
           "default": 0,
           "description": "Counter-clockwise rotation of the footprint about its center, degrees, in the floor-local frame."
         },
+        "secured": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this object has been anchored/strapped against earthquake shaking (v2.0). Records a mitigation the household has actually performed, so the checklist can stop asking. Routing MUST continue to ignore this: an obstacle is an obstacle whether or not it is bolted down."
+        },
         "source": { "$ref": "#/$defs/source" },
         "confidence": { "$ref": "#/$defs/confidence" }
       },
       "required": ["id", "category", "center", "size_m", "height_m", "source"],
       "additionalProperties": false,
       "description": "A large object as a rotated box primitive (v1.1). Rendered as a rectangular prism; blocks within-room routing."
+    },
+    "safety_point": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "const": "EXTERIOR" },
+          "description": "Unique id of the safety point across the whole home."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["gas_shutoff", "water_shutoff", "electrical_panel"],
+          "description": "What this point marks. Only utilities a household is advised to locate in advance — this is not a general annotation mechanism."
+        },
+        "position": {
+          "$ref": "#/$defs/point",
+          "description": "Location in floor-local meters. No room_id on purpose: containment is derived geometrically, exactly as for object, so moving or reshaping a room can never dangle a reference."
+        },
+        "source": { "$ref": "#/$defs/source" },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      },
+      "required": ["id", "kind", "position", "source"],
+      "additionalProperties": false,
+      "description": "A located utility shutoff or electrical panel (v2.0). A landmark, never an obstacle: the routing engine does not see these."
     },
     "stair_end": {
       "type": "object",
@@ -351,11 +388,11 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["child", "elderly", "mobility_limited", "pet"]
+            "enum": ["child", "elderly", "mobility_limited", "pet", "hearing_impaired", "vision_impaired"]
           },
           "uniqueItems": true,
           "default": [],
-          "description": "Traits that deterministically map to routing constraints and advice: mobility_limited → avoid_stairs + avoid_windows; child → window egress deprioritized + accompanied-adult framing. Empty = able-bodied adult."
+          "description": "Traits that deterministically map to routing constraints and advice: mobility_limited → avoid_stairs + avoid_windows; child → window egress deprioritized + accompanied-adult framing. Empty = able-bodied adult. hearing_impaired and vision_impaired (v2.0) are ROUTING-NEUTRAL by design — they produce zero routing constraints and exist so the readiness checklist can act on them (strobe/bed-shaker alarms, NOAA radio with alert). See docs/profile-constraint-mappings.md."
         },
         "bedroom_room_id": {
           "type": "string",
@@ -365,6 +402,30 @@
       "required": ["id", "name", "tags", "bedroom_room_id"],
       "additionalProperties": false,
       "description": "A household member whose traits personalize routes and guidance."
+    },
+    "household": {
+      "type": "object",
+      "properties": {
+        "tenure": {
+          "type": ["string", "null"],
+          "enum": ["rent", "own", null],
+          "default": null,
+          "description": "Whether the household rents or owns. null = not answered, which is always allowed — every interview question is skippable. Drives renter-safe variants of mitigation advice (straps rather than wall anchors), because some fixes need a landlord's permission."
+        },
+        "existing_equipment": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["smoke_alarm", "co_detector", "extinguisher", "generator"]
+          },
+          "uniqueItems": true,
+          "default": [],
+          "description": "Safety equipment the household already owns, so the checklist does not tell someone to buy what is already on their wall. Absence means unknown, not absent — an empty list is what a skipped question produces."
+        }
+      },
+      "required": [],
+      "additionalProperties": false,
+      "description": "Facts about the household as a unit, gathered by the S6.5 interview (v2.0). Optional in full: every pre-2.0 document must load without one, and skipping every question must still produce a valid home."
     },
     "meta": {
       "type": "object",
@@ -383,6 +444,12 @@
           "type": ["string", "null"],
           "default": null,
           "description": "Optional free-text home address; null when the user hasn't provided one. Never required — the app works fully anonymously."
+        },
+        "last_scanned": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "default": null,
+          "description": "ISO 8601 timestamp of the last LiDAR scan that produced or refreshed this model (v2.0). null means never scanned — a hand-built home, which is a DIFFERENT state from a stale scan and gets different treatment. Drives the rescan nudge; a lapsed scan flags staleness and must never reduce the readiness score."
         }
       },
       "required": ["created", "modified"],
