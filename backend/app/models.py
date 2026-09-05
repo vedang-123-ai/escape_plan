@@ -1,4 +1,4 @@
-"""Pydantic models for the HomeModel contract (schema/homemodel.schema.json v1.1).
+"""Pydantic models for the HomeModel contract (schema/homemodel.schema.json v2.0).
 
 These models are the executable half of the contract: JSON Schema checks shape,
 these validators check the structural invariants JSON Schema cannot express —
@@ -10,14 +10,23 @@ considered valid.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 EXTERIOR_ID = "EXTERIOR"
 """Reserved pseudo-room id: an opening with room_ids [room, "EXTERIOR"] is an exit."""
+
+SCHEMA_VERSION = "2.0"
+"""The contract version this build writes. Must track the schema's `schema_version` const."""
+
+SUPPORTED_SCHEMA_VERSIONS = frozenset({"1.1", SCHEMA_VERSION})
+"""Versions this build will LOAD. Every 2.0 addition is optional, so a 1.1 document is a
+structurally valid 2.0 document; it is accepted and normalized to 2.0 in memory. This is the
+S6.1 backward-compatibility ruling (option (a)) — nothing is rewritten on disk without a save."""
 
 Point = tuple[float, float]
 Polygon = Annotated[list[Point], Field(min_length=3)]
@@ -65,6 +74,30 @@ class ProfileTag(str, Enum):
     elderly = "elderly"
     mobility_limited = "mobility_limited"
     pet = "pet"
+    # v2.0. Routing-neutral on purpose: these map to ZERO RoutingConstraints and exist so the
+    # readiness checklist can act on them. See docs/profile-constraint-mappings.md.
+    hearing_impaired = "hearing_impaired"
+    vision_impaired = "vision_impaired"
+
+
+class SafetyPointKind(str, Enum):
+    """Utilities a household is advised to locate in advance (v2.0)."""
+
+    gas_shutoff = "gas_shutoff"
+    water_shutoff = "water_shutoff"
+    electrical_panel = "electrical_panel"
+
+
+class Tenure(str, Enum):
+    rent = "rent"
+    own = "own"
+
+
+class EquipmentItem(str, Enum):
+    smoke_alarm = "smoke_alarm"
+    co_detector = "co_detector"
+    extinguisher = "extinguisher"
+    generator = "generator"
 
 
 class StrictModel(BaseModel):
@@ -253,6 +286,9 @@ class FloorObject(SourcedModel):
     size_m: tuple[float, float]
     height_m: float = Field(gt=0)
     rotation_deg: float = 0.0
+    secured: bool = False
+    """v2.0: anchored/strapped against shaking. Routing MUST ignore this — an obstacle is an
+    obstacle whether or not it is bolted down. It exists so the checklist can stop asking."""
 
     @model_validator(mode="after")
     def _check(self) -> "FloorObject":
@@ -264,6 +300,30 @@ class FloorObject(SourcedModel):
         return self
 
 
+class SafetyPoint(SourcedModel):
+    """A located utility shutoff or electrical panel (v2.0).
+
+    A landmark, never an obstacle: the routing engine does not see these. No room_id, for the
+    same reason FloorObject has none — containment is derived geometrically, so moving or
+    reshaping a room can never dangle a reference.
+    """
+
+    id: str
+    kind: SafetyPointKind
+    position: Point
+
+    @model_validator(mode="after")
+    def _check(self) -> "SafetyPoint":
+        if self.id == EXTERIOR_ID:
+            raise ValueError(f"'{EXTERIOR_ID}' is a reserved id")
+        x, y = self.position
+        if not (math.isfinite(x) and math.isfinite(y)):
+            raise ValueError(
+                f"safety_point '{self.id}': position must be finite, got {self.position}"
+            )
+        return self
+
+
 class Floor(StrictModel):
     id: str
     level: int
@@ -272,6 +332,7 @@ class Floor(StrictModel):
     rooms: list[Room] = Field(min_length=1)
     openings: list[Opening] = Field(default_factory=list)
     objects: list[FloorObject] = Field(default_factory=list)
+    safety_points: list[SafetyPoint] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check(self) -> "Floor":
@@ -333,20 +394,58 @@ class Profile(StrictModel):
         return self
 
 
+class Household(StrictModel):
+    """Facts about the household as a unit, gathered by the S6.5 interview (v2.0).
+
+    Every field is optional because every interview question is skippable, and a skipped
+    question must produce the unconstrained default rather than a half-written record.
+    `tenure is None` means "not answered" — it does not mean "owns".
+    """
+
+    tenure: Optional[Tenure] = None
+    existing_equipment: list[EquipmentItem] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _check(self) -> "Household":
+        if len(set(self.existing_equipment)) != len(self.existing_equipment):
+            raise ValueError("household: duplicate existing_equipment entries")
+        return self
+
+
 class Meta(StrictModel):
     created: datetime
     modified: datetime
     address_optional: Optional[str] = None
+    last_scanned: Optional[datetime] = None
+    """v2.0. None = never scanned (hand-built), which is a DIFFERENT state from a stale scan."""
 
 
 class HomeModel(StrictModel):
-    schema_version: str = Field(pattern=r"^1\.1$")
+    schema_version: str
     home_id: str
     name: str = Field(min_length=1)
     floors: list[Floor] = Field(min_length=1)
     stairs: list[Stairs] = Field(default_factory=list)
     profiles: list[Profile] = Field(default_factory=list)
+    household: Optional[Household] = None
     meta: Meta
+
+    @field_validator("schema_version")
+    @classmethod
+    def _accept_supported_version(cls, value: str) -> str:
+        """Accept any supported version and normalize it to the current one.
+
+        A 1.1 document is a structurally valid 2.0 document — every 2.0 addition is optional —
+        so it loads and is stamped 2.0 IN MEMORY. Nothing is rewritten on disk here; persisting
+        the upgrade is the caller's explicit act. Rejecting an unsupported version loudly is the
+        point: a document from a future build may carry fields whose meaning we would mangle.
+        """
+        if value not in SUPPORTED_SCHEMA_VERSIONS:
+            raise ValueError(
+                f"unsupported schema_version '{value}'; this build reads "
+                f"{sorted(SUPPORTED_SCHEMA_VERSIONS)}"
+            )
+        return SCHEMA_VERSION
 
     @model_validator(mode="after")
     def _cross_references(self) -> "HomeModel":
@@ -380,6 +479,8 @@ class HomeModel(StrictModel):
                 claim(op.id, "opening")
             for obj in fl.objects:
                 claim(obj.id, "object")
+            for sp in fl.safety_points:
+                claim(sp.id, "safety_point")
 
         for st in self.stairs:
             claim(st.id, "stairs")
