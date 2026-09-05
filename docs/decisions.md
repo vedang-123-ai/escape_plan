@@ -995,3 +995,44 @@ could call `bindEvacuationPlayback`, because the caller lives in `Screens/` — 
 lane. Every component was tested and none of it was reachable in the app. Next time, either give
 one lane explicit ownership of the integration point or schedule an integration pass that owns
 both sides; "each lane reports what the other must do" produces two correct halves and no feature.
+
+## 2026-09-05 — The readiness pivot is scoped, and deliberately parked as a proposal
+
+**The app's premise was challenged and the challenge was largely right.** For an able-bodied adult
+in their own home, the fire route is obvious, the owner knows the house better than a scan does,
+and shortest-path-to-the-door is not by itself a reason for the app to exist. What survives the
+critique was already in the repo and badly marketed: `docs/profile-constraint-mappings.md`'s
+`mobility_limited` case, where the engine returns `no_viable_route` for an upstairs sleeper. The
+finding — *there is no way out for this person* — is the product. The animated path is not.
+
+**So the S6 arc reframes the app as a readiness system** (household interview → deterministic
+hazard-tagged checklist as the Home tab → three perils with genuinely different routing objectives
+→ composite score → opt-in responder snapshot). It is written up as nine paste-ready long-horizon
+prompts: `docs/playbook/06-pivot-intro.md` plus `S6-1.md` … `S6-9.md`.
+
+**It is a proposal, not an approved plan, and nothing was built.** The scope is far larger than the
+open UI/UX handoff in `docs/START-HERE.md`, and the Oct 24 deadline did not move. The first TODO
+line in the arc is the decision itself: pivot, or finish the app that exists. Recorded here so a
+future session does not find nine session files and assume they were sanctioned work-in-progress.
+
+**Decisions interrogated and locked at scoping time**, so sessions do not relitigate them: three
+perils (fire, earthquake, severe weather) with real logic, not re-skinned copy; the checklist comes
+from a deterministic rule table and the AI only conducts the interview; all hazards always on, no
+geography gating and no risk-API dependency; HomeModel stays the source of truth with a time-based
+rescan nudge; one unified hazard-tagged checklist rather than three lists; the checklist replaces
+the Home tab; local-only/anonymous/no-accounts survives intact, with sharing as a manual one-way
+export; the storm safe room is engine-computed with no manual override; one composite score with a
+per-peril breakdown; the interview is a fixed branching wizard, not free chat; every question is
+skippable and the profile is editable afterwards; the insurance and first-responder stories are
+designed and demoable but **not** integrated.
+
+**Two findings from reading the code that reshaped the prompts.** `backend/app/scoring/checklist.py`
+already generates a deterministic checklist with stable ids and persisted done-state, and
+`ScoreScreen` already renders it — so S6.4 and S6.6 extend those rather than building parallel
+implementations. And `backend/app/routing/hazard.py` already means fire-origin spread simulation,
+so the multi-peril work is namespaced `routing/perils/` to avoid overloading the word.
+
+**The interview must work with zero network calls.** The Anthropic account is out of credits, so a
+front door that needs a live model call to get past screen one would be dead on first launch. The
+wizard's conversational feel comes from written copy, not per-user generation; model-generated
+phrasing may only ever be layered on top of copy that already works offline.

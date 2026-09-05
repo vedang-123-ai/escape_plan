@@ -861,3 +861,20 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - a12eb06 Measure a squeeze against the width it is actually judged at
   - ffbf135 Run the obstruction analysis when there is furniture, not when there is a blockage
 
+## 2026-09-05T22:29:57Z · Anish Yarrakonda · `main` @ `5594c44`
+
+**Uncommitted working-tree changes (13)**
+  - M docs/decisions.md
+  - M docs/tracker/TODO.md
+  - ?? docs/playbook/06-pivot-intro.md
+  - ?? docs/playbook/S6-1.md
+  - ?? docs/playbook/S6-2.md
+  - ?? docs/playbook/S6-3.md
+  - ?? docs/playbook/S6-4.md
+  - ?? docs/playbook/S6-5.md
+  - ?? docs/playbook/S6-6.md
+  - ?? docs/playbook/S6-7.md
+  - ?? docs/playbook/S6-8.md
+  - ?? docs/playbook/S6-9.md
+  - ?? docs/tracker/notes/2026-09-05-readiness-pivot-scoping.md
+

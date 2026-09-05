@@ -73,6 +73,43 @@ the old "use `backend/.venv/bin/python`" instruction fails outright. Check befor
 
 ---
 
+## PROPOSED PIVOT — the readiness arc (S6.1–S6.9, scoped 2026-09-05, NOT STARTED)
+
+Scoped and written up, zero code written. Full brief: [`../playbook/06-pivot-intro.md`](../playbook/06-pivot-intro.md);
+one paste-ready long-horizon prompt per feature in `../playbook/S6-1.md` … `S6-9.md`.
+
+**What it is:** the app stops being "we compute your fire escape route" (a route an able-bodied
+owner already knows) and becomes a readiness system — AI-narrated household interview → a
+deterministic, corpus-cited, hazard-tagged checklist that becomes the Home tab → fire **plus
+earthquake and severe weather**, each with a genuinely different routing objective → composite
+score → opt-in anonymous responder snapshot. The finding the engine already produces for a
+`mobility_limited` upstairs sleeper (`no_viable_route`) is the product; the animated path is not.
+
+**This is a proposal, not an approved plan.** It is a much larger scope than the open UI/UX
+handoff, and the Oct 24 deadline has not moved. Decide explicitly between finishing
+`docs/START-HERE.md` and starting this before anyone opens S6.1.
+
+- [ ] **Decide: pivot or finish the current app.** Nothing below starts until this is answered.
+- [ ] S6.1 — schema 2.0 (household facts, sensory tags, safety points, `secured`, `last_scanned`). Blocks S6.3/S6.4/S6.5. Next action: read `playbook/S6-1.md`, run the schema-contract-guardian first to confirm current lockstep before bumping.
+- [ ] S6.2 — corpus: earthquake + severe weather, fully sourced. Independent, can start any time. Next action: research USGS/FEMA/ShakeOut and NOAA/NWS sources, then write to the existing corpus standard.
+- [ ] S6.3 — peril engine (earthquake cover search, tornado safe-room search). Needs S6.1+S6.2. Next action: note the `routing/hazard.py` name collision — new work goes in `routing/perils/`.
+- [ ] S6.4 — household facts → checklist rule table. Needs S6.1+S6.2. Next action: read `scoring/checklist.py` in full; this EXTENDS it, ids must stay stable.
+- [ ] S6.5 — household interview (iOS onboarding). Needs S6.1. Next action: must work with zero network calls — the AI account is dry and the front door cannot depend on it.
+- [ ] S6.6 — checklist becomes the Home tab. Needs S6.4+S6.5. Next action: lift ScoreScreen's existing checklist renderer rather than writing a second one.
+- [ ] S6.7 — composite score across three perils. Needs S6.3+S6.4. Next action: keep the hand-reproducible property; two worked examples go in the weights doc.
+- [ ] S6.8 — earthquake + severe-weather drill modes. Needs S6.3. Next action: haptics need a physical device.
+- [ ] S6.9 — responder snapshot (opt-in, anonymous, manual, no backend). Needs S6.1+S6.3. Next action: privacy review before anything ships; names never appear in the artefact.
+
+**Locked decisions (interrogated 2026-09-05 — do not relitigate inside a session):** three perils
+for real; deterministic rule table, AI interviews only; all hazards always on; HomeModel stays
+source of truth with a time-based rescan nudge; one unified hazard-tagged list; checklist replaces
+Home; local-only/no-accounts survives (sharing is a manual one-way export); safe room is
+engine-computed with no override; one composite score with per-peril breakdown; fixed branching
+wizard, not free chat; every question skippable, profile editable later; insurance and responder
+stories are designed, **not** integrated.
+
+---
+
 ## ~~BLOCKER — escape routes do not render~~ FIXED 2026-07-24
 
 Root cause: `HouseScreen`'s `onRebuild` closure read `@State routePlan` from a stale captured
