@@ -73,7 +73,7 @@ the old "use `backend/.venv/bin/python`" instruction fails outright. Check befor
 
 ---
 
-## PROPOSED PIVOT — the readiness arc (S6.1–S6.9, scoped 2026-09-05, NOT STARTED)
+## APPROVED PIVOT — the readiness arc (S6.1–S6.9, approved 2026-09-05, NOT STARTED)
 
 Scoped and written up, zero code written. Full brief: [`../playbook/06-pivot-intro.md`](../playbook/06-pivot-intro.md);
 one paste-ready long-horizon prompt per feature in `../playbook/S6-1.md` … `S6-9.md`.
@@ -85,11 +85,13 @@ earthquake and severe weather**, each with a genuinely different routing objecti
 score → opt-in anonymous responder snapshot. The finding the engine already produces for a
 `mobility_limited` upstairs sleeper (`no_viable_route`) is the product; the animated path is not.
 
-**This is a proposal, not an approved plan.** It is a much larger scope than the open UI/UX
-handoff, and the Oct 24 deadline has not moved. Decide explicitly between finishing
-`docs/START-HERE.md` and starting this before anyone opens S6.1.
+**APPROVED 2026-09-05 — this is sanctioned work now, not a proposal.** The scope locks in
+`CLAUDE.md`, `.claude/rules/global/conventions.md` and `playbook/01-product-spec.md` were updated to
+match (fire + earthquake + severe weather). See `docs/decisions.md` (2026-09-05, approval).
+It remains a much larger scope than the open UI/UX handoff and **the Oct 24 deadline has not
+moved** — 56h estimated across nine sessions. **No S6 session has been run and no code exists yet.**
 
-- [ ] **Decide: pivot or finish the current app.** Nothing below starts until this is answered.
+- [x] ~~**Decide: pivot or finish the current app.**~~ Answered 2026-09-05: **pivot.**
 - [ ] S6.1 — schema 2.0 (household facts, sensory tags, safety points, `secured`, `last_scanned`). Blocks S6.3/S6.4/S6.5. Next action: read `playbook/S6-1.md`, run the schema-contract-guardian first to confirm current lockstep before bumping.
 - [ ] S6.2 — corpus: earthquake + severe weather, fully sourced. Independent, can start any time. Next action: research USGS/FEMA/ShakeOut and NOAA/NWS sources, then write to the existing corpus standard.
 - [ ] S6.3 — peril engine (earthquake cover search, tornado safe-room search). Needs S6.1+S6.2. Next action: note the `routing/hazard.py` name collision — new work goes in `routing/perils/`.
@@ -121,11 +123,23 @@ the snapshot re-targets them rather than building a second renderer, which the a
 
 Still open from that audit:
 
-- [ ] **`CLAUDE.md` and the playbook contradict each other on scope.** `CLAUDE.md` says "fire only
-      … other disasters" out of scope; the S6 arc adds earthquake and severe weather. Both files
-      auto-load into every session. Flagged in place (2026-09-05) rather than resolved, because
-      resolving it *is* the pivot decision. Next action: answer the decision above, then amend the
-      `CLAUDE.md` scope line to match — do not leave both standing.
+- [x] ~~**`CLAUDE.md` and the playbook contradict each other on scope.**~~ Resolved 2026-09-05 on
+      approval. All five places that asserted the old lock were found by grep and updated in
+      lockstep: `CLAUDE.md`, `.claude/rules/global/conventions.md` (both auto-load every session),
+      `playbook/01-product-spec.md` (two lines), and `06-pivot-intro.md`'s status line. The fifth,
+      `docs/demo/script-v1.md`, is a content rewrite rather than a lock — see below.
+- [ ] **`docs/demo/script-v1.md` now pitches a product that is not the plan.** It sells fire-only,
+      its closing line offers "other disasters" as *future* work, and its truth-ledger row 17 cites
+      the CLAUDE.md scope lock that just changed. Not rewritten here — the script is content, and
+      rewriting it before the arc is built would be inventing a demo of software that does not
+      exist. Next action: leave until enough of S6 has landed to film honestly, then rewrite
+      against the shipped build (folds into the existing S5.1 tech-accuracy pass).
+- [ ] **Decide what happens to the `START-HERE.md` UI/UX handoff.** It is still
+      `handoff_status: active`, so every session still opens with "finish the camera feel and the
+      device pass". That work is still real — S6.6 replaces the Home tab but does not touch the
+      camera rig — yet the two now compete for the same weeks. Next action: owner decides whether
+      the handoff pauses, closes, or interleaves (a defensible split: the device-feel items gate
+      any filming regardless of perils, so they may still be first).
 - [ ] **Dependency map vs. session headers disagree about S6.6.** `06-pivot-intro.md`'s map draws
       S6.3 → S6.6, but `S6-6.md`'s header lists prereqs as S6.4 + S6.5 only. S6.6 does render
       `no_viable_safe_room`, which only S6.3 produces, so S6.3 looks like a real prereq. Left

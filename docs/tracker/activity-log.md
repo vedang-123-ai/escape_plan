@@ -923,3 +923,10 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-05T23:22:22Z · vedang-123-ai · `main` @ `f3c455f`
+
+**Commits this session**
+  - f3c455f Tracker: S6 merge integration + prompt audit, and the two things left open
+  - 869afb9 CLAUDE.md: name the scope-lock contradiction instead of leaving it silent
+  - ef0f03f Playbook S6: fix references that would break a paste-ready session
+

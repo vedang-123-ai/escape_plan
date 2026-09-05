@@ -2,8 +2,9 @@
 
 - **Who:** P3
 - **Date(s):** 2026-09-05
-- **Status when I stopped:** S6 arc integrated onto `main` and audited. Three broken references
-  fixed. The pivot decision itself is still unanswered, and `CLAUDE.md` now says so out loud.
+- **Status when I stopped:** S6 arc integrated onto `main`, audited, and **approved**. Three broken
+  references fixed; scope locks updated in lockstep across five files. **No S6 session was run** —
+  no code, schema or test was touched at any point in this session.
 
 ## What happened
 
@@ -64,10 +65,26 @@ strands a session or makes one wait for nothing, so it is a TODO line rather tha
 - @Anish — the arc is written as "proposal, not approved". Who makes the pivot-or-finish call, and
   does the open UI/UX handoff in `START-HERE.md` close or pause if it goes to pivot?
 
+## Addendum — approved same session
+
+The owner approved the pivot before this session ended. Scope is now fire + earthquake + severe
+weather. Every place asserting the old lock was found by grep and updated together: `CLAUDE.md`,
+`.claude/rules/global/conventions.md` (both auto-load into every session),
+`playbook/01-product-spec.md` (two lines), and `06-pivot-intro.md`'s status line. A separate
+`docs/decisions.md` row records the approval rather than editing the scoping row above it, so the
+sequence stays readable: the arc was written before it was sanctioned, and that ordering is worth
+being able to see later.
+
+`docs/demo/script-v1.md` was deliberately NOT rewritten. It still pitches fire-only and its truth
+ledger cites the lock that just changed, but rewriting a demo script for software that does not
+exist yet would be inventing the demo. It is a TODO line against the S5.1 accuracy pass instead.
+
 ## Next steps
 
-1. Answer **pivot or finish** — nothing in the arc starts before it, and `CLAUDE.md`'s scope line
-   cannot be made consistent until it is answered.
-2. Nothing was pushed. `main` is ahead of `origin/main` by four commits.
-3. If the answer is pivot: S6.1 and S6.2 are the only two that can start immediately, and S6.2
-   (corpus) is independent of everything else.
+1. **S6.1 and S6.2 are the only two that can start immediately.** S6.2 (corpus) is independent of
+   everything else and needs no schema, so it parallelises with S6.1 cleanly.
+2. **Decide what happens to the `START-HERE.md` handoff** — it is still `handoff_status: active`,
+   so every session still opens by being told to finish the camera feel and the device pass. That
+   work did not stop being real (S6.6 replaces the Home tab, it does not touch the camera rig), but
+   it now competes with a 56h arc for the weeks before Oct 24. Not decided here.
+3. Nothing was pushed. `main` is ahead of `origin/main` by five commits.
