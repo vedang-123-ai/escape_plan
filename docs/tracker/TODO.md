@@ -108,6 +108,31 @@ engine-computed with no override; one composite score with per-peril breakdown; 
 wizard, not free chat; every question skippable, profile editable later; insurance and responder
 stories are designed, **not** integrated.
 
+**Prompt audit, 2026-09-05 (`ef0f03f`).** All 46 path references across the ten S6 files were
+checked against the tree. Three would have broken a paste-ready session and are fixed: S6.8 named
+`escape_plan/Drill/` (it is `DrillMode/`), S6.9 named `escape_plan/Screens/ShareSheet.swift` (it is
+`Export/`), and S6.9 called for a `security-reviewer` agent that does not exist (the six real ones
+live in `.claude/agents/quality/`; the built-in `/security-review` skill was meant). Every other
+unresolved path is a file the sessions themselves create. Also added to S6.9: `escape_plan/Export/`
+is already a complete PDF pipeline (`EscapePlanPDF`, `FloorPlanDrawing`, `PlanProjection`,
+`PlanInk`, `PDFText`, `EscapePlanExporter`) and `RouteNarration` already narrates engine waypoints —
+the snapshot re-targets them rather than building a second renderer, which the arc's own
+"what already exists" table had missed.
+
+Still open from that audit:
+
+- [ ] **`CLAUDE.md` and the playbook contradict each other on scope.** `CLAUDE.md` says "fire only
+      … other disasters" out of scope; the S6 arc adds earthquake and severe weather. Both files
+      auto-load into every session. Flagged in place (2026-09-05) rather than resolved, because
+      resolving it *is* the pivot decision. Next action: answer the decision above, then amend the
+      `CLAUDE.md` scope line to match — do not leave both standing.
+- [ ] **Dependency map vs. session headers disagree about S6.6.** `06-pivot-intro.md`'s map draws
+      S6.3 → S6.6, but `S6-6.md`'s header lists prereqs as S6.4 + S6.5 only. S6.6 does render
+      `no_viable_safe_room`, which only S6.3 produces, so S6.3 looks like a real prereq. Left
+      unchanged deliberately — editing a prereq declaration either strands a session or makes one
+      wait for nothing. Next action: whoever owns the arc confirms which is right and makes the two
+      agree.
+
 ---
 
 ## ~~BLOCKER — escape routes do not render~~ FIXED 2026-07-24

@@ -1,0 +1,73 @@
+# S6 arc — merge integration and prompt audit
+
+- **Who:** P3
+- **Date(s):** 2026-09-05
+- **Status when I stopped:** S6 arc integrated onto `main` and audited. Three broken references
+  fixed. The pivot decision itself is still unanswered, and `CLAUDE.md` now says so out loud.
+
+## What happened
+
+Not a feature session — a merge and a docs audit.
+
+**Merge.** `main` had diverged 1-and-1: one local activity-log commit against Anish's 14-file S6
+readiness-pivot commit (`7a3d1a5`). There was no conflict in the working tree at the start; it
+appeared during integration, in `docs/tracker/activity-log.md`, which both sides had appended to.
+Rebased local onto `origin/main` and resolved by chronological union — my 08-26→22:16 entries, then
+Anish's 22:29 entry. Verified rather than eyeballed: ancestor 66 headers + my 6 + their 1 = 73 in
+the result, and a per-side `comm` check confirmed no entry from either side was dropped. Tagged
+`backup-before-integrate-20260905-153324` before rewriting anything.
+
+**Audit.** Read all ten S6 files (874 lines), then extracted every `backend/…`, `escape_plan/…`,
+`docs/…`, `schema/…`, `.claude/…` reference across them — 46 distinct — and checked each against
+the tree. Seven did not resolve; five of those are files the sessions themselves create
+(`routing/perils/`, the two new corpus files, the two new mapping docs), which is correct. The
+other two were real, plus one bogus agent name found by a separate check:
+
+- S6.8 → `escape_plan/Drill/` — the module is `escape_plan/DrillMode/` (all four files it names
+  are there).
+- S6.9 → `escape_plan/Screens/ShareSheet.swift` — it is in `Export/`.
+- S6.9 → "run the security-reviewer agent". No such agent. `.claude/agents/quality/` holds
+  doc-auditor, grounding-auditor, lane-integrator, schema-contract-guardian, session-auditor,
+  swift-scenekit-reviewer. The built-in `/security-review` skill was meant.
+
+These matter more than ordinary doc drift because the S6 files are explicitly written to be pasted
+verbatim into a fresh session that will not have any of this context.
+
+## Decisions / surprises
+
+**Did not resolve the `CLAUDE.md` scope contradiction, on purpose.** `CLAUDE.md` says "fire only …
+other disasters" is out of scope; the S6 arc adds earthquake and severe weather; both files
+auto-load into every session. The obvious "fix" is to flip the scope line — but `decisions.md`
+parks the arc as a proposal and `TODO.md`'s first line *is* the pivot-or-finish decision, so
+flipping it would record a team ruling nobody has made. Instead the contradiction is named in place,
+the existing lock is kept in force, and the note says to amend the line once the decision exists
+rather than work around it. Resolving a doc conflict is hygiene; resolving this one is the pivot.
+
+**Surprise worth passing on:** the arc's "what already exists — extend it, do not rebuild it" table
+is the best thing in it, and it is incomplete in exactly the place it costs most. `escape_plan/Export/`
+is already a full PDF pipeline (`EscapePlanPDF`, `FloorPlanDrawing`, `PlanProjection`, `PlanInk`,
+`PDFText`, `EscapePlanExporter`) and `RouteNarration.swift` is pure Foundation and already documented
+as having two callers by design. S6.9's snapshot is a third caller and a re-target of that renderer,
+not a new one. Added to S6-9.md. If anything else in the arc looks like new construction, check
+`Export/` and `RouteNarration` first.
+
+**Left alone deliberately:** `06-pivot-intro.md`'s dependency map draws S6.3 → S6.6, but S6-6.md's
+header lists prereqs as S6.4 + S6.5 only. S6.6 renders `no_viable_safe_room`, which only S6.3
+produces, so the map looks right and the header looks thin — but editing a prereq declaration either
+strands a session or makes one wait for nothing, so it is a TODO line rather than a silent edit.
+
+## Questions for teammates
+
+- @Anish — S6.6 prereqs: does it need S6.3 landed (it renders `no_viable_safe_room`), or is the
+  intent that it renders those findings only once S6.3 exists and degrades before then, the way it
+  already does for S6.7's composite score?
+- @Anish — the arc is written as "proposal, not approved". Who makes the pivot-or-finish call, and
+  does the open UI/UX handoff in `START-HERE.md` close or pause if it goes to pivot?
+
+## Next steps
+
+1. Answer **pivot or finish** — nothing in the arc starts before it, and `CLAUDE.md`'s scope line
+   cannot be made consistent until it is answered.
+2. Nothing was pushed. `main` is ahead of `origin/main` by four commits.
+3. If the answer is pivot: S6.1 and S6.2 are the only two that can start immediately, and S6.2
+   (corpus) is independent of everything else.
