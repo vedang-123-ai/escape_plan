@@ -29,7 +29,7 @@ final class HomeModelRoundTripTests: XCTestCase {
     func testTwostoryDecodesExpectedStructure() throws {
         let home = try FixtureLoader.load(.twostory)
 
-        XCTAssertEqual(home.schema_version, "1.1")
+        XCTAssertEqual(home.schema_version, "2.0")
         XCTAssertEqual(home.floors.count, 2)
         XCTAssertEqual(home.floors.map(\.name).sorted(), ["Ground Floor", "Upstairs"])
 
