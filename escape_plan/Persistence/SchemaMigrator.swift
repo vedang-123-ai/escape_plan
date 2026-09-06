@@ -18,6 +18,11 @@ enum SchemaMigrator {
 
     /// Ordered one-step migrations, keyed by the version they upgrade *from*.
     /// Add an entry alongside any schema_version bump.
+    ///
+    /// Each step writes its own target version as a LITERAL, deliberately — not
+    /// `currentVersion`. A step means "1.1 becomes 2.0", and that stays true forever. If it
+    /// used `currentVersion`, adding a 2.0 → 2.1 step later would make the 1.1 step jump
+    /// straight to 2.1 and silently skip whatever 2.0's step does.
     static let migrations: [String: (HomeDocument) throws -> HomeDocument] = [
         // 1.0 → 1.1: adds `floor.objects` (defaults to [] — decoders tolerate its absence,
         // so only the version stamp needs rewriting) and the 'ai_plan' source (new documents
