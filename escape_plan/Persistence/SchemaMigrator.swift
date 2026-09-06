@@ -14,7 +14,7 @@ import Foundation
 enum SchemaMigrator {
     /// The version this build reads and writes. Must track
     /// `schema/homemodel.schema.json`'s `schema_version` const.
-    static let currentVersion = "1.1"
+    static let currentVersion = "2.0"
 
     /// Ordered one-step migrations, keyed by the version they upgrade *from*.
     /// Add an entry alongside any schema_version bump.
@@ -27,6 +27,14 @@ enum SchemaMigrator {
                 throw PersistenceError.missingSchemaVersion
             }
             root["schema_version"] = .string("1.1")
+            return HomeDocument(body: .object(root))
+        },
+        // 1.1 → 2.0: adds household, safety_points, secured, last_scanned (all optional).
+        "1.1": { document in
+            guard case .object(var root) = document.body else {
+                throw PersistenceError.missingSchemaVersion
+            }
+            root["schema_version"] = .string("2.0")
             return HomeDocument(body: .object(root))
         }
     ]
