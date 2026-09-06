@@ -9,8 +9,9 @@
 > `handoff_status: closed` — close it there, don't delete the hook.
 
 _Last verified: 2026-09-05 on branch `s6-1-schema-2-0` (S6.1 schema 2.0) — full gate re-run and
-**green**: backend **339** not-live (13 live-deselected), EditorCore **270**, iOS **589 passed /
-0 failed / 8 skipped** (597 total, via `xcrun xcresulttool`), corpus valid (11 sources, 6 files).
+**green**: backend **341** not-live (13 live-deselected), EditorCore **278**, iOS **598 passed /
+0 failed / 8 skipped** (606 total, via `xcrun xcresulttool`), corpus valid (11 sources, 6 files).
+Re-run after acting on the schema-contract-guardian and swift-scenekit-reviewer findings.
 See `notes/2026-09-05-s6-1-schema-2-0.md`._
 
 _Prior stamp, 2026-08-05 on `main` (camera interaction-feel pass) — full gate re-run and
