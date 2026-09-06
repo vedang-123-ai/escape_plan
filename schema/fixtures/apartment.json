@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "2.0",
   "home_id": "7e9c4b22-8a1d-4f3e-b502-3456789abcd2",
   "name": "Apartment 4B",
   "floors": [
@@ -138,6 +138,10 @@
       "bedroom_room_id": "r_bed1"
     }
   ],
+  "household": {
+    "tenure": "rent",
+    "existing_equipment": ["smoke_alarm"]
+  },
   "meta": {
     "created": "2026-07-10T12:00:00Z",
     "modified": "2026-07-10T12:00:00Z",
