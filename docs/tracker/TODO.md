@@ -163,6 +163,12 @@ Still open from that audit:
       `household` and `meta.*` now are, or set `response_model_exclude_none=True` on `/build`,
       then widen `test_what_pydantic_SERIALIZES_validates_against_the_schema` to the whole
       document.
+- [ ] **DEPLOY ORDER: the app now sends `schema_version: "2.0"` on every request.** The
+      deployed Render backend still has `Field(pattern=r"^1\.1$")` and will **422 every call**
+      from a 2.0 build — `/routes`, `/score`, `/analyze`, `/chat`, `/evacuate`. The backend
+      must deploy before or with the app. Folds into the already-open "deploy the new backend
+      to Render" item for `/evacuate`; do both in one push. (S6.1, found by the
+      swift-scenekit-reviewer)
 - [ ] **Timestamps lose sub-second precision on save** (latent, cosmetic). `HomeModel.decoder`
       now accepts fractional seconds (S6.1) but `HomeModel.encoder()` still writes `.iso8601`
       whole seconds, and pydantic does emit microseconds. A backend timestamp therefore decodes

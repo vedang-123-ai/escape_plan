@@ -294,32 +294,63 @@ struct HomeModel: Codable, Equatable, Identifiable {
     }
 }
 
+// MARK: - Shared date parsing
+
+extension ISO8601DateFormatter {
+    /// The two forms the contract's `date-time` fields appear in. Shared so the model
+    /// decoder and the persistence layer cannot drift apart on what a timestamp is.
+    static let homeModelWhole: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    static let homeModelFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    /// Parse either form. Returns nil for anything else — callers decide how loud to be.
+    static func parseHomeModelDate(_ raw: String) -> Date? {
+        homeModelWhole.date(from: raw) ?? homeModelFractional.date(from: raw)
+    }
+}
+
 // MARK: - Shared coder configuration
 
 extension HomeModel {
-    /// ISO-8601. Accepts fractional seconds as well as whole ones.
+    /// ISO-8601, accepting whole OR fractional seconds, explicitly rather than by relying on
+    /// the platform's current behaviour.
     ///
-    /// Every committed fixture uses whole seconds, but pydantic round-trips microseconds
-    /// happily, so a backend-produced timestamp can carry them. `.iso8601` alone REJECTS
-    /// those, which would surface as a decode failure on device and nowhere else. Latent
-    /// until v2.0 added `meta.last_scanned` — a datetime the backend can write — so it is
-    /// fixed here rather than left as a trap for whoever hits it first.
-    static var decoder: JSONDecoder {
+    /// Every committed fixture uses whole seconds; pydantic emits microseconds
+    /// (`meta.last_scanned` and `/convert`'s `datetime.now(timezone.utc)` both can). On the
+    /// Foundation shipping with this build's deployment target, plain `.iso8601` already
+    /// accepts fractional seconds — so this is NOT a bug fix, and an earlier version of this
+    /// comment wrongly claimed it was. It is here to make the accepted set explicit and
+    /// version-independent, because the fixture round-trip cannot see a regression in it.
+    /// `DateStrategyTests` pins the whole accepted/rejected set.
+    ///
+    /// Deliberately still rejected: a naive timestamp with no offset. If a backend path ever
+    /// serializes a non-tz-aware datetime, failing loudly beats inventing a timezone.
+    ///
+    /// `static let`, not `var`: there are ~11 call sites and this used to build two
+    /// formatters on every access.
+    static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
-        let withFraction = ISO8601DateFormatter()
-        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let whole = ISO8601DateFormatter()
-        whole.formatOptions = [.withInternetDateTime]
         decoder.dateDecodingStrategy = .custom { decoder in
             let raw = try decoder.singleValueContainer().decode(String.self)
-            if let date = whole.date(from: raw) ?? withFraction.date(from: raw) { return date }
+            if let date = ISO8601DateFormatter.homeModelWhole.date(from: raw)
+                ?? ISO8601DateFormatter.homeModelFractional.date(from: raw) {
+                return date
+            }
             throw DecodingError.dataCorrupted(
                 .init(codingPath: decoder.codingPath,
                       debugDescription: "Not an ISO-8601 date-time: \(raw)")
             )
         }
         return decoder
-    }
+    }()
 
     static func encoder(prettyPrinted: Bool = false) -> JSONEncoder {
         let encoder = JSONEncoder()

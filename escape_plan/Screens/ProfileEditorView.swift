@@ -150,12 +150,13 @@ extension ProfileTag {
             return "Stairs and window exits are never used."
         case .pet:
             return "Listed on the plan. Doesn't change how routes are computed."
-        case .hearing_impaired:
-            return "Doesn't change how routes are computed. Adds alarms you can notice — "
-                + "a strobe or bed-shaker — to your checklist."
-        case .vision_impaired:
-            return "Doesn't change how routes are computed. Your route is written out step "
-                + "by step so it can be learned by heart."
+        // v2.0 tags. Both are routing-neutral, and today that is ALL they do — the
+        // checklist does not read profile tags yet (S6.4 is where alarm/alert items land).
+        // Do not promise the checklist behaviour here until S6.4 has actually shipped it:
+        // this string is the VoiceOver hint, so an aspirational sentence is a false
+        // statement told to the person it is about.
+        case .hearing_impaired, .vision_impaired:
+            return "Doesn't change how routes are computed. Recorded on this person's profile."
         }
     }
 }

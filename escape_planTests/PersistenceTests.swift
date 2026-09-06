@@ -274,6 +274,15 @@ final class PersistenceTests: XCTestCase {
                       "a migrated 1.0 document has no objects yet")
     }
 
+    func testTheTwoCurrentVersionConstantsAgree() {
+        // ModelSupport.currentSchemaVersion (what the editor stamps on new homes) and
+        // SchemaMigrator.currentVersion (what the loader will accept) are separate literals
+        // that must be bumped together. If they drift, EditorValidation rejects every home
+        // the migrator just successfully upgraded — a total editor outage. Only the migrator's
+        // half was pinned to the schema before S6.1.
+        XCTAssertEqual(HomeModel.currentSchemaVersion, SchemaMigrator.currentVersion)
+    }
+
     func testCurrentVersionMatchesTheSchemaContract() throws {
         let schema = try JSONDecoder().decode(
             JSONValue.self,

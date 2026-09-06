@@ -105,6 +105,7 @@ enum EditorValidation {
             for room in floor.rooms { check(room.id, "room") }
             for opening in floor.openings { check(opening.id, "opening") }
             for object in floor.objects { check(object.id, "object") }
+            for point in floor.safety_points { check(point.id, "safety point") }
         }
         for stair in model.stairs { check(stair.id, "stairs") }
         for profile in model.profiles { check(profile.id, "profile") }

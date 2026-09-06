@@ -132,6 +132,16 @@ final class HomeModelCodableTests: XCTestCase {
         if dict["created"] != nil, dict["last_scanned"] is NSNull {
             dict["last_scanned"] = nil
         }
+        // A household: existing_equipment defaults to [], and the mirror omits a nil tenure
+        // rather than writing an explicit null. No fixture exercises either today, so this
+        // arm exists so the first one that does is not a spurious failure.
+        if dict["floors"] != nil, dict["household"] is NSNull {
+            dict["household"] = nil
+        }
+        if dict["tenure"] != nil || dict["existing_equipment"] != nil {
+            dict["existing_equipment"] = dict["existing_equipment"] ?? []
+            if dict["tenure"] is NSNull { dict["tenure"] = nil }
+        }
 
         for (k, v) in dict {
             if let nested = v as? [String: Any] {
