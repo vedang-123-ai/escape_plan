@@ -102,7 +102,8 @@ moved** — 56h estimated across nine sessions. **No S6 session has been run and
 - [x] ~~**Decide: pivot or finish the current app.**~~ Answered 2026-09-05: **pivot.**
 - [x] ~~S6.1 — schema 2.0~~ **DONE 2026-09-05** on branch `s6-1-schema-2-0` (PR open; `schema/`
       changes need review per CLAUDE.md). Contract is at 2.0 across JSON Schema, pydantic and
-      Swift; **S6.3, S6.4 and S6.5 are unblocked.** Backend 310 → 339, EditorCore 270.
+      Swift; **S6.3, S6.4 and S6.5 are unblocked.** Backend 310 → 341, EditorCore 270 → 278,
+      iOS 586 → 598 passed. schema-contract-guardian verdict: **LOCKSTEP**.
       Note for whoever takes S6.4/S6.6: the fixtures are seeded with both sides of each branch
       — apartment is the renter case (+ owns a smoke alarm), twostory the owner case with a
       gas shutoff and electrical panel, jagged has a `secured` wardrobe and a
