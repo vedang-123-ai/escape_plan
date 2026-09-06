@@ -147,6 +147,28 @@ Still open from that audit:
       rewriting it before the arc is built would be inventing a demo of software that does not
       exist. Next action: leave until enough of S6 has landed to film honestly, then rewrite
       against the shipped build (folds into the existing S5.1 tech-accuracy pass).
+- [ ] **pydantic is laxer than the JSON Schema on id constraints** (pre-existing; confirmed by
+      the S6.1 guardian run, not introduced by it). The schema puts `minLength: 1` and
+      `not: {const: EXTERIOR}` on every id; pydantic enforces EXTERIOR only on `Room`, `Floor`,
+      `FloorObject` and `SafetyPoint`, and `min_length` on none of them. So `opening.id = ""`,
+      and `opening`/`stairs`/`profile` ids of `"EXTERIOR"`, pass pydantic and fail the schema.
+      Next action: add `Field(min_length=1)` to every id in `backend/app/models.py` and an
+      EXTERIOR guard to `Opening`, `Stairs` and `Profile`. Deliberately not done in S6.1 — it
+      is unrelated to the bump and would have muddied the review.
+- [ ] **`confidence: null` / `egress: null` in serialized output fail the schema**
+      (pre-existing). `model_dump_json()` emits explicit nulls the contract rejects; endpoints
+      paper over it with `response_model_exclude_none=True`, which `/convert` sets and `/build`
+      does not. S6.1 fixed only its own instance of this (`household`, now nullable) and added
+      a test scoped to that field. Next action: either declare these fields nullable the way
+      `household` and `meta.*` now are, or set `response_model_exclude_none=True` on `/build`,
+      then widen `test_what_pydantic_SERIALIZES_validates_against_the_schema` to the whole
+      document.
+- [ ] **Timestamps lose sub-second precision on save** (latent, cosmetic). `HomeModel.decoder`
+      now accepts fractional seconds (S6.1) but `HomeModel.encoder()` still writes `.iso8601`
+      whole seconds, and pydantic does emit microseconds. A backend timestamp therefore decodes
+      fine and is rounded when the app re-saves. Strictly better than the pre-S6.1 behaviour,
+      which was an outright decode failure. Next action: decide whether the app should preserve
+      sub-second precision at all — if not, close this as intended.
 - [ ] **PROCESS GAP: the schema-guard hook only fires for `Edit`/`Write`, not `Bash`.**
       `.claude/settings.json` matches `Edit|Write`, so `schema/homemodel.schema.json` can be
       rewritten by a heredoc, `sed`, or any script with no confirmation — which is how S6.1

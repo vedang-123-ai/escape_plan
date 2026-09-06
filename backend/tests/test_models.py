@@ -326,3 +326,43 @@ def test_the_apps_bundled_fixtures_match_the_contracts() -> None:
             f"escape_plan/Fixtures/{name} has drifted from schema/fixtures/{name}. "
             "Re-copy it; do not hand-edit the bundled copy."
         )
+
+
+def test_what_pydantic_SERIALIZES_validates_against_the_schema() -> None:
+    """The contract has to accept what the backend actually emits, not merely what the
+    fixtures happen to contain.
+
+    pydantic writes an unanswered household as an explicit `"household": null`, and a bare
+    $ref to an object type rejects null — so v2.0 shipped, briefly, a contract its own
+    serializer violated. `household` is therefore declared nullable, matching
+    meta.address_optional and meta.last_scanned.
+
+    Scoped to `household` on purpose: `confidence: null` and `egress: null` have the same
+    shape and predate this work (endpoints paper over them with
+    response_model_exclude_none=True). Widening this test to the whole document is tracked
+    in TODO.md rather than smuggled in here.
+    """
+    schema = json.loads(SCHEMA_PATH.read_text())
+    validator = jsonschema.Draft202012Validator(schema)
+
+    for name in ("bungalow.json", "apartment.json"):
+        home = HomeModel.model_validate(load_fixture(name))
+        emitted = json.loads(home.model_dump_json())
+        household_errors = [
+            e for e in validator.iter_errors(emitted)
+            if "household" in "/".join(str(p) for p in e.path)
+        ]
+        assert not household_errors, (
+            f"{name}: pydantic emitted a household the schema rejects: "
+            f"{[e.message for e in household_errors]}"
+        )
+
+
+def test_a_malformed_household_is_still_rejected() -> None:
+    """Nullability must not have widened into 'anything goes'."""
+    schema = json.loads(SCHEMA_PATH.read_text())
+    validator = jsonschema.Draft202012Validator(schema)
+    doc = _bungalow()
+    assert not list(validator.iter_errors(doc | {"household": None}))
+    assert list(validator.iter_errors(doc | {"household": {"tenure": "leasehold"}}))
+    assert list(validator.iter_errors(doc | {"household": {"nope": 1}}))

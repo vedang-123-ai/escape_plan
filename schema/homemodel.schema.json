@@ -38,7 +38,11 @@
       "default": [],
       "description": "Household member profiles. Tags map deterministically to routing constraints (e.g. mobility_limited → avoid_stairs + avoid_windows) and personalize explanations."
     },
-    "household": { "$ref": "#/$defs/household" },
+    "household": {
+      "oneOf": [{ "$ref": "#/$defs/household" }, { "type": "null" }],
+      "default": null,
+      "description": "Household facts from the S6.5 interview. Explicitly nullable, not merely absent: pydantic serializes an unanswered household as \"household\": null, and the contract has to accept what the backend actually emits. Matches meta.address_optional and meta.last_scanned, which are nullable for the same reason."
+    },
     "meta": { "$ref": "#/$defs/meta" }
   },
   "required": ["schema_version", "home_id", "name", "floors", "meta"],
