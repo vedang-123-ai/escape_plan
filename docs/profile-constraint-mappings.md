@@ -109,8 +109,24 @@ engine — the AI only narrates the result.
 
 ## Not mapped, deliberately
 
-- **`hearing_impaired`** — the corpus covers it (strobe alarms, bed-shakers —
-  `usfa-smoke-alarms`), but it is *alarm* guidance, not *routing* guidance: it changes no edge
-  in the graph. It is also not in the schema's `ProfileTag` enum, and adding it would require a
-  `schema_version` bump plus team sign-off. It belongs to the S3.5 preparedness checklist.
+- **`hearing_impaired`** and **`vision_impaired`** — **now expressible, still routing-neutral.**
+  Schema 2.0 (S6.1, 2026-09-05) added both to the `ProfileTag` enum, so the earlier "not in the
+  schema" half of this entry no longer applies. The reasoning that mattered does: this is
+  *alarm* guidance, not *routing* guidance (strobe alarms and bed-shakers —
+  `usfa-smoke-alarms`; NOAA weather radio with an alert function). Neither tag changes a single
+  edge in the graph, and `constraints_for_profile` returns the same `RoutingConstraints` with
+  or without them.
+
+  They were added to the contract so the S6.4 readiness checklist can act on them, not so
+  routing can. Two tests pin that and are the contract for anyone tempted to change it:
+  `test_sensory_tags_produce_no_routing_constraints` (the table) and
+  `test_sensory_tags_do_not_alter_a_computed_route` (end-to-end — same home, same person, one
+  tag added, byte-identical plan). Wiring either tag to a routing constraint is a decision to
+  argue for in `decisions.md`, not something to slip in because it seems intuitive.
+
+  A note on why this is not an oversight: neither impairment changes *which way out is
+  usable*. A person who cannot hear needs to be **woken**; a person who cannot see needs the
+  route **rehearsed and described** (which is what `RouteNarration` already exists for). Both
+  are readiness problems, and modelling them as routing penalties would produce worse routes
+  for no safety reason.
 - **Age band** — not in the schema; `child` / `elderly` tags already carry what routing needs.

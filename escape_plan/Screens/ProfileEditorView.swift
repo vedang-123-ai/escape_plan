@@ -127,6 +127,8 @@ extension ProfileTag {
         case .elderly: return "Elderly"
         case .mobility_limited: return "Limited Mobility"
         case .pet: return "Pet"
+        case .hearing_impaired: return "Deaf or Hard of Hearing"
+        case .vision_impaired: return "Blind or Low Vision"
         }
     }
 
@@ -148,6 +150,12 @@ extension ProfileTag {
             return "Stairs and window exits are never used."
         case .pet:
             return "Listed on the plan. Doesn't change how routes are computed."
+        case .hearing_impaired:
+            return "Doesn't change how routes are computed. Adds alarms you can notice — "
+                + "a strobe or bed-shaker — to your checklist."
+        case .vision_impaired:
+            return "Doesn't change how routes are computed. Your route is written out step "
+                + "by step so it can be learned by heart."
         }
     }
 }

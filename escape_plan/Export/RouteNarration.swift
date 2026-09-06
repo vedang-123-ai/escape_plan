@@ -185,6 +185,8 @@ enum RouteNarration {
         case .elderly: return "elderly"
         case .mobility_limited: return "mobility limited"
         case .pet: return "pet"
+        case .hearing_impaired: return "deaf or hard of hearing"
+        case .vision_impaired: return "blind or low vision"
         }
     }
 

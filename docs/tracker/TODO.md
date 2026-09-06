@@ -66,10 +66,12 @@ This is the single source of truth for open work. It replaces the old `board.md`
 | iOS (unit + UI) | 563 pass, 8 skipped (2026-08-05) — **launch flake still real, re-run before believing a red** | `xcodebuild test -scheme escape_plan …` |
 | Corpus | 11 sources, 6 files (2026-08-05) | `python3 backend/corpus/validate.py` |
 
-**Heads-up on `python3`:** on at least one machine the system `python3` is 3.9 and cannot
-import pydantic; that machine needs its own venv. On this one (2026-08-04) system `python3` is
-3.13.5 with pydantic 2.13.3 and runs everything — and **`backend/.venv` does not exist**, so
-the old "use `backend/.venv/bin/python`" instruction fails outright. Check before assuming.
+**Heads-up on `python3`:** this varies per machine and both directions have now been seen, so
+check rather than assume. 2026-08-04: system `python3` was 3.13.5 with pydantic and
+`backend/.venv` did not exist. **2026-09-05 the opposite is true on this machine** — system
+`python3` cannot import pydantic at all, and `backend/.venv/bin/python` exists (3.13.9,
+pydantic 2.13.4) and is the only interpreter that runs the suite. Try the venv first; fall
+back to system `python3`.
 
 ---
 
@@ -92,7 +94,13 @@ It remains a much larger scope than the open UI/UX handoff and **the Oct 24 dead
 moved** — 56h estimated across nine sessions. **No S6 session has been run and no code exists yet.**
 
 - [x] ~~**Decide: pivot or finish the current app.**~~ Answered 2026-09-05: **pivot.**
-- [ ] S6.1 — schema 2.0 (household facts, sensory tags, safety points, `secured`, `last_scanned`). Blocks S6.3/S6.4/S6.5. Next action: read `playbook/S6-1.md`, run the schema-contract-guardian first to confirm current lockstep before bumping.
+- [x] ~~S6.1 — schema 2.0~~ **DONE 2026-09-05** on branch `s6-1-schema-2-0` (PR open; `schema/`
+      changes need review per CLAUDE.md). Contract is at 2.0 across JSON Schema, pydantic and
+      Swift; **S6.3, S6.4 and S6.5 are unblocked.** Backend 310 → 339, EditorCore 270.
+      Note for whoever takes S6.4/S6.6: the fixtures are seeded with both sides of each branch
+      — apartment is the renter case (+ owns a smoke alarm), twostory the owner case with a
+      gas shutoff and electrical panel, jagged has a `secured` wardrobe and a
+      `hearing_impaired` profile, bungalow has a deliberately stale `last_scanned`.
 - [ ] S6.2 — corpus: earthquake + severe weather, fully sourced. Independent, can start any time. Next action: research USGS/FEMA/ShakeOut and NOAA/NWS sources, then write to the existing corpus standard.
 - [ ] S6.3 — peril engine (earthquake cover search, tornado safe-room search). Needs S6.1+S6.2. Next action: note the `routing/hazard.py` name collision — new work goes in `routing/perils/`.
 - [ ] S6.4 — household facts → checklist rule table. Needs S6.1+S6.2. Next action: read `scoring/checklist.py` in full; this EXTENDS it, ids must stay stable.
@@ -134,6 +142,15 @@ Still open from that audit:
       rewriting it before the arc is built would be inventing a demo of software that does not
       exist. Next action: leave until enough of S6 has landed to film honestly, then rewrite
       against the shipped build (folds into the existing S5.1 tech-accuracy pass).
+- [ ] **PROCESS GAP: the schema-guard hook only fires for `Edit`/`Write`, not `Bash`.**
+      `.claude/settings.json` matches `Edit|Write`, so `schema/homemodel.schema.json` can be
+      rewritten by a heredoc, `sed`, or any script with no confirmation — which is how S6.1
+      edited it. `CLAUDE.md` advertises that editing the schema "asks for confirmation"; that
+      is only true through one tool path. Nothing was bypassed in substance (S6.1 is the one
+      session permitted to change the schema) but the guard should not be trusted as the thing
+      preventing an unreviewed change. Next action: add a `Bash` matcher that inspects the
+      command for the schema path, or move enforcement to a pre-commit hook where it cannot be
+      routed around. (decisions.md 2026-09-05)
 - [ ] **Decide what happens to the `START-HERE.md` UI/UX handoff.** It is still
       `handoff_status: active`, so every session still opens with "finish the camera feel and the
       device pass". That work is still real — S6.6 replaces the Home tab but does not touch the
