@@ -76,13 +76,14 @@ struct FloorObject: Codable, Equatable, Identifiable {
     var rotation_deg: Double
     var source: Source
     var confidence: Double?
+    var secured: Bool
 
     private enum CodingKeys: String, CodingKey {
-        case id, category, center, size_m, height_m, rotation_deg, source, confidence
+        case id, category, center, size_m, height_m, rotation_deg, source, confidence, secured
     }
 
     init(id: String, category: ObjectCategory, center: Point, size_m: [Double],
-         height_m: Double, rotation_deg: Double = 0, source: Source, confidence: Double? = nil) {
+         height_m: Double, rotation_deg: Double = 0, source: Source, confidence: Double? = nil, secured: Bool = false) {
         self.id = id
         self.category = category
         self.center = center
@@ -91,6 +92,7 @@ struct FloorObject: Codable, Equatable, Identifiable {
         self.rotation_deg = rotation_deg
         self.source = source
         self.confidence = confidence
+        self.secured = secured
     }
 
     init(from decoder: Decoder) throws {
@@ -103,6 +105,20 @@ struct FloorObject: Codable, Equatable, Identifiable {
         rotation_deg = try container.decodeIfPresent(Double.self, forKey: .rotation_deg) ?? 0
         source = try container.decode(Source.self, forKey: .source)
         confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
+        secured = try container.decodeIfPresent(Bool.self, forKey: .secured) ?? false
+    }
+}
+
+
+struct SafetyPoint: Codable, Equatable, Identifiable {
+    var id: String
+    var kind: SafetyPointKind
+    var position: Point
+    var source: Source
+    var confidence: Double?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, kind, position, source, confidence
     }
 }
 
@@ -114,13 +130,14 @@ struct Floor: Codable, Equatable, Identifiable {
     var rooms: [Room]
     var openings: [Opening]
     var objects: [FloorObject]
+    var safety_points: [SafetyPoint]
 
     private enum CodingKeys: String, CodingKey {
-        case id, level, name, height_m, rooms, openings, objects
+        case id, level, name, height_m, rooms, openings, objects, safety_points
     }
 
     init(id: String, level: Int, name: String, height_m: Double, rooms: [Room],
-         openings: [Opening] = [], objects: [FloorObject] = []) {
+         openings: [Opening] = [], objects: [FloorObject] = [], safety_points: [SafetyPoint] = []) {
         self.id = id
         self.level = level
         self.name = name
@@ -128,6 +145,7 @@ struct Floor: Codable, Equatable, Identifiable {
         self.rooms = rooms
         self.openings = openings
         self.objects = objects
+        self.safety_points = safety_points
     }
 
     init(from decoder: Decoder) throws {
@@ -139,6 +157,7 @@ struct Floor: Codable, Equatable, Identifiable {
         rooms = try container.decode([Room].self, forKey: .rooms)
         openings = try container.decodeIfPresent([Opening].self, forKey: .openings) ?? []
         objects = try container.decodeIfPresent([FloorObject].self, forKey: .objects) ?? []
+        safety_points = try container.decodeIfPresent([SafetyPoint].self, forKey: .safety_points) ?? []
     }
 }
 
@@ -187,11 +206,34 @@ struct Meta: Codable, Equatable {
     var created: Date
     var modified: Date
     var address_optional: String?
+    var last_scanned: Date?
 
-    init(created: Date, modified: Date, address_optional: String? = nil) {
+    init(created: Date, modified: Date, address_optional: String? = nil, last_scanned: Date? = nil) {
         self.created = created
         self.modified = modified
         self.address_optional = address_optional
+        self.last_scanned = last_scanned
+    }
+}
+
+
+struct Household: Codable, Equatable {
+    var tenure: Tenure?
+    var existing_equipment: [Equipment]
+
+    private enum CodingKeys: String, CodingKey {
+        case tenure, existing_equipment
+    }
+    
+    init(tenure: Tenure? = nil, existing_equipment: [Equipment] = []) {
+        self.tenure = tenure
+        self.existing_equipment = existing_equipment
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        tenure = try container.decodeIfPresent(Tenure.self, forKey: .tenure)
+        existing_equipment = try container.decodeIfPresent([Equipment].self, forKey: .existing_equipment) ?? []
     }
 }
 
@@ -203,11 +245,12 @@ struct HomeModel: Codable, Equatable, Identifiable {
     var stairs: [Stairs]
     var profiles: [Profile]
     var meta: Meta
+    var household: Household?
 
     var id: String { home_id }
 
     private enum CodingKeys: String, CodingKey {
-        case schema_version, home_id, name, floors, stairs, profiles, meta
+        case schema_version, home_id, name, floors, stairs, profiles, meta, household
     }
 
     init(
@@ -217,7 +260,8 @@ struct HomeModel: Codable, Equatable, Identifiable {
         floors: [Floor],
         stairs: [Stairs] = [],
         profiles: [Profile] = [],
-        meta: Meta
+        meta: Meta,
+        household: Household? = nil
     ) {
         self.schema_version = schema_version
         self.home_id = home_id
@@ -226,17 +270,20 @@ struct HomeModel: Codable, Equatable, Identifiable {
         self.stairs = stairs
         self.profiles = profiles
         self.meta = meta
+        self.household = household
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        schema_version = try container.decode(String.self, forKey: .schema_version)
+        let version = try container.decode(String.self, forKey: .schema_version)
+        schema_version = (version == "1.1") ? "2.0" : version
         home_id = try container.decode(String.self, forKey: .home_id)
         name = try container.decode(String.self, forKey: .name)
         floors = try container.decode([Floor].self, forKey: .floors)
         stairs = try container.decodeIfPresent([Stairs].self, forKey: .stairs) ?? []
         profiles = try container.decodeIfPresent([Profile].self, forKey: .profiles) ?? []
         meta = try container.decode(Meta.self, forKey: .meta)
+        household = try container.decodeIfPresent(Household.self, forKey: .household)
     }
 }
 

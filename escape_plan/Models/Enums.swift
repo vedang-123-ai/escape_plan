@@ -40,5 +40,18 @@ enum StairKind: String, Codable, Equatable, CaseIterable {
 }
 
 enum ProfileTag: String, Codable, Equatable, CaseIterable {
-    case child, elderly, mobility_limited, pet
+    case child, elderly, mobility_limited, pet, hearing_impaired, vision_impaired
+}
+
+
+enum Tenure: String, Codable, Equatable, CaseIterable {
+    case rent, own
+}
+
+enum Equipment: String, Codable, Equatable, CaseIterable {
+    case smoke_alarm, co_detector, extinguisher, generator
+}
+
+enum SafetyPointKind: String, Codable, Equatable, CaseIterable {
+    case gas_shutoff, water_shutoff, electrical_panel
 }

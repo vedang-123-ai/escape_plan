@@ -127,6 +127,8 @@ extension ProfileTag {
         case .elderly: return "Elderly"
         case .mobility_limited: return "Limited Mobility"
         case .pet: return "Pet"
+        case .hearing_impaired: return "Hearing Impaired"
+        case .vision_impaired: return "Vision Impaired"
         }
     }
 
@@ -148,6 +150,10 @@ extension ProfileTag {
             return "Stairs and window exits are never used."
         case .pet:
             return "Listed on the plan. Doesn't change how routes are computed."
+        case .hearing_impaired:
+            return "Changes no routing."
+        case .vision_impaired:
+            return "Changes no routing."
         }
     }
 }

@@ -21,7 +21,7 @@ extension Point {
 
 extension HomeModel {
     /// The schema version this build reads and writes (schema/homemodel.schema.json).
-    static let currentSchemaVersion = "1.1"
+    static let currentSchemaVersion = "2.0"
 
     func floor(_ id: String) -> Floor? {
         floors.first { $0.id == id }

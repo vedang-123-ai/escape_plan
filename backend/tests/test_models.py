@@ -167,3 +167,37 @@ def test_is_exit_helper(bungalow: dict) -> None:
     by_id = {o.id: o for o in model.floors[0].openings}
     assert by_id["d_front"].is_exit
     assert not by_id["d_living_kitchen"].is_exit
+
+def test_safety_point_id_must_be_unique(twostory: dict) -> None:
+    def fn(d: dict) -> None:
+        if "safety_points" not in d["floors"][0]:
+            d["floors"][0]["safety_points"] = []
+        d["floors"][0]["safety_points"].extend([
+            {"id": "sp1", "kind": "gas_shutoff", "position": [1, 1], "source": "manual"},
+            {"id": "sp1", "kind": "water_shutoff", "position": [2, 2], "source": "manual"}
+        ])
+    with pytest.raises(ValidationError, match="duplicate id"):
+        HomeModel.model_validate(_mutate(twostory, fn))
+
+def test_unknown_tenure_rejected(twostory: dict) -> None:
+    def fn(d: dict) -> None:
+        d["household"] = {"tenure": "squatting"}
+    with pytest.raises(ValidationError):
+        HomeModel.model_validate(_mutate(twostory, fn))
+
+def test_duplicate_equipment_rejected(twostory: dict) -> None:
+    def fn(d: dict) -> None:
+        d["household"] = {"existing_equipment": ["smoke_alarm", "smoke_alarm"]}
+    with pytest.raises(ValidationError):
+        HomeModel.model_validate(_mutate(twostory, fn))
+
+def test_safety_point_position_finite(twostory: dict) -> None:
+    def fn(d: dict) -> None:
+        if "safety_points" not in d["floors"][0]:
+            d["floors"][0]["safety_points"] = []
+        d["floors"][0]["safety_points"].append(
+            {"id": "sp_inf", "kind": "gas_shutoff", "position": [float('inf'), 1], "source": "manual"}
+        )
+    with pytest.raises(ValidationError, match="must be finite"):
+        HomeModel.model_validate(_mutate(twostory, fn))
+

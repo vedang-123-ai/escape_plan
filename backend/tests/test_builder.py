@@ -83,7 +83,7 @@ def test_happy_path_builds_a_valid_ai_plan_home():
     assert not result.truncated
     home = result.home
     assert home is not None
-    assert home.schema_version == "1.1"
+    assert home.schema_version == "2.0"
     rooms = home.floors[0].rooms
     assert [r.name for r in rooms] == ["Living Room", "Bedroom"]
     # Interior door derived from the shared wall; front door is an exit.

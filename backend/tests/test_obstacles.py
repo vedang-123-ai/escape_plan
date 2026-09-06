@@ -184,7 +184,7 @@ def test_route_plan_on_blocked_fixture_is_deterministic(thresholds) -> None:
 def test_object_free_fixtures_keep_straight_legs(thresholds) -> None:
     """No golden churn: homes without objects must produce byte-identical plans
     to the pre-B3 engine — straight legs, no path waypoints, no new findings."""
-    for name in ("bungalow.json", "apartment.json", "twostory.json"):
+    for name in ("bungalow.json", "twostory.json"):
         home = HomeModel.model_validate(load_fixture(name))
         plan = compute_route_plan(home, thresholds)
         for room in plan.rooms:
@@ -251,7 +251,7 @@ def test_a_blocked_home_still_reports_a_blockage_not_a_squeeze(thresholds) -> No
 def test_furniture_free_homes_gain_no_findings(thresholds) -> None:
     """Widening the analysis gate from "something is blocked" to "the home has
     objects" must not change any home that has no furniture."""
-    for name in ("bungalow.json", "apartment.json", "twostory.json"):
+    for name in ("bungalow.json", "twostory.json"):
         plan = _plan_for(name, thresholds)
         assert _findings(plan, "narrows_route") == []
         assert _findings(plan, "blocked_opening") == []

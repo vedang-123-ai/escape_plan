@@ -109,8 +109,5 @@ engine — the AI only narrates the result.
 
 ## Not mapped, deliberately
 
-- **`hearing_impaired`** — the corpus covers it (strobe alarms, bed-shakers —
-  `usfa-smoke-alarms`), but it is *alarm* guidance, not *routing* guidance: it changes no edge
-  in the graph. It is also not in the schema's `ProfileTag` enum, and adding it would require a
-  `schema_version` bump plus team sign-off. It belongs to the S3.5 preparedness checklist.
+- **`hearing_impaired` and `vision_impaired`** — these tags are now expressible in the schema (since 2.0) so the S6.4 checklist can act on them (e.g. strobe alarms, bed-shakers — `usfa-smoke-alarms`), but they are *alarm* guidance, not *routing* guidance. They produce ZERO routing constraints and are strictly routing-neutral. A test asserts they change no edge in the graph.
 - **Age band** — not in the schema; `child` / `elderly` tags already carry what routing needs.

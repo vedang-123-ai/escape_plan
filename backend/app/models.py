@@ -60,11 +60,28 @@ class StairKind(str, Enum):
     U = "U"
 
 
+class Tenure(str, Enum):
+    rent = "rent"
+    own = "own"
+
+class Equipment(str, Enum):
+    smoke_alarm = "smoke_alarm"
+    co_detector = "co_detector"
+    extinguisher = "extinguisher"
+    generator = "generator"
+
+class SafetyPointKind(str, Enum):
+    gas_shutoff = "gas_shutoff"
+    water_shutoff = "water_shutoff"
+    electrical_panel = "electrical_panel"
+
 class ProfileTag(str, Enum):
     child = "child"
     elderly = "elderly"
     mobility_limited = "mobility_limited"
     pet = "pet"
+    hearing_impaired = "hearing_impaired"
+    vision_impaired = "vision_impaired"
 
 
 class StrictModel(BaseModel):
@@ -242,6 +259,30 @@ class Opening(SourcedModel):
         return EXTERIOR_ID in self.room_ids
 
 
+class SafetyPoint(SourcedModel):
+    id: str
+    kind: SafetyPointKind
+    position: Point
+
+    @model_validator(mode="after")
+    def _check(self) -> "SafetyPoint":
+        import math
+        if self.id == EXTERIOR_ID:
+            raise ValueError(f"'{EXTERIOR_ID}' is a reserved id")
+        if not math.isfinite(self.position[0]) or not math.isfinite(self.position[1]):
+            raise ValueError(f"safety_point '{self.id}': position must be finite")
+        return self
+
+class Household(StrictModel):
+    tenure: Optional[Tenure] = None
+    existing_equipment: list[Equipment] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _check(self) -> "Household":
+        if len(set(self.existing_equipment)) != len(self.existing_equipment):
+            raise ValueError("duplicate equipment")
+        return self
+
 class FloorObject(SourcedModel):
     """A large object as a rotated box primitive (v1.1). Rendered as a prism; treated as an
     obstacle by within-room routing. No room_id on purpose — containment is derived
@@ -253,6 +294,7 @@ class FloorObject(SourcedModel):
     size_m: tuple[float, float]
     height_m: float = Field(gt=0)
     rotation_deg: float = 0.0
+    secured: bool = False
 
     @model_validator(mode="after")
     def _check(self) -> "FloorObject":
@@ -272,6 +314,7 @@ class Floor(StrictModel):
     rooms: list[Room] = Field(min_length=1)
     openings: list[Opening] = Field(default_factory=list)
     objects: list[FloorObject] = Field(default_factory=list)
+    safety_points: list[SafetyPoint] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check(self) -> "Floor":
@@ -337,16 +380,26 @@ class Meta(StrictModel):
     created: datetime
     modified: datetime
     address_optional: Optional[str] = None
+    last_scanned: Optional[datetime] = None
 
 
 class HomeModel(StrictModel):
-    schema_version: str = Field(pattern=r"^1\.1$")
+    schema_version: str = Field(pattern=r"^(1\.1|2\.0)$")
     home_id: str
     name: str = Field(min_length=1)
     floors: list[Floor] = Field(min_length=1)
     stairs: list[Stairs] = Field(default_factory=list)
     profiles: list[Profile] = Field(default_factory=list)
     meta: Meta
+    household: Optional[Household] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _upgrade_version(cls, data: dict) -> dict:
+        if isinstance(data, dict):
+            if data.get("schema_version") == "1.1":
+                data["schema_version"] = "2.0"
+        return data
 
     @model_validator(mode="after")
     def _cross_references(self) -> "HomeModel":
@@ -380,6 +433,8 @@ class HomeModel(StrictModel):
                 claim(op.id, "opening")
             for obj in fl.objects:
                 claim(obj.id, "object")
+            for sp in fl.safety_points:
+                claim(sp.id, "safety_point")
 
         for st in self.stairs:
             claim(st.id, "stairs")

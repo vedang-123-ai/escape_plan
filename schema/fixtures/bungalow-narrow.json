@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "2.0",
   "home_id": "b7c1e2a4-9d3f-4b58-a610-0f1e2d3c4b5a",
   "name": "Bungalow (narrowed doorway)",
   "floors": [
@@ -248,7 +248,8 @@
           ],
           "height_m": 2.0,
           "rotation_deg": 0,
-          "source": "manual"
+          "source": "manual",
+          "secured": false
         },
         {
           "id": "o_sofa_living",
@@ -263,9 +264,11 @@
           ],
           "height_m": 0.8,
           "rotation_deg": 0,
-          "source": "manual"
+          "source": "manual",
+          "secured": false
         }
-      ]
+      ],
+      "safety_points": []
     }
   ],
   "stairs": [],

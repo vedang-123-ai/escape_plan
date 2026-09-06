@@ -1037,3 +1037,8 @@ so the multi-peril work is namespaced `routing/perils/` to avoid overloading the
 front door that needs a live model call to get past screen one would be dead on first launch. The
 wizard's conversational feel comes from written copy, not per-user generation; model-generated
 phrasing may only ever be layered on top of copy that already works offline.
+
+## 2026-09-05: Schema 2.0 Transition
+**Decision:** Bump `schema_version` to 2.0 to support the readiness pivot (household facts, safety points, secured furniture, sensory profile tags), but implement the upgrade *in-memory* at the load boundary rather than rewriting documents on disk.
+**Rationale:** The S6 readiness pivot introduces new facts that the HomeModel must hold. We elected to make all new fields optional (or defaulted) and handle older 1.1 documents gracefully at decoding time in both Python and Swift, avoiding massive data migration for users.
+**Consequences:** The JSON schema now strictly enforces `enum: ["1.1", "2.0"]` for the schema version. Pydantic and Swift decoders intercept `1.1` and bump it to `2.0` automatically, mapping missing data to `null` or defaults. The contract remains lockstep across schema/python/swift.
