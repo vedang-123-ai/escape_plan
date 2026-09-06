@@ -939,3 +939,8 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 869afb9 CLAUDE.md: name the scope-lock contradiction instead of leaving it silent
   - ef0f03f Playbook S6: fix references that would break a paste-ready session
 
+## 2026-09-06T05:26:29Z · Anish Yarrakonda · `main` @ `2e1e4ef`
+
+**Uncommitted working-tree changes (1)**
+  - ?? docs/playbook/S6-EXECUTE.md
+
