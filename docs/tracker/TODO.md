@@ -93,7 +93,7 @@ moved** — 56h estimated across nine sessions. **No S6 session has been run and
 
 - [x] ~~**Decide: pivot or finish the current app.**~~ Answered 2026-09-05: **pivot.**
 - [x] S6.1 — schema 2.0 (household facts, sensory tags, safety points, `secured`, `last_scanned`). Blocks S6.3/S6.4/S6.5. Completed 2026-09-05.
-- [ ] S6.2 — corpus: earthquake + severe weather, fully sourced. Independent, can start any time. Next action: research USGS/FEMA/ShakeOut and NOAA/NWS sources, then write to the existing corpus standard.
+- [x] S6.2 — corpus: earthquake + severe weather, fully sourced. Done 2026-09-05. Unblocks S6.3/S6.4.
 - [ ] S6.3 — peril engine (earthquake cover search, tornado safe-room search). Needs S6.1+S6.2. Next action: note the `routing/hazard.py` name collision — new work goes in `routing/perils/`.
 - [ ] S6.4 — household facts → checklist rule table. Needs S6.1+S6.2. Next action: read `scoring/checklist.py` in full; this EXTENDS it, ids must stay stable.
 - [ ] S6.5 — household interview (iOS onboarding). Needs S6.1. Next action: must work with zero network calls — the AI account is dry and the front door cannot depend on it.
