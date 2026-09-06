@@ -8,11 +8,20 @@ import jsonschema
 import pytest
 from pydantic import ValidationError
 
-from app.models import HomeModel
+from app.models import SCHEMA_VERSION, HomeModel
 from app.validate import validate_file
 from tests.conftest import FIXTURES_DIR, SCHEMA_PATH, load_fixture
 
-VALID_FIXTURES = ["bungalow.json", "apartment.json", "twostory.json"]
+# All six. jagged/bungalow-blocked/bungalow-narrow were never asserted against the JSON
+# Schema before S6.1 — only against pydantic, incidentally, via the obstruction tests.
+VALID_FIXTURES = [
+    "bungalow.json",
+    "apartment.json",
+    "twostory.json",
+    "jagged.json",
+    "bungalow-blocked.json",
+    "bungalow-narrow.json",
+]
 INVALID_FIXTURES = {
     "invalid/bad-room-ref.json": "does not exist on floor",
     "invalid/cw-polygon.json": "counter-clockwise",
@@ -167,3 +176,153 @@ def test_is_exit_helper(bungalow: dict) -> None:
     by_id = {o.id: o for o in model.floors[0].openings}
     assert by_id["d_front"].is_exit
     assert not by_id["d_living_kitchen"].is_exit
+
+
+# --- v2.0 contract additions (S6.1) ---------------------------------------
+
+def _bungalow() -> dict:
+    return load_fixture("bungalow.json")
+
+
+def test_a_1_1_document_still_loads_and_is_normalized() -> None:
+    """The backward-compatibility ruling: every 2.0 addition is optional, so a 1.1
+    document is a structurally valid 2.0 document. It loads and is stamped 2.0 in
+    memory; nothing is rewritten on disk."""
+    doc = _bungalow() | {"schema_version": "1.1"}
+    assert HomeModel.model_validate(doc).schema_version == SCHEMA_VERSION
+
+
+def test_an_unsupported_schema_version_is_refused_loudly() -> None:
+    with pytest.raises(ValidationError, match="unsupported schema_version"):
+        HomeModel.model_validate(_bungalow() | {"schema_version": "3.0"})
+
+
+def test_safety_point_ids_are_unique_against_every_other_entity() -> None:
+    """Not merely unique among safety points — they join the global claim() pass, so a
+    collision with a ROOM id is caught too."""
+    doc = _bungalow()
+    room_id = doc["floors"][0]["rooms"][0]["id"]
+    doc["floors"][0]["safety_points"] = [
+        {"id": room_id, "kind": "gas_shutoff", "position": [1.0, 1.0], "source": "manual"}
+    ]
+    with pytest.raises(ValidationError, match="duplicate id"):
+        HomeModel.model_validate(doc)
+
+
+def test_duplicate_safety_point_ids_are_rejected() -> None:
+    doc = _bungalow()
+    doc["floors"][0]["safety_points"] = [
+        {"id": "sp_dup", "kind": "gas_shutoff", "position": [1.0, 1.0], "source": "manual"},
+        {"id": "sp_dup", "kind": "water_shutoff", "position": [2.0, 2.0], "source": "manual"},
+    ]
+    with pytest.raises(ValidationError, match="duplicate id"):
+        HomeModel.model_validate(doc)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_safety_point_positions_are_rejected(bad: float) -> None:
+    """JSON Schema's "number" admits NaN/Infinity once a parser has produced them; a
+    non-finite landmark would reach the renderer as an invisible failure."""
+    doc = _bungalow()
+    doc["floors"][0]["safety_points"] = [
+        {"id": "sp_bad", "kind": "gas_shutoff", "position": [bad, 1.0], "source": "manual"}
+    ]
+    with pytest.raises(ValidationError, match="must be finite"):
+        HomeModel.model_validate(doc)
+
+
+def test_unknown_safety_point_kind_is_rejected() -> None:
+    doc = _bungalow()
+    doc["floors"][0]["safety_points"] = [
+        {"id": "sp_x", "kind": "nuclear_shutoff", "position": [1.0, 1.0], "source": "manual"}
+    ]
+    with pytest.raises(ValidationError):
+        HomeModel.model_validate(doc)
+
+
+def test_scan_derived_safety_point_must_carry_confidence() -> None:
+    """SafetyPoint inherits the provenance rule: machine-derived items carry confidence."""
+    doc = _bungalow()
+    doc["floors"][0]["safety_points"] = [
+        {"id": "sp_scan", "kind": "gas_shutoff", "position": [1.0, 1.0], "source": "scan"}
+    ]
+    with pytest.raises(ValidationError, match="must carry a confidence"):
+        HomeModel.model_validate(doc)
+
+
+def test_unknown_tenure_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        HomeModel.model_validate(_bungalow() | {"household": {"tenure": "leasehold"}})
+
+
+def test_unknown_equipment_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        HomeModel.model_validate(
+            _bungalow() | {"household": {"existing_equipment": ["moat"]}}
+        )
+
+
+def test_duplicate_equipment_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="duplicate existing_equipment"):
+        HomeModel.model_validate(
+            _bungalow()
+            | {"household": {"existing_equipment": ["smoke_alarm", "smoke_alarm"]}}
+        )
+
+
+def test_household_is_optional_and_a_skipped_interview_is_valid() -> None:
+    """Skipping every question must produce a valid home, not a half-written one."""
+    assert HomeModel.model_validate(_bungalow()).household is None
+    empty = HomeModel.model_validate(_bungalow() | {"household": {}})
+    assert empty.household is not None
+    assert empty.household.tenure is None, "unanswered tenure is None, never 'own'"
+    assert empty.household.existing_equipment == []
+
+
+def test_secured_defaults_to_false_and_last_scanned_to_none() -> None:
+    home = HomeModel.model_validate(load_fixture("bungalow-blocked.json"))
+    assert all(not o.secured for f in home.floors for o in f.objects)
+    assert HomeModel.model_validate(_bungalow()).meta.last_scanned is not None, (
+        "bungalow is seeded with a deliberately stale scan date"
+    )
+    assert HomeModel.model_validate(load_fixture("apartment.json")).meta.last_scanned is None, (
+        "never-scanned is a distinct state from stale and must stay representable"
+    )
+
+
+def test_seeded_fixture_data_is_where_downstream_sessions_expect_it() -> None:
+    """S6.4 and S6.6 are written against these exact cases; pin them."""
+    apartment = HomeModel.model_validate(load_fixture("apartment.json"))
+    assert apartment.household is not None
+    assert apartment.household.tenure.value == "rent"
+    assert "smoke_alarm" in [e.value for e in apartment.household.existing_equipment]
+
+    twostory = HomeModel.model_validate(load_fixture("twostory.json"))
+    assert twostory.household is not None and twostory.household.tenure.value == "own"
+    kinds = {sp.kind.value for f in twostory.floors for sp in f.safety_points}
+    assert kinds == {"gas_shutoff", "electrical_panel"}
+
+    jagged = HomeModel.model_validate(load_fixture("jagged.json"))
+    assert any(o.secured for f in jagged.floors for o in f.objects)
+    assert any("hearing_impaired" in [t.value for t in p.tags] for p in jagged.profiles)
+
+
+def test_the_apps_bundled_fixtures_match_the_contracts() -> None:
+    """escape_plan/Fixtures/*.json are byte-identical copies of schema/fixtures/, bundled
+    into the iOS app. Nothing guarded that before S6.1, and they went silently stale the
+    moment the contract moved — the app would have shipped v1.1 homes against a v2.0
+    build. Copies are the deliberate design (the app cannot reach outside its bundle);
+    this test is what makes the copies safe."""
+    from tests.conftest import REPO_ROOT
+
+    bundled = REPO_ROOT / "escape_plan" / "Fixtures"
+    assert bundled.is_dir(), "the app's bundled fixture directory has moved"
+    names = sorted(p.name for p in bundled.glob("*.json"))
+    assert names, "no bundled fixtures found"
+    for name in names:
+        source = FIXTURES_DIR / name
+        assert source.exists(), f"{name} is bundled but no longer exists in schema/fixtures/"
+        assert bundled.joinpath(name).read_bytes() == source.read_bytes(), (
+            f"escape_plan/Fixtures/{name} has drifted from schema/fixtures/{name}. "
+            "Re-copy it; do not hand-edit the bundled copy."
+        )

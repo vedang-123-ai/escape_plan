@@ -215,3 +215,39 @@ def test_child_penalty_is_a_no_op_on_the_current_fixtures(
 
 def test_find_profile_misses_return_none(twostory_home):
     assert find_profile(twostory_home.profiles, "p_nobody") is None
+
+
+# --- v2.0 sensory tags are routing-neutral (S6.1) --------------------------
+
+@pytest.mark.parametrize("tag", [ProfileTag.hearing_impaired, ProfileTag.vision_impaired])
+def test_sensory_tags_produce_no_routing_constraints(tag, thresholds) -> None:
+    """The v2.0 tags exist so the S6.4 checklist can act on them (strobe alarms, NOAA
+    radio). They are deliberately NOT routing signals: neither one changes how a person
+    gets out of a building. This test is the contract — if a future session wires either
+    to a constraint, that is a decision to argue for, not to slip in."""
+    tagged = Profile(id="p_x", name="X", tags=[tag], bedroom_room_id="r_bed_master")
+    untagged = Profile(id="p_x", name="X", tags=[], bedroom_room_id="r_bed_master")
+    assert constraints_for_profile(tagged, thresholds) == constraints_for_profile(
+        untagged, thresholds
+    )
+
+
+def test_sensory_tags_do_not_alter_a_computed_route(twostory_home, thresholds) -> None:
+    """The end-to-end version of the above: same home, same person, one tag added, and
+    the engine must return a byte-identical plan."""
+    grandpa = find_profile(twostory_home.profiles, "p_grandpa")
+    before = compute_route_plan(twostory_home, thresholds, profile=grandpa)
+    grandpa.tags = grandpa.tags + [ProfileTag.hearing_impaired]
+    after = compute_route_plan(twostory_home, thresholds, profile=grandpa)
+    assert before.model_dump() == after.model_dump()
+
+
+def test_safety_points_are_not_obstacles(twostory, thresholds) -> None:
+    """twostory carries a gas shutoff and an electrical panel. They are landmarks; the
+    routing engine must not see them at all."""
+    home = HomeModel.model_validate(twostory)
+    assert any(fl.safety_points for fl in home.floors), "fixture should have safety points"
+    with_points = compute_route_plan(home, thresholds)
+    for fl in home.floors:
+        fl.safety_points = []
+    assert with_points.model_dump() == compute_route_plan(home, thresholds).model_dump()
