@@ -8,7 +8,12 @@
 > at the top of the root `CLAUDE.md`. Both go quiet when its front-matter says
 > `handoff_status: closed` — close it there, don't delete the hook.
 
-_Last verified: 2026-08-05 on `main` (camera interaction-feel pass) — full gate re-run and
+_Last verified: 2026-09-05 on branch `s6-1-schema-2-0` (S6.1 schema 2.0) — full gate re-run and
+**green**: backend **339** not-live (13 live-deselected), EditorCore **270**, iOS **589 passed /
+0 failed / 8 skipped** (597 total, via `xcrun xcresulttool`), corpus valid (11 sources, 6 files).
+See `notes/2026-09-05-s6-1-schema-2-0.md`._
+
+_Prior stamp, 2026-08-05 on `main` (camera interaction-feel pass) — full gate re-run and
 **fully green**: corpus valid (11 sources, 6 files), backend **295** not-live (13
 live-deselected), EditorCore **270** (was 261), iOS **586 passed / 0 failed / 8 skipped**
 (was 563/1/8). The known `EntryPointUITests` tab-bar flake did not reproduce this run. See
