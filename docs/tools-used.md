@@ -68,4 +68,4 @@ one a judge is most likely to assume was bought in or handed to a model.
 
 ## Content sources (grounding corpus, not code dependencies)
 
-Full index with URLs and retrieval dates: `backend/corpus/sources.json`. Orgs: NFPA (escape planning, smoke-alarm fire statistics, disability evacuation guide), USFA/FEMA (smoke alarms, escape plans, disability fire safety), American Red Cross (escape plan steps, two-minute campaign, planning fact sheet), ICC (2021 IRC §R310/§R311 egress requirements). All corpus content is paraphrased with per-claim citations.
+Full index with URLs and retrieval dates: `backend/corpus/sources.json`. Orgs: NFPA (escape planning, smoke-alarm fire statistics, disability evacuation guide), USFA/FEMA (smoke alarms, escape plans, disability fire safety), American Red Cross (escape plan steps, two-minute campaign, planning fact sheet, tornado safety), ICC (2021 IRC §R310/§R311 egress requirements), USGS (earthquake preparedness), NOAA/NWS (tornado safety). All corpus content is paraphrased with per-claim citations.
