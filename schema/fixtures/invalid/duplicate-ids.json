@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "2.0",
   "home_id": "33333333-4444-4555-8666-777777777777",
   "name": "Broken: duplicate ids across entities",
   "floors": [

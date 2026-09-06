@@ -399,7 +399,7 @@
           "description": "Id of the room this person sleeps in (their route origin at night). Must reference an existing room."
         }
       },
-      "required": ["id", "name", "tags", "bedroom_room_id"],
+      "required": ["id", "name", "bedroom_room_id"],
       "additionalProperties": false,
       "description": "A household member whose traits personalize routes and guidance."
     },

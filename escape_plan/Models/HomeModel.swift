@@ -1,5 +1,5 @@
 // HomeModel.swift
-// Swift mirror of schema/homemodel.schema.json v1.1 (the project's one contract).
+// Swift mirror of schema/homemodel.schema.json v2.0 (the project's one contract).
 // Field names, enums, and optionality intentionally match the JSON schema / backend/app/models.py
 // exactly rather than adopting Swift naming conventions — see .claude/rules/languages/swift.md.
 //
@@ -74,21 +74,26 @@ struct FloorObject: Codable, Equatable, Identifiable {
     var height_m: Double
     /// CCW rotation of the footprint about its center, degrees, floor-local frame.
     var rotation_deg: Double
+    /// v2.0: anchored/strapped against shaking. Routing MUST ignore this — an obstacle is an
+    /// obstacle whether or not it is bolted down.
+    var secured: Bool
     var source: Source
     var confidence: Double?
 
     private enum CodingKeys: String, CodingKey {
-        case id, category, center, size_m, height_m, rotation_deg, source, confidence
+        case id, category, center, size_m, height_m, rotation_deg, secured, source, confidence
     }
 
     init(id: String, category: ObjectCategory, center: Point, size_m: [Double],
-         height_m: Double, rotation_deg: Double = 0, source: Source, confidence: Double? = nil) {
+         height_m: Double, rotation_deg: Double = 0, secured: Bool = false,
+         source: Source, confidence: Double? = nil) {
         self.id = id
         self.category = category
         self.center = center
         self.size_m = size_m
         self.height_m = height_m
         self.rotation_deg = rotation_deg
+        self.secured = secured
         self.source = source
         self.confidence = confidence
     }
@@ -101,9 +106,21 @@ struct FloorObject: Codable, Equatable, Identifiable {
         size_m = try container.decode([Double].self, forKey: .size_m)
         height_m = try container.decode(Double.self, forKey: .height_m)
         rotation_deg = try container.decodeIfPresent(Double.self, forKey: .rotation_deg) ?? 0
+        secured = try container.decodeIfPresent(Bool.self, forKey: .secured) ?? false
         source = try container.decode(Source.self, forKey: .source)
         confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
     }
+}
+
+/// A located utility shutoff or electrical panel (v2.0). A landmark, never an obstacle:
+/// the routing engine does not see these. No room_id, for the same reason FloorObject has
+/// none — containment is derived geometrically.
+struct SafetyPoint: Codable, Equatable, Identifiable {
+    var id: String
+    var kind: SafetyPointKind
+    var position: Point
+    var source: Source
+    var confidence: Double?
 }
 
 struct Floor: Codable, Equatable, Identifiable {
@@ -114,13 +131,16 @@ struct Floor: Codable, Equatable, Identifiable {
     var rooms: [Room]
     var openings: [Opening]
     var objects: [FloorObject]
+    /// v2.0: utility shutoffs and the electrical panel on this floor.
+    var safety_points: [SafetyPoint]
 
     private enum CodingKeys: String, CodingKey {
-        case id, level, name, height_m, rooms, openings, objects
+        case id, level, name, height_m, rooms, openings, objects, safety_points
     }
 
     init(id: String, level: Int, name: String, height_m: Double, rooms: [Room],
-         openings: [Opening] = [], objects: [FloorObject] = []) {
+         openings: [Opening] = [], objects: [FloorObject] = [],
+         safety_points: [SafetyPoint] = []) {
         self.id = id
         self.level = level
         self.name = name
@@ -128,6 +148,7 @@ struct Floor: Codable, Equatable, Identifiable {
         self.rooms = rooms
         self.openings = openings
         self.objects = objects
+        self.safety_points = safety_points
     }
 
     init(from decoder: Decoder) throws {
@@ -139,6 +160,7 @@ struct Floor: Codable, Equatable, Identifiable {
         rooms = try container.decode([Room].self, forKey: .rooms)
         openings = try container.decodeIfPresent([Opening].self, forKey: .openings) ?? []
         objects = try container.decodeIfPresent([FloorObject].self, forKey: .objects) ?? []
+        safety_points = try container.decodeIfPresent([SafetyPoint].self, forKey: .safety_points) ?? []
     }
 }
 
@@ -183,15 +205,43 @@ struct Profile: Codable, Equatable, Identifiable {
     }
 }
 
+/// Facts about the household as a unit, gathered by the S6.5 interview (v2.0).
+/// Every field is optional because every interview question is skippable, and a skipped
+/// question must produce the unconstrained default rather than a half-written record.
+/// `tenure == nil` means "not answered" — it does not mean "own".
+struct Household: Codable, Equatable {
+    var tenure: Tenure?
+    var existing_equipment: [EquipmentItem]
+
+    private enum CodingKeys: String, CodingKey { case tenure, existing_equipment }
+
+    init(tenure: Tenure? = nil, existing_equipment: [EquipmentItem] = []) {
+        self.tenure = tenure
+        self.existing_equipment = existing_equipment
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        tenure = try container.decodeIfPresent(Tenure.self, forKey: .tenure)
+        existing_equipment =
+            try container.decodeIfPresent([EquipmentItem].self, forKey: .existing_equipment) ?? []
+    }
+}
+
 struct Meta: Codable, Equatable {
     var created: Date
     var modified: Date
     var address_optional: String?
+    /// v2.0. nil = never scanned (hand-built), which is a DIFFERENT state from a stale scan
+    /// and gets different treatment. Drives the rescan nudge; never reduces the score.
+    var last_scanned: Date?
 
-    init(created: Date, modified: Date, address_optional: String? = nil) {
+    init(created: Date, modified: Date, address_optional: String? = nil,
+         last_scanned: Date? = nil) {
         self.created = created
         self.modified = modified
         self.address_optional = address_optional
+        self.last_scanned = last_scanned
     }
 }
 
@@ -202,12 +252,13 @@ struct HomeModel: Codable, Equatable, Identifiable {
     var floors: [Floor]
     var stairs: [Stairs]
     var profiles: [Profile]
+    var household: Household?
     var meta: Meta
 
     var id: String { home_id }
 
     private enum CodingKeys: String, CodingKey {
-        case schema_version, home_id, name, floors, stairs, profiles, meta
+        case schema_version, home_id, name, floors, stairs, profiles, household, meta
     }
 
     init(
@@ -217,6 +268,7 @@ struct HomeModel: Codable, Equatable, Identifiable {
         floors: [Floor],
         stairs: [Stairs] = [],
         profiles: [Profile] = [],
+        household: Household? = nil,
         meta: Meta
     ) {
         self.schema_version = schema_version
@@ -225,6 +277,7 @@ struct HomeModel: Codable, Equatable, Identifiable {
         self.floors = floors
         self.stairs = stairs
         self.profiles = profiles
+        self.household = household
         self.meta = meta
     }
 
@@ -236,6 +289,7 @@ struct HomeModel: Codable, Equatable, Identifiable {
         floors = try container.decode([Floor].self, forKey: .floors)
         stairs = try container.decodeIfPresent([Stairs].self, forKey: .stairs) ?? []
         profiles = try container.decodeIfPresent([Profile].self, forKey: .profiles) ?? []
+        household = try container.decodeIfPresent(Household.self, forKey: .household)
         meta = try container.decode(Meta.self, forKey: .meta)
     }
 }
@@ -243,11 +297,27 @@ struct HomeModel: Codable, Equatable, Identifiable {
 // MARK: - Shared coder configuration
 
 extension HomeModel {
-    /// ISO-8601 (no fractional seconds) matches the `date-time` format used by every fixture
-    /// and by backend/app/models.py's `datetime` fields.
+    /// ISO-8601. Accepts fractional seconds as well as whole ones.
+    ///
+    /// Every committed fixture uses whole seconds, but pydantic round-trips microseconds
+    /// happily, so a backend-produced timestamp can carry them. `.iso8601` alone REJECTS
+    /// those, which would surface as a decode failure on device and nowhere else. Latent
+    /// until v2.0 added `meta.last_scanned` — a datetime the backend can write — so it is
+    /// fixed here rather than left as a trap for whoever hits it first.
     static var decoder: JSONDecoder {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let whole = ISO8601DateFormatter()
+        whole.formatOptions = [.withInternetDateTime]
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            if let date = whole.date(from: raw) ?? withFraction.date(from: raw) { return date }
+            throw DecodingError.dataCorrupted(
+                .init(codingPath: decoder.codingPath,
+                      debugDescription: "Not an ISO-8601 date-time: \(raw)")
+            )
+        }
         return decoder
     }
 

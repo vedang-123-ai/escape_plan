@@ -14,7 +14,7 @@ import Foundation
 enum SchemaMigrator {
     /// The version this build reads and writes. Must track
     /// `schema/homemodel.schema.json`'s `schema_version` const.
-    static let currentVersion = "1.1"
+    static let currentVersion = "2.0"
 
     /// Ordered one-step migrations, keyed by the version they upgrade *from*.
     /// Add an entry alongside any schema_version bump.
@@ -27,6 +27,18 @@ enum SchemaMigrator {
                 throw PersistenceError.missingSchemaVersion
             }
             root["schema_version"] = .string("1.1")
+            return HomeDocument(body: .object(root))
+        },
+        // 1.1 → 2.0: adds household, floor.safety_points, object.secured, meta.last_scanned and
+        // the hearing_impaired/vision_impaired profile tags. Every one is OPTIONAL, so a 1.1
+        // document is already a structurally valid 2.0 document — only the stamp is rewritten.
+        // (Verified in backend/tests: bungalow.json at "2.0" validates with zero schema errors
+        // without gaining a single new key.)
+        "1.1": { document in
+            guard case .object(var root) = document.body else {
+                throw PersistenceError.missingSchemaVersion
+            }
+            root["schema_version"] = .string("2.0")
             return HomeDocument(body: .object(root))
         }
     ]

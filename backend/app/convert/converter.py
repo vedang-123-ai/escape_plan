@@ -24,6 +24,7 @@ from app.convert.geometry import (
 from app.convert.roomplan import RPRoom, RPStructure, RPSurface
 from app.models import (
     EXTERIOR_ID,
+    SCHEMA_VERSION,
     Floor,
     HomeModel,
     Meta,
@@ -286,7 +287,7 @@ def convert_scan(
     home_id = str(uuid.uuid5(_ID_NAMESPACE, "|".join(all_surface_ids) or home_name))
 
     return HomeModel(
-        schema_version="1.1",
+        schema_version=SCHEMA_VERSION,
         home_id=home_id,
         name=home_name,
         floors=[

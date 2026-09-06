@@ -224,7 +224,7 @@ final class PersistenceTests: XCTestCase {
 
     func testLoadRefusesADocumentFromANewerBuild() throws {
         let future = try XCTUnwrap(
-            PersistenceFixtures.document("bungalow").body.setting("schema_version", to: .string("2.0"))
+            PersistenceFixtures.document("bungalow").body.setting("schema_version", to: .string("3.0"))
         )
         let document = HomeDocument(body: future)
         let homeID = try XCTUnwrap(document.homeID)
@@ -235,7 +235,8 @@ final class PersistenceTests: XCTestCase {
         XCTAssertThrowsError(try makeStore().load(homeID: homeID)) { error in
             XCTAssertEqual(
                 error as? PersistenceError,
-                .documentTooNew(documentVersion: "2.0", supportedVersion: "1.1")
+                .documentTooNew(documentVersion: "3.0",
+                                supportedVersion: SchemaMigrator.currentVersion)
             )
         }
         // Refused gracefully: the file is still there, unmodified, and the rest
@@ -252,21 +253,23 @@ final class PersistenceTests: XCTestCase {
         XCTAssertThrowsError(try SchemaMigrator.migrate(HomeDocument(body: old))) { error in
             XCTAssertEqual(
                 error as? PersistenceError,
-                .migrationUnavailable(fromVersion: "0.9", toVersion: "1.1")
+                .migrationUnavailable(fromVersion: "0.9",
+                                      toVersion: SchemaMigrator.currentVersion)
             )
         }
     }
 
     func testMigrationUpgradesAOneOhDocumentToCurrentAndItDecodes() throws {
         // The real upgrade path: every pre-revamp home on disk is a 1.0 document.
-        // 1.0 → 1.1 only re-stamps the version (floor.objects defaults to []).
+        // It now chains 1.0 → 1.1 → 2.0; both steps only re-stamp the version, because
+        // every field either half added is optional with a decoder-side default.
         let old = try XCTUnwrap(
             PersistenceFixtures.document("bungalow").body.setting("schema_version", to: .string("1.0"))
         )
         let migrated = try SchemaMigrator.migrate(HomeDocument(body: old))
         XCTAssertEqual(migrated.schemaVersion, SchemaMigrator.currentVersion)
         let model = try migrated.decode(as: HomeModel.self)
-        XCTAssertEqual(model.schema_version, "1.1")
+        XCTAssertEqual(model.schema_version, SchemaMigrator.currentVersion)
         XCTAssertTrue(model.floors.allSatisfy { $0.objects.isEmpty },
                       "a migrated 1.0 document has no objects yet")
     }

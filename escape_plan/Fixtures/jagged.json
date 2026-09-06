@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "2.0",
   "home_id": "3f0c81ba-9d47-4c26-b5ee-77a1c2d40f19",
   "name": "Jagged Stack",
   "floors": [
@@ -68,6 +68,17 @@
           ],
           "height_m": 1.5,
           "rotation_deg": 0.0,
+          "source": "manual"
+        }
+      ],
+      "safety_points": [
+        {
+          "id": "sp_water_main",
+          "kind": "water_shutoff",
+          "position": [
+            2.0,
+            2.5
+          ],
           "source": "manual"
         }
       ]
@@ -515,7 +526,8 @@
           ],
           "height_m": 2.1,
           "rotation_deg": 0.0,
-          "source": "manual"
+          "source": "manual",
+          "secured": true
         }
       ]
     }
@@ -588,7 +600,9 @@
     {
       "id": "p_ada",
       "name": "Ada",
-      "tags": [],
+      "tags": [
+        "hearing_impaired"
+      ],
       "bedroom_room_id": "r_u_bed"
     },
     {

@@ -41,4 +41,25 @@ enum StairKind: String, Codable, Equatable, CaseIterable {
 
 enum ProfileTag: String, Codable, Equatable, CaseIterable {
     case child, elderly, mobility_limited, pet
+    // v2.0. Routing-neutral on purpose: these map to ZERO routing constraints and exist so the
+    // readiness checklist can act on them (strobe/bed-shaker alarms, NOAA radio with alert).
+    // See docs/profile-constraint-mappings.md.
+    case hearing_impaired, vision_impaired
+}
+
+/// Utilities a household is advised to locate in advance (v2.0).
+/// Landmarks, never obstacles — the routing engine does not see these.
+enum SafetyPointKind: String, Codable, Equatable, CaseIterable {
+    case gas_shutoff, water_shutoff, electrical_panel
+}
+
+/// Whether the household rents or owns (v2.0). Absent means not answered, never "own".
+enum Tenure: String, Codable, Equatable, CaseIterable {
+    case rent, own
+}
+
+/// Safety equipment the household already has (v2.0), so the checklist does not tell
+/// someone to buy what is already on their wall.
+enum EquipmentItem: String, Codable, Equatable, CaseIterable {
+    case smoke_alarm, co_detector, extinguisher, generator
 }

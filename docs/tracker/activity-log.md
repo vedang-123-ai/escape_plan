@@ -939,3 +939,13 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 869afb9 CLAUDE.md: name the scope-lock contradiction instead of leaving it silent
   - ef0f03f Playbook S6: fix references that would break a paste-ready session
 
+## 2026-09-05T23:39:18Z · vedang-123-ai · `main` @ `2e1e4ef`
+
+**Commits this session**
+  - 2e1e4ef Activity log (hook appends)
+  - 5e06aee Tracker: pivot approved; script + handoff are the two open consequences
+  - f26f82f Scope: multi-peril approved — fire, earthquake, severe weather
+  - f3c455f Tracker: S6 merge integration + prompt audit, and the two things left open
+  - 869afb9 CLAUDE.md: name the scope-lock contradiction instead of leaving it silent
+  - ef0f03f Playbook S6: fix references that would break a paste-ready session
+

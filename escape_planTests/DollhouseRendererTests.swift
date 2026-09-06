@@ -12,7 +12,8 @@ final class DollhouseRendererTests: XCTestCase {
     func testAllFixturesDecode() throws {
         for fixture in Fixture.allCases {
             let home = try FixtureLibrary.load(fixture)
-            XCTAssertEqual(home.schema_version, "1.1", "\(fixture.rawValue) is not schema v1.1")
+            XCTAssertEqual(home.schema_version, HomeModel.currentSchemaVersion,
+                           "\(fixture.rawValue) is not at the current schema version")
             XCTAssertFalse(home.floors.isEmpty, "\(fixture.rawValue) has no floors")
         }
     }
