@@ -8,7 +8,16 @@
 > at the top of the root `CLAUDE.md`. Both go quiet when its front-matter says
 > `handoff_status: closed` — close it there, don't delete the hook.
 
-_Last verified: 2026-08-05 on `main` (camera interaction-feel pass) — full gate re-run and
+_Last verified: 2026-09-06 on `main` (S6.1–S6.3 review + reconciliation) — three suites re-run
+and green: backend **344** not-live (13 live-deselected), EditorCore **270**, corpus valid
+(**17** sources, **8** files). **iOS was NOT run** — the owner has asked that the simulator not be
+launched on this machine (99% disk); the last recorded run is 598/0/8 and predates the Swift in
+this tree, so it is NOT a current number. The orchestrator's S6.1/S6.2/S6.3 landed on `origin/main`
+unreviewed and the stamp below was left at the pre-S6 numbers. Two review agents were run against
+it; **three blocking defects were found and fixed** — see the section directly below.
+See `notes/2026-09-06-s6-1-merge.md`._
+
+_Prior stamp, 2026-08-05 on `main` (camera interaction-feel pass) — full gate re-run and
 **fully green**: corpus valid (11 sources, 6 files), backend **295** not-live (13
 live-deselected), EditorCore **270** (was 261), iOS **586 passed / 0 failed / 8 skipped**
 (was 563/1/8). The known `EntryPointUITests` tab-bar flake did not reproduce this run. See
@@ -95,6 +104,73 @@ moved** — 56h estimated across nine sessions.
 - [x] S6.1 — schema 2.0 (household facts, sensory tags, safety points, `secured`, `last_scanned`). Blocks S6.3/S6.4/S6.5. Completed 2026-09-05.
 - [x] S6.2 — corpus: earthquake + severe weather, fully sourced. Done 2026-09-05. Unblocks S6.3/S6.4.
 - [x] S6.3 — peril engine (earthquake cover search, tornado safe-room search). Needs S6.1+S6.2. Completed 2026-09-05.
+
+### Review of the orchestrator's S6.1–S6.3 (2026-09-06) — 3 blocking defects fixed, rest filed
+
+The arc landed on `origin/main` with no review. Under the 2026-09-06 policy (agent review, no
+human sign-off) it was audited by `grounding-auditor` and `schema-contract-guardian`. **Fixed
+this session** — tornado "leave the house" defect, the grounding desync, the uncited shelter
+claim, two mis-citations, `household` nullability, `profile.tags` required, and the migrator's
+lexical version compare. **Still open:**
+
+- [ ] **`/build` serializes `confidence: null` and `egress: null`, which the schema rejects.**
+      Pre-existing and confirmed by the guardian: 2.0 made `meta.last_scanned` and
+      `household.tenure` nullable but left `confidence` and `opening.egress` as bare types.
+      `/convert` sets `response_model_exclude_none=True` and is masked; **`/build` does not and
+      is exposed** — `BuildResult.home` emits both. Next action: either declare both nullable or
+      set `response_model_exclude_none=True` on `/build`, then widen the serialize test to the
+      whole document.
+- [ ] **FEMA over-claim in the new corpus.** `severe-weather-tornado.md:18` says a basement
+      "provides near-absolute protection". That is FEMA P-361/P-320 language reserved for safe
+      rooms **built to FEMA criteria**, not a property of basements generally. Next action: split
+      the sentence — near-absolute for the FEMA-rated safe room, "substantially safer" for an
+      ordinary basement.
+- [ ] **Dead URL carrying a fresh retrieved date.** `sources.json:129` has
+      `fema.gov/plan/prevent/saferoom` (retired years ago) stamped `"retrieved": "2026-09-05"`.
+      A retrieved date asserts somebody fetched it — this is an originality claim a judge could
+      check. Current path is `/emergency-managers/risk-management/safe-rooms`. Next action:
+      re-verify all six new URLs resolve, then correct.
+- [ ] **`shakeout-guidance` cite precision.** `sources.json:113` points at
+      `earthquakecountry.org/step5/` (Drop, Cover, Hold On) but is cited for furniture securing,
+      which is step 1.
+- [ ] **`test_perils.py` tornado assertion is weak.** It asserts only
+      `primary.exit_id != "d_front"`, which passes trivially now that `exit_id` holds a room id.
+      The shelter actually chosen for all 7 twostory rooms is `r_hall1` — the room containing the
+      front door. Next action: assert on `ext_openings == 0` or on room type, not a door id.
+- [ ] **`exterior_edges` mixes int indices with `f"op_{id}"` strings**
+      (`routing/perils/tornado.py:63-91`). If the `else` at :70 ever fires the same wall is
+      counted twice, inflating `ext_walls` and corrupting the ranking. Zero hits on current
+      fixtures; a live trap for scan-derived homes. Next action: use one key space.
+- [ ] **`routing/perils/objective.py` is a stub** — four unused imports and a "we will put
+      shared logic here if needed" comment. Delete or implement.
+- [ ] **`RouteFinding` has no `citation` field**, so finding-level safety text is validated by
+      nothing — which is exactly why the uncited shelter directive shipped green.
+      `test_citation_resolution` only walks `ChecklistItem.source_citation`. Next action: add
+      `citation: str | None` plus a test that imperative safety text in `detail` resolves.
+- [ ] **Fixtures are thinly seeded compared to what S6.4/S6.6 were promised.** Only `twostory`
+      has a household, **no** fixture has `meta.last_scanned`, and **no** profile carries
+      `hearing_impaired`/`vision_impaired` — so two 2.0 additions have zero fixture coverage.
+      The independent S6.1 branch (`my-s6-1-and-policy`) seeded both sides of every branch:
+      apartment as renter + smoke alarm, twostory as owner + gas shutoff + panel, jagged with a
+      `secured` wardrobe and a `hearing_impaired` profile, bungalow with a stale `last_scanned`.
+      **Deliberately not merged** — S6.3/S6.4 tests are written against the current fixtures and
+      changing them under unreviewed code risks breaking a green tree. Next action: whoever runs
+      S6.4 decides which seeding it needs and does it once.
+- [ ] **19 contract tests exist only on the `my-s6-1-and-policy` branch**, not on `main`:
+      every safety-point/household/tenure/equipment invariant, the bundled-fixture drift guard,
+      `test_safety_points_are_not_obstacles`, the two sensory-tag routing-neutrality tests, and
+      all 8 of `SchemaV2ContractTests.swift`. Most port cleanly (their pydantic already enforces
+      the invariants); a few depend on the fixture seeding above. Next action: port the
+      seeding-independent ones.
+- [ ] **Three files still self-describe as v1.1** after the bump — `homemodel.schema.json:5`,
+      `backend/app/models.py:1`, `escape_plan/Models/HomeModel.swift:2`.
+- [ ] **`schema_version` breadth disagrees three ways** — schema `enum ["1.1","2.0"]`, pydantic
+      `Literal["2.0"]`, Swift a bare `String`. And because every 2.0 addition is optional, the
+      JSON Schema cannot actually distinguish a 1.1 document from a 2.0 one. Next action:
+      consider `const: "2.0"`, with `"1.1"` accepted only by the migrators.
+- [ ] **`FloorObject.size_m` is unbounded `[Double]` in Swift** but exactly 2 elements in schema
+      and pydantic — Swift accepts a 3-element size the other two reject. Pre-existing v1.1.
+
 - [ ] S6.4 — household facts → checklist rule table. Needs S6.1+S6.2. Next action: read `scoring/checklist.py` in full; this EXTENDS it, ids must stay stable.
 - [ ] S6.5 — household interview (iOS onboarding). Needs S6.1. Next action: must work with zero network calls — the AI account is dry and the front door cannot depend on it.
 - [ ] S6.6 — checklist becomes the Home tab. Needs S6.4+S6.5. Next action: lift ScoreScreen's existing checklist renderer rather than writing a second one.
