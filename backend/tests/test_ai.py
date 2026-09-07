@@ -199,3 +199,28 @@ def test_explain_endpoint_maps_grounding_error_to_502(
         headers=AUTH,
     )
     assert resp.status_code == 502
+
+
+def test_corpus_block_matches_sources_json() -> None:
+    """The mechanism that keeps citation validation honest.
+
+    `valid_source_ids()` accepts every id in sources.json, so an id is only safe to
+    accept if the model was actually shown the document it comes from. S6.2 added two
+    corpus files and six source ids while `CORPUS_FILE_ORDER` and `CORPUS_DOC_FILES`
+    stayed hardcoded to the six fire documents -- so the server would have validated
+    `noaa-tornado` on a tornado claim the model invented, and search_corpus answered
+    'tornado safe room' with five fire-escape paragraphs. Both lists are now derived
+    from sources.json; this asserts they cannot drift apart again.
+    """
+    import json as _json
+    from app.ai import agent, grounded
+    from app.config import CORPUS_DIR
+
+    declared = [cf["file"] for cf in _json.loads((CORPUS_DIR / "sources.json").read_text())["corpus_files"]]
+    assert grounded.CORPUS_FILE_ORDER == declared
+    assert agent.CORPUS_DOC_FILES == declared
+
+    # Every id the server will accept must appear in the block the model is shown.
+    block = grounded.corpus_text()
+    unseen = sorted(i for i in grounded.valid_source_ids() if i not in block)
+    assert not unseen, f"ids validate but are never shown to the model: {unseen}"

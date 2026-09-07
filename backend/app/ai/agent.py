@@ -21,7 +21,7 @@ from typing import Any, Literal, Optional
 import anthropic
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.ai.grounded import valid_source_ids
+from app.ai.grounded import CORPUS_FILE_ORDER, valid_source_ids
 from app.config import CORPUS_DIR, get_settings
 from app.models import HomeModel
 from app.routing.egress import EgressThresholds, check_egress
@@ -48,14 +48,11 @@ is bounced back for correction before we return the gutted result as-is. Added
 evidence refs ('check_egress:w_kids') instead of literal toolu_ ids; one
 corrective round-trip reliably fixes it."""
 
-CORPUS_DOC_FILES = [
-    "escape-planning-nfpa.md",
-    "egress-windows-irc.md",
-    "smoke-alarms-usfa.md",
-    "home-fire-escape-redcross.md",
-    "fire-facts-stats.md",
-    "special-considerations.md",
-]
+# Derived from sources.json via grounded.py -- see _corpus_files_from_sources there
+# for why this must never be a second hardcoded list. search_corpus reads these files,
+# so a document missing here is a document the agent cannot find while its source id
+# still passes citation validation.
+CORPUS_DOC_FILES = CORPUS_FILE_ORDER
 
 
 # ---------------------------------------------------------------------------

@@ -35,14 +35,22 @@ THINKING = {"type": "disabled"}
 MAX_TOKENS = 4096
 MAX_CITATION_RETRIES = 2
 
-CORPUS_FILE_ORDER = [
-    "escape-planning-nfpa.md",
-    "egress-windows-irc.md",
-    "smoke-alarms-usfa.md",
-    "home-fire-escape-redcross.md",
-    "fire-facts-stats.md",
-    "special-considerations.md",
-]
+def _corpus_files_from_sources() -> list[str]:
+    """The corpus documents the model is shown, derived from sources.json.
+
+    This used to be a hardcoded fire-only list, and S6.2 added two documents
+    (earthquake, severe weather) plus six source ids without updating it. The
+    result was a hole in the grounding guarantee rather than a cosmetic drift:
+    `valid_source_ids()` reads all ids from sources.json, so citation validation
+    accepted `noaa-tornado` on a claim the model invented from pretraining,
+    because it had never been shown the document. Deriving both from one place
+    makes that desync impossible; `test_corpus_block_matches_sources_json` pins it.
+    """
+    data = json.loads((CORPUS_DIR / "sources.json").read_text())
+    return [cf["file"] for cf in data["corpus_files"]]
+
+
+CORPUS_FILE_ORDER = _corpus_files_from_sources()
 
 
 # ---------------------------------------------------------------------------

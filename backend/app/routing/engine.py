@@ -367,9 +367,10 @@ def compute_route_plan(
                             kind="no_viable_safe_room",
                             room_id=room.id,
                             detail=(
-                                "No viable safe room found (every reachable room "
-                                "touches an exterior wall). Seek shelter in a nearby "
-                                "sturdy building."
+                                "No interior room could be reached from here. If you "
+                                "are in a mobile or manufactured home, go now to a "
+                                "nearby sturdy building or community shelter. "
+                                "[cite: redcross-tornado]"
                             ),
                         )
                     )
