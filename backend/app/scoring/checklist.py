@@ -455,7 +455,7 @@ def safe_room_items(
                             "Identify a nearby sturdy building (community shelter, "
                             "neighbor's basement) you can reach quickly."
                         ),
-                        why="Mobile homes and homes without interior rooms are not safe during a tornado. [cite: redcross-tornado]",
+                        why="Mobile and manufactured homes are not safe during a tornado, whatever the wind speed. [cite: redcross-tornado]",
                         done=state.get(item_id, False) is True,
                         source_citation="redcross-tornado",
                         scoring=False,
@@ -520,7 +520,7 @@ def mitigation_items(home: HomeModel, state: ChecklistState) -> list[ChecklistIt
                     "Bolt tall or heavy furniture to wall studs. Standard drywall "
                     "anchors are not strong enough during an earthquake."
                 )
-                why = "Unsecured furniture is a leading cause of earthquake injuries. [cite: shakeout-guidance]"
+                why = "Unsecured furniture is a leading cause of earthquake injuries. [cite: usgs-earthquake]"
             items.append(
                 ChecklistItem(
                     id=item_id,

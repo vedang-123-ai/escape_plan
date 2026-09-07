@@ -186,10 +186,17 @@ def find_tornado_shelter(
     if not candidates:
         return None, None
         
-    # Mobile home check: if it's a single-story home and EVERY room touches an exterior wall,
-    # it is indistinguishable from a mobile home or lacks any safe core.
-    if len(home.floors) == 1 and all(c["ext_walls"] > 0 for c in candidates):
-        return None, None
+    # NOTE: there was a "mobile home check" here that returned no shelter whenever a
+    # single-storey home had no room with zero exterior walls. It was removed 2026-09-06.
+    # Three reasons: (1) construction type is NOT derivable from a footprint polygon, so it
+    # could not detect a mobile home; (2) the corpus rule is COMPARATIVE ("put as many walls
+    # as possible between you and the outside", severe-weather-tornado.md), not a threshold,
+    # and nearly every room in a small home touches an exterior wall; (3) it fired on 4 of 5
+    # fixtures, telling every bungalow and apartment occupant to leave the house during a
+    # warning — while the corpus committed alongside it says to use the most interior room,
+    # "such as a bathroom, closet, or hallway". The ranking below already implements that rule.
+    # If we ever want the leave-the-house advice, it must be gated on an explicit modelled
+    # fact (a structure_type field), never on inferred geometry.
     best = min(candidates, key=lambda c: (
         c["level"],
         c["ext_walls"],

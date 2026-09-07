@@ -486,8 +486,9 @@ def test_score_endpoint_rejects_unknown_fields(bungalow: dict):
 def test_score_endpoint_computes_multi_peril_plans(bungalow: dict):
     """The /score endpoint must compute and pass tornado and earthquake plans,
     not just fire, so the checklist contains severe-weather and earthquake items.
-    Bungalow has no viable safe room (single story, no interior room specified as such),
-    so it should generate a `safe_room.nearby_shelter` item.
+    Bungalow's Kitchen carries no exterior opening, so it IS a viable shelter and the home
+    gets `safe_room.know` rather than `safe_room.nearby_shelter`. This assertion was
+    inverted until 2026-09-06 — see test_perils.test_a_site_built_home_always_gets_an_interior_shelter.
     """
     resp = TestClient(app).post("/score", json={"home": bungalow}, headers=AUTH)
     assert resp.status_code == 200
@@ -495,8 +496,10 @@ def test_score_endpoint_computes_multi_peril_plans(bungalow: dict):
     breakdown = ScoreBreakdown.model_validate(resp.json())
     ids = {i.id for i in breakdown.checklist}
     
-    # Assert a tornado safe room item was generated
-    assert "safe_room.nearby_shelter" in ids
+    # Assert a tornado safe room item was generated. A site-built home with an interior
+    # room is told WHERE to shelter, never to leave the house.
+    assert "safe_room.know" in ids
+    assert "safe_room.nearby_shelter" not in ids
     # Assert earthquake mitigation/cover items are generated (e.g. supply_kit)
     assert "supply_kit.72h" in ids
 

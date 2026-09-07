@@ -48,12 +48,44 @@ def test_mobility_limited_tornado_no_viable_safe_room(twostory, thresholds):
     assert room_tornado.primary is None
     assert any(f.kind == "no_viable_safe_room" for f in room_tornado.findings)
 
-def test_mobile_home_tornado_no_viable_safe_room(bungalow_narrow, thresholds):
-    # Every room touches an exterior wall
+def test_a_site_built_home_always_gets_an_interior_shelter(bungalow_narrow, thresholds):
+    """Replaces test_mobile_home_tornado_no_viable_safe_room (removed 2026-09-06).
+
+    That test asserted a single-storey home whose every room touches an exterior wall has
+    NO safe room — and ran it on `bungalow_narrow`, an ordinary site-built bungalow. It was
+    pinning a defect: the engine told every bungalow and apartment occupant to leave the
+    house during a tornado warning, while the corpus committed alongside it says to use the
+    most interior room, "such as a bathroom, closet, or hallway"
+    (severe-weather-tornado.md, [cite: noaa-tornado]).
+
+    Construction type is not derivable from a footprint polygon, so geometry must never be
+    used to infer a mobile home. Leave-the-house advice needs an explicit modelled fact.
+    """
     plan = compute_route_plan(bungalow_narrow, thresholds, peril="tornado")
-    
-    assert plan.rooms[0].primary is None
-    assert any(f.kind == "no_viable_safe_room" for f in plan.rooms[0].findings)
+
+    assert plan.rooms[0].primary is not None, "a site-built home must be given a shelter"
+    assert not any(
+        f.kind == "no_viable_safe_room" for r in plan.rooms for f in (r.findings or [])
+    )
+
+
+@pytest.mark.parametrize(
+    "fixture_name", ["bungalow", "apartment", "bungalow-blocked", "bungalow-narrow", "twostory", "jagged"]
+)
+def test_no_fixture_with_an_interior_room_is_told_to_leave(fixture_name, thresholds):
+    """The regression guard for the above. Every committed fixture is a site-built home with
+    at least one room carrying no exterior opening, so none of them may ever produce
+    `no_viable_safe_room`. This is the assertion that would have caught the original defect:
+    it fired on 4 of 5 fixtures and every suite still passed."""
+    home = HomeModel.model_validate(load_fixture(f"{fixture_name}.json"))
+    plan = compute_route_plan(home, thresholds, peril="tornado")
+
+    unsheltered = [
+        r.room_id
+        for r in plan.rooms
+        if any(f.kind == "no_viable_safe_room" for f in (r.findings or []))
+    ]
+    assert not unsheltered, f"{fixture_name}: no shelter found for {unsheltered}"
 
 def test_earthquake_cover_points(jagged, thresholds):
     plan = compute_route_plan(jagged, thresholds, peril="earthquake")
