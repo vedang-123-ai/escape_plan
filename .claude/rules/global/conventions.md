@@ -6,7 +6,10 @@
   test required). SceneKit for 3D (RealityKit acceptable if documented in decisions.md).
 - **Secrets**: `ANTHROPIC_API_KEY` server-side env var only — never in the app, never in git
   (a pre-commit hook scans staged diffs). Backend endpoints sit behind a shared bearer token.
-- **PRs**: small; anything touching `schema/` goes through PR review.
+- **Review**: small commits, and review is **agent-run, not human**. Vet a branch with the
+  relevant quality agents (`schema-contract-guardian` for `schema/`, `swift-scenekit-reviewer`
+  for `escape_plan/`), run the green gate, judge it yourself, then merge to `main`. Do not tag a
+  human reviewer or leave a PR open awaiting sign-off.
 - **Citations**: corpus content uses inline `[cite: source-id]` tags resolving against
   `backend/corpus/sources.json` (see rules/paths/corpus.md).
 - **Scope locks** (do not relitigate): fire, earthquake and severe weather (tornado); iOS only;

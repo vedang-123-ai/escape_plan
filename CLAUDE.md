@@ -38,7 +38,7 @@ iOS app that builds a structured 3D model of the user's home (via a full 3D edit
 
 ## The one law: the HomeModel schema
 
-`schema/homemodel.schema.json` is THE contract. The scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. After S0.2 finalizes it, any change requires a schema version bump and team sign-off. Full sketch: `docs/playbook/02-architecture.md` §2.2. Key invariants:
+`schema/homemodel.schema.json` is THE contract. The scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. After S0.2 finalizes it, any change requires a schema version bump and a clean `schema-contract-guardian` run — the review is agent-run, not a human sign-off. Full sketch: `docs/playbook/02-architecture.md` §2.2. Key invariants:
 
 - Room footprints are 2D polygons per floor (3D is extruded — never store meshes)
 - Openings reference wall segments parametrically (`edge_index` + `t0/t1`) so dragging a wall moves its doors
@@ -70,7 +70,10 @@ Work is organized into checkpointed sessions (S0.1–S5.3) with owners, prerequi
 - Swift: SwiftUI, iOS 17+ target, Codable structs mirroring the schema exactly.
 - Anthropic API key lives server-side only (env var), never in the app or git.
 - AI layer: grounded in `backend/corpus/` only; citations validated against `sources.json`; low temperature; the AI explains and audits — routing is always the deterministic engine.
-- Small PRs; anything touching `schema/` goes through PR review.
+- Small commits. **Review is agent-run, not human**: vet the branch with the relevant quality
+  agents (`schema-contract-guardian` for anything touching `schema/`), run `/verify`, apply your
+  own judgement, then merge to `main`. Never tag a human reviewer and never park a branch in an
+  open PR waiting for sign-off — that blocked S6.1 while three sessions waited on it.
 - Locked scope: **fire, earthquake, and severe weather (tornado)**, iOS only, LiDAR scan only, no user accounts (local persistence + anonymous device id). Out of scope (deliberate): furniture detection, camera-only capture, Android, multi-user sync, disasters beyond those three.
   - **Multi-peril approved 2026-09-05.** Scope was fire-only until the S6 readiness arc
     (`docs/playbook/06-pivot-intro.md`, `S6-1.md`…`S6-9.md`) was approved by the owner. Earthquake

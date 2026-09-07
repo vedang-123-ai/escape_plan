@@ -27,7 +27,7 @@ look like bugs if you don't know the reasoning, and the fastest way to waste thi
 
 | Area | State |
 |---|---|
-| **HomeModel schema** | Frozen. `schema/homemodel.schema.json` is the contract across Python, Swift and the renderer. Changing it needs a version bump + sign-off, and a hook will stop you. |
+| **HomeModel schema** | Frozen. `schema/homemodel.schema.json` is the contract across Python, Swift and the renderer. Changing it needs a version bump and a clean `schema-contract-guardian` run — agent review, no human sign-off. A hook prompts on `Edit`/`Write` only. |
 | **Routing engine** | Done and deterministic. `/routes` works on all four fixtures. Routes are computed in Python, never by the AI. |
 | **3D dollhouse + editor** | Done. The "White Model" overhaul (2026-08-05) made walls opaque and shadow-casting, added SSAO, and replaced the exploded view with ghost-floor stacking. |
 | **Camera feel** | Reworked 2026-08-05 — pan projection math, cached pinch anchor, one transform write, shared gesture driver, inertia, loosened limits. **Verified only by tests. Never touched by a human finger.** See §3. |

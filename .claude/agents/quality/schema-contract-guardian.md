@@ -22,8 +22,9 @@ A schema change is incomplete until all three agree AND the Swift round-trip tes
    no-op (comment, formatting).
 2. For every field added/renamed/retyped/made-optional: confirm name, type, enum values, and
    optionality match in all three. snake_case in JSON/pydantic ↔ the Swift `CodingKeys`.
-3. **Editing the existing schema file requires a `schema_version` bump + team sign-off** — a
-   PreToolUse hook (`schema-guard.sh`) already asks for confirmation. If the schema changed but
+3. **Editing the existing schema file requires a `schema_version` bump**, and *your* verdict is
+   the review — no human reviewer signs off. A PreToolUse hook (`schema-guard.sh`) asks for
+   confirmation on `Edit`/`Write` but not on `Bash`, so never treat it as proof a change was gated. If the schema changed but
    `schema_version` didn't, FAIL.
 4. Check the pydantic invariants beyond the schema (they live in code, not JSON): polygons
    non-self-intersecting and CCW, openings reference existing rooms/edges, stairs reference

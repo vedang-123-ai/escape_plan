@@ -53,7 +53,7 @@ Local JSON documents on-device (FileManager), schema-versioned
 Core Data if P2 prefers
 
 2.2 The HomeModel schema — THE contract of the entire project
-Everything reads and writes this one JSON document. The scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. Session S0.2 finalizes it; after that, changes require a version bump and team sign-off. Sketch (S0.2 turns this into a real JSON Schema + pydantic + Swift Codable):
+Everything reads and writes this one JSON document. The scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. Session S0.2 finalizes it; after that, changes require a version bump and a clean schema-contract-guardian run (agent review — no human sign-off). Sketch (S0.2 turns this into a real JSON Schema + pydantic + Swift Codable):
 {
  "schema_version": "1.0",
  "home_id": "uuid",

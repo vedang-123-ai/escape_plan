@@ -13,7 +13,8 @@ Two halves, one contract:
 ## The contract
 
 `schema/homemodel.schema.json` is the single source of truth (finalized in S0.2; after that,
-changes need a schema_version bump + team sign-off — a hook enforces confirmation). Invariants:
+changes need a schema_version bump + a clean schema-contract-guardian run, not a human
+sign-off; a hook asks for confirmation on Edit/Write only). Invariants:
 
 - Room footprints are 2D polygons per floor; 3D is extruded — never store meshes.
 - Openings reference wall segments parametrically (`edge_index` + `t0/t1`).

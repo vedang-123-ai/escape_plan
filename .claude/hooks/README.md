@@ -14,8 +14,10 @@ Active hooks:
   still lands for anyone who hasn't trusted this project's hooks.
 - `pre-generation/schema-guard.sh` — PreToolUse(Edit|Write). Forces an explicit user
   confirmation before any modification of an existing `schema/homemodel.schema.json`
-  (schema-is-law: version bump + team sign-off required). First-time creation (S0.2) is
-  unaffected.
+  (schema-is-law: version bump + a clean `schema-contract-guardian` run; there is no human
+  sign-off). First-time creation (S0.2) is unaffected. **It matches `Edit|Write` only** — a
+  `Bash` heredoc or `sed` rewrites the schema with no prompt at all, so this is a reminder
+  rather than an enforcement point.
 - `pre-commit/secrets-guard.sh` — PreToolUse(Bash) on `git commit`. Blocks commits whose
   staged diff contains Anthropic API key material.
 
