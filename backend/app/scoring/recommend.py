@@ -66,9 +66,10 @@ def _map_recommendations(
             ChecklistItem(
                 id=item_id,
                 category="recommendation",
+                hazard="general",
                 title=rec.action,
                 detail=rec.claim,
-                done=state.get(item_id, False),
+                done=state.get(item_id, False) is True,
                 source_citation=citation,
                 scoring=False,
             )

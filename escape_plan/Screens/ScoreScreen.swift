@@ -116,8 +116,6 @@ struct ScoreScreen: View {
             } header: {
                 Text("How it's scored").accessibilityAddTraits(.isHeader)
             }
-
-            checklistSections(breakdown)
         }
     }
 
@@ -294,108 +292,6 @@ struct ScoreScreen: View {
     /// "30" not "30.0", but "2.14" for fractional per-item values like 15/7.
     private func formatted(_ value: Double) -> String {
         value.formatted(.number.precision(.fractionLength(0...2)))
-    }
-
-    // MARK: - Checklist
-
-    /// A whitelist: a category missing from here decodes fine and then renders nowhere.
-    /// Keep it exhaustive over `ChecklistCategory` — `ScoreModelsTests` asserts that it is,
-    /// because a silently dropped section is how an R310 egress warning goes invisible.
-    static let categoryOrder: [(ChecklistCategory, String)] = [
-        (.smoke_alarm, "Smoke alarms"),
-        (.practice, "Practice"),
-        (.routes, "Routes"),
-        (.egress, "Escape windows"),
-        (.agent_finding, "Findings"),
-        (.recommendation, "Recommendations"),
-        (.other, "Other"),
-    ]
-
-    @ViewBuilder
-    private func checklistSections(_ breakdown: ScoreBreakdown) -> some View {
-        ForEach(Self.categoryOrder, id: \.0) { category, header in
-            let items = breakdown.checklist.filter { $0.category == category }
-            if !items.isEmpty {
-                Section {
-                    ForEach(items) { item in
-                        checklistRow(item)
-                    }
-                } header: {
-                    Text(header).accessibilityAddTraits(.isHeader)
-                } footer: {
-                    if !items.contains(where: \.scoring) {
-                        Text("These don't change the score.")
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func checklistRow(_ item: ChecklistItem) -> some View {
-        // One sentence per row. Without the combine, VoiceOver reads the title, the detail and
-        // the citation id as three separate stops before it ever reaches the switch.
-        let spoken = spokenChecklist(item)
-        if item.scoring {
-            Toggle(isOn: binding(for: item)) {
-                checklistLabel(item)
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(spoken)
-            .accessibilityValue((checklistState[item.id] ?? item.done) ? "Done" : "Not done")
-            .accessibilityHint("Double tap to mark this "
-                               + ((checklistState[item.id] ?? item.done) ? "not done" : "done")
-                               + ". Your preparedness score updates straight away.")
-        } else {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: "info.circle")
-                    .foregroundStyle(Theme.supporting)
-                    .accessibilityHidden(true)
-                checklistLabel(item)
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("For information. \(spoken)")
-        }
-    }
-
-    private func spokenChecklist(_ item: ChecklistItem) -> String {
-        var parts = [item.title, item.detail]
-        if let citation = item.source_citation {
-            parts.append("Source: \(citation)")
-        }
-        return parts.joined(separator: ". ")
-    }
-
-    private func checklistLabel(_ item: ChecklistItem) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(item.title)
-                .font(.subheadline)
-                .foregroundStyle(item.scoring ? AnyShapeStyle(.primary)
-                                              : AnyShapeStyle(Theme.supporting))
-            Text(item.detail)
-                .font(.caption)
-                .foregroundStyle(Theme.supporting)
-            if let citation = item.source_citation {
-                // Was `.tertiary`, which resolves to ~1.74:1 on white — invisible to anyone
-                // with reduced contrast sensitivity, on the one string that proves the advice
-                // came from FEMA rather than from a language model.
-                Text(citation)
-                    .font(.caption2)
-                    .foregroundStyle(Theme.supporting)
-            }
-        }
-    }
-
-    private func binding(for item: ChecklistItem) -> Binding<Bool> {
-        Binding(
-            get: { checklistState[item.id] ?? item.done },
-            set: { newValue in
-                checklistState[item.id] = newValue
-                stateStore.save(checklistState, homeID: homeID)
-                if newValue { Haptics.tick() }
-                refresh()
-            }
-        )
     }
 
     // MARK: - Data

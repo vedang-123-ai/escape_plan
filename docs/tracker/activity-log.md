@@ -944,3 +944,170 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - ?? docs/playbook/S6-EXECUTE.md
 
+## 2026-09-06T06:17:20Z · Anish Yarrakonda · `main` @ `c7ba003`
+
+**Commits this session**
+  - c7ba003 Apply Lane A fixes for iOS tests
+  - afa5fb1 Fix SchemaMigrator for 2.0 bump
+  - 4455be7 Merge Wave 1 lanes (S6.1 and S6.2)
+  - 1bdd9b8 S6.2 Corpus earthquake and severe weather
+  - a7b3b43 S6.1 Schema 2.0 bump
+
+## 2026-09-06T06:19:57Z · Anish Yarrakonda · `main` @ `c7ba003`
+
+**Commits this session**
+  - c7ba003 Apply Lane A fixes for iOS tests
+  - afa5fb1 Fix SchemaMigrator for 2.0 bump
+  - 4455be7 Merge Wave 1 lanes (S6.1 and S6.2)
+  - 1bdd9b8 S6.2 Corpus earthquake and severe weather
+  - a7b3b43 S6.1 Schema 2.0 bump
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-06T06:59:14Z · Anish Yarrakonda · `main` @ `c7ba003`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-06T09:13:57Z · Anish Yarrakonda · `main` @ `c7ba003`
+
+**Uncommitted working-tree changes (20)**
+  - M backend/app/main.py
+  - M backend/app/models.py
+  - M backend/app/routing/engine.py
+  - M backend/app/routing/plan.py
+  - M backend/corpus/sources.json
+  - M backend/tests/test_api.py
+  - M backend/tests/test_models.py
+  - M docs/decisions.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Models/HomeModel.swift
+  - M escape_planTests/HomeModelRoundTripTests.swift
+  - M schema/fixtures/invalid/bad-room-ref.json
+  - M schema/fixtures/invalid/cw-polygon.json
+  - M schema/fixtures/invalid/duplicate-ids.json
+  - ?? backend/app/routing/perils/
+  - ?? backend/app/schema_migrator.py
+  - ?? backend/tests/test_schema_migrator.py
+  - ?? docs/peril-objective-mappings.md
+  - ?? docs/tracker/notes/s6.3.md
+
+## 2026-09-06T09:49:49Z · Anish Yarrakonda · `main` @ `c7ba003`
+
+**Uncommitted working-tree changes (23)**
+  - M backend/app/main.py
+  - M backend/app/models.py
+  - M backend/app/routing/engine.py
+  - M backend/app/routing/plan.py
+  - M backend/corpus/sources.json
+  - M backend/tests/test_api.py
+  - M backend/tests/test_models.py
+  - M docs/decisions.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Models/HomeModel.swift
+  - M escape_planTests/HomeModelRoundTripTests.swift
+  - M schema/fixtures/invalid/bad-room-ref.json
+  - M schema/fixtures/invalid/cw-polygon.json
+  - M schema/fixtures/invalid/duplicate-ids.json
+  - ?? backend/app/routing/perils/
+  - ?? backend/app/schema_migrator.py
+  - ?? backend/tests/test_perils.py
+  - ?? backend/tests/test_schema_migrator.py
+  - ?? docs/peril-objective-mappings.md
+  - ?? docs/tracker/notes/s6.3.md
+  - ?? test_is_shared.py
+  - ?? test_overlap.py
+
+## 2026-09-06T22:56:29Z · Anish Yarrakonda · `main` @ `c7ba003`
+
+**Uncommitted working-tree changes (27)**
+  - M backend/app/main.py
+  - M backend/app/models.py
+  - M backend/app/routing/engine.py
+  - M backend/app/routing/plan.py
+  - M backend/app/scoring/checklist.py
+  - M backend/app/scoring/recommend.py
+  - M backend/corpus/sources.json
+  - M backend/tests/test_api.py
+  - M backend/tests/test_models.py
+  - M backend/tests/test_scoring.py
+  - M docs/decisions.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Models/HomeModel.swift
+  - M escape_planTests/HomeModelRoundTripTests.swift
+  - M schema/fixtures/invalid/bad-room-ref.json
+  - M schema/fixtures/invalid/cw-polygon.json
+  - M schema/fixtures/invalid/duplicate-ids.json
+  - ?? backend/app/routing/perils/
+  - ?? backend/app/schema_migrator.py
+  - ?? backend/tests/test_checklist_hazards.py
+  - ?? backend/tests/test_perils.py
+  - ?? backend/tests/test_schema_migrator.py
+  - ?? docs/household-checklist-mappings.md
+  - ?? docs/peril-objective-mappings.md
+  - …and 2 more
+
+## 2026-09-06T23:16:47Z · Anish Yarrakonda · `main` @ `c7ba003`
+
+**Uncommitted working-tree changes (27)**
+  - M backend/app/main.py
+  - M backend/app/models.py
+  - M backend/app/routing/engine.py
+  - M backend/app/routing/plan.py
+  - M backend/app/scoring/checklist.py
+  - M backend/app/scoring/recommend.py
+  - M backend/corpus/sources.json
+  - M backend/tests/test_api.py
+  - M backend/tests/test_models.py
+  - M backend/tests/test_scoring.py
+  - M docs/decisions.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Models/HomeModel.swift
+  - M escape_planTests/HomeModelRoundTripTests.swift
+  - M schema/fixtures/invalid/bad-room-ref.json
+  - M schema/fixtures/invalid/cw-polygon.json
+  - M schema/fixtures/invalid/duplicate-ids.json
+  - ?? backend/app/routing/perils/
+  - ?? backend/app/schema_migrator.py
+  - ?? backend/tests/test_checklist_hazards.py
+  - ?? backend/tests/test_perils.py
+  - ?? backend/tests/test_schema_migrator.py
+  - ?? docs/household-checklist-mappings.md
+  - ?? docs/peril-objective-mappings.md
+  - …and 2 more
+
+## 2026-09-06T23:48:02Z · Anish Yarrakonda · `main` @ `c7ba003`
+
+**Uncommitted working-tree changes (31)**
+  - M backend/app/main.py
+  - M backend/app/models.py
+  - M backend/app/routing/engine.py
+  - M backend/app/routing/plan.py
+  - M backend/app/scoring/checklist.py
+  - M backend/app/scoring/recommend.py
+  - M backend/app/scoring/score.py
+  - M backend/corpus/sources.json
+  - M backend/tests/test_api.py
+  - M backend/tests/test_models.py
+  - M backend/tests/test_scoring.py
+  - M docs/decisions.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Models/HomeModel.swift
+  - M escape_plan/Onboarding/OnboardingFlowView.swift
+  - M escape_plan/Onboarding/OnboardingState.swift
+  - M escape_planTests/HomeModelRoundTripTests.swift
+  - M schema/fixtures/invalid/bad-room-ref.json
+  - M schema/fixtures/invalid/cw-polygon.json
+  - M schema/fixtures/invalid/duplicate-ids.json
+  - ?? backend/app/routing/perils/
+  - ?? backend/app/schema_migrator.py
+  - ?? backend/tests/test_checklist_hazards.py
+  - ?? backend/tests/test_perils.py
+  - …and 6 more
+

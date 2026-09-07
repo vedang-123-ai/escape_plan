@@ -90,6 +90,7 @@ enum EditAction: Equatable, Sendable {
     case addProfile(profileId: String, name: String, tags: [ProfileTag], bedroom_room_id: String)
     case updateProfile(profileId: String, name: String, tags: [ProfileTag], bedroom_room_id: String)
     case deleteProfile(profileId: String)
+    case setHousehold(tenure: Tenure?, existingEquipment: [Equipment])
 }
 
 extension EditAction {
@@ -126,6 +127,7 @@ extension EditAction {
         case .addProfile: return "Add Profile"
         case .updateProfile: return "Edit Profile"
         case .deleteProfile: return "Delete Profile"
+        case .setHousehold: return "Edit Household"
         }
     }
 

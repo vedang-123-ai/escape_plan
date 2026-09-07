@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Literal, Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -384,7 +384,7 @@ class Meta(StrictModel):
 
 
 class HomeModel(StrictModel):
-    schema_version: str = Field(pattern=r"^(1\.1|2\.0)$")
+    schema_version: Literal["2.0"]
     home_id: str
     name: str = Field(min_length=1)
     floors: list[Floor] = Field(min_length=1)
@@ -395,11 +395,9 @@ class HomeModel(StrictModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _upgrade_version(cls, data: dict) -> dict:
-        if isinstance(data, dict):
-            if data.get("schema_version") == "1.1":
-                data["schema_version"] = "2.0"
-        return data
+    def _migrate(cls, data: Any) -> Any:
+        from app.schema_migrator import migrate
+        return migrate(data)
 
     @model_validator(mode="after")
     def _cross_references(self) -> "HomeModel":

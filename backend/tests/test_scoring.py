@@ -277,7 +277,12 @@ def test_agent_findings_become_cited_checklist_items(apartment: dict):
 
 def test_every_safety_claim_item_carries_a_citation(twostory: dict):
     result = _scored(twostory, findings=[_high("r_bed_kids")])
+    # Items whose citation is None by design (engineering choices, not safety
+    # claims) are documented as such in the checklist module and are excluded.
+    UNCITED_BY_DESIGN = {"rescan.home"}
     for item in result.checklist:
+        if item.id in UNCITED_BY_DESIGN:
+            continue
         assert item.source_citation, f"{item.id} makes a claim with no citation"
 
 
@@ -476,6 +481,24 @@ def test_score_endpoint_rejects_unknown_fields(bungalow: dict):
         "/score", json={"home": bungalow, "unexpected": 1}, headers=AUTH
     )
     assert resp.status_code == 422
+
+
+def test_score_endpoint_computes_multi_peril_plans(bungalow: dict):
+    """The /score endpoint must compute and pass tornado and earthquake plans,
+    not just fire, so the checklist contains severe-weather and earthquake items.
+    Bungalow has no viable safe room (single story, no interior room specified as such),
+    so it should generate a `safe_room.nearby_shelter` item.
+    """
+    resp = TestClient(app).post("/score", json={"home": bungalow}, headers=AUTH)
+    assert resp.status_code == 200
+    
+    breakdown = ScoreBreakdown.model_validate(resp.json())
+    ids = {i.id for i in breakdown.checklist}
+    
+    # Assert a tornado safe room item was generated
+    assert "safe_room.nearby_shelter" in ids
+    # Assert earthquake mitigation/cover items are generated (e.g. supply_kit)
+    assert "supply_kit.72h" in ids
 
 
 # ---------------------------------------------------------------------------

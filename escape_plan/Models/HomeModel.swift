@@ -275,8 +275,7 @@ struct HomeModel: Codable, Equatable, Identifiable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let version = try container.decode(String.self, forKey: .schema_version)
-        schema_version = (version == "1.1") ? "2.0" : version
+        schema_version = try container.decode(String.self, forKey: .schema_version)
         home_id = try container.decode(String.self, forKey: .home_id)
         name = try container.decode(String.self, forKey: .name)
         floors = try container.decode([Floor].self, forKey: .floors)

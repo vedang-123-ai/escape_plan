@@ -192,3 +192,13 @@ def test_missing_token_env_fails_closed(
     config.get_settings.cache_clear()
     with pytest.raises(RuntimeError, match="BACKEND_BEARER_TOKEN"):
         client.post("/routes", json={"home": bungalow}, headers=AUTH)
+
+def test_routes_peril_defaults_to_fire_byte_for_byte(client: TestClient, bungalow: dict):
+    # Test that omitting peril and passing peril="fire" yield byte-for-byte identical json
+    res_default = client.post("/routes", json={"home": bungalow}, headers=AUTH)
+    assert res_default.status_code == 200
+    
+    res_explicit = client.post("/routes", json={"home": bungalow, "peril": "fire"}, headers=AUTH)
+    assert res_explicit.status_code == 200
+    
+    assert res_default.text == res_explicit.text

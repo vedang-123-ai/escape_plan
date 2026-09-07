@@ -38,7 +38,11 @@ final class EntryPointUITests: XCTestCase {
         )
         app.tabBars.buttons["Home"].tap()
 
-        let scanButton = app.buttons["Scan"]
+        let menuButton = app.buttons["Menu"]
+        XCTAssertTrue(menuButton.waitForExistence(timeout: 5), "No Menu button on the Homes toolbar.")
+        menuButton.tap()
+
+        let scanButton = app.buttons["Scan New Home"]
         XCTAssertTrue(
             scanButton.waitForExistence(timeout: 10),
             "No Scan button on the Homes toolbar — the Capture module is unreachable again."
@@ -52,7 +56,11 @@ final class EntryPointUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 15))
         app.tabBars.buttons["Home"].tap()
 
-        let scanButton = app.buttons["Scan"]
+        let menuButton = app.buttons["Menu"]
+        XCTAssertTrue(menuButton.waitForExistence(timeout: 5))
+        menuButton.tap()
+
+        let scanButton = app.buttons["Scan New Home"]
         XCTAssertTrue(scanButton.waitForExistence(timeout: 10))
         scanButton.tap()
 
@@ -74,12 +82,12 @@ final class EntryPointUITests: XCTestCase {
 
         // Only meaningful when the library is genuinely empty; if a previous run left a home
         // on disk the empty state is legitimately absent, so this is a soft check.
-        let emptyState = app.staticTexts["No homes yet"]
+        let emptyState = app.staticTexts["Let's map your home"]
         guard emptyState.waitForExistence(timeout: 5) else {
             throw XCTSkip("Home library is not empty on this simulator — empty state not shown.")
         }
         XCTAssertTrue(
-            app.buttons["Scan a Home"].exists,
+            app.buttons["Scan My Home"].exists,
             "Empty state advertises a LiDAR scan but offers no way to start one."
         )
     }

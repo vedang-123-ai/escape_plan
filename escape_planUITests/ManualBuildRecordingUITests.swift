@@ -53,7 +53,11 @@ final class ManualBuildRecordingUITests: XCTestCase {
 
         // Home tab → a brand-new home in the editor.
         app.tabBars.buttons["Home"].tap()
-        let newHome = app.buttons["New Home"].firstMatch
+        let menuButton = app.buttons["Menu"]
+        XCTAssertTrue(menuButton.waitForExistence(timeout: 10))
+        menuButton.tap()
+        
+        let newHome = app.buttons["Build Manually"].firstMatch
         XCTAssertTrue(newHome.waitForExistence(timeout: 10))
         newHome.tap()
 

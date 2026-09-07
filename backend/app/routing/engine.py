@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import heapq
 from dataclasses import dataclass
+from typing import Literal
 
 from app.models import EXTERIOR_ID, HomeModel, Opening, OpeningKind, Profile
 from app.routing.egress import EgressThresholds
@@ -259,6 +260,7 @@ def compute_route_plan(
     thresholds: EgressThresholds,
     constraints: RoutingConstraints | None = None,
     *,
+    peril: Literal["fire", "tornado", "earthquake"] = "fire",
     profile: Profile | None = None,
     bottleneck_min_rooms: int = 2,
 ) -> RoutePlan:
@@ -268,6 +270,7 @@ def compute_route_plan(
     constraints from its tags (S3.4 mapping table). Passing both is a caller
     bug — the derived table must not be silently overridden.
     """
+    from app.routing.perils import find_cover_object, find_tornado_shelter
     if profile is not None:
         if constraints is not None:
             raise ValueError("pass either profile or constraints, not both")
@@ -336,44 +339,80 @@ def compute_route_plan(
                     )
                 )
 
-            primary = _dijkstra_to_exterior(
-                graph, room.id, openings, constraints
-            )
-            if primary is None:
-                findings.append(
-                    RouteFinding(
-                        kind="no_viable_route",
-                        room_id=room.id,
-                        detail=(
-                            f"No viable escape route from '{room.name}' under the "
-                            "current constraints."
-                        ),
-                    )
-                )
-            else:
-                primary_route = _route_from_search(primary, graph, home)
-                primary_openings = _path_openings(primary, graph)
-                secondary = _dijkstra_to_exterior(
-                    graph,
-                    room.id,
-                    openings,
-                    constraints,
-                    banned_openings=frozenset({primary_route.exit_id}),
-                    penalized_openings=frozenset(primary_openings[:-1]),
-                )
-                if secondary is None:
+            cover_object_id = None
+            if peril == "earthquake":
+                cover_obj = find_cover_object(floor, room)
+                if cover_obj is not None:
+                    cover_object_id = cover_obj.id
+                else:
                     findings.append(
                         RouteFinding(
-                            kind="no_secondary_egress",
+                            kind="no_cover_in_room",
                             room_id=room.id,
                             detail=(
-                                f"'{room.name}' has no second way out: every route "
-                                f"depends on exit '{primary_route.exit_id}'."
+                                f"No cover in this room — drop to the ground and "
+                                "cover your head and neck with your arms. [cite: shakeout-guidance]"
+                            )
+                        )
+                    )
+
+            if peril == "tornado":
+                # Tornado is a shelter search, not an exit search.
+                shelter_room_id, primary_route = find_tornado_shelter(
+                    home, graph, room.id, openings, constraints
+                )
+                if primary_route is None:
+                    findings.append(
+                        RouteFinding(
+                            kind="no_viable_safe_room",
+                            room_id=room.id,
+                            detail=(
+                                "No viable safe room found (every reachable room "
+                                "touches an exterior wall). Seek shelter in a nearby "
+                                "sturdy building."
+                            ),
+                        )
+                    )
+            else:
+                # Fire and Earthquake use the same exit search.
+                primary = _dijkstra_to_exterior(
+                    graph, room.id, openings, constraints
+                )
+                if primary is None:
+                    findings.append(
+                        RouteFinding(
+                            kind="no_viable_route",
+                            room_id=room.id,
+                            detail=(
+                                f"No viable escape route from '{room.name}' under the "
+                                "current constraints."
                             ),
                         )
                     )
                 else:
-                    secondary_route = _route_from_search(secondary, graph, home)
+                    primary_route = _route_from_search(primary, graph, home)
+                    primary_openings = _path_openings(primary, graph)
+                    secondary = _dijkstra_to_exterior(
+                        graph,
+                        room.id,
+                        openings,
+                        constraints,
+                        banned_openings=frozenset({primary_route.exit_id}),
+                        penalized_openings=frozenset(primary_openings[:-1]),
+                    )
+                    if secondary is None:
+                        findings.append(
+                            RouteFinding(
+                                kind="no_secondary_egress",
+                                room_id=room.id,
+                                detail=(
+                                    f"'{room.name}' has no second way out: every route "
+                                    f"depends on exit '{primary_route.exit_id}'."
+                                ),
+                            )
+                        )
+                    else:
+                        secondary_route = _route_from_search(secondary, graph, home)
 
             room_plans.append(
                 RoomRoutePlan(
@@ -382,6 +421,7 @@ def compute_route_plan(
                     floor_id=floor.id,
                     primary=primary_route,
                     secondary=secondary_route,
+                    cover_object_id=cover_object_id,
                     findings=findings,
                 )
             )
@@ -389,6 +429,7 @@ def compute_route_plan(
     return RoutePlan(
         home_id=home.home_id,
         home_name=home.name,
+        peril=peril,
         constraints=constraints,
         profile_id=profile.id if profile is not None else None,
         rooms=room_plans,

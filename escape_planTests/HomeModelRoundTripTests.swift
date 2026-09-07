@@ -46,6 +46,26 @@ final class HomeModelRoundTripTests: XCTestCase {
         XCTAssertEqual(kidsWindow?.width_m, 0.4)
 
         XCTAssertEqual(home.profiles.map(\.name).sorted(), ["Grandpa", "Maya"])
+        
+        // S6.1 happy path
+        XCTAssertNotNil(home.household)
+        XCTAssertEqual(home.household?.tenure, .rent)
+        XCTAssertEqual(home.household?.existing_equipment, [])
+        
+        let safetyPoints = home.floors.first { $0.id == "f1" }?.safety_points ?? []
+        XCTAssertEqual(safetyPoints.count, 2)
+        XCTAssertEqual(safetyPoints.first?.id, "sp_gas")
+        XCTAssertEqual(safetyPoints.first?.kind, .gas_shutoff)
+    }
+
+    func testApartmentDecodesS6_1Fields() throws {
+        let home = try FixtureLoader.load(.apartment)
+        
+        let allObjects = home.floors.flatMap(\.objects)
+        let securedObjects = allObjects.filter(\.secured)
+        
+        XCTAssertGreaterThan(securedObjects.count, 0)
+        XCTAssertEqual(securedObjects.first?.id, "obj_wardrobe_1")
     }
 
     func testPointRoundTripsAsTwoElementArray() throws {

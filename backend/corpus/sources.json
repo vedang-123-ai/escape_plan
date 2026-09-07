@@ -110,7 +110,7 @@
       "id": "shakeout-guidance",
       "org": "Earthquake Country Alliance (Great ShakeOut)",
       "doc_title": "Seven Steps to Earthquake Safety",
-      "url": "https://www.earthquakecountry.org/sevensteps/",
+      "url": "https://www.earthquakecountry.org/step5/",
       "retrieved": "2026-09-05",
       "topics": ["earthquake", "drop-cover-hold-on", "renters", "triangle-of-life"]
     },
@@ -118,7 +118,7 @@
       "id": "noaa-tornado",
       "org": "NOAA / NWS (National Weather Service)",
       "doc_title": "Tornado Safety",
-      "url": "https://www.weather.gov/safety/tornado",
+      "url": "https://www.weather.gov/safety/tornado-during",
       "retrieved": "2026-09-05",
       "topics": ["tornado", "safe-room", "alerts"]
     },

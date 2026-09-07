@@ -201,3 +201,22 @@ def test_safety_point_position_finite(twostory: dict) -> None:
     with pytest.raises(ValidationError, match="must be finite"):
         HomeModel.model_validate(_mutate(twostory, fn))
 
+
+def test_happy_path_s6_1_fields(twostory: dict, apartment: dict) -> None:
+    # twostory has safety_points and household
+    model = HomeModel.model_validate(twostory)
+    assert model.household is not None
+    assert model.household.tenure == "rent"
+    assert model.household.existing_equipment == []
+    
+    assert len(model.floors[0].safety_points) == 2
+    sp = model.floors[0].safety_points[0]
+    assert sp.id == "sp_gas"
+    assert sp.kind == "gas_shutoff"
+    
+    # apartment has secured objects
+    model_apt = HomeModel.model_validate(apartment)
+    secure_objs = [obj for f in model_apt.floors for obj in f.objects if obj.secured]
+    assert len(secure_objs) > 0
+    assert secure_objs[0].id == "obj_wardrobe_1"
+

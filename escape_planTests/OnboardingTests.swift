@@ -144,4 +144,21 @@ final class OnboardingTests: XCTestCase {
         XCTAssertFalse(result.truncated)
         XCTAssertEqual(result.dropped, [])
     }
+    @MainActor
+    func testOnboardingCreatesUndoStackEntries() throws {
+        let state = OnboardingState()
+        state.seedIfNeeded()
+        let seeded = try XCTUnwrap(state.seededHome)
+        
+        let store = try HomeModelStore(model: seeded)
+        let stack = UndoStack()
+        store.onCommit = stack.recordCommit
+        
+        // This simulates the same EditAction dispatch loop OnboardingState uses:
+        store.dispatch(.addProfile(profileId: "p1", name: "Alice", tags: [.child], bedroom_room_id: "br1"))
+        store.dispatch(.setHousehold(tenure: .rent, existingEquipment: []))
+        
+        XCTAssertTrue(stack.canUndo, "Onboarding actions must produce undo stack entries via HomeModelStore")
+        XCTAssertEqual(stack.undoLabel, "Edit Household")
+    }
 }

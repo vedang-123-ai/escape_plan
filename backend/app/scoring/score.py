@@ -188,9 +188,13 @@ def _practice_component(items: Sequence[ChecklistItem]) -> ScoreComponent:
 def compute_score(
     home: HomeModel,
     plan: RoutePlan,
-    findings: Optional[Sequence[Finding]] = None,
-    state: Optional[ChecklistState] = None,
+    findings: Sequence[Finding],
+    state: ChecklistState,
     thresholds: Optional[EgressThresholds] = None,
+    *,
+    tornado_plan: Optional[RoutePlan] = None,
+    earthquake_plan: Optional[RoutePlan] = None,
+    now: Optional[datetime] = None,
 ) -> ScoreBreakdown:
     """Score a home 0-100 and return the full breakdown plus its checklist.
 
@@ -204,7 +208,7 @@ def compute_score(
     unreported until /analyze runs).
     """
     findings = findings or []
-    items = build_checklist(home, plan, findings, state or {}, thresholds)
+    items = build_checklist(home, plan, findings, state or {}, thresholds, tornado_plan=tornado_plan, earthquake_plan=earthquake_plan, now=now)
     components = [
         _primary_component(plan),
         _secondary_component(plan),

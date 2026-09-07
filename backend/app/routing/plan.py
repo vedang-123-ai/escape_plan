@@ -61,6 +61,8 @@ class RouteFinding(BaseModel):
     kind: Literal[
         "no_secondary_egress",
         "no_viable_route",
+        "no_viable_safe_room",
+        "no_cover_in_room",
         "blocked_opening",
         "narrows_route",
     ]
@@ -84,6 +86,7 @@ class RoomRoutePlan(BaseModel):
     floor_id: str
     primary: Optional[Route] = None
     secondary: Optional[Route] = None
+    cover_object_id: Optional[str] = None
     findings: list[RouteFinding] = Field(default_factory=list)
 
 
@@ -101,6 +104,7 @@ class RoutePlan(BaseModel):
 
     home_id: str
     home_name: str
+    peril: Literal["fire", "tornado", "earthquake"] = "fire"
     constraints: RoutingConstraints
     profile_id: Optional[str] = None
     """The profile whose tags produced `constraints`, when routed per-profile."""

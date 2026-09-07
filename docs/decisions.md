@@ -1043,3 +1043,24 @@ phrasing may only ever be layered on top of copy that already works offline.
 **Decision:** Bump `schema_version` to 2.0 to support the readiness pivot (household facts, safety points, secured furniture, sensory profile tags), but implement the upgrade *in-memory* at the load boundary rather than rewriting documents on disk.
 **Rationale:** The S6 readiness pivot introduces new facts that the HomeModel must hold. We elected to make all new fields optional (or defaulted) and handle older 1.1 documents gracefully at decoding time in both Python and Swift, avoiding massive data migration for users.
 **Consequences:** The JSON schema now strictly enforces `enum: ["1.1", "2.0"]` for the schema version. Pydantic and Swift decoders intercept `1.1` and bump it to `2.0` automatically, mapping missing data to `null` or defaults. The contract remains lockstep across schema/python/swift.
+
+## 2026-09-06: S6.3 Perils vs Hazard Terminology
+**Decision**: Multi-peril routing (earthquake, tornado) lives in a new `backend/app/routing/perils/` package rather than extending `backend/app/routing/hazard.py`.
+**Reasoning**: `hazard.py` was established early on for fire-origin spread simulation (dynamic hazards during a fire). Overloading it to mean "disaster type" would compromise the domain language. "Peril" cleanly describes the triggering event (fire, tornado, earthquake) while "hazard" remains the specific physical threat within the simulation (e.g. fire/smoke spreading).
+**Status**: Adopted in S6.3 implementation.
+## 2026-09-06: Earthquake Cover Object Distance Metric
+**Decision**: In Earthquake routing (`earthquake.py`), the distance to a qualifying cover object (e.g. table) is computed from the object's `center` to the room's geometric centroid, rather than requiring the occupant's entry point.
+**Reasoning**: Earthquakes happen instantly. The occupant could be anywhere in the room when shaking starts, not necessarily standing at the door. The room centroid provides an unbiased, deterministic proxy for "average distance from anywhere in the room" without requiring simulation of a specific occupant position.
+**Status**: Adopted in S6.3 implementation.
+
+### 2026-09-06: S6.4 Hazard Checklist - Pre-Satisfaction vs. Suppression
+When generating items driven by household facts (e.g., `existing_equipment` contains `smoke_alarm`), we chose to emit the corresponding checklist items with `done=True` rather than suppressing them entirely. This reinforces UI trust by showing the user the app recognized their declared equipment, rather than leaving them wondering if the system "forgot" the smoke alarm rule.
+
+### 2026-09-06: S6.4 Hazard Checklist - Operational vs. Safety Items
+The `rescan.home` checklist item is an engineering choice (encouraging fresh scans twice a year) and makes no direct corpus-backed safety claim. It explicitly holds `source_citation=None`. The testing suite's strict citation rule explicitly exempts items designed this way (`UNCITED_BY_DESIGN = {"rescan.home"}`).
+
+### 2026-09-06: S6.4 Hazard Checklist - Score Non-Interference
+All new checklist categories (`shutoffs`, `safe_room`, `mitigation`, `supply_kit`, `alerts`) are generated with `scoring=False`. Reweighting the score to incorporate hazard preparedness is deferred strictly to S6.7.
+
+### 2026-09-06: S6.5 Onboarding Profile Bedroom Assignment
+During the onboarding interview, we ask for residents' ages and needs, but not which specific bedroom they sleep in (because they haven't mapped their house yet, and we are seeding a demo home in the background). We implicitly map all created profiles to the first available bedroom in the seeded home (or an arbitrary room if no bedroom exists) so the profiles are immediately valid for routing. The user can edit this bedroom assignment later.

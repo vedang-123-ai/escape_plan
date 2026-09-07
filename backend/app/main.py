@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import secrets
 from datetime import datetime, timezone
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Optional, Literal
 
 import anthropic
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -120,9 +120,15 @@ def require_token(
 
 
 class RoutesRequest(BaseModel):
+    """(S1.2) Compute primary/secondary routes for every room.
+    
+    If peril is omitted, defaults to fire.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     home: HomeModel
+    peril: Literal["fire", "tornado", "earthquake"] = "fire"
     constraints: Optional[RoutingConstraints] = None
     profile_id: Optional[str] = None
     """Route for one household member: their tags derive `constraints` via the
@@ -163,6 +169,7 @@ def routes(request: RoutesRequest) -> RoutePlan:
         request.home,
         get_thresholds(),
         constraints=request.constraints,
+        peril=request.peril,
         profile=profile,
     )
 
@@ -342,11 +349,18 @@ def score(request: ScoreRequest) -> ScoreBreakdown:
     part that calls the AI, and only to add non-scoring checklist items.
     """
     thresholds = get_thresholds()
-    plan = compute_route_plan(
-        request.home, thresholds, constraints=request.constraints
-    )
+    plan = compute_route_plan(request.home, thresholds, constraints=request.constraints, peril="fire")
+    tornado_plan = compute_route_plan(request.home, thresholds, request.constraints, peril="tornado")
+    earthquake_plan = compute_route_plan(request.home, thresholds, request.constraints, peril="earthquake")
+
     breakdown = compute_score(
-        request.home, plan, request.findings, request.checklist_state, thresholds
+        request.home,
+        plan,
+        request.findings,
+        request.checklist_state,
+        thresholds,
+        tornado_plan=tornado_plan,
+        earthquake_plan=earthquake_plan
     )
     if request.include_recommendations:
         try:

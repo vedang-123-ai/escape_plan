@@ -35,8 +35,12 @@ final class GestureFrameCostUITests: XCTestCase {
         app.launch()
 
         app.tabBars.buttons["Home"].tap()
-        let newHome = app.buttons["New Home"].firstMatch
-        XCTAssertTrue(newHome.waitForExistence(timeout: 20), "could not reach the home library")
+        let menuButton = app.buttons["Menu"]
+        XCTAssertTrue(menuButton.waitForExistence(timeout: 10))
+        menuButton.tap()
+        
+        let newHome = app.buttons["Build Manually"].firstMatch
+        XCTAssertTrue(newHome.waitForExistence(timeout: 10), "could not reach the home library")
         newHome.tap()
 
         let scene = app.otherElements["editor.scene"].firstMatch

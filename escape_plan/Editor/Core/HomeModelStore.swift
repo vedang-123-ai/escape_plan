@@ -339,6 +339,10 @@ final class HomeModelStore {
             let i = try profileIndex(draft, profileId)
             draft.profiles.remove(at: i)
             return nil
+            
+        case .setHousehold(let tenure, let existingEquipment):
+            draft.household = Household(tenure: tenure, existing_equipment: existingEquipment)
+            return nil
         }
     }
 

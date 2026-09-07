@@ -59,6 +59,13 @@ enum ChecklistCategory: String, Decodable, CaseIterable {
     }
 }
 
+enum HazardTag: String, Decodable, CaseIterable {
+    case fire
+    case earthquake
+    case severe_weather
+    case general
+}
+
 /// A checklist row. Only items with `scoring == true` (smoke_alarm and practice
 /// categories) move the score; the rest are advisory.
 struct ChecklistItem: Decodable, Identifiable, Hashable {
@@ -70,6 +77,7 @@ struct ChecklistItem: Decodable, Identifiable, Hashable {
     var source_citation: String?
     var scoring: Bool
     var component: String?
+    var hazard: HazardTag?
 }
 
 /// POST /score response: the 0–100 score plus the exact breakdown it came from.

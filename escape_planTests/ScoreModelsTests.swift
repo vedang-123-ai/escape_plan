@@ -130,18 +130,7 @@ final class ScoreModelsTests: XCTestCase {
         XCTAssertEqual(breakdown.checklist[1].id, "from.the.future")
     }
 
-    /// Decoding a category is only half the job — `ScoreScreen.categoryOrder` is a whitelist
-    /// that silently drops anything missing from it, so an item could parse perfectly and
-    /// render nowhere. That is how an R310 egress warning goes invisible.
-    func testScoreScreenRendersEveryChecklistCategory() {
-        let rendered = Set(ScoreScreen.categoryOrder.map(\.0))
-        let missing = ChecklistCategory.allCases.filter { !rendered.contains($0) }
-        XCTAssertTrue(
-            missing.isEmpty,
-            "ScoreScreen.categoryOrder is missing \(missing.map(\.rawValue)) — those items "
-            + "decode but never appear on screen"
-        )
-    }
+
 
     // MARK: - Strictness (deliberate contrast with RoutePlan's lenient keys)
 
