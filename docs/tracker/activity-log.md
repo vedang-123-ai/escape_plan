@@ -1111,3 +1111,8 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - ?? backend/tests/test_perils.py
   - …and 6 more
 
+## 2026-09-07T06:44:20Z · vedang-123-ai · `main` @ `52c439c`
+
+**Commits this session**
+  - 52c439c Review is agent-run now: no human reviewer, no PR gate
+

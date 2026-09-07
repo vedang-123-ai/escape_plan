@@ -11,7 +11,7 @@
         "1.1",
         "2.0"
       ],
-      "description": "Version of this contract. Any change to the schema after S0.2 requires bumping this value plus team sign-off. 1.1 -> 2.0: readiness pivot (household, safety points, sensory tags)."
+      "description": "Version of this contract. Any change to the schema after S0.2 requires bumping this value plus a clean schema-contract-guardian run (agent review; there is no human sign-off). 1.1 -> 2.0: readiness pivot (household, safety points, sensory tags)."
     },
     "home_id": {
       "type": "string",
@@ -51,7 +51,11 @@
       "$ref": "#/$defs/meta"
     },
     "household": {
-      "$ref": "#/$defs/household"
+      "description": "Household facts from the S6.5 interview. Explicitly NULLABLE, not merely absent: pydantic serializes an unanswered household as \"household\": null, and the contract has to accept what the backend actually emits. Matches meta.address_optional and meta.last_scanned.",
+      "oneOf": [
+        { "$ref": "#/$defs/household" },
+        { "type": "null" }
+      ]
     }
   },
   "required": [
@@ -535,7 +539,6 @@
       "required": [
         "id",
         "name",
-        "tags",
         "bedroom_room_id"
       ],
       "additionalProperties": false,
