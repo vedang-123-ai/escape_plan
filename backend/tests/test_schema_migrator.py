@@ -32,3 +32,14 @@ def test_migrate_1_1_to_2_0(bungalow: dict):
         assert floor.safety_points == []
         for obj in floor.objects:
             assert obj.secured is False
+
+
+def test_a_far_future_version_is_refused_as_too_new_not_as_a_missing_path() -> None:
+    """Regression: the guard used a string compare, so "10.0" > "2.0" was False and a
+    far-future document fell past "too new" into the migration path, failing later with
+    a confusing "no upgrade path". Swift's SchemaMigrator already compared numerically."""
+    import pytest as _pytest
+
+    for version in ["3.0", "10.0", "2.10"]:
+        with _pytest.raises(ValueError, match="newer version"):
+            migrate({"schema_version": version})

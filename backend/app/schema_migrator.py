@@ -3,6 +3,25 @@ import copy
 
 CURRENT_VERSION = "2.0"
 
+def _as_tuple(version: str) -> tuple[int, ...]:
+    """Compare versions numerically, not lexically.
+
+    A plain string compare gets this wrong in the one direction that matters:
+    "10.0" > "2.0" is False, so a document from a far-future build would fall past
+    the "too new to read" guard and into the migration path, failing later with a
+    confusing "no upgrade path" instead of the honest message. Swift's
+    SchemaMigrator already compares component-wise; this brings Python in line.
+    Unparseable components sort as -1 so a malformed version is never "newer".
+    """
+    parts = []
+    for chunk in version.split("."):
+        try:
+            parts.append(int(chunk))
+        except ValueError:
+            parts.append(-1)
+    return tuple(parts)
+
+
 def migrate(data: Any) -> Any:
     """Migrates a home document to the current schema version."""
     if not isinstance(data, dict):
@@ -15,7 +34,7 @@ def migrate(data: Any) -> Any:
     if version == CURRENT_VERSION:
         return data
         
-    if version > CURRENT_VERSION:
+    if _as_tuple(version) > _as_tuple(CURRENT_VERSION):
         raise ValueError(
             f"This home was saved by a newer version of Escape Plan "
             f"(format {version}; this app reads {CURRENT_VERSION})."
