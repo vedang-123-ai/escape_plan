@@ -1139,3 +1139,23 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - M  escape_planUITests/ScoreScreenshotUITests.swift
   - ?? escape_planTests/CriticalSectionTests.swift
 
+## 2026-09-08T05:43:31Z · Anish Yarrakonda · `main` @ `732a5c8`
+
+**Commits this session**
+  - 732a5c8 Merge Wave-2 UI redesign with S6.7 composite score, fix two scoring bugs
+
+## 2026-09-08T06:32:50Z · Anish Yarrakonda · `main` @ `732a5c8`
+
+**Uncommitted working-tree changes (11)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/DrillMode/DrillInstructions.swift
+  - M escape_plan/DrillMode/DrillScreen.swift
+  - M escape_plan/DrillMode/DrillSession.swift
+  - M escape_plan/DrillMode/DrillTimeComparison.swift
+  - M escape_plan/Export/RouteNarration.swift
+  - M escape_plan/Models/RoutePlan.swift
+  - M escape_plan/Networking/APIClient+Cache.swift
+  - M escape_plan/Networking/APIClient+Routes.swift
+  - M escape_plan/Screens/RouteFindingViews.swift
+  - M escape_planTests/DrillModeTests.swift
+

@@ -26,11 +26,13 @@ struct DrillTimeComparison: Equatable {
     /// `OccupantTrack.egress_time_s`, or nil when no timeline was available.
     let modeled: TimeInterval?
     let personName: String
+    let peril: String
 
-    init(elapsed: TimeInterval, modeled: TimeInterval?, personName: String) {
+    init(elapsed: TimeInterval, modeled: TimeInterval?, personName: String, peril: String = "fire") {
         self.elapsed = max(0, elapsed)
         self.modeled = modeled.map { max(0, $0) }
         self.personName = personName
+        self.peril = peril
     }
 
     /// Times within this many seconds of each other read as "about the same" rather than
@@ -55,6 +57,9 @@ struct DrillTimeComparison: Equatable {
 
     var detail: String {
         guard let difference else {
+            if peril != "fire" {
+                return "The time above is your stopwatch for this drill."
+            }
             return "No modeled walk has been worked out for \(personName) yet, so there's "
                 + "nothing to compare this against. The time above is just your stopwatch."
         }

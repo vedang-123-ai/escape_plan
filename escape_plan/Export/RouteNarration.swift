@@ -402,6 +402,8 @@ enum RouteNarration {
             let suffix = blamed.isEmpty ? "" : " Narrowed by: \(blamed)."
             return "The way out of the \(room) is passable but tight. "
                 + "\(finding.detail)\(suffix)"
+        case .no_viable_safe_room, .no_cover_in_room:
+            return "The \(room) is not adequately prepared. \(finding.detail)"
         case .unknown:
             return "\(room): \(finding.detail)"
         }

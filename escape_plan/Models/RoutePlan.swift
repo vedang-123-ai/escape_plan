@@ -16,19 +16,21 @@ import Foundation
 struct RoutePlan: Codable, Equatable {
     var home_id: String
     var home_name: String
+    var peril: String? // "fire", "tornado", "earthquake"
     var constraints: RoutingConstraints
     var profile_id: String?
     var rooms: [RoomRoutePlan]
     var bottlenecks: [Bottleneck]
 
     private enum CodingKeys: String, CodingKey {
-        case home_id, home_name, constraints, profile_id, rooms, bottlenecks
+        case home_id, home_name, peril, constraints, profile_id, rooms, bottlenecks
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         home_id = try container.decode(String.self, forKey: .home_id)
         home_name = try container.decode(String.self, forKey: .home_name)
+        peril = try container.decodeIfPresent(String.self, forKey: .peril) ?? "fire"
         constraints = try container.decode(RoutingConstraints.self, forKey: .constraints)
         profile_id = try container.decodeIfPresent(String.self, forKey: .profile_id)
         rooms = try container.decode([RoomRoutePlan].self, forKey: .rooms)
@@ -62,12 +64,13 @@ struct RoomRoutePlan: Codable, Equatable, Identifiable {
     var floor_id: String
     var primary: Route?
     var secondary: Route?
+    var cover_object_id: String?
     var findings: [RouteFinding]
 
     var id: String { room_id }
 
     private enum CodingKeys: String, CodingKey {
-        case room_id, room_name, floor_id, primary, secondary, findings
+        case room_id, room_name, floor_id, primary, secondary, cover_object_id, findings
     }
 
     init(from decoder: Decoder) throws {
@@ -77,6 +80,7 @@ struct RoomRoutePlan: Codable, Equatable, Identifiable {
         floor_id = try container.decode(String.self, forKey: .floor_id)
         primary = try container.decodeIfPresent(Route.self, forKey: .primary)
         secondary = try container.decodeIfPresent(Route.self, forKey: .secondary)
+        cover_object_id = try container.decodeIfPresent(String.self, forKey: .cover_object_id)
         findings = try container.decodeIfPresent([RouteFinding].self, forKey: .findings) ?? []
     }
 }
@@ -158,6 +162,8 @@ struct RouteFinding: Codable, Equatable {
     enum FindingKind: String, Codable {
         case no_secondary_egress
         case no_viable_route
+        case no_viable_safe_room
+        case no_cover_in_room
         /// v1.1 revamp: an object blocks a doorway from inside this room — there is
         /// no path to it at all.
         case blocked_opening
@@ -188,16 +194,18 @@ struct Bottleneck: Codable, Equatable {
 /// (both → 422), so nil values are omitted from the JSON entirely rather than sent as null.
 struct RoutesRequest: Encodable {
     var home: HomeModel
+    var peril: String?
     var constraints: RoutingConstraints?
     var profile_id: String?
 
     private enum CodingKeys: String, CodingKey {
-        case home, constraints, profile_id
+        case home, peril, constraints, profile_id
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(home, forKey: .home)
+        try container.encodeIfPresent(peril, forKey: .peril)
         try container.encodeIfPresent(constraints, forKey: .constraints)
         try container.encodeIfPresent(profile_id, forKey: .profile_id)
     }
