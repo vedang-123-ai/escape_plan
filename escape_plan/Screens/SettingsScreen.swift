@@ -26,6 +26,11 @@ struct SettingsScreen: View {
     @State private var health: HealthState = .unknown
     @State private var showSaved = false
     @State private var showingHowRoutes = false
+    
+    @AppStorage("snapshot_enabled") private var isSnapshotEnabled = false
+    @State private var showingConsent = false
+    @State private var isGeneratingSnapshot = false
+    @State private var shareURLs: [URL]?
 
     var body: some View {
         NavigationStack {
@@ -107,6 +112,52 @@ struct SettingsScreen: View {
                     footnote("Debug builds only. The local option expects `uvicorn app.main:app --port 8000` running on this Mac.")
                     #endif
 
+                    section("Responder Snapshot") {
+                        let toggle = Toggle("Enable Export", isOn: Binding(
+                            get: { isSnapshotEnabled },
+                            set: { newValue in
+                                if newValue {
+                                    showingConsent = true
+                                } else {
+                                    isSnapshotEnabled = false
+                                    ResponderSnapshotStore().clearSnapshots()
+                                }
+                            }
+                        ))
+                        .tint(Theme.accent)
+                        .font(.body).foregroundStyle(DS.ink)
+                        .padding(.horizontal, 18)
+                        .frame(minHeight: 60)
+                        
+                        if isSnapshotEnabled {
+                            VStack(spacing: 0) {
+                                toggle
+                                divider
+                                Button {
+                                    Task { await generateSnapshot() }
+                                } label: {
+                                    HStack {
+                                        Text("Generate Snapshot")
+                                            .font(.body)
+                                            .foregroundStyle(Theme.accentText)
+                                        Spacer()
+                                        if isGeneratingSnapshot {
+                                            ProgressView()
+                                        }
+                                    }
+                                    .padding(.horizontal, 18)
+                                    .frame(minHeight: 60)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(HapticPlainButtonStyle())
+                                .disabled(isGeneratingSnapshot)
+                            }
+                        } else {
+                            toggle
+                        }
+                    }
+                    footnote("Generate a strictly anonymous PDF and JSON package of floor plans, safety hazards, and vulnerable occupants to hand to first responders. Never transmitted automatically.")
+
                     section("About") {
                         row("Version") {
                             Text(versionString).font(.subheadline).foregroundStyle(DS.supporting)
@@ -141,6 +192,35 @@ struct SettingsScreen: View {
             .toolbar(.hidden, for: .navigationBar)
             .onAppear(perform: refreshFields)
             .sheet(isPresented: $showingHowRoutes) { HowRoutesAreComputedSheet() }
+            .sheet(isPresented: $showingConsent) {
+                ConsentSheet {
+                    isSnapshotEnabled = true
+                }
+            }
+            .background(ShareSheet(urls: $shareURLs))
+        }
+    }
+
+    private func generateSnapshot() async {
+        isGeneratingSnapshot = true
+        defer { isGeneratingSnapshot = false }
+
+        // Find the most recent home from the library
+        guard let store = try? HomeDocumentStore() else { return }
+        let summaries = store.list()
+        guard let homeID = summaries.first?.id else { return }
+
+        let exporter = EscapePlanExporter(store: store)
+        guard let preview = try? exporter.preview(homeID: homeID) else { return }
+
+        // Small delay to let the progress spinner show if rendering takes time
+        try? await Task.sleep(for: .seconds(0.1))
+
+        do {
+            let urls = try exporter.writeResponderSnapshot(preview: preview)
+            shareURLs = urls
+        } catch {
+            print("Failed to generate snapshot: \(error)")
         }
     }
 

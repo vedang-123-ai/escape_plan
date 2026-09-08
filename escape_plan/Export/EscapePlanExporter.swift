@@ -79,7 +79,7 @@ struct EscapePlanExporter {
             .appendingPathComponent("EscapePlanExports", isDirectory: true)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent(Self.filename(for: preview.home.name))
-        try output.data.write(to: url, options: .atomic)
+        try output.data.write(to: url, options: Data.WritingOptions.atomic)
         return url
     }
 
@@ -92,5 +92,39 @@ struct EscapePlanExporter {
             .trimmingCharacters(in: .whitespaces)
         let base = cleaned.isEmpty ? "Home" : cleaned
         return "\(base) escape plan.pdf"
+    }
+
+    /// Renders the Responder Snapshot (PDF + JSON) and writes it to disk.
+    func writeResponderSnapshot(preview: Preview,
+                                now: Date = Date(),
+                                fileManager: FileManager = .default) throws -> [URL] {
+        var document = EscapePlanDocument(home: preview.home,
+                                          plan: preview.plan,
+                                          routesComputedAt: preview.routesComputedAt,
+                                          meetingPoint: "",
+                                          generatedAt: now)
+        document.isResponderSnapshot = true
+        if let cache = try? ScoreCache() {
+            document.scoreResponse = cache.load(homeID: preview.home.id)
+        }
+
+        // Generate PDF
+        let output = EscapePlanPDF.render(document)
+        let directory = ResponderSnapshotStore(fileManager: fileManager).snapshotDirectory
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        
+        let pdfURL = directory.appendingPathComponent("ResponderSnapshot.pdf")
+        try output.data.write(to: pdfURL, options: Data.WritingOptions.atomic)
+
+        // Generate JSON
+        let jsonPayload = ResponderSnapshotExtractor.extract(from: document)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        let jsonData = try encoder.encode(jsonPayload)
+        
+        let jsonURL = directory.appendingPathComponent("ResponderSnapshot.json")
+        try jsonData.write(to: jsonURL, options: Data.WritingOptions.atomic)
+
+        return [pdfURL, jsonURL]
     }
 }

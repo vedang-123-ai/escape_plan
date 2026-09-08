@@ -364,6 +364,7 @@ struct ScoreScreen: View {
             guard !Task.isCancelled else { return }
             withAnimation(reduceMotion ? .linear(duration: 0) : .snappy) {
                 breakdown = new
+                if let cache = try? ScoreCache() { cache.save(new, for: homeID) }
                 failure = nil
             }
         } catch is CancellationError {

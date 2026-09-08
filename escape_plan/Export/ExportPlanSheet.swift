@@ -29,7 +29,7 @@ struct ExportPlanSheet: View {
     @State private var loadError: String?
     @State private var exportError: String?
     @State private var isGenerating = false
-    @State private var shareURL: URL?
+    @State private var shareURLs: [URL]?
 
     init(homeID: String, store: HomeDocumentStore) {
         self.homeID = homeID
@@ -70,7 +70,7 @@ struct ExportPlanSheet: View {
                 }
             }
         }
-        .background(ShareSheet(url: $shareURL))
+        .background(ShareSheet(urls: $shareURLs))
         .task { load() }
         .alert("Couldn't create the PDF",
                isPresented: Binding(get: { exportError != nil },
@@ -195,7 +195,7 @@ struct ExportPlanSheet: View {
         // UIGraphicsPDFRenderer and attributed-string drawing are UIKit; keep them on the
         // main actor. These documents are a handful of pages of vector output.
         do {
-            shareURL = try exporter.writePDF(preview: preview, meetingPoint: trimmed)
+            shareURLs = [try exporter.writePDF(preview: preview, meetingPoint: trimmed)]
         } catch {
             exportError = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
         }

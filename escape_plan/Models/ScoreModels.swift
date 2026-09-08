@@ -22,7 +22,7 @@ struct ScoreRequest: Encodable {
 /// deduction across all three peril sub-scores, not a fixed set of five weighted
 /// components. `detail` spells out the arithmetic in words; `rationale` explains the
 /// weight, cited where applicable. See docs/preparedness-score-weights.md.
-struct ScoreComponent: Decodable, Identifiable, Hashable {
+struct ScoreComponent: Codable, Identifiable, Hashable {
     var key: String
     var label: String
     var earned_points: Double
@@ -44,7 +44,7 @@ struct ScoreComponent: Decodable, Identifiable, Hashable {
 ///
 /// Adding a case here is not the whole job: `ScoreScreen.categoryOrder` is a whitelist and
 /// silently drops anything absent from it.
-enum ChecklistCategory: String, Decodable, CaseIterable {
+enum ChecklistCategory: String, Codable, CaseIterable {
     case smoke_alarm
     case practice
     case routes
@@ -63,16 +63,21 @@ enum ChecklistCategory: String, Decodable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = ChecklistCategory(rawValue: raw) ?? .other
     }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.rawValue)
+    }
 }
 
-enum HazardTag: String, Decodable, CaseIterable {
+enum HazardTag: String, Codable, CaseIterable {
     case fire
     case earthquake
     case severe_weather
     case general
 }
 
-enum ItemSeverity: String, Decodable {
+enum ItemSeverity: String, Codable {
     case info
     case high
     case unknown
@@ -81,11 +86,16 @@ enum ItemSeverity: String, Decodable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = ItemSeverity(rawValue: raw) ?? .info
     }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.rawValue)
+    }
 }
 
 /// A checklist row. Only items with `scoring == true` (smoke_alarm and practice
 /// categories) move the score; the rest are advisory.
-struct ChecklistItem: Decodable, Identifiable, Hashable {
+struct ChecklistItem: Codable, Identifiable, Hashable {
     var id: String
     var category: ChecklistCategory
     var title: String
@@ -114,6 +124,20 @@ struct ChecklistItem: Decodable, Identifiable, Hashable {
         hazard = try container.decodeIfPresent(HazardTag.self, forKey: .hazard)
         severity = try container.decodeIfPresent(ItemSeverity.self, forKey: .severity) ?? .info
     }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(category, forKey: .category)
+        try container.encode(title, forKey: .title)
+        try container.encode(detail, forKey: .detail)
+        try container.encode(done, forKey: .done)
+        try container.encodeIfPresent(source_citation, forKey: .source_citation)
+        try container.encode(scoring, forKey: .scoring)
+        try container.encodeIfPresent(component, forKey: .component)
+        try container.encodeIfPresent(hazard, forKey: .hazard)
+        try container.encode(severity, forKey: .severity)
+    }
     
     // Memberwise init for tests
     init(id: String, category: ChecklistCategory, title: String, detail: String, done: Bool, source_citation: String? = nil, scoring: Bool, component: String? = nil, hazard: HazardTag? = nil, severity: ItemSeverity = .info) {
@@ -131,7 +155,7 @@ struct ChecklistItem: Decodable, Identifiable, Hashable {
 }
 
 /// POST /score response: the 0–100 score plus the exact breakdown it came from.
-struct ScoreBreakdown: Decodable {
+struct ScoreBreakdown: Codable {
     var home_id: String
     var home_name: String
     var score: Int

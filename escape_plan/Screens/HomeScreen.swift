@@ -733,6 +733,7 @@ struct HomeScreen: View {
             // checklist content is the one thing that can make the ScrollView drop its offset
             // mid-list. The gauge sweeps on its own; the rows just update in place.
             breakdown = new
+            if let cache = try? ScoreCache() { cache.save(new, for: activeHome.id) }
             scoreFailure = nil
         } catch is CancellationError {
             // superseded
