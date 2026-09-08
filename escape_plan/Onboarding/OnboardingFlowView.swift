@@ -1,3 +1,11 @@
+//  OnboardingFlowView.swift
+//  escape_plan
+//
+//  The household interview (S6.5), in the Claude Design language (2026-09-07): step dots, a
+//  hero mark on the welcome step, 28pt titles, card-wrapped fields, one 56pt primary action
+//  and a quiet "I'll do this later" under it. Every step still writes to `OnboardingState`
+//  exactly as before — this pass changes how the interview looks, not what it captures.
+
 import SwiftUI
 
 struct OnboardingFlowView: View {
@@ -6,64 +14,117 @@ struct OnboardingFlowView: View {
 
     var onFinished: () -> Void
 
+    private let steps: [OnboardingState.Step] = [.welcome, .whoLivesHere, .needs, .rentOrOwn]
+
     var body: some View {
         NavigationStack {
-            Group {
-                switch state.step {
-                case .welcome: welcome
-                case .whoLivesHere: whoLivesHere
-                case .needs: needs
-                case .rentOrOwn: rentOrOwn
-                case .done: EmptyView()
+            VStack(spacing: 0) {
+                stepDots
+                Group {
+                    switch state.step {
+                    case .welcome: welcome
+                    case .whoLivesHere: whoLivesHere
+                    case .needs: needs
+                    case .rentOrOwn: rentOrOwn
+                    case .done: EmptyView()
+                    }
                 }
+                .animation(reduceMotion ? nil : .default, value: state.step)
             }
-            .animation(reduceMotion ? nil : .default, value: state.step)
+            .dsPage()
+            .toolbar(.hidden, for: .navigationBar)
         }
         .onDisappear { state.cancelWork() }
+    }
+
+    // MARK: - Shared pieces
+
+    private var stepDots: some View {
+        HStack(spacing: 6) {
+            ForEach(steps, id: \.self) { step in
+                Circle()
+                    .fill(step == state.step ? Theme.accent : Color(.systemGray4))
+                    .frame(width: 8, height: 8)
+            }
+        }
+        .padding(.top, 16)
+        .padding(.bottom, 8)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Step \((steps.firstIndex(of: state.step) ?? 0) + 1) of \(steps.count)")
+    }
+
+    private func title(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 28, weight: .bold))
+            .kerning(-0.3)
+            .foregroundStyle(DS.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func lede(_ text: String) -> some View {
+        Text(text)
+            .font(.body)
+            .foregroundStyle(DS.supporting)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Primary action plus the quiet escape hatch, pinned under the step's content.
+    private func footer(primary: String, action: @escaping () -> Void,
+                        later: @escaping () -> Void) -> some View {
+        VStack(spacing: 12) {
+            DSPrimaryButton(title: primary, action: action)
+            Button("I'll do this later", action: later)
+                .hapticTap()
+                .font(.subheadline)
+                .foregroundStyle(DS.supporting)
+                .frame(height: 44)
+        }
+        .padding(.horizontal, 28)
+        .padding(.bottom, 24)
     }
 
     // MARK: - Step 0: Welcome
 
     private var welcome: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 0) {
             Spacer()
-            Text("Escape Plan")
-                .font(.largeTitle.bold())
-                .accessibilityAddTraits(.isHeader)
-            
-            Text("I'll ask a few questions about your household, then build you a personalized readiness checklist for fire, earthquake and severe weather.")
-                .font(.title3)
-                .foregroundStyle(Theme.supporting)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            
+            VStack(spacing: 14) {
+                Image(systemName: "house")
+                    .font(.system(size: 42, weight: .regular))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 96, height: 96)
+                    .background(
+                        LinearGradient(colors: [DS.accentFill, Theme.accent.opacity(0.28)],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: Circle())
+                    .shadow(color: Theme.accent.opacity(0.16), radius: 13, y: 10)
+                    .padding(.bottom, 6)
+                    .accessibilityHidden(true)
+                title("Let's map your home")
+                    .multilineTextAlignment(.center)
+                Text("Map it once. We'll build a readiness checklist and an escape route for every person who lives here.")
+                    .font(.body)
+                    .foregroundStyle(DS.supporting)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 300)
+            }
+            .padding(.horizontal, 28)
             Spacer()
-            
             if let seedError = state.seedError {
                 Label(seedError, systemImage: "exclamationmark.triangle")
                     .font(.caption)
                     .foregroundStyle(Theme.warning)
+                    .padding(.bottom, 12)
             }
-            
-            Button {
+            footer(primary: "Get started", action: {
                 state.seedIfNeeded()
                 if state.seededHome != nil { state.step = .whoLivesHere }
-            } label: {
-                Text("Get Started")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
-            }
-            .buttonStyle(.borderedProminent)
-            .padding(.horizontal)
-            
-            Button("Skip for now") {
+            }, later: {
                 state.seedIfNeeded()
                 state.commitAndFinish()
                 onFinished()
-            }
-            .font(.subheadline)
-            .padding(.bottom)
-            .minimumTapTarget()
+            })
         }
     }
 
@@ -72,55 +133,59 @@ struct OnboardingFlowView: View {
     private var whoLivesHere: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Who lives here?")
-                        .font(.title.bold())
-                        .accessibilityAddTraits(.isHeader)
-                    
-                    Text("We use ages to customize the readiness plan — like adding child-assistance steps or elderly egress options. You don't need to provide exact birthdates.")
-                        .foregroundStyle(Theme.supporting)
-                    
-                    ForEach($state.persons) { $person in
-                        VStack(spacing: 12) {
-                            TextField("Name (optional)", text: $person.name)
-                                .textFieldStyle(.roundedBorder)
-                                .textContentType(.name)
-                            
-                            TextField("Age (optional)", text: $person.age)
-                                .textFieldStyle(.roundedBorder)
-                                .keyboardType(.numberPad)
+                VStack(alignment: .leading, spacing: 14) {
+                    title("Who lives here?")
+                    lede("Routes are personal. Someone who sleeps upstairs and can't take stairs quickly needs a different way out. Ages help too — exact birthdays aren't needed.")
+                    VStack(spacing: 8) {
+                        ForEach($state.persons) { $person in
+                            HStack(spacing: 14) {
+                                Text(initial(for: person.name))
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(Theme.accentText)
+                                    .frame(width: 34, height: 34)
+                                    .background(DS.accentFill, in: Circle())
+                                    .accessibilityHidden(true)
+                                VStack(spacing: 6) {
+                                    TextField("Name (optional)", text: $person.name)
+                                        .font(.body.weight(.medium))
+                                        .textContentType(.name)
+                                    TextField("Age (optional)", text: $person.age)
+                                        .font(.subheadline)
+                                        .keyboardType(.numberPad)
+                                }
+                                .textFieldStyle(.plain)
+                            }
+                            .dsCard(padding: 16)
                         }
-                        .padding()
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-                    }
-                    
-                    Button {
-                        state.persons.append(OnboardingState.Person())
-                    } label: {
-                        Label("Add another person", systemImage: "plus.circle.fill")
+                        Button {
+                            state.persons.append(OnboardingState.Person())
+                        } label: {
+                            Text("+ Add a person or pet")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Theme.accentText)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 48)
+                                .background(
+                                    RoundedRectangle(cornerRadius: DS.buttonRadius, style: .continuous)
+                                        .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+                                        .foregroundStyle(Color(.systemGray3)))
+                        }
+                        .buttonStyle(DSPressStyle())
                     }
                     .padding(.top, 8)
                 }
-                .padding()
+                .padding(.horizontal, 28)
+                .padding(.top, 16)
+                .padding(.bottom, 20)
             }
-            
-            VStack(spacing: 12) {
-                Button {
-                    state.step = .needs
-                } label: {
-                    Text("Continue")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                
-                Button("Skip this step") {
-                    state.step = .needs
-                }
-                .font(.subheadline)
-            }
-            .padding()
-            .background(.background)
+            footer(primary: "Continue", action: { state.step = .needs },
+                   later: { state.step = .needs })
         }
+    }
+
+    private func initial(for name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? "?" : String(trimmed.prefix(1)).uppercased()
     }
 
     // MARK: - Step 2: Per-person needs
@@ -128,47 +193,36 @@ struct OnboardingFlowView: View {
     private var needs: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Does anyone need extra help?")
-                        .font(.title.bold())
-                        .accessibilityAddTraits(.isHeader)
-                    
-                    Text("This helps us route away from stairs for wheelchairs, or suggest strobe alarms for the hearing impaired. Nothing here is required.")
-                        .foregroundStyle(Theme.supporting)
-                    
-                    ForEach($state.persons) { $person in
-                        let displayName = person.name.trimmingCharacters(in: .whitespaces).isEmpty ? "Person" : person.name
-                        
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text(displayName).font(.headline)
-                            
-                            Toggle("Limited mobility", isOn: $person.mobilityLimited)
-                            Toggle("Hearing impaired", isOn: $person.hearingImpaired)
-                            Toggle("Vision impaired", isOn: $person.visionImpaired)
+                VStack(alignment: .leading, spacing: 14) {
+                    title("Does anyone need extra help?")
+                    lede("This routes away from stairs for a wheelchair, or suggests strobe alarms for someone hard of hearing. Nothing here is required.")
+                    VStack(spacing: 10) {
+                        ForEach($state.persons) { $person in
+                            let displayName = person.name.trimmingCharacters(in: .whitespaces).isEmpty
+                                ? "Person" : person.name
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(displayName)
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(DS.ink)
+                                Toggle("Limited mobility", isOn: $person.mobilityLimited)
+                                Toggle("Hearing impaired", isOn: $person.hearingImpaired)
+                                Toggle("Vision impaired", isOn: $person.visionImpaired)
+                            }
+                            .onChange(of: [person.mobilityLimited, person.hearingImpaired,
+                                           person.visionImpaired]) { Haptics.selection() }
+                            .tint(Theme.accent)
+                            .foregroundStyle(DS.bodyInk)
+                            .dsCard(padding: 16)
                         }
-                        .padding()
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
                     }
+                    .padding(.top, 8)
                 }
-                .padding()
+                .padding(.horizontal, 28)
+                .padding(.top, 16)
+                .padding(.bottom, 20)
             }
-            
-            VStack(spacing: 12) {
-                Button {
-                    state.step = .rentOrOwn
-                } label: {
-                    Text("Continue")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                
-                Button("Skip this step") {
-                    state.step = .rentOrOwn
-                }
-                .font(.subheadline)
-            }
-            .padding()
-            .background(.background)
+            footer(primary: "Continue", action: { state.step = .rentOrOwn },
+                   later: { state.step = .rentOrOwn })
         }
     }
 
@@ -177,81 +231,52 @@ struct OnboardingFlowView: View {
     private var rentOrOwn: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Do you rent or own?")
-                        .font(.title.bold())
-                        .accessibilityAddTraits(.isHeader)
-                    
-                    Text("Some safety fixes — like bolting heavy furniture to wall studs for earthquake prep — need a landlord's permission. We'll adjust the checklist so it only suggests renter-friendly options if you rent.")
-                        .foregroundStyle(Theme.supporting)
-                    
-                    HStack(spacing: 16) {
-                        Button {
-                            state.tenure = .rent
-                        } label: {
-                            VStack {
-                                Image(systemName: "building.2")
-                                    .font(.largeTitle)
-                                    .padding(.bottom, 4)
-                                Text("Rent")
-                                    .font(.headline)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 24)
-                            .background(state.tenure == .rent ? AnyShapeStyle(Theme.accent.opacity(0.15)) : AnyShapeStyle(.regularMaterial), in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(state.tenure == .rent ? Theme.accent : .clear, lineWidth: 2)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Rent")
-                        .accessibilityAddTraits(state.tenure == .rent ? .isSelected : [])
-                        
-                        Button {
-                            state.tenure = .own
-                        } label: {
-                            VStack {
-                                Image(systemName: "house")
-                                    .font(.largeTitle)
-                                    .padding(.bottom, 4)
-                                Text("Own")
-                                    .font(.headline)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 24)
-                            .background(state.tenure == .own ? AnyShapeStyle(Theme.accent.opacity(0.15)) : AnyShapeStyle(.regularMaterial), in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(state.tenure == .own ? Theme.accent : .clear, lineWidth: 2)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Own")
-                        .accessibilityAddTraits(state.tenure == .own ? .isSelected : [])
+                VStack(alignment: .leading, spacing: 14) {
+                    title("Do you rent or own?")
+                    lede("Some fixes — like bolting heavy furniture to studs for earthquakes — need a landlord's permission. If you rent, the checklist only suggests renter-friendly options.")
+                    HStack(spacing: 12) {
+                        tenureCard(isSelected: state.tenure == .rent, label: "Rent",
+                                   symbol: "building.2") { state.tenure = .rent }
+                        tenureCard(isSelected: state.tenure == .own, label: "Own",
+                                   symbol: "house") { state.tenure = .own }
                     }
+                    .padding(.top, 8)
                 }
-                .padding()
+                .padding(.horizontal, 28)
+                .padding(.top, 16)
+                .padding(.bottom, 20)
             }
-            
-            VStack(spacing: 12) {
-                Button {
-                    state.commitAndFinish()
-                    onFinished()
-                } label: {
-                    Text("Finish")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                
-                Button("Skip this step") {
-                    state.commitAndFinish()
-                    onFinished()
-                }
-                .font(.subheadline)
-            }
-            .padding()
-            .background(.background)
+            footer(primary: "Finish", action: {
+                state.commitAndFinish()
+                onFinished()
+            }, later: {
+                state.commitAndFinish()
+                onFinished()
+            })
         }
+    }
+
+    private func tenureCard(isSelected selected: Bool, label: String, symbol: String,
+                            select: @escaping () -> Void) -> some View {
+        Button(action: select) {
+            VStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.largeTitle)
+                    .foregroundStyle(selected ? Theme.accent : DS.bodyInk)
+                Text(label)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(DS.ink)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+            .background(DS.card, in: RoundedRectangle(cornerRadius: DS.cardRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.cardRadius, style: .continuous)
+                    .strokeBorder(selected ? Theme.accent : .clear, lineWidth: 2))
+            .shadow(color: DS.shadowColor, radius: 9, y: 6)
+        }
+        .buttonStyle(DSPressStyle())
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

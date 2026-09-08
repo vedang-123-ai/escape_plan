@@ -22,11 +22,6 @@ struct ScoreScreen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// The ring tracks the size of the number inside it. At AX sizes we abandon the ring
-    /// altogether (see `scoreHeader`), so this only ever has to cover the non-AX range.
-    @ScaledMetric(relativeTo: .largeTitle) private var ringDiameter: CGFloat = 148
-    @ScaledMetric(relativeTo: .largeTitle) private var ringStroke: CGFloat = 12
-
     @State private var home: HomeModel?
     @State private var breakdown: ScoreBreakdown?
     @State private var checklistState: [String: Bool] = [:]
@@ -45,6 +40,7 @@ struct ScoreScreen: View {
 
     var body: some View {
         content
+            .dsPage()
             .navigationTitle(breakdown?.home_name ?? "Score")
             .navigationBarTitleDisplayMode(.inline)
             .task { await initialLoad() }
@@ -91,72 +87,77 @@ struct ScoreScreen: View {
     }
 
     private func scoreList(_ breakdown: ScoreBreakdown) -> some View {
-        List {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
                 scoreHeader(breakdown)
-            }
+                    .padding(.top, 8)
 
-            if let failure {
-                Section {
+                if let failure {
                     // One banner, one classifier. The stale-score caveat is spoken up front so
                     // VoiceOver users hear *why* the number below might be wrong.
-                    BackendFailureBanner(failure: failure,
-                                         retry: failure.isRetryable ? { refresh() } : nil)
-                        .accessibilityLabel("This score may be out of date. \(failure.message)")
-                    if failure.isOfflineFlavoured {
-                        OfflineCapabilityNote()
+                    VStack(alignment: .leading, spacing: 8) {
+                        BackendFailureBanner(failure: failure,
+                                             retry: failure.isRetryable ? { refresh() } : nil)
+                            .accessibilityLabel("This score may be out of date. \(failure.message)")
+                        if failure.isOfflineFlavoured {
+                            OfflineCapabilityNote()
+                        }
+                    }
+                    .padding(.horizontal, DS.pagePadding)
+                    .padding(.top, 8)
+                }
+
+                Text("Breakdown")
+                    .sectionHeaderStyle()
+                    .padding(.horizontal, DS.pagePadding)
+                    .padding(.top, 22)
+                    .padding(.bottom, 10)
+                VStack(spacing: 0) {
+                    ForEach(Array(breakdown.components.enumerated()), id: \.element.id) { index, component in
+                        if index > 0 { Divider().padding(.leading, 16) }
+                        componentRow(component)
                     }
                 }
-            }
+                .dsCard(padding: nil)
+                .padding(.horizontal, DS.pagePadding)
 
-            Section {
-                ForEach(breakdown.components) { component in
-                    componentRow(component)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("How it's scored")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(DS.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Points come from the deterministic engine's audit of your home — alarms, routes, findings and practice. The assistant doesn't influence the score.")
+                        .font(.subheadline)
+                        .foregroundStyle(DS.bodyInk)
                 }
-            } header: {
-                Text("How it's scored").accessibilityAddTraits(.isHeader)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .dsCard(padding: 16)
+                .padding(.horizontal, DS.pagePadding)
+                .padding(.top, 14)
             }
+            .padding(.bottom, 40)
         }
     }
 
     // MARK: - Score header
 
-    /// Below accessibility sizes the score is a ring; at AX1 and above the ring is dropped for
-    /// a full-width bar. A ring cannot grow with 310% text without either clipping the number
-    /// or eating the whole screen, and shrinking the number to fit would defeat the point of
-    /// asking for large text — so the *shape* gives way, not the text.
+    /// Below accessibility sizes the score is the design's 72pt hero number; at AX1 and above
+    /// it becomes the scaling `Theme.metric` with a bar under it — the *shape* gives way, not
+    /// the text.
     private var usesRing: Bool { dynamicTypeSize < .accessibility1 }
 
     private func scoreHeader(_ breakdown: ScoreBreakdown) -> some View {
         VStack(spacing: 10) {
-            if usesRing {
-                ZStack {
-                    Circle()
-                        .stroke(scoreTint(breakdown.score).opacity(0.15), lineWidth: ringStroke)
-                    Circle()
-                        .trim(from: 0, to: max(0.02, Double(breakdown.score) / 100))
-                        .stroke(scoreTint(breakdown.score),
-                                style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        // Reduce Motion: the ring still moves to the new value, it just gets
-                        // there in one step instead of springing past it.
-                        .animation(reduceMotion ? .linear(duration: 0) : .spring(duration: 0.8),
-                                   value: breakdown.score)
-                    scoreNumber(breakdown)
-                }
-                .frame(width: ringDiameter, height: ringDiameter)
-                .padding(.top, 4)
-            } else {
-                VStack(spacing: 8) {
-                    scoreNumber(breakdown)
-                    ProgressView(value: Double(breakdown.score), total: 100)
-                        .tint(scoreTint(breakdown.score))
-                }
-                .padding(.top, 4)
+            scoreNumber(breakdown)
+                .padding(.top, 6)
+            if !usesRing {
+                // At accessibility sizes the number alone can't carry the proportion, so a
+                // bar sits under it.
+                ProgressView(value: Double(breakdown.score), total: 100)
+                    .tint(scoreTint(breakdown.score))
+                    .padding(.horizontal, 40)
             }
-
             bandLabel(breakdown.score)
-
             if isUpdating {
                 ProgressView()
                     .accessibilityLabel("Updating your score.")
@@ -174,19 +175,20 @@ struct ScoreScreen: View {
     }
 
     private func scoreNumber(_ breakdown: ScoreBreakdown) -> some View {
-        VStack(spacing: 0) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("\(breakdown.score)")
-                // Was `.system(size: 52)` — a hard-coded point size ignores Dynamic Type
-                // entirely. `Theme.metric` is `.largeTitle` rounded/bold, so it scales.
-                .font(Theme.metric)
-                .foregroundStyle(scoreTint(breakdown.score))
+                // The design's 72pt hero number below accessibility sizes; `Theme.metric`
+                // (a scaling `.largeTitle`) once the user has asked for large text.
+                .font(usesRing ? .system(size: 72, weight: .bold, design: .rounded) : Theme.metric)
+                .kerning(usesRing ? -2 : 0)
+                .foregroundStyle(DS.ink)
                 .contentTransition(reduceMotion
                                    ? .identity
                                    : .numericText(value: Double(breakdown.score)))
                 .minimumScaleFactor(0.6)
             Text("of 100")
-                .font(.caption)
-                .foregroundStyle(Theme.supporting)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(DS.supporting)
         }
         .multilineTextAlignment(.center)
     }
@@ -240,53 +242,63 @@ struct ScoreScreen: View {
 
     // MARK: - Breakdown
 
-    private func componentRow(_ component: ScoreComponent) -> some View {
-        DisclosureGroup {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(component.detail)
-                    .font(.caption)
-                Text(component.rationale)
-                    .font(.caption2)
-                    .foregroundStyle(Theme.supporting)
-            }
-            .padding(.vertical, 2)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(component.detail) \(component.rationale)")
-        } label: {
-            componentLabel(component)
-        }
-        .accessibilityHint("Opens to explain how these points are worked out.")
+    /// Colour by how much of the component is earned (the design's thresholds): ≥70 % accent,
+    /// ≥40 % caution, else warning. Fills, held to 3:1; the text beside them uses text-safe
+    /// siblings.
+    private func componentTint(_ component: ScoreComponent) -> Color {
+        guard component.max_points > 0 else { return DS.supporting }
+        let ratio = component.earned_points / component.max_points
+        return ratio >= 0.7 ? Theme.accent : (ratio >= 0.4 ? Theme.caution : Theme.warning)
     }
 
-    @ViewBuilder
-    private func componentLabel(_ component: ScoreComponent) -> some View {
+    private func componentTextTint(_ component: ScoreComponent) -> Color {
+        componentTint(component) == Theme.accent ? Theme.accentText : componentTint(component)
+    }
+
+    private func componentRow(_ component: ScoreComponent) -> some View {
         let points = "\(formatted(component.earned_points)) of "
             + "\(formatted(component.max_points)) points"
-        VStack(alignment: .leading, spacing: 6) {
+        let pointsText = "\(formatted(component.earned_points)) / \(formatted(component.max_points))"
+        return VStack(alignment: .leading, spacing: 6) {
             // At accessibility sizes "Smoke alarms" and "12 / 20" cannot share a line without
             // one of them truncating, so the row stacks instead of shrinking either.
             ViewThatFits(in: .horizontal) {
                 HStack {
-                    Text(component.label).font(.subheadline)
+                    Text(component.label).font(.body.weight(.medium)).foregroundStyle(DS.ink)
                     Spacer()
-                    Text("\(formatted(component.earned_points)) / \(formatted(component.max_points))")
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(Theme.supporting)
+                    Text(pointsText)
+                        .font(.body.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(componentTextTint(component))
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(component.label).font(.subheadline)
-                    Text("\(formatted(component.earned_points)) / \(formatted(component.max_points))")
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(Theme.supporting)
+                    Text(component.label).font(.body.weight(.medium)).foregroundStyle(DS.ink)
+                    Text(pointsText)
+                        .font(.body.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(componentTextTint(component))
                 }
             }
-            ProgressView(value: component.earned_points, total: component.max_points)
-                .tint(scoreTint(breakdown?.score ?? 0))
-                .accessibilityHidden(true)  // the value is already in the row's label
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(DS.track)
+                    Capsule()
+                        .fill(componentTint(component))
+                        .frame(width: component.max_points > 0
+                               ? geo.size.width * CGFloat(min(1, component.earned_points / component.max_points))
+                               : 0)
+                }
+            }
+            .frame(height: 4)
+            .padding(.vertical, 4)
+            .accessibilityHidden(true)
+            Text(component.detail)
+                .font(.subheadline)
+                .foregroundStyle(DS.supporting)
+            WhyDisclosure(rationale: component.rationale)
         }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(component.label). \(points).")
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(component.label). \(points). \(component.detail)")
     }
 
     /// "30" not "30.0", but "2.14" for fractional per-item values like 15/7.
@@ -346,4 +358,26 @@ struct ScoreScreen: View {
         ScoreScreen(homeID: "preview-home")
     }
     .environment(APIClient())
+}
+
+/// The "Why" reveal, with a selection notch — `DisclosureGroup`'s own toggle is silent.
+private struct WhyDisclosure: View {
+    let rationale: String
+    @State private var isExpanded = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            Text(rationale)
+                .font(.footnote)
+                .foregroundStyle(DS.supporting)
+                .padding(.top, 4)
+        } label: {
+            Text("Why")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.accentText)
+        }
+        .tint(Theme.accentText)
+        .onChange(of: isExpanded) { Haptics.selection() }
+        .accessibilityHint("Opens to explain how these points are worked out.")
+    }
 }

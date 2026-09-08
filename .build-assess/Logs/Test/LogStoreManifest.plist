@@ -6,10 +6,10 @@
 	<integer>12</integer>
 	<key>logs</key>
 	<dict>
-		<key>3EA505DD-3574-47BA-8AD7-72E57D40D3FB</key>
+		<key>BC66FDCD-97DD-4C8F-BE70-2FFDE1AAC8FF</key>
 		<dict>
 			<key>auxiliaryLogUniqueIdentifier</key>
-			<string>2BB8129F-C037-479C-8F89-DE94D3CC194D</string>
+			<string>B505898E-84D4-495C-A0ED-2FCBE9621878</string>
 			<key>auxiliaryObservable</key>
 			<dict>
 				<key>highLevelStatus</key>
@@ -21,7 +21,7 @@
 				<key>totalNumberOfTestFailures</key>
 				<integer>0</integer>
 				<key>totalNumberOfWarnings</key>
-				<integer>119</integer>
+				<integer>250</integer>
 			</dict>
 			<key>className</key>
 			<string>IDESchemeActionsInvocationRecord</string>
@@ -30,7 +30,7 @@
 			<key>domainType</key>
 			<string>com.apple.dt.unit.cocoaUnitTest</string>
 			<key>fileName</key>
-			<string>Test-escape_plan-2026.07.29_19-37-28--0700.xcresult</string>
+			<string>Test-escape_plan-2026.09.07_16-42-20--0700.xcresult</string>
 			<key>hasAuxiliaryLog</key>
 			<true/>
 			<key>hasPrimaryLog</key>
@@ -46,7 +46,7 @@
 				<key>totalNumberOfTestFailures</key>
 				<integer>0</integer>
 				<key>totalNumberOfWarnings</key>
-				<integer>118</integer>
+				<integer>207</integer>
 			</dict>
 			<key>schemeIdentifier-containerName</key>
 			<string>escape_plan project</string>
@@ -57,18 +57,18 @@
 			<key>signature</key>
 			<string>Test escape_plan</string>
 			<key>timeStartedRecording</key>
-			<real>807071848.86783302</real>
+			<real>810517340.00373697</real>
 			<key>timeStoppedRecording</key>
-			<real>807071860.44372404</real>
+			<real>810517406.41836405</real>
 			<key>title</key>
 			<string>Test escape_plan</string>
 			<key>uniqueIdentifier</key>
-			<string>3EA505DD-3574-47BA-8AD7-72E57D40D3FB</string>
+			<string>BC66FDCD-97DD-4C8F-BE70-2FFDE1AAC8FF</string>
 		</dict>
-		<key>D083AFF6-3EE4-4699-AD41-831AFD93E7CE</key>
+		<key>EFD64F92-0666-4105-8D2F-52D613633341</key>
 		<dict>
 			<key>auxiliaryLogUniqueIdentifier</key>
-			<string>DA59827A-CEFA-4025-AA5B-4B95AD0C0E02</string>
+			<string>9606BE36-D0F3-41FD-882B-144AD755D786</string>
 			<key>auxiliaryObservable</key>
 			<dict>
 				<key>highLevelStatus</key>
@@ -80,7 +80,7 @@
 				<key>totalNumberOfTestFailures</key>
 				<integer>0</integer>
 				<key>totalNumberOfWarnings</key>
-				<integer>120</integer>
+				<integer>242</integer>
 			</dict>
 			<key>className</key>
 			<string>IDESchemeActionsInvocationRecord</string>
@@ -89,7 +89,7 @@
 			<key>domainType</key>
 			<string>com.apple.dt.unit.cocoaUnitTest</string>
 			<key>fileName</key>
-			<string>Test-escape_plan-2026.07.29_19-03-35--0700.xcresult</string>
+			<string>Test-escape_plan-2026.09.07_17-38-56--0700.xcresult</string>
 			<key>hasAuxiliaryLog</key>
 			<true/>
 			<key>hasPrimaryLog</key>
@@ -105,7 +105,7 @@
 				<key>totalNumberOfTestFailures</key>
 				<integer>0</integer>
 				<key>totalNumberOfWarnings</key>
-				<integer>119</integer>
+				<integer>199</integer>
 			</dict>
 			<key>schemeIdentifier-containerName</key>
 			<string>escape_plan project</string>
@@ -116,13 +116,13 @@
 			<key>signature</key>
 			<string>Test escape_plan</string>
 			<key>timeStartedRecording</key>
-			<real>807069815.095788</real>
+			<real>810520736.165815</real>
 			<key>timeStoppedRecording</key>
-			<real>807069829.53536201</real>
+			<real>810520777.40508699</real>
 			<key>title</key>
 			<string>Test escape_plan</string>
 			<key>uniqueIdentifier</key>
-			<string>D083AFF6-3EE4-4699-AD41-831AFD93E7CE</string>
+			<string>EFD64F92-0666-4105-8D2F-52D613633341</string>
 		</dict>
 	</dict>
 </dict>

@@ -460,7 +460,50 @@ cleanly and silently produces bounding boxes.
       is now wired — Home tab → swipe a home → "Drill". (S4.2)
 - [ ] Confirm practiced-state persists and moves the preparedness score across a relaunch. (S4.2)
 
+## Claude Design implementation (2026-09-07 — restyle landed, uncommitted)
+
+Design project `66734cd4-4e07-4cf5-a116-5ded7e6dec0c`, exported to `docs/design/claude-design-export/`.
+Home, Assistant, Settings, Onboarding, Score and the House dock now follow it via
+`Screens/DesignKit.swift`; a **Beta** tab (leftmost) hosts the old home library. Session note:
+`notes/2026-09-07-claude-design-implementation.md`; deviations: decisions.md 2026-09-07.
+
+- [ ] **Redeploy the Render backend from `main`.** It is still pre-schema-2.0: `/score` returns
+      422 for every current client, and it cold-starts in ~32 s. Fresh installs therefore open on
+      "Score unavailable". Next action: trigger the Render deploy, then `curl /health` and one
+      `/score` with `schema/fixtures/twostory.json`.
+- [ ] Decide whether the Beta tab ships in Release. Visible in all configurations today (owner's
+      request). Next action: owner call; `#if DEBUG` around the tab item in `ContentView` if not.
+- [x] ~~Collapsing House model card (design: 400pt → 190pt sticky on scroll)~~ — done later the
+      same day via `onScrollGeometryChange` (decisions.md 2026-09-07). Verify feel on device:
+      SceneKit resizes per scroll frame; check for jank on hardware.
+- [ ] **Confirm the Assistant composer rides the keyboard on a device.** It now sits in the list's
+      bottom safe-area inset (the canonical placement) but the simulator session would not show
+      the on-screen keyboard. Next action: open Assistant on the phone, tap the field, confirm the
+      capsule sits on the keyboard's top edge and the list scrolls behind it.
+- [ ] **Feel the haptics on hardware.** Every button clicks on press-down; the gauge ratchets 25
+      notches. If it reads as too busy, the single knob is `Haptics.press()` (soft → nothing) and
+      `HapticSweep.tick` intensity. Next action: one pass over Home, House dock, Beta swipes.
+- [ ] House title-row Export / Edit pills from the design. Skipped; both live in the toolbar menu.
+- [ ] `DSPill` person picker on House. Kept the native `Picker` to preserve `plan.profile.picker`
+      accessibility identifiers. Next action: only with a matching UI-test update.
+- [ ] Re-run the **UI** tests (`escape_planUITests`) after the restyle. Unit tests are the gate
+      being run in-session; the UI suite is slow and keys on identifiers that were preserved but
+      not re-verified end-to-end.
+
 ## iOS — real code gaps
+
+- [ ] **A unit test writes a demo home into the app's real `Documents/Homes`.** Every
+      `-only-testing:escape_planTests` run on the simulator left a new `*.homeplan.json` in the
+      app container (17:39 on 2026-09-07, matching the suite's start time) — the test host shares
+      the app's sandbox, so a test that calls the onboarding seed against the default
+      `HomeDocumentStore()` pollutes the tester's library. Next action: point that test at a
+      temporary directory store — it is `escape_planTests/OnboardingTests.swift:150`
+      (`state.seedIfNeeded()` on a default `OnboardingState`).
+- [ ] **Onboarding seeds a new "Demo Home (scanned)" on every run**, not only into an empty
+      library. `OnboardingState.seedIfNeeded()` fires from "Get started"; each re-run of the
+      interview (flag reset, fresh install over an iCloud-restored library) adds a duplicate.
+      Seen 2026-09-07: two extra demo homes after one verification pass. Next action: make the
+      seed conditional on the library being empty, or reuse an existing demo home by a stable id.
 
 _2026-07-24: three closed. The three demo homes now seed on first launch
 (`FixtureSeeder.seedStarterHomes`) — nothing created them before, which is why the screenshot
@@ -625,6 +668,13 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       the app description + "what we learned" answers. (S5.3)
 
 ## Process & repo hygiene
+
+- [ ] **`.build-assess/` is tracked in git — 2,826 derived-data files.** Committed in `ce18f63`
+      (2026-07-22) before `.build-*/` reached `.gitignore`; ignore rules never untrack. Every
+      `xcodebuild … -derivedDataPath .build-assess` run since then dirties the tree with hundreds
+      of module-cache "deletions" and index "modifications", which hides real changes in
+      `git status`. Next action: `git rm -r --cached .build-assess` in its own commit (no source
+      change), then confirm `git status` is clean after a build. Found 2026-09-07.
 
 - [ ] **iOS test runs are ~1-in-3 flaky at launch (found 2026-08-04).** Three identical
       back-to-back full runs: pass / fail (10 failures) / pass. Every failure was
