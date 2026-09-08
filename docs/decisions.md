@@ -1253,3 +1253,9 @@ Twice in the day the Home ScrollView lost its offset after a re-score. Animating
 replacement of the list content is the one plausible trigger; the gauge animates itself now and
 rows update in place, so the `withAnimation` came out. Three refresh cycles afterwards held
 position. If it recurs on device, look at the `breakdown` swap first.
+
+## 2026-09-08: S6.9 Responder Snapshot (Security Review)
+- **Local-Only Architecture preserved**: The Responder Snapshot operates entirely on the device. It relies on the offline-cached Route Plan and the `ScoreBreakdown` via `ScoreCache`, bypassing `APIClient`.
+- **Consent requirement**: A plain-language consent screen is required to enable the feature. The user must manually tap "Generate" and use the system share sheet (`UIActivityViewController`). There is no automated transmission path to any service, let alone a fire department backend.
+- **Anonymization guarantee**: The snapshot extractor iterates over profiles but ONLY aggregates by `bedroom_room_id` for profiles with `.mobility_limited` or `.vision_impaired` tags. Both PDF output and JSON payloads were explicitly verified in `ResponderSnapshotTests.swift` to never contain profile names, device identifiers, or location data (unless manually typed into the home name).
+- **Designed-not-integrated scope lock**: The snapshot is designed for the user to hand to first responders, but explicitly avoids *integrating* with external responder systems for privacy reasons. We provide a structured JSON and PDF that the user can share at their own discretion.

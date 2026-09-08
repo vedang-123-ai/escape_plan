@@ -206,6 +206,17 @@ enum EscapePlanPDF {
             text: "This is an automatically generated offline snapshot. Names are excluded by design.",
             font: .italicSystemFont(ofSize: 9), gray: 0.15, spacingBefore: 2))
             
+        var isStale = true
+        if let lastScanned = home.meta.last_scanned {
+            isStale = Date().timeIntervalSince(lastScanned) > (30 * 24 * 3600)
+        }
+        
+        if isStale {
+            blocks.append(Block(
+                text: "WARNING: Home scan is missing or over 30 days old. Layout and occupant data may be inaccurate.",
+                font: .systemFont(ofSize: 10, weight: .heavy), gray: 0, spacingBefore: 6))
+        }
+            
         // Vulnerable occupants on this floor
         var vulnerableCounts: [String: Int] = [:]
         for profile in home.profiles {

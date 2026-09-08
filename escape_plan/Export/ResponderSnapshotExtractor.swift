@@ -61,9 +61,15 @@ enum ResponderSnapshotExtractor {
             }
         }
         
+        var isStale = true
+        if let lastScanned = home.meta.last_scanned {
+            isStale = now.timeIntervalSince(lastScanned) > (30 * 24 * 3600)
+        }
+        
         return ResponderSnapshotJSON(
             generatedAt: now,
             lastScannedAt: home.meta.last_scanned,
+            isStale: isStale,
             readinessScore: document.scoreResponse?.score,
             safeRoomName: safeRoomName,
             vulnerableOccupants: vulnerableList,

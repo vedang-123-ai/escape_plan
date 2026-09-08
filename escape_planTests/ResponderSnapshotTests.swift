@@ -47,3 +47,37 @@ final class ResponderSnapshotTests: XCTestCase {
         XCTAssertFalse(pdfString.contains("Bob"), "PDF must not contain the name Bob")
     }
 }
+
+extension ResponderSnapshotTests {
+    func testTwostoryFixtureAnonymity() throws {
+        var home = try FixtureLoader.load(.twostory)
+        
+        // Give someone a name so we can assert it is stripped
+        home.profiles[0].name = "Grandpa Joe"
+        home.profiles[0].tags.append(.mobility_limited)
+        home.meta.last_scanned = nil // Force stale
+        
+        let plan = EscapePlanDocument(
+            home: home,
+            plan: nil,
+            scoreResponse: nil,
+            isResponderSnapshot: true
+        )
+        
+        let json = ResponderSnapshotExtractor.extract(from: plan)
+        
+        // Stale test
+        XCTAssertTrue(json.isStale)
+        
+        let jsonEncoder = JSONEncoder()
+        let jsonData = try jsonEncoder.encode(json)
+        let jsonString = String(data: jsonData, encoding: .utf8)!
+        
+        XCTAssertFalse(jsonString.contains("Grandpa Joe"), "JSON must not contain the name")
+        // The twostory fixture might have multiple profiles, but at least 1 is mobility_limited now.
+        XCTAssertTrue(json.vulnerableOccupants.count > 0, "Should have at least 1 vulnerable occupant count")
+        
+        let pdfOutput = EscapePlanPDF.render(plan)
+        XCTAssertTrue(pdfOutput.data.count > 0, "PDF renders without error and produces data")
+    }
+}

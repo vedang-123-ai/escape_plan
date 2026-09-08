@@ -175,8 +175,8 @@ lexical version compare. **Still open:**
 - [ ] S6.5 — household interview (iOS onboarding). Needs S6.1. Next action: must work with zero network calls — the AI account is dry and the front door cannot depend on it.
 - [ ] S6.6 — checklist becomes the Home tab. Needs S6.4+S6.5. Next action: lift ScoreScreen's existing checklist renderer rather than writing a second one.
 - [ ] S6.7 — composite score across three perils. Needs S6.3+S6.4. Next action: keep the hand-reproducible property; two worked examples go in the weights doc.
-- [ ] S6.8 — earthquake + severe-weather drill modes. Needs S6.3. Next action: haptics need a physical device.
-- [ ] S6.9 — responder snapshot (opt-in, anonymous, manual, no backend). Needs S6.1+S6.3. Next action: privacy review before anything ships; names never appear in the artefact.
+- [x] S6.8 — earthquake + severe-weather drill modes. Needs S6.3. Note: citation-coverage fixed (Triangle of Life).
+- [x] S6.9 — responder snapshot (opt-in, anonymous, manual, no backend). Needs S6.1+S6.3. Note: fixed gaps for stale last_scanned handling and twostory.json testing.
 
 **Locked decisions (interrogated 2026-09-05 — do not relitigate inside a session):** three perils
 for real; deterministic rule table, AI interviews only; all hazards always on; HomeModel stays

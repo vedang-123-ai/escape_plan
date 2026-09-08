@@ -3,6 +3,7 @@ import Foundation
 struct ResponderSnapshotJSON: Codable {
     var generatedAt: Date
     var lastScannedAt: Date?
+    var isStale: Bool
     var readinessScore: Int?
     var safeRoomName: String?
     var vulnerableOccupants: [VulnerableOccupant]
