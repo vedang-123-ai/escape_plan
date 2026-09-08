@@ -1116,3 +1116,26 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Commits this session**
   - 52c439c Review is agent-run now: no human reviewer, no PR gate
 
+## 2026-09-07T23:55:59Z · Anish Yarrakonda · `main` @ `dac8673`
+
+**Uncommitted working-tree changes (4)**
+  - M escape_plan/Models/ScoreModels.swift
+  - M escape_plan/Screens/HomeScreen.swift
+  - M escape_planTests/ScoreModelsTests.swift
+  - ?? escape_planUITests/CriticalSectionUITests.swift
+
+## 2026-09-08T05:26:45Z · Anish Yarrakonda · `main` @ `9a6e9dc`
+
+**Uncommitted working-tree changes (11)**
+  - M  backend/app/scoring/checklist.py
+  - M  backend/app/scoring/score.py
+  - UU backend/tests/test_scoring.py
+  - M  docs/preparedness-score-weights.md
+  - M  docs/tracker/activity-log.md
+  - M  escape_plan/Models/ScoreModels.swift
+  - UU escape_plan/Screens/HomeScreen.swift
+  - UU escape_plan/Screens/ScoreScreen.swift
+  - M  escape_planTests/ScoreModelsTests.swift
+  - M  escape_planUITests/ScoreScreenshotUITests.swift
+  - ?? escape_planTests/CriticalSectionTests.swift
+

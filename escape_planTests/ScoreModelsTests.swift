@@ -61,6 +61,7 @@ final class ScoreModelsTests: XCTestCase {
           "home_id": "home-1",
           "home_name": "Twostory",
           \(scoreLine)
+          "sub_scores": {"fire": 75, "earthquake": 75, "severe_weather": 75},
           "components": [\(componentList)],
           "checklist": [\(checklistList)]
         }
@@ -108,12 +109,14 @@ final class ScoreModelsTests: XCTestCase {
         // `egress` is here because its absence broke the Score screen outright between
         // 2026-07-27 and 2026-08-02 — see the enum's doc comment.
         let categories = ["smoke_alarm", "practice", "routes", "egress",
-                          "agent_finding", "recommendation"]
+                          "agent_finding", "recommendation", "shutoffs",
+                          "safe_room", "mitigation", "supply_kit", "alerts"]
         let breakdown = try decodeBreakdown(breakdownJSON(
             checklist: categories.enumerated().map { itemJSON(id: "item.\($0.offset)", category: $0.element) }))
         XCTAssertEqual(breakdown.checklist.map(\.category),
                        [.smoke_alarm, .practice, .routes, .egress,
-                        .agent_finding, .recommendation])
+                        .agent_finding, .recommendation, .shutoffs,
+                        .safe_room, .mitigation, .supply_kit, .alerts])
     }
 
     /// The regression guard. A category this build has never heard of must cost one row's
@@ -122,12 +125,29 @@ final class ScoreModelsTests: XCTestCase {
     func testUnknownChecklistCategoryFallsBackInsteadOfFailingTheScreen() throws {
         let breakdown = try decodeBreakdown(breakdownJSON(checklist: [
             itemJSON(id: "known", category: "smoke_alarm"),
-            itemJSON(id: "from.the.future", category: "earthquake"),
+            itemJSON(id: "from.the.future", category: "future_hazard"),
         ]))
         XCTAssertEqual(breakdown.checklist.count, 2, "the whole breakdown must still decode")
         XCTAssertEqual(breakdown.checklist[1].category, .other)
         // …and the row is still readable: only the category degraded.
         XCTAssertEqual(breakdown.checklist[1].id, "from.the.future")
+    }
+
+    func testSeverityDecodesTolerantly() throws {
+        let defaultItem = try decodeBreakdown(breakdownJSON(checklist: [
+            itemJSON(id: "item", category: "agent_finding")
+        ]))
+        XCTAssertEqual(defaultItem.checklist[0].severity, .info, "omitted severity defaults to .info")
+        
+        let highItem = try decodeBreakdown(breakdownJSON(checklist: [
+            itemJSON(id: "item", category: "agent_finding", extra: #", "severity": "high""#)
+        ]))
+        XCTAssertEqual(highItem.checklist[0].severity, .high)
+        
+        let unknownItem = try decodeBreakdown(breakdownJSON(checklist: [
+            itemJSON(id: "item", category: "agent_finding", extra: #", "severity": "critical""#)
+        ]))
+        XCTAssertEqual(unknownItem.checklist[0].severity, .info, "unknown severity falls back to .info")
     }
 
 

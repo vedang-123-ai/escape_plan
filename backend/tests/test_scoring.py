@@ -1,10 +1,20 @@
-"""S3.5 acceptance: the score is reproducible by hand from the documented
+"""S3.5 → S6.7 acceptance: the score is reproducible by hand from the documented
 weights, and completing a checklist item moves it by the documented amount.
 
-Every expected number here is hand-calculated in
+Every fixture number here is hand-calculated in
 docs/preparedness-score-weights.md § Worked examples. If a weight changes, both
 this file and that doc must change together — that pairing IS the acceptance
 criterion ("a reviewer can reproduce any fixture's score by hand").
+
+S6.7 (2026-09-07) replaced the single summed-weighted-components model (5 fixed
+components: primary_routes/secondary_routes/findings/smoke_alarms/practice)
+with three independent peril sub-scores (fire/earthquake/severe_weather) and a
+weighted composite (0.5×min + 0.25×mid + 0.25×max), capped at 40 whenever any
+unresolved checklist item — scoring or not — carries `high` severity. The tests
+below that pinned the old component model are rewritten against the new one;
+the rest (auth, citations, checklist generation/id stability, egress/routes/
+recommendation non-scoring behavior) are unaffected by that change and are
+kept as-is.
 
 No network: the grounded-recommendation path is faked. Live coverage is
 tests/test_ai_live.py (S3.1), which this session did not extend.
@@ -20,10 +30,10 @@ from app.ai.grounded import GroundingError, Recommendation
 from app.main import app
 from app.models import HomeModel
 from app.routing.engine import compute_route_plan
-from app.scoring.checklist import build_checklist, finding_items, route_items
+from app.scoring.checklist import ChecklistItem, build_checklist, finding_items, route_items
 from app.scoring.findings import Finding, finding_id
 from app.scoring.recommend import _map_recommendations
-from app.scoring.score import ScoreBreakdown, compute_score
+from app.scoring.score import SEVERITY_DEDUCTIONS, ScoreBreakdown, compute_score
 
 TEST_TOKEN = "test-token-not-a-secret"
 AUTH = {"Authorization": f"Bearer {TEST_TOKEN}"}
@@ -46,10 +56,6 @@ def _scored(fixture: dict, findings=None, state=None) -> ScoreBreakdown:
     return compute_score(home, plan, findings or [], state or {}, thresholds)
 
 
-def _component(breakdown: ScoreBreakdown, key: str):
-    return next(c for c in breakdown.components if c.key == key)
-
-
 def _all_done(breakdown: ScoreBreakdown) -> dict[str, bool]:
     return {item.id: True for item in breakdown.checklist if item.scoring}
 
@@ -65,113 +71,135 @@ def _high(room_id: str) -> Finding:
     )
 
 
-# --- hand-calculated fixture scores -----------------------------------------
-# Empty checklist, no agent findings. See the weights doc for the arithmetic.
+# --- hand-calculated fixture scores (S6.7 composite model) ------------------
+# Empty checklist, no agent findings. See docs/preparedness-score-weights.md
+# § Worked examples for the arithmetic these numbers reproduce.
 
 
-def test_bungalow_baseline_score_is_75(bungalow: dict):
-    # 4/4 primary = 30, 4/4 secondary = 25, no findings = 20, alarms 0/5 = 0,
-    # practice 0/2 = 0  ->  75
+def test_bungalow_baseline_score(bungalow: dict):
+    # The only `scoring: true` items are 5 smoke-alarm items (fire, info, -5
+    # each) and 1 practice.meeting_point item (general, info, -5).
+    # fire = 100-30=70, earthquake=severe_weather=100-5=95.
+    # composite = 0.5*70 + 0.25*95 + 0.25*95 = 82.5 -> 83 (round-half-up).
     result = _scored(bungalow)
-    assert result.score == 75
-    assert _component(result, "primary_routes").earned_points == 30.0
-    assert _component(result, "secondary_routes").earned_points == 25.0
-    assert _component(result, "findings").earned_points == 20.0
-    assert _component(result, "smoke_alarms").earned_points == 0.0
-    assert _component(result, "practice").earned_points == 0.0
+    assert result.sub_scores == {"fire": 70, "earthquake": 95, "severe_weather": 95}
+    assert result.score == 83
 
 
-def test_apartment_baseline_score_is_50(apartment: dict):
-    # The single-exit apartment: 5/5 primary = 30, 0/5 secondary = 0,
-    # no findings = 20, alarms 0/6 = 0, practice 0/2 = 0  ->  50
+def test_apartment_baseline_score(apartment: dict):
+    # 6 smoke-alarm items + 1 meeting-point item are the only scoring items.
+    # fire = 100-35=65, earthquake=severe_weather=95.
+    # composite = 0.5*65 + 0.25*95 + 0.25*95 = 80.
     result = _scored(apartment)
-    assert result.score == 50
-    assert _component(result, "secondary_routes").earned_points == 0.0
-    assert "0 of 5 rooms" in _component(result, "secondary_routes").detail
+    assert result.sub_scores == {"fire": 65, "earthquake": 95, "severe_weather": 95}
+    assert result.score == 80
+    # The single front door means no secondary egress — but routes items are
+    # non-scoring, so that fact never shows up as a point deduction.
+    route_items_ = [i for i in result.checklist if i.category == "routes"]
+    assert route_items_ and all(not i.scoring for i in route_items_)
 
 
-def test_twostory_baseline_score_is_75(twostory: dict):
-    # 7/7 primary = 30, 7/7 secondary = 25, no findings = 20, alarms 0/7 = 0,
-    # practice 0/2 = 0  ->  75
+def test_twostory_baseline_score(twostory: dict):
+    # 7 smoke-alarm items + 1 meeting-point item.
+    # fire = 100-40=60, earthquake=severe_weather=95.
+    # composite = 0.5*60 + 0.25*95 + 0.25*95 = 77.5 -> 78.
     result = _scored(twostory)
-    assert result.score == 75
+    assert result.sub_scores == {"fire": 60, "earthquake": 95, "severe_weather": 95}
+    assert result.score == 78
 
 
 @pytest.mark.parametrize(
-    "fixture_name,expected", [("bungalow", 100), ("apartment", 75), ("twostory", 100)]
+    "fixture_name", ["bungalow", "apartment", "twostory"]
 )
-def test_fully_checked_scores(fixture_name: str, expected: int, request):
-    """All boxes ticked: alarms 15 + practice 10 land in full. The apartment
-    still caps at 75 — no checklist can buy it a second way out."""
+def test_fully_checked_scores_reach_100(fixture_name: str, request):
+    """All scoring boxes ticked -> every sub-score is 100 -> composite is 100.
+    Unlike the old model, the apartment is no longer capped at 75 — its missing
+    secondary egress is a `routes` finding, and routes have never been
+    scoring."""
     fixture = request.getfixturevalue(fixture_name)
     baseline = _scored(fixture)
     result = _scored(fixture, state=_all_done(baseline))
-    assert result.score == expected
+    assert result.sub_scores == {"fire": 100, "earthquake": 100, "severe_weather": 100}
+    assert result.score == 100
 
 
 # --- checklist completion moves the score deterministically -----------------
 
 
-def test_one_alarm_item_moves_twostory_by_15_over_7(twostory: dict):
-    """7 alarm items on the two-story → 15/7 ≈ 2.142857 points each.
-    75 + 2.142857 = 77.14 → 77."""
+def test_one_alarm_item_moves_twostory_fire_by_5(twostory: dict):
+    """Every smoke-alarm item is worth a flat 5 fire points (info severity)."""
     baseline = _scored(twostory)
-    alarm_items = [i for i in baseline.checklist if i.component == "smoke_alarms"]
+    alarm_items = [i for i in baseline.checklist if i.category == "smoke_alarm"]
     assert len(alarm_items) == 7
     after = _scored(twostory, state={alarm_items[0].id: True})
-    assert after.score == 77
-    delta = (
-        _component(after, "smoke_alarms").earned_points
-        - _component(baseline, "smoke_alarms").earned_points
-    )
-    assert delta == pytest.approx(15 / 7)
+    assert after.sub_scores["fire"] == baseline.sub_scores["fire"] + 5
+    assert after.score == 80
 
 
-def test_meeting_point_item_is_worth_5(bungalow: dict):
+def test_meeting_point_item_moves_all_three_sub_scores(bungalow: dict):
+    """practice.meeting_point is hazard="general" — it counts toward every
+    peril's sub-score, not just one."""
     baseline = _scored(bungalow)
     after = _scored(bungalow, state={"practice.meeting_point": True})
-    assert _component(after, "practice").earned_points == 5.0
-    assert after.score == baseline.score + 5
+    assert after.sub_scores["fire"] == baseline.sub_scores["fire"] + 5
+    assert after.sub_scores["earthquake"] == baseline.sub_scores["earthquake"] + 5
+    assert after.sub_scores["severe_weather"] == baseline.sub_scores["severe_weather"] + 5
+    assert after.score == 88
 
 
-def test_each_bungalow_alarm_item_is_worth_3(bungalow: dict):
-    # 5 alarm items on a 1-floor/1-bedroom home → 15/5 = 3.00 each, exactly.
+def test_each_bungalow_alarm_item_moves_fire_by_5(bungalow: dict):
+    # 5 alarm items on a 1-floor/1-bedroom home, each worth 5 fire points.
     baseline = _scored(bungalow)
-    alarm_ids = [i.id for i in baseline.checklist if i.component == "smoke_alarms"]
+    alarm_ids = [i.id for i in baseline.checklist if i.category == "smoke_alarm"]
     assert len(alarm_ids) == 5
-    for count in range(1, 6):
+    expected_score_by_count = [83, 85, 88, 90, 93, 95]
+    for count in range(0, 6):
         result = _scored(bungalow, state={i: True for i in alarm_ids[:count]})
-        assert result.score == 75 + 3 * count
+        assert result.sub_scores["fire"] == 70 + 5 * count
+        assert result.score == expected_score_by_count[count]
 
 
 def test_non_scoring_items_do_not_move_the_score(apartment: dict):
     """Ticking a routes item must not buy points — the routes components move
     only when the model actually changes and the engine re-runs."""
     baseline = _scored(apartment)
-    route_items = [i for i in baseline.checklist if i.category == "routes"]
-    assert route_items and all(not i.scoring for i in route_items)
-    after = _scored(apartment, state={i.id: True for i in route_items})
+    route_items_ = [i for i in baseline.checklist if i.category == "routes"]
+    assert route_items_ and all(not i.scoring for i in route_items_)
+    after = _scored(apartment, state={i.id: True for i in route_items_})
     assert after.score == baseline.score
 
 
-# --- findings component ------------------------------------------------------
+# --- agent findings: cap, not a per-item deduction ---------------------------
+# S3.2 agent findings are always scoring=False (finding_items). Under the old
+# model they deducted a fixed amount by severity; under S6.7 they instead
+# trigger (high severity only) the 40-point composite cap. Bug A fix
+# (2026-09-07): the cap check must ignore the `scoring` flag entirely so a
+# structural finding like no_viable_route — which is scoring=False by design,
+# since it's fixed by changing the home, not by checking a box — still caps
+# the score.
 
 
-def test_high_severity_finding_costs_10(apartment: dict):
+def test_high_severity_finding_caps_the_score(apartment: dict):
     result = _scored(apartment, findings=[_high("r_bed1")])
-    assert _component(result, "findings").earned_points == 10.0
-    assert result.score == 40  # 50 - 10
+    assert result.score == 40
+    assert any(
+        i.category == "agent_finding" and i.severity == "high" and not i.done
+        for i in result.checklist
+    )
 
 
-def test_findings_component_floors_at_zero(apartment: dict):
+def test_multiple_high_severity_findings_do_not_stack(apartment: dict):
+    """The cap is a ceiling, not a per-item deduction: three high-severity
+    findings cap the score exactly as hard as one."""
     result = _scored(apartment, findings=[_high("r_bed1")] * 3)
-    assert _component(result, "findings").earned_points == 0.0
-    assert result.score == 30
+    assert result.score == 40
 
 
-def test_mixed_severities_deduct_per_documented_table(bungalow: dict):
-    findings = [
-        _high("r_bedroom"),
+def test_only_high_severity_findings_trigger_the_cap(bungalow: dict):
+    """med/low severity agent findings never move the score (they're
+    scoring=False and don't meet the cap's severity=="high" bar); a high one
+    still caps the composite at 40."""
+    med_low = [
         Finding(
             severity="med",
             room_ids=["r_kitchen"],
@@ -189,13 +217,52 @@ def test_mixed_severities_deduct_per_documented_table(bungalow: dict):
             citation="irc-2021-r310",
         ),
     ]
-    # 20 - (10 + 4 + 1) = 5
-    result = _scored(bungalow, findings=findings)
-    assert _component(result, "findings").earned_points == 5.0
-    assert result.score == 60
+    baseline = _scored(bungalow)
+    result_med_low = _scored(bungalow, findings=med_low)
+    assert result_med_low.score == baseline.score
+
+    result_with_high = _scored(bungalow, findings=med_low + [_high("r_bedroom")])
+    assert result_with_high.score == 40
 
 
-# --- purity and explainability ----------------------------------------------
+def test_high_severity_caps_even_when_everything_else_is_done(apartment: dict):
+    """A fully-checked-off home with one unresolved high-severity finding must
+    still land at 40 — the cap overrides a perfect checklist. This is the
+    "wheelchair user can't get out" scenario the cap exists for."""
+    home = HomeModel.model_validate(apartment)
+    thresholds = config.get_thresholds()
+    plan = compute_route_plan(home, thresholds)
+    baseline = compute_score(home, plan, [_high("r_bed1")], {}, thresholds)
+    all_done = {i.id: True for i in baseline.checklist if i.scoring}
+    breakdown = compute_score(home, plan, [_high("r_bed1")], all_done, thresholds)
+    assert breakdown.score == 40
+    assert any(i.severity == "high" and not i.done for i in breakdown.checklist)
+
+
+# --- lapsed recurring items are non-punitive (S6.7 acceptance criterion) ----
+
+
+def test_lapsed_rescan_does_not_reduce_score(bungalow: dict):
+    """rescan.home is scoring=False: staleness never costs a point."""
+    baseline = _scored(bungalow)
+    checked = _scored(bungalow, state={"rescan.home": True})
+    assert checked.score == baseline.score
+
+
+def test_lapsed_drill_does_not_reduce_score(bungalow: dict):
+    """Bug B fix (2026-09-07): practice.drill_recent must be scoring=False for
+    the same reason as rescan.home — a lapsed or never-done drill flags
+    staleness on the checklist but never lowers the score."""
+    baseline = _scored(bungalow)
+    drill_item = next(
+        i for i in baseline.checklist if i.id == "practice.drill_recent"
+    )
+    assert drill_item.scoring is False
+    checked = _scored(bungalow, state={"practice.drill_recent": True})
+    assert checked.score == baseline.score
+
+
+# --- purity, determinism, and explainability ---------------------------------
 
 
 def test_score_is_deterministic(twostory: dict):
@@ -214,25 +281,62 @@ def test_compute_score_does_not_mutate_inputs(bungalow: dict):
     assert (home.model_dump(mode="json"), plan.model_dump(mode="json")) == before
 
 
-def test_components_sum_to_score(twostory: dict):
-    result = _scored(twostory, state={"practice.meeting_point": True})
-    assert sum(c.earned_points for c in result.components) == pytest.approx(80.0)
-    assert result.score == 80
+def test_largest_deduction_component_shape(twostory: dict):
+    """New model: `components` holds 0 or 1 entries — the single largest
+    unresolved scoring deduction across all perils — not a fixed set of five.
+    See the ScoreComponent doc comment in ScoreModels.swift and the "Largest
+    Deduction" section on ScoreScreen. (Replaces the old
+    test_components_sum_to_score / test_every_component_explains_itself, which
+    pinned the old 5-fixed-components model.)"""
+    baseline = _scored(twostory)
+    assert len(baseline.components) == 1
+    component = baseline.components[0]
+    matching_item = next(
+        i for i in baseline.checklist if i.id == component.key
+    )
+    assert component.earned_points == 0.0
+    assert component.max_points == SEVERITY_DEDUCTIONS[matching_item.severity]
+    assert component.detail and component.rationale
+
+    fully_done = _scored(twostory, state=_all_done(baseline))
+    assert fully_done.components == []
 
 
-def test_every_component_explains_itself(bungalow: dict):
-    result = _scored(bungalow)
-    assert [c.key for c in result.components] == [
-        "primary_routes",
-        "secondary_routes",
-        "findings",
-        "smoke_alarms",
-        "practice",
-    ]
-    assert sum(c.max_points for c in result.components) == 100.0
-    for component in result.components:
-        assert component.detail and component.rationale
-        assert 0.0 <= component.earned_points <= component.max_points
+def test_ai_recommendations_non_scoring(bungalow: dict, monkeypatch):
+    """category == "recommendation" items must never move a sub-score, even a
+    (deliberately, adversarially) mis-tagged one with scoring=True and
+    severity="high" — the category exclusion in compute_score, not the
+    scoring flag, is what recommend.py's non-scoring guarantee rests on.
+    test_score_endpoint_appends_recommendations_without_moving_score pins the
+    same guarantee at the endpoint level, where recommendations are appended
+    after scoring is already computed; this test pins it at the compute_score
+    level directly."""
+    import app.scoring.score as score_module
+
+    home = HomeModel.model_validate(bungalow)
+    thresholds = config.get_thresholds()
+    plan = compute_route_plan(home, thresholds)
+    baseline = compute_score(home, plan, [], {}, thresholds)
+
+    poison = ChecklistItem(
+        id="recommendation.poison",
+        category="recommendation",
+        hazard="fire",
+        title="A recommendation dressed up as high severity",
+        detail="If this ever moves a sub-score, the category exclusion broke.",
+        done=False,
+        scoring=True,
+        severity="high",
+    )
+    real_build_checklist = score_module.build_checklist
+    monkeypatch.setattr(
+        score_module,
+        "build_checklist",
+        lambda *a, **k: real_build_checklist(*a, **k) + [poison],
+    )
+    poisoned = compute_score(home, plan, [], {}, thresholds)
+    assert poisoned.sub_scores == baseline.sub_scores
+    assert poisoned.score == baseline.score
 
 
 # --- checklist generation ----------------------------------------------------
@@ -290,6 +394,23 @@ def test_done_state_round_trips(bungalow: dict):
     result = _scored(bungalow, state={"alarm.test_monthly": True})
     done = {i.id for i in result.checklist if i.done}
     assert done == {"alarm.test_monthly"}
+
+
+def test_weights_in_code_match_docs():
+    """Fails if a weight exists in code but not in
+    docs/preparedness-score-weights.md."""
+    from pathlib import Path
+
+    doc_path = (
+        Path(__file__).parent.parent.parent
+        / "docs"
+        / "preparedness-score-weights.md"
+    )
+    doc_text = doc_path.read_text()
+    for severity, deduction in SEVERITY_DEDUCTIONS.items():
+        assert str(int(deduction)) in doc_text, (
+            f"Weight {deduction} for {severity} missing from docs"
+        )
 
 
 # --- stable agent-finding ids (2026-07-23) -----------------------------------
@@ -401,7 +522,7 @@ def test_score_endpoint_requires_token(bungalow: dict):
 
 
 @pytest.mark.parametrize(
-    "fixture_name,expected", [("bungalow", 75), ("apartment", 50), ("twostory", 75)]
+    "fixture_name,expected", [("bungalow", 83), ("apartment", 80), ("twostory", 78)]
 )
 def test_score_endpoint_matches_the_engine(fixture_name: str, expected: int, request):
     fixture = request.getfixturevalue(fixture_name)
@@ -411,6 +532,8 @@ def test_score_endpoint_matches_the_engine(fixture_name: str, expected: int, req
 
 
 def test_score_endpoint_accepts_findings_and_state(apartment: dict):
+    """The high-severity finding caps the composite at 40 regardless of the
+    meeting-point checkbox — the cap overrides ordinary deductions."""
     resp = TestClient(app).post(
         "/score",
         json={
@@ -421,19 +544,20 @@ def test_score_endpoint_accepts_findings_and_state(apartment: dict):
         headers=AUTH,
     )
     assert resp.status_code == 200
-    assert ScoreBreakdown.model_validate(resp.json()).score == 45  # 50 - 10 + 5
+    assert ScoreBreakdown.model_validate(resp.json()).score == 40
 
 
 def test_score_endpoint_honours_constraints(twostory: dict):
-    """Grandpa's mobility_limited profile bans stairs; upstairs rooms lose routes
-    and the score must drop accordingly — the score reflects the plan on screen."""
+    """Grandpa's mobility_limited profile bans stairs; upstairs rooms lose
+    routes, producing a high-severity no_viable_route finding that caps the
+    score — the score reflects the plan on screen."""
     resp = TestClient(app).post(
         "/score",
         json={"home": twostory, "constraints": {"avoid_stairs": True}},
         headers=AUTH,
     )
     assert resp.status_code == 200
-    assert ScoreBreakdown.model_validate(resp.json()).score < 75
+    assert ScoreBreakdown.model_validate(resp.json()).score < 78
 
 
 def test_score_endpoint_appends_recommendations_without_moving_score(
@@ -457,7 +581,7 @@ def test_score_endpoint_appends_recommendations_without_moving_score(
     )
     assert resp.status_code == 200
     result = ScoreBreakdown.model_validate(resp.json())
-    assert result.score == 50  # unchanged vs. the no-recommendations baseline
+    assert result.score == 80  # unchanged vs. the no-recommendations baseline
     assert [i.title for i in result.checklist if i.category == "recommendation"] == [
         "Add an egress window to Bedroom 1."
     ]
@@ -492,10 +616,10 @@ def test_score_endpoint_computes_multi_peril_plans(bungalow: dict):
     """
     resp = TestClient(app).post("/score", json={"home": bungalow}, headers=AUTH)
     assert resp.status_code == 200
-    
+
     breakdown = ScoreBreakdown.model_validate(resp.json())
     ids = {i.id for i in breakdown.checklist}
-    
+
     # Assert a tornado safe room item was generated. A site-built home with an interior
     # room is told WHERE to shelter, never to leave the house.
     assert "safe_room.know" in ids

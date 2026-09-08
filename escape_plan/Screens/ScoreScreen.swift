@@ -107,33 +107,31 @@ struct ScoreScreen: View {
                     .padding(.top, 8)
                 }
 
-                Text("Breakdown")
-                    .sectionHeaderStyle()
-                    .padding(.horizontal, DS.pagePadding)
-                    .padding(.top, 22)
-                    .padding(.bottom, 10)
-                VStack(spacing: 0) {
-                    ForEach(Array(breakdown.components.enumerated()), id: \.element.id) { index, component in
-                        if index > 0 { Divider().padding(.leading, 16) }
-                        componentRow(component)
+                // S6.7: the new composite model returns 0 or 1 components — the single
+                // largest unresolved scoring deduction across all perils — not a fixed set of
+                // five, so this whole block (header, card, explainer) is conditional on there
+                // being one to show at all.
+                if !breakdown.components.isEmpty {
+                    Text("Largest Deduction")
+                        .sectionHeaderStyle()
+                        .padding(.horizontal, DS.pagePadding)
+                        .padding(.top, 22)
+                        .padding(.bottom, 10)
+                    VStack(spacing: 0) {
+                        ForEach(Array(breakdown.components.enumerated()), id: \.element.id) { index, component in
+                            if index > 0 { Divider().padding(.leading, 16) }
+                            componentRow(component)
+                        }
                     }
-                }
-                .dsCard(padding: nil)
-                .padding(.horizontal, DS.pagePadding)
+                    .dsCard(padding: nil)
+                    .padding(.horizontal, DS.pagePadding)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("How it's scored")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(DS.ink)
-                        .accessibilityAddTraits(.isHeader)
                     Text("Points come from the deterministic engine's audit of your home — alarms, routes, findings and practice. The assistant doesn't influence the score.")
-                        .font(.subheadline)
-                        .foregroundStyle(DS.bodyInk)
+                        .font(.footnote)
+                        .foregroundStyle(DS.supporting)
+                        .padding(.horizontal, DS.pagePadding)
+                        .padding(.top, 8)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .dsCard(padding: 16)
-                .padding(.horizontal, DS.pagePadding)
-                .padding(.top, 14)
             }
             .padding(.bottom, 40)
         }
@@ -158,6 +156,14 @@ struct ScoreScreen: View {
                     .padding(.horizontal, 40)
             }
             bandLabel(breakdown.score)
+
+            HStack(spacing: 24) {
+                subScoreView(label: "Fire", score: breakdown.sub_scores["fire"] ?? 0)
+                subScoreView(label: "Earthquake", score: breakdown.sub_scores["earthquake"] ?? 0)
+                subScoreView(label: "Severe Weather", score: breakdown.sub_scores["severe_weather"] ?? 0)
+            }
+            .padding(.top, 8)
+
             if isUpdating {
                 ProgressView()
                     .accessibilityLabel("Updating your score.")
@@ -238,6 +244,22 @@ struct ScoreScreen: View {
         case 50..<80: "exclamationmark.triangle.fill"
         default: "xmark.octagon.fill"
         }
+    }
+
+    /// One of the three S6.7 peril sub-scores, shown under the composite ring.
+    private func subScoreView(label: String, score: Int) -> some View {
+        VStack(spacing: 4) {
+            Text("\(score)")
+                .font(.headline)
+                .foregroundStyle(scoreTextTint(score))
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(DS.supporting)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 80)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label) sub-score is \(score)")
     }
 
     // MARK: - Breakdown

@@ -159,9 +159,15 @@ struct HomeScreen: View {
     /// worth 12 each; real components vary, so a clean 10 is the honest target.
     private func nextMilestone(_ score: Int) -> Int { min(100, (score / 10 + 1) * 10) }
 
+    // S6.7 fix: this used to match `category == .agent_finding && id.contains(...)`, a
+    // brittle string check that missed the no_viable_route/no_viable_safe_room items whose
+    // ids don't contain those substrings, and missed every other severity=="high" finding
+    // (household.sleep_near_exit, safe_room.nearby_shelter, etc). Filtering on `severity`
+    // directly is what the backend's own high-severity cap uses (see
+    // backend/app/scoring/score.py) — the checklist's CRITICAL section should show exactly
+    // the items that can cap the score.
     private func highSeverity(_ items: [ChecklistItem]) -> [ChecklistItem] {
-        items.filter { $0.category == .agent_finding
-            && ($0.id.contains("no_viable_route") || $0.id.contains("no_viable_safe_room")) }
+        items.filter { $0.severity == .high }
     }
 
     private func isDone(_ item: ChecklistItem) -> Bool { checklistState[item.id] ?? item.done }
@@ -207,7 +213,7 @@ struct HomeScreen: View {
             }
             .buttonStyle(HapticPlainButtonStyle())
             .padding(.top, 10)
-            .accessibilityLabel("Preparedness score \(breakdown.score) out of 100. Tap for the breakdown.")
+            .accessibilityLabel("Composite score \(breakdown.score) out of 100. Tap for the breakdown.")
         } else if isScoring {
             HStack(spacing: 10) {
                 ProgressView()
@@ -247,6 +253,7 @@ struct HomeScreen: View {
             .padding(.top, 28)
             .padding(.bottom, 10)
             .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("CRITICAL_Header")
         VStack(spacing: 10) {
             ForEach(items) { item in
                 HStack(alignment: .top, spacing: 14) {
@@ -419,10 +426,21 @@ struct HomeScreen: View {
         VStack(alignment: .leading, spacing: 0) {
             checklistHeader(remaining: regular.filter { !isDone($0) }.count, total: regular.count)
             checklistGroup("Foundation", regular.filter { $0.category == .smoke_alarm })
-            checklistGroup("Know your home", regular.filter { $0.category == .routes || $0.category == .agent_finding })
+            // S6.6 categories routed in (2026-09-07): safe_room joins the routes/agent_finding
+            // "know your home" group; shutoffs/mitigation join "Mitigate"; supply_kit/alerts
+            // join "Stay ready" below. Before this fix these 5 categories matched none of the
+            // filters and silently vanished from the checklist.
+            checklistGroup("Know your home", regular.filter {
+                $0.category == .routes || $0.category == .agent_finding || $0.category == .safe_room
+            })
             checklistGroup("Practice", regular.filter { $0.category == .practice })
-            checklistGroup("Mitigate", regular.filter { $0.category == .egress || $0.category == .recommendation })
-            let other = regular.filter { $0.category == .other }
+            checklistGroup("Mitigate", regular.filter {
+                $0.category == .egress || $0.category == .recommendation
+                    || $0.category == .shutoffs || $0.category == .mitigation
+            })
+            let other = regular.filter {
+                $0.category == .other || $0.category == .supply_kit || $0.category == .alerts
+            }
             if let home = activeHome, isStale(home) {
                 sectionLabel("Stay ready")
                 rescanNudge.dsCard()
