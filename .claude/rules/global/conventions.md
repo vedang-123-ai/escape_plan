@@ -13,6 +13,9 @@
 - **Citations**: corpus content uses inline `[cite: source-id]` tags resolving against
   `backend/corpus/sources.json` (see rules/paths/corpus.md).
 - **Scope locks** (do not relitigate): fire, earthquake and severe weather (tornado); iOS only;
-  LiDAR scan only; no user accounts. Out of scope on purpose: furniture detection, camera-only
-  capture, Android, multi-user sync, disasters beyond those three.
+  LiDAR scan only; no user accounts. Out of scope on purpose: camera-only capture, Android,
+  multi-user sync, disasters beyond those three, custom/trained ML models.
   Multi-peril was approved 2026-09-05 with the S6 readiness arc — it was fire-only before that.
+  Object-hazard detection was approved 2026-09-08 with the S7 arc — "furniture detection" was
+  on the out-of-scope list before that; the sanctioned form is RoomPlan scan objects + guided
+  manual tagging feeding a deterministic engine (`docs/object-hazard-spec.md`), never custom ML.

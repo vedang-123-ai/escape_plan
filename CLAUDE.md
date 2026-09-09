@@ -49,7 +49,7 @@ iOS app that builds a structured 3D model of the user's home (via a full 3D edit
 
 Target monorepo layout (per playbook §2.3): `schema/`, `backend/` (Python 3.11+/FastAPI/pytest), `ios/`, `docs/`. **Current deviation:** the Xcode project lives at the repo root (`escape_plan/`, `escape_plan.xcodeproj`) instead of under `ios/` — moving it would break the open Xcode session; see `docs/decisions.md`.
 
-- `docs/playbook/` — the full execution playbook, one file per session (`S0-1.md` … `S5-3.md`). **Read the session file before starting any session.**
+- `docs/playbook/` — the full execution playbook, one file per session (`S0-1.md` … `S5-3.md`, plus the S6 readiness arc `S6-1.md`…`S6-9.md` and the S7 object-hazard arc `S7-1.md`…`S7-10.md`). **Read the session file before starting any session.**
 - `docs/tracker/` — **the source of truth for status.** `TODO.md` is everything still to do, grouped by area, each line naming its next action; `notes/` is the append-only per-session record; `activity-log.md` is machine-written by a Stop hook. **Read `TODO.md` before picking up work. Update it in the same session the work happens — remove only what you personally verified, and add whatever you discovered.** Writing a session note in `notes/` (copy `_TEMPLATE.md`) is MANDATORY for every work session — no note, no DONE. How-to: `docs/tracker/README.md`.
 - `docs/decisions.md` — running log of deviations from playbook defaults. Update it every session.
 - `docs/tools-used.md` — every library/API/tool with version and purpose. **Required for CAC originality documentation.** Update whenever a dependency is added.
@@ -57,7 +57,7 @@ Target monorepo layout (per playbook §2.3): `schema/`, `backend/` (Python 3.11+
 
 ## Session protocol
 
-Work is organized into checkpointed sessions (S0.1–S5.3) with owners, prerequisites, and acceptance criteria. Dependency map in `docs/playbook/03-sessions-intro.md`. Rules:
+Work is organized into checkpointed sessions (S0.1–S5.3, plus the arc sessions S6.x and S7.x) with owners, prerequisites, and acceptance criteria. Dependency maps: `docs/playbook/03-sessions-intro.md`, `06-pivot-intro.md`, `07-object-hazard-intro.md`. Rules:
 
 1. Never start a session whose prerequisites aren't done
 2. A session is DONE only when all acceptance criteria pass
@@ -74,12 +74,18 @@ Work is organized into checkpointed sessions (S0.1–S5.3) with owners, prerequi
   agents (`schema-contract-guardian` for anything touching `schema/`), run `/verify`, apply your
   own judgement, then merge to `main`. Never tag a human reviewer and never park a branch in an
   open PR waiting for sign-off — that blocked S6.1 while three sessions waited on it.
-- Locked scope: **fire, earthquake, and severe weather (tornado)**, iOS only, LiDAR scan only, no user accounts (local persistence + anonymous device id). Out of scope (deliberate): furniture detection, camera-only capture, Android, multi-user sync, disasters beyond those three.
+- Locked scope: **fire, earthquake, and severe weather (tornado)**, iOS only, LiDAR scan only, no user accounts (local persistence + anonymous device id). Out of scope (deliberate): camera-only capture, Android, multi-user sync, disasters beyond those three.
   - **Multi-peril approved 2026-09-05.** Scope was fire-only until the S6 readiness arc
     (`docs/playbook/06-pivot-intro.md`, `S6-1.md`…`S6-9.md`) was approved by the owner. Earthquake
     and severe weather are now in scope, and the S6 arc is **sanctioned work, not a proposal**.
     The rest of the lock is unchanged — iOS only, LiDAR only, no accounts — and is still not open
     for relitigation. See `docs/decisions.md` (2026-09-05, approval).
+  - **Object-hazard detection approved 2026-09-08** with the S7 arc
+    (`docs/playbook/07-object-hazard-intro.md`, `S7-1.md`…`S7-10.md`; rule book:
+    `docs/object-hazard-spec.md`). This line's out-of-scope list carried "furniture detection"
+    until that approval — the reversal is a scan-object + guided-tagging pipeline feeding a
+    deterministic hazard engine, NOT custom ML, which remains out of scope. See
+    `docs/decisions.md` (2026-09-08, approval).
 
 ## Detailed rules (auto-loaded)
 

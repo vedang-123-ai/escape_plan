@@ -1,6 +1,7 @@
 # Working protocol
 
-Work is organized into checkpointed sessions S0.1–S5.3 (`docs/playbook/S<x>-<y>.md`), each with
+Work is organized into checkpointed sessions S0.1–S5.3 plus the arc sessions S6.x and S7.x
+(`docs/playbook/S<x>-<y>.md`), each with
 an owner, prerequisites, acceptance criteria, and a handoff artifact. Dependency map:
 `docs/playbook/03-sessions-intro.md`.
 

@@ -4,6 +4,7 @@ Running log of deviations from playbook defaults, and why. Newest first.
 
 | Date | Session | Decision | Why |
 |------|---------|----------|-----|
+| 2026-09-08 | S7 arc | **Object-hazard detection is APPROVED as the S7 arc, reversing the "furniture detection" scope lock.** Rule book: `docs/object-hazard-spec.md`; charter: `docs/playbook/07-object-hazard-intro.md`; ten sessions `S7-1.md`…`S7-10.md` + `S7-EXECUTE.md`. Scope locks updated in lockstep: `CLAUDE.md`, `.claude/rules/global/conventions.md`, `docs/playbook/01-product-spec.md` — same four-file pattern as the 2026-09-05 multi-peril reversal. The sanctioned form is RoomPlan scan objects + guided manual tagging feeding a deterministic hazard engine; custom/trained ML is now *explicitly* on the out-of-scope list where "furniture detection" used to be | The owner directed the feature 2026-09-08 and the scoping vetted it rather than just transcribing it. Three honesty rulings shaped the arc and are binding (spec §2): the core "detection" is data RoomPlan already produces and the app throws away (`apple-raw.json` has objects; the wire format and `/convert` drop them), so this is plumbing + judgment, not ML; transient clutter (backpacks, cords) is NEVER claimed as detected — recurrence items, the hazard hunt, and the stretch re-scan diff are the honest substitutes; and every finding must carry a number, a threshold, a citation and an action, because the feature's answer to "the user can see the bookcase themselves" is measurement against codified standards, not perception. **Nothing was built as part of this approval** — docs only, plus the `origin/main` merge (S6.4–S6.9 landed remotely; local was 1 ahead/9 behind) and a fresh green baseline: backend 348 not-live, EditorCore 270, corpus 17/8. iOS not run (owner's standing simulator restriction on this machine) |
 | 2026-09-05 | S6.2 | **Deliberately did not add numeric thresholds for earthquake or tornado.** `egress_thresholds.json` was not modified. | The playbook instructed adding thresholds "if and only if you find genuinely numeric, codified thresholds worth computing on." Research across USGS, FEMA, NOAA, and Red Cross revealed qualitative rules (e.g. "lowest floor, most interior room", "secure tall furniture to studs") rather than codified engineering thresholds like the fire egress window measurements. No numbers were manufactured to make the engine's job easier. |
 | 2026-09-05 | S6 arc | **The readiness pivot is APPROVED. It is no longer a proposal.** Scope is now fire + earthquake + severe weather (tornado). The scope locks in `CLAUDE.md`, `.claude/rules/global/conventions.md` and `docs/playbook/01-product-spec.md` were updated in lockstep; `06-pivot-intro.md`'s status line now reads APPROVED | The arc was scoped and parked the same day as a proposal, with `TODO.md`'s first line being the pivot-or-finish decision itself. The owner answered it: pivot. Recorded as its own entry rather than by editing the scoping entry above it, so the sequence stays legible — the arc was written before it was sanctioned, and a future reader should be able to see that the decision was a separate act. **Nothing was built as part of this approval**: no S6 session has been run, no code, schema or test was touched. What changed is authority, not implementation. Two consequences are open and named in `TODO.md`: `docs/demo/script-v1.md` still pitches a fire-only product and its truth ledger cites the old lock, and `docs/START-HERE.md`'s UI/UX handoff is still `active` while the arc now competes with it for the same weeks before Oct 24 |
 | 2026-08-25 | narrows_route | **The obstruction analysis now runs whenever the home has any furniture, not only when something is already fully blocked.** `engine.py`'s gate went from `if graph.blocked_openings` to `if graph.blocked_openings or any(floor.objects ...)` | The old gate could never surface a `narrows_route`, by construction: a narrowing is a doorway that is still reachable, so it is never in `blocked_openings`, so the analysis that would have found it was never run. The finding had been computed and discarded since the B3 revamp. The performance intent the gate was protecting is preserved without it — `analyze_obstructions` already skips every room whose object list is empty, so a furniture-free home still costs nothing, and `test_furniture_free_homes_gain_no_findings` pins that the four stock fixtures gained no findings |
@@ -1259,3 +1260,43 @@ position. If it recurs on device, look at the `breakdown` swap first.
 - **Consent requirement**: A plain-language consent screen is required to enable the feature. The user must manually tap "Generate" and use the system share sheet (`UIActivityViewController`). There is no automated transmission path to any service, let alone a fire department backend.
 - **Anonymization guarantee**: The snapshot extractor iterates over profiles but ONLY aggregates by `bedroom_room_id` for profiles with `.mobility_limited` or `.vision_impaired` tags. Both PDF output and JSON payloads were explicitly verified in `ResponderSnapshotTests.swift` to never contain profile names, device identifiers, or location data (unless manually typed into the home name).
 - **Designed-not-integrated scope lock**: The snapshot is designed for the user to hand to first responders, but explicitly avoids *integrating* with external responder systems for privacy reasons. We provide a structured JSON and PDF that the user can share at their own discretion.
+
+## 2026-09-08 — Object-hazard detection: scoped, vetted, approved as S7 (docs only)
+
+**Decision:** The S7 arc exists and is sanctioned. Ten sessions (`S7-1.md`…`S7-10.md`), a
+charter (`07-object-hazard-intro.md`), an orchestration brief (`S7-EXECUTE.md`), and one
+authoritative rule book — `docs/object-hazard-spec.md`, which wins any disagreement with a
+session file. The summary-table row above carries the scope-lock mechanics; this entry records
+the scoping judgment calls a future session will otherwise re-litigate.
+
+**What was vetted and ruled, not just transcribed:**
+
+- **The mechanism is RoomPlan + guided tagging, with Vision photo-assist optional at the
+  tail.** The owner chose this explicitly (custom ML rejected; Vision kept because it costs
+  nothing if cut). S7.9 opens with a timeboxed feasibility spike whose honest possible outcome
+  is a documented negative result that cuts S7.10 — written into acceptance so a NO-GO is a
+  success, not a failure.
+- **Near-zero contract cost, discovered during scoping, is now a locked decision.** The merged
+  S6 tree already decodes all 11 checklist categories and all 6 finding kinds, so: no new
+  `ItemCategory` (hazards are `mitigation` items), no new `FindingKind` (egress-window blockage
+  widens `analyze_obstructions` and reuses `blocked_opening`/`narrows_route`). Schema 2.1
+  (`elevation_m`, `mounted`, four categories) is the arc's only contract change.
+- **Supersession over duplication:** a specific `hazard.topple.<id>` item suppresses the
+  generic `mitigation.secure.<id>` for the same object, with checkmark state carried forward —
+  ruled at scoping time because two strap-it items for one wardrobe is the obvious failure mode
+  of extending `mitigation_items`.
+- **Geometry prioritizes, never excuses** (spec §2): distance from a bed tells you which item
+  to strap first; it is never a reason not to strap. Any implementation that inverts this has a
+  named trap (T11) in `S7-EXECUTE.md`.
+- **Cut order:** S7.10 → S7.9 → S7.8 → S7.7's visual-emphasis half; S7.1–S7.5 are never cut.
+
+**Session mechanics this session:** the local/remote split (local 1 ahead, 9 behind) was merged
+first — `activity-log.md` conflict resolved by chronological union — and the baseline re-run
+green (backend 348 not-live, EditorCore 270, corpus 17 sources/8 files; iOS not run per the
+owner's simulator restriction). `backend/.venv` was created from `requirements.txt` because no
+interpreter on this machine had fastapi — the tracker's Python-variance warning is now true on this
+machine too; session prompts say `backend/.venv/bin/python` accordingly. TODO.md's S6 section
+was reconciled against the merged tree (S6.4–S6.9 code verified present — `household_items`,
+`OnboardingFlowView`, the HomeScreen checklist, the composite in `score.py`, `DrillMode/`, and
+the `ResponderSnapshot*` exporters; boxes updated with that evidence, full acceptance walks and
+device checks not re-run).
