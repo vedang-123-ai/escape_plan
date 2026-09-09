@@ -50,6 +50,7 @@ class ScoreBreakdown(BaseModel):
     home_id: str
     home_name: str
     score: int = Field(ge=0, le=100)
+    max_score: int = Field(default=100, ge=0, le=100)
     sub_scores: dict[str, int]
     components: list[ScoreComponent]
     checklist: list[ChecklistItem]

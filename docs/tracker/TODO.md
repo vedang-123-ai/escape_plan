@@ -627,7 +627,7 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
 
 ## Backend
 
-- [ ] **DECISION NEEDED (P1): a home that has never been analysed scores full marks for
+- [x] **DECISION NEEDED (P1): a home that has never been analysed scores full marks for
       safety.** `/score` defaults `findings=[]`, so the 20-point "No open safety findings"
       component pays out in full when `/analyze` has simply never run — bungalow and twostory
       both read 75/100 on a home nobody has audited. "We didn't look" and "we looked and it's
@@ -641,13 +641,15 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       committed screenshot** (`docs/evidence/score-screen-2026-08-04/`): the twostory home
       reads "No open safety findings — 20/20" having never been analysed. Worth deciding
       before the demo script locks, since the score is on camera. (S3.5)
+      *Note (2026-09-08): Resolved/Obsoleted by the S6.7 merge on 2026-09-07, which made `agent_finding` strictly advisory and removed the 20-point component entirely (see `docs/preparedness-score-weights.md`).*
 - [ ] Phone-on-cellular timing against the deployed backend was never measured natively.
       Warm curl from a dev machine was ~0.27–0.39s, well under the 2s bar. (S1.6)
-- [ ] TODO(integration): `/analyze` findings now carry a stable server-stamped `id`
+- [x] TODO(integration): `/analyze` findings now carry a stable server-stamped `id`
       (2026-07-23); Swift's `AgentFinding` ignores it and `ChecklistStateStore` still sees
       positional `agent_finding.<index>` keys via the fallback. Thread the `id` through the
       Swift decode (add to CodingKeys) and key checkmarks on `agent_finding.<id>` — old
       positional checkmarks are deliberately orphaned (see decisions.md 2026-07-23). (S3.2/S3.5)
+      *Note (2026-09-08): Done.*
 
 ## Demo & submission
 
