@@ -1210,3 +1210,12 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - ?? docs/tracker/BLOCKERS.md
   - ?? docs/tracker/notes/2026-09-08-tracker-reconciliation.md
 
+## 2026-09-09T03:49:10Z · Anish Yarrakonda · `main` @ `0d662c9`
+
+**Commits this session**
+  - 0d662c9 BLOCKERS.md is the status mechanism; halve the always-on context
+  - 561ece2 Revert inert integration and scoring code, clarify TODO notes
+  - df9d0a2 Fix integration and hygiene: thread AgentFinding id and resolve scoring P1 task
+  - 07e413a Untrack .build-assess from git
+  - 0c6a0e4 Fix pre-flight: accurate network verification note and PDF byte assertion
+
