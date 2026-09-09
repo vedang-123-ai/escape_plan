@@ -100,18 +100,21 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       before it can migrate it). Each is documented at its definition. See `decisions.md`.
 
 **Opened by S7.1 (2026-09-09) — schema 2.1**
-- [ ] **The deployed backend is on schema 2.0; this checkout is on 2.1.** Render auto-deploys
+- [ ] **The deployed backend is on schema 2.0; this checkout is on 2.1.** (Also folded into
+      S7.2's STEP 0.) Render auto-deploys
       from `main`, so pushing S7.1 should clear it, but it is NOT verified. Until it is,
       `/convert` and `/routes` against the live service are answering from a different contract
       than the app now writes. Next action: after the push, run `python3 scripts/demo-preflight.py`
       and confirm `check_deployed_schema()` reports 2.1. (Preflight cannot run on this machine
       today — see §4.)
-- [ ] **Two S7.1 acceptance items are simulator-gated and were NOT run.**
+- [ ] **Two S7.1 acceptance items are simulator-gated and were NOT run — assigned to S7.2 as
+      its STEP 0** (`docs/playbook/S7-2.md`), so it is the first thing that session does rather
+      than a line on this board someone can skim past.
       `HomeModelRoundTripTests` and `PersistenceTests` live outside the symlinked EditorCore
       package, so `swift test` does not reach them. **The fix for the vacuous drift guard
       (`testCurrentVersionMatchesTheSchemaContract`) is in `PersistenceTests` and has therefore
-      never executed.** Next action, one command:
-      `xcodebuild test -project escape_plan.xcodeproj -scheme escape_plan -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .build-merge CODE_SIGNING_ALLOWED=NO -only-testing:escape_planTests/PersistenceTests -only-testing:escape_planTests/HomeModelRoundTripTests`
+      never executed.** Next action: run S7.2's STEP 0 — one `xcodebuild` command, spelled out
+      there. Tick this line only after the run is green, not on the strength of the code existing.
 - [ ] **`bookcase` and `water_heater` produce NO mitigation checklist item.**
       `backend/app/scoring/checklist.py:504` filters on `heavy_categories = {"wardrobe",
       "storage", "appliance"}`. A bookcase is the ShakeOut-canonical topple hazard and a water

@@ -101,10 +101,14 @@ PHASE 2 — THE WAVE PLAN. Dispatch strictly wave by wave.
 Isolation: one git worktree per lane. VERIFY THE WORKTREE EXISTS before dispatching into it.
 
 ── WAVE 1 ── two lanes, zero file overlap ──────────────────────────────
-  LANE A = S7.1 (schema 2.1). OWNS: schema/homemodel.schema.json, schema/fixtures/**,
+  LANE A = S7.1 (schema 2.1). **LANDED 2026-09-09** — see docs/decisions.md and
+           notes/2026-09-09-s7-1-schema-2-1.md. It closed everything except two
+           simulator-gated suites, which are now S7.2's STEP 0. Do NOT re-run this lane.
+           OWNED: schema/homemodel.schema.json, schema/fixtures/**,
            backend/app/models.py, backend/app/schema_migrator.py, escape_plan/Models/**,
            escape_plan/Renderer/Fixtures/FurnitureFixture.swift (T4), and its docs.
-  LANE B = S7.2 (corpus). OWNS: backend/corpus/** ONLY.
+  LANE B = S7.2 (corpus). OWNS: backend/corpus/** ONLY — plus S7.2's STEP 0, which is a
+           read-only simulator run inherited from S7.1 and touches no files.
   Seam: none. These cannot collide.
   GATE: schema-contract-guardian clean; validate.py exits 0 with the new thresholds file
         checked; a 1.1 AND a 2.0 document still load; suites at/above baseline; the seeded
