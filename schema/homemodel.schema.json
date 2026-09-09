@@ -2,16 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://escape-plan.app/schema/homemodel.schema.json",
   "title": "HomeModel",
-  "description": "THE contract of the Escape Plan project (v1.1; v1.0 finalized in S0.2, v1.1 adds per-floor furniture objects and the ai_plan source for the LLM house builder \u2014 2026-07-23 revamp). One JSON document describes a home: the scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. All linear units are meters; room footprints are 2D polygons in floor-local coordinates (3D is derived by extrusion \u2014 meshes are never stored). Structural invariants that JSON Schema cannot express (CCW non-self-intersecting polygons, cross-references, global id uniqueness) are enforced by backend/app/models.py; both validators must pass.",
+  "description": "THE contract of the Escape Plan project (v2.1; v1.0 finalized in S0.2, v1.1 adds per-floor furniture objects and the ai_plan source for the LLM house builder \u2014 2026-07-23 revamp; v2.0 is the readiness pivot \u2014 household, safety points, sensory tags; v2.1 adds object hazard fields \u2014 elevation_m, mounted, four categories). One JSON document describes a home: the scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. All linear units are meters; room footprints are 2D polygons in floor-local coordinates (3D is derived by extrusion \u2014 meshes are never stored). Structural invariants that JSON Schema cannot express (CCW non-self-intersecting polygons, cross-references, global id uniqueness) are enforced by backend/app/models.py; both validators must pass.",
   "type": "object",
   "properties": {
     "schema_version": {
       "type": "string",
       "enum": [
+        "1.0",
         "1.1",
-        "2.0"
+        "2.0",
+        "2.1"
       ],
-      "description": "Version of this contract. Any change to the schema after S0.2 requires bumping this value plus a clean schema-contract-guardian run (agent review; there is no human sign-off). 1.1 -> 2.0: readiness pivot (household, safety points, sensory tags)."
+      "description": "Version of this contract. Any change to the schema after S0.2 requires bumping this value plus a clean schema-contract-guardian run (agent review; there is no human sign-off). 1.1 -> 2.0: readiness pivot (household, safety points, sensory tags). 2.0 -> 2.1: object hazard fields (elevation_m, mounted) and four object categories. BREADTH, ruled in S7.1: this enum lists every version the migrators accept, because JSON Schema validates documents *on disk* and a 1.1 file on a user's phone is a legitimate document. pydantic is narrower (Literal[\"2.1\"]) because it validates the *post-migration in-memory model*, where anything but the current version is a bug. Swift keeps a bare String because it must read the old stamp before it can migrate it. Note that because every 2.0 and 2.1 addition is optional, this enum cannot by itself distinguish a 1.1 document from a 2.1 one \u2014 the stamp is the only signal, which is why migrators rewrite it."
     },
     "home_id": {
       "type": "string",
@@ -370,9 +372,13 @@
             "wardrobe",
             "appliance",
             "storage",
-            "other"
+            "other",
+            "bookcase",
+            "tv",
+            "water_heater",
+            "heat_source"
           ],
-          "description": "What the box represents. Drives the render color/label only \u2014 routing treats every category the same (an obstacle is an obstacle)."
+          "description": "What the box represents. Routing still treats every category the same (an obstacle is an obstacle); the category drives the rendered fixture and, from v2.1, which hazard rules apply. 'heat_source' deliberately covers fixed stoves, ovens and fireplaces AND portable space heaters \u2014 the clearance rule is the same for all of them, so splitting them would multiply cases without changing an answer."
         },
         "center": {
           "$ref": "#/$defs/point",
@@ -416,6 +422,17 @@
           "type": "boolean",
           "default": false,
           "description": "Whether the object has been secured (e.g. strapped to the wall for earthquake mitigation). Routing ignores this."
+        },
+        "elevation_m": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "Height of the object's BASE above the floor, meters (v2.1). 0 means floor-standing, which is what every pre-2.1 object implicitly was, so the default preserves their meaning exactly. A wall-mounted TV or a high shelf carries its real base height; RoomPlan's oriented bounding box already knows it. The prism therefore spans elevation_m .. elevation_m + height_m \u2014 height_m remains the object's own height, NOT the top of it."
+        },
+        "mounted": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the object is attached to a wall or ceiling rather than resting on the floor or on something else (v2.1). Deliberately NOT merged with 'secured': 'mounted' is how the object is installed, 'secured' is whether a floor-standing object has anti-topple strapping. A mounted TV is not 'secured'; a strapped bookcase is not 'mounted'. Conflating them would make an unstrapped wardrobe look safe the moment someone hung a picture."
         }
       },
       "required": [
@@ -427,7 +444,7 @@
         "source"
       ],
       "additionalProperties": false,
-      "description": "A large object as a rotated box primitive (v1.1). Rendered as a rectangular prism; blocks within-room routing."
+      "description": "A large object as a rotated box primitive (v1.1; v2.1 adds elevation_m and mounted). Rendered as a rectangular prism; blocks within-room routing."
     },
     "stair_end": {
       "type": "object",
