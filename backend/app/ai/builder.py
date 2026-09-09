@@ -170,7 +170,8 @@ TOOLS: list[dict[str, Any]] = [
                 "floor_id": {"type": "string"},
                 "category": {
                     "type": "string",
-                    "enum": ["bed", "sofa", "table", "wardrobe", "appliance", "storage", "other"],
+                    "enum": ["bed", "sofa", "table", "wardrobe", "appliance", "storage",
+                             "other", "bookcase", "tv", "water_heater", "heat_source"],
                 },
                 "center": _POINT,
                 "size_m": _POINT,
