@@ -164,11 +164,52 @@ def check_health(base: str) -> None:
             fail("/health", f"{type(exc).__name__}: {exc}",
                  f"is {base} deployed and awake? check the Render dashboard")
         return
-    ok("/health", f"{body.get('status')} v{body.get('version')} in {elapsed:.1f}s")
+    # Deliberately NOT printing body["version"]: that is a hardcoded FastAPI `app.version`
+    # ("1.0") and says nothing about what code is deployed. On 2026-09-07 it was read as
+    # evidence of a stale backend and cost a wrong diagnosis. check_deployed_schema() below
+    # asks a question whose answer actually moves.
+    ok("/health", f"{body.get('status')} in {elapsed:.1f}s")
     if elapsed > COLD_START_SECONDS:
         warn("cold start",
              f"/health took {elapsed:.0f}s — the free-tier service was asleep. Hit the "
              "backend a few minutes before filming so the first on-camera request is warm.")
+
+
+def check_deployed_schema(base: str) -> None:
+    """Is the DEPLOYED code current, or is Render serving something older than this checkout?
+
+    A stale deploy is invisible until a real client posts a document the old models reject,
+    which on camera reads as "Score unavailable". /openapi.json needs no auth, so this runs
+    even when the bearer token is missing.
+    """
+    local = "unknown"
+    schema_file = REPO / "schema" / "homemodel.schema.json"
+    try:
+        local_doc = json.loads(schema_file.read_text())
+        enum = local_doc.get("properties", {}).get("schema_version", {})
+        local = enum.get("const") or (enum.get("enum") or ["unknown"])[-1]
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        with urllib.request.urlopen(f"{base}/openapi.json", timeout=60, context=CONTEXT) as resp:
+            spec = json.loads(resp.read())
+    except Exception as exc:  # noqa: BLE001
+        warn("deployed schema", f"could not read /openapi.json: {type(exc).__name__}: {exc}")
+        return
+
+    schemas = spec.get("components", {}).get("schemas", {})
+    prop = schemas.get("HomeModel", {}).get("properties", {}).get("schema_version", {})
+    deployed = prop.get("const") or (prop.get("enum") or ["unknown"])[-1]
+    routes = sorted(spec.get("paths", {}))
+
+    if deployed == local:
+        ok("deployed schema", f"schema_version {deployed}, {len(routes)} routes — matches this checkout")
+    else:
+        fail("deployed schema",
+             f"deployed serves schema_version {deployed}, this checkout is {local}",
+             "Render is behind. push to the branch Render builds (or redeploy from the "
+             "dashboard), then re-run. A current client will 422 against the old models.")
 
 
 def check_deterministic(base: str, token: str) -> dict | None:
@@ -237,6 +278,7 @@ def main() -> int:
     print(f"Demo preflight against {base}")
     token = check_local_config()
     check_health(base)
+    check_deployed_schema(base)
 
     if token:
         plan = check_deterministic(base, token)

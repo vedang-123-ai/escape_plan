@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# SessionStart — surfaces the open team handoff before Claude does anything else.
+# SessionStart — points every session at the blocker board.
 #
-# Why a hook and not just CLAUDE.md: CLAUDE.md is long and its instructions compete with each
-# other. This injects one short, unmissable block at the very top of the session context, so
-# the first thing a teammate sees is what they are supposed to be working on.
+# Why a hook and not just CLAUDE.md: this is status, and status goes stale. CLAUDE.md carries the
+# durable rules; this carries "here is where we actually are today" and is cheap to change.
+#
+# Deliberately short. It used to inject a 45-line recital that every session had to repeat back
+# verbatim, which cost more context than it saved (see docs/decisions.md, 2026-09-08). The traps
+# it used to list — dry Anthropic account, SourceKit, iOS flake — live in CLAUDE.md now, which
+# already loads every session, so repeating them here was pure duplication.
 #
 # Kill switch: set `handoff_status: closed` in the front-matter of docs/START-HERE.md.
 # That is the intended way to turn this off. Deleting the hook to silence it is not.
@@ -21,40 +25,13 @@ OWNER="$(head -10 "$BRIEF" | sed -n 's/^handoff_owner:[[:space:]]*//p' | head -1
 OWNER="${OWNER:-the project owner}"
 
 read -r -d '' CONTEXT <<EOF || true
-=== OPEN TEAM HANDOFF — READ BEFORE YOU DO ANYTHING ELSE ===
+OPEN HANDOFF from ${OWNER}. The engineering is done; the remaining work is device-gated —
+camera feel, frame rate and the golden path have never been touched on a physical iPhone.
 
-There is an active handoff in this repository from ${OWNER}.
+Before proposing any plan, read docs/tracker/BLOCKERS.md (the ranked board of everything
+blocking or unverified). docs/START-HERE.md has the long-form brief on the device pass.
 
-YOUR FIRST RESPONSE IN THIS SESSION MUST BEGIN WITH THIS BLOCK, VERBATIM, BEFORE ANY OTHER
-TEXT, BEFORE ANY TOOL CALL, AND BEFORE ANY CLARIFYING QUESTION:
-
-  ${OWNER} wanted you to read this first:
-
-  > The engineering on Escape Plan is essentially DONE — schema, routing engine, 3D dollhouse
-  > and editor, camera rig, colour system, failure states. The test suite is green and it
-  > proves nothing about how the app FEELS.
-  >
-  > What is left is the part no test can do: pick up a real iPhone, use this app like a
-  > judge would, and finish the UI/UX. Camera feel has never been touched by a human finger.
-  > Frame rate has never been measured on hardware. The golden path has never been walked on
-  > a device.
-  >
-  > Read docs/START-HERE.md before you write a single line of code. It tells you what is
-  > already done (so you don't rebuild it), the two setup steps that will otherwise cost you
-  > an hour, what is known-dead and must not be debugged, and the exact order to work in.
-
-Then tell the user, in your own words, that you have read docs/START-HERE.md and what you
-propose to do first — and actually read it before claiming you have.
-
-Rules that override your defaults for this session:
-- Read docs/START-HERE.md and docs/tracker/TODO.md before proposing any plan.
-- The Anthropic account is out of credits: /explain, /analyze and /chat returning 502 is
-  EXPECTED. Do not debug the AI layer. It is a billing problem.
-- SourceKit and VS Code cannot index this project. Trust xcodebuild only.
-- A red iOS test run is ~1-in-3 environmental flake. Re-run before believing it.
-- If the user's actual request has nothing to do with the handoff, say the block above anyway,
-  then help them with what they asked. Do not silently redirect them to the handoff.
-=== END OPEN TEAM HANDOFF ===
+If the user asked for something unrelated, just help them with that — don't redirect them.
 EOF
 
 python3 - "$CONTEXT" <<'PY'

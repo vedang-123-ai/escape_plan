@@ -24,7 +24,7 @@ PHASE 0 — BOOTSTRAP. Do all of this before dispatching a single subagent.
 ════════════════════════════════════════════════════════════════════════
 
 Read in full, in this order:
-  1. CLAUDE.md (root) and every file it @-references under .claude/rules/global/
+  1. CLAUDE.md (root) — self-contained; the scoped rules under .claude/rules/ load on demand
   2. docs/playbook/06-pivot-intro.md          ← the arc's charter and locked decisions
   3. docs/playbook/S6-1.md … S6-9.md          ← nine self-contained session prompts
   4. docs/tracker/TODO.md                      ← the S6 section, and the still-open items

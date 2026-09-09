@@ -26,7 +26,8 @@ PHASE 0 — BOOTSTRAP. All of this before dispatching a single subagent.
 ════════════════════════════════════════════════════════════════════════
 
 Read in full, in this order:
-  1. CLAUDE.md (root) and every file it @-references under .claude/rules/global/
+  1. CLAUDE.md (root) — self-contained since 2026-09-08; nothing auto-loads any more.
+     Then docs/tracker/BLOCKERS.md, which is the status board.
   2. docs/object-hazard-spec.md               ← THE RULE BOOK. Authoritative over everything
                                                 below it; if a session file disagrees, the
                                                 spec wins and the session file gets fixed.

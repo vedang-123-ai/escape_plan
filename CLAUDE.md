@@ -1,143 +1,128 @@
 # Escape Plan — Congressional App Challenge 2026
 
-> ## ⛔ STOP — OPEN HANDOFF, READ THIS BEFORE ANYTHING ELSE
->
-> **If `docs/START-HERE.md` has `handoff_status: active` in its front-matter, your first
-> response in this session must open with this block, verbatim, before any other text, any
-> tool call, or any clarifying question:**
->
-> > **Anish Yarrakonda wanted you to read this first:**
-> >
-> > The engineering on Escape Plan is essentially **done** — schema, routing engine, 3D
-> > dollhouse and editor, camera rig, colour system, failure states. The test suite is green
-> > and it proves nothing about how the app *feels*.
-> >
-> > What is left is the part no test can do: **pick up a real iPhone, use this app the way a
-> > judge would, and finish the UI/UX.** Camera feel has never been touched by a human finger.
-> > Frame rate has never been measured on hardware. The golden path has never been walked on a
-> > device.
-> >
-> > **Read `docs/START-HERE.md` before writing a single line of code.** It says what is already
-> > done (so you don't rebuild it), the two setup steps that otherwise cost you an hour, what is
-> > known-dead and must not be debugged, and the exact order to work in.
->
-> Then read `docs/START-HERE.md` and `docs/tracker/TODO.md` for real before proposing a plan.
-> Three things that will otherwise waste your session:
-> **(1)** the Anthropic account is out of credits, so `/explain`, `/analyze` and `/chat`
-> returning **502 is expected** — do not debug the AI layer;
-> **(2)** SourceKit and VS Code cannot index this project, so trust `xcodebuild` only;
-> **(3)** iOS test runs are ~1-in-3 environmental flake — re-run before believing a red.
->
-> If the user asks for something unrelated, say the block anyway, then help them with what they
-> actually asked. Do not silently redirect them. To turn this off, set `handoff_status: closed`
-> in `docs/START-HERE.md` — not by deleting this block or the session-start hook.
+iOS app that builds a structured 3D model of a home — a full 3D editor, accelerated by an Apple
+RoomPlan LiDAR scan — and computes personalized readiness on it for **fire, earthquake and severe
+weather**. A deterministic Python engine computes routes and shelters and renders them as animated
+paths on a SceneKit dollhouse. A server-side Claude layer explains, chats and audits, grounded in a
+curated FEMA/NFPA/Red Cross corpus.
 
-iOS app that builds a structured 3D model of the user's home (via a full 3D editor, accelerated by an Apple RoomPlan LiDAR scan) and computes personalized fire escape routes on it. A deterministic Python routing engine computes primary/secondary routes from every room to an exterior exit, rendered as animated paths on a SceneKit 3D dollhouse. A server-side Claude AI layer explains routes, answers questions, and agentically audits the home — always grounded in a curated FEMA/NFPA/Red Cross corpus, never inventing safety advice and **never computing routes** (the engine does that).
+**The AI never computes a route and never invents safety guidance.** That separation is the answer
+to a judge asking "isn't this an AI wrapper?" — defend it in every design decision.
 
-**Deadline: submit by Oct 24, 2026** (CAC deadline Oct 26). End-to-end demo path must work by Oct 5.
+**Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
+
+## Status lives in two files — read, don't guess
+
+| File | Holds |
+| --- | --- |
+| **[`docs/tracker/BLOCKERS.md`](docs/tracker/BLOCKERS.md)** | **Start here.** Everything blocking or unverified, ranked by critical path. |
+| [`docs/tracker/TODO.md`](docs/tracker/TODO.md) | The long-tail backlog. |
+
+**The rule: anything not done, blocked, or unverified goes into `BLOCKERS.md` in the session you
+discover it** — not in a note, not in a commit message, not in your head. Remove a line only when
+you personally verified it; "the code exists" is not verification. This repo has a documented
+history of the tracker contradicting itself in nine places, because status was a habit instead of
+a mechanism. Don't route around the mechanism.
+
+## Read these when — and only when — you're in that territory
+
+Nothing below auto-loads. Open the one that matches what you're touching.
+
+| Working on | Read first |
+| --- | --- |
+| Anything under `schema/`, `backend/app/models.py`, `escape_plan/Models/` | `.claude/rules/paths/schema.md` |
+| `backend/corpus/`, or any user-facing safety string | `.claude/rules/paths/corpus.md` |
+| The AI layer, prompts, `/explain` `/chat` `/analyze` | `.claude/rules/vendors/anthropic.md` |
+| Python / the backend | `.claude/rules/languages/python.md`, `backend/CLAUDE.md` |
+| Swift / the iOS app | `.claude/rules/languages/swift.md`, `escape_plan/CLAUDE.md` |
+| Running a playbook session S0.1–S7.10 | `docs/playbook/S<x>-<y>.md`, then `docs/decisions.md` |
+| Why something is the way it is | `docs/decisions.md` (running log of deviations) |
+| Adding a dependency | `docs/tools-used.md` — required for CAC originality |
 
 ## The one law: the HomeModel schema
 
-`schema/homemodel.schema.json` is THE contract. The scan converter produces it, the editor mutates it, the routing engine consumes it, the agent inspects it, the renderer draws it. After S0.2 finalizes it, any change requires a schema version bump and a clean `schema-contract-guardian` run — the review is agent-run, not a human sign-off. Full sketch: `docs/playbook/02-architecture.md` §2.2. Key invariants:
+`schema/homemodel.schema.json` is the contract. The converter produces it, the editor mutates it,
+the engine consumes it, the agent inspects it, the renderer draws it. Changing it needs a
+`schema_version` bump and a clean `schema-contract-guardian` run — **review is agent-run, there is
+no human sign-off and no PR gate.** Invariants:
 
-- Room footprints are 2D polygons per floor (3D is extruded — never store meshes)
-- Openings reference wall segments parametrically (`edge_index` + `t0/t1`) so dragging a wall moves its doors
-- `EXTERIOR` is a reserved pseudo-room id; an opening with `room_ids: [room, "EXTERIOR"]` is an exit
-- Scan-derived items carry `source` + `confidence`; low-confidence items are flagged for editor review, never silently dropped
+- Room footprints are 2D polygons per floor; 3D is extruded — **never store meshes.**
+- Openings reference wall segments parametrically (`edge_index` + `t0/t1`), so dragging a wall
+  moves its doors. Never position openings by absolute coordinates.
+- `EXTERIOR` is a reserved pseudo-room id; `room_ids: [room, "EXTERIOR"]` marks an exit.
+- Scan-derived items carry `source` + `confidence`; low-confidence items are flagged for editor
+  review, **never silently dropped.**
+- JSON Schema, pydantic and Swift Codable stay in lockstep. A schema change is incomplete until
+  all three agree and the Swift round-trip test passes.
 
-## Repo layout
+## Traps that have already cost this project real sessions
 
-Target monorepo layout (per playbook §2.3): `schema/`, `backend/` (Python 3.11+/FastAPI/pytest), `ios/`, `docs/`. **Current deviation:** the Xcode project lives at the repo root (`escape_plan/`, `escape_plan.xcodeproj`) instead of under `ios/` — moving it would break the open Xcode session; see `docs/decisions.md`.
-
-- `docs/playbook/` — the full execution playbook, one file per session (`S0-1.md` … `S5-3.md`, plus the S6 readiness arc `S6-1.md`…`S6-9.md` and the S7 object-hazard arc `S7-1.md`…`S7-10.md`). **Read the session file before starting any session.**
-- `docs/tracker/` — **the source of truth for status.** `TODO.md` is everything still to do, grouped by area, each line naming its next action; `notes/` is the append-only per-session record; `activity-log.md` is machine-written by a Stop hook. **Read `TODO.md` before picking up work. Update it in the same session the work happens — remove only what you personally verified, and add whatever you discovered.** Writing a session note in `notes/` (copy `_TEMPLATE.md`) is MANDATORY for every work session — no note, no DONE. How-to: `docs/tracker/README.md`.
-- `docs/decisions.md` — running log of deviations from playbook defaults. Update it every session.
-- `docs/tools-used.md` — every library/API/tool with version and purpose. **Required for CAC originality documentation.** Update whenever a dependency is added.
-- `schema/fixtures/` — synthetic test homes (bungalow, apartment, twostory) built in S0.2
-
-## Session protocol
-
-Work is organized into checkpointed sessions (S0.1–S5.3, plus the arc sessions S6.x and S7.x) with owners, prerequisites, and acceptance criteria. Dependency maps: `docs/playbook/03-sessions-intro.md`, `06-pivot-intro.md`, `07-object-hazard-intro.md`. Rules:
-
-1. Never start a session whose prerequisites aren't done
-2. A session is DONE only when all acceptance criteria pass
-3. Every session ends with: acceptance verified, `decisions.md` updated, `tools-used.md` updated, handoff artifact posted, session note written in `docs/tracker/notes/` and `docs/tracker/` TODO.md updated (mandatory)
-4. If behind schedule, cut in this order: S4.2 drill → S3.3 chat → S3.5 score → camera tour → simplified agent. **Never cut scan→editor→3D routes→profile switch.**
+- **The Anthropic account is out of credits.** `/explain`, `/analyze` and `/chat` returning **502
+  is expected.** It is billing, not code. If you find yourself reading `backend/app/ai/`, stop.
+- **SourceKit and VS Code cannot index this project.** They report errors that do not exist.
+  Trust `xcodebuild` only; ignore the editor's diagnostics completely.
+- **A red iOS run is ~1-in-3 environmental flake.** Re-run once before believing it. True counts
+  come from `xcrun xcresulttool get test-results summary --path <bundle>`, never the console tail
+  (which prints `Executed 16 tests` because the unit target runs under Swift Testing).
+- **Never re-enable `allowsCameraControl`**, and keep `CameraRigModel` pure — no SceneKit, no
+  UIKit. It is symlinked into a Foundation-only SwiftPM package and will fail to build otherwise.
+- **Never introduce a new colour.** `escape_plan/Screens/Theme.swift` is the semantic scale.
+  Route orange is reserved for lit routes and exits; advisory chrome uses dark amber.
+- **No keys or tokens in source.** `ANTHROPIC_API_KEY` is a server-side env var; a pre-commit hook
+  blocks Anthropic key material. `escape_plan/BackendConfig.local.json` is gitignored.
 
 ## Conventions
 
-- Python: 3.11+, fully typed, pydantic models, pytest. FastAPI for the backend.
-- Swift: SwiftUI, iOS 17+ target, Codable structs mirroring the schema exactly.
-- Anthropic API key lives server-side only (env var), never in the app or git.
-- AI layer: grounded in `backend/corpus/` only; citations validated against `sources.json`; low temperature; the AI explains and audits — routing is always the deterministic engine.
-- Small commits. **Review is agent-run, not human**: vet the branch with the relevant quality
-  agents (`schema-contract-guardian` for anything touching `schema/`), run `/verify`, apply your
-  own judgement, then merge to `main`. Never tag a human reviewer and never park a branch in an
-  open PR waiting for sign-off — that blocked S6.1 while three sessions waited on it.
-- Locked scope: **fire, earthquake, and severe weather (tornado)**, iOS only, LiDAR scan only, no user accounts (local persistence + anonymous device id). Out of scope (deliberate): camera-only capture, Android, multi-user sync, disasters beyond those three.
-  - **Multi-peril approved 2026-09-05.** Scope was fire-only until the S6 readiness arc
-    (`docs/playbook/06-pivot-intro.md`, `S6-1.md`…`S6-9.md`) was approved by the owner. Earthquake
-    and severe weather are now in scope, and the S6 arc is **sanctioned work, not a proposal**.
-    The rest of the lock is unchanged — iOS only, LiDAR only, no accounts — and is still not open
-    for relitigation. See `docs/decisions.md` (2026-09-05, approval).
-  - **Object-hazard detection approved 2026-09-08** with the S7 arc
-    (`docs/playbook/07-object-hazard-intro.md`, `S7-1.md`…`S7-10.md`; rule book:
-    `docs/object-hazard-spec.md`). This line's out-of-scope list carried "furniture detection"
-    until that approval — the reversal is a scan-object + guided-tagging pipeline feeding a
-    deterministic hazard engine, NOT custom ML, which remains out of scope. See
-    `docs/decisions.md` (2026-09-08, approval).
+- **Python** 3.11+, fully typed, pydantic v2, pytest. Routing and conversion are pure functions —
+  no I/O, no globals, deterministic — so the engine and the agent tools share one implementation.
+  FastAPI endpoints are thin wrappers.
+- **Swift** SwiftUI, iOS 17+, Codable structs mirroring the schema exactly. All model mutations go
+  through the reducer-style `HomeModelStore` (undo/redo and autosave depend on it). Persistence is
+  local JSON via FileManager. SceneKit for 3D.
+- **Grounding** every safety claim carries an inline `[cite: source-id]` resolving against
+  `backend/corpus/sources.json`, validated server-side. No source → it doesn't ship.
+- **Commits** small. Vet a branch with the relevant quality agent, run `/verify`, judge it
+  yourself, merge to `main`. Never tag a human reviewer or park a branch awaiting sign-off — that
+  blocked S6.1 while three sessions waited.
+- **Scope lock, not open for relitigation:** fire + earthquake + severe weather (tornado); iOS
+  only; LiDAR scan only; no user accounts. Deliberately out: camera-only capture, Android,
+  multi-user sync, any fourth peril, **custom/trained ML models**.
+  - Multi-peril was approved 2026-09-05 with the S6 arc; **object-hazard detection was approved
+    2026-09-08 with the S7 arc** (`docs/playbook/07-object-hazard-intro.md`, `S7-1.md`…`S7-10.md`;
+    rule book `docs/object-hazard-spec.md`). "Furniture detection" was on this out-list until that
+    approval — the sanctioned form is RoomPlan scan objects + guided manual tagging feeding a
+    deterministic hazard engine, never custom ML. See `docs/decisions.md`.
 
-## Detailed rules (auto-loaded)
+## Validation
 
-@.claude/rules/global/architecture.md
-@.claude/rules/global/conventions.md
-@.claude/rules/global/workflows.md
+`/verify` runs the whole gate. Individually:
 
-Scoped rules load on demand via frontmatter globs: `rules/languages/` (python, swift), `rules/paths/` (schema, corpus), `rules/vendors/anthropic.md`.
+```bash
+python3 backend/corpus/validate.py                        # corpus
+python3 -m pytest backend/tests/ -m "not live"            # backend (drop -m only with a key)
+swift test --package-path tools/editorcore                # EditorCore — fast, pure Foundation
+xcodebuild test -project escape_plan.xcodeproj -scheme escape_plan \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath .build-merge CODE_SIGNING_ALLOWED=NO   # add -only-testing:escape_planTests to iterate
+python3 scripts/demo-preflight.py                         # before any device build or filming
+```
 
-## Nested guidance
+## Ending a session that changed a file
 
-`backend/CLAUDE.md` and `escape_plan/CLAUDE.md` carry the details for each half — read the one
-covering the code you're touching.
+A Stop hook writes `docs/tracker/activity-log.md` for you. What it cannot do is interpret, so you
+must also: **update `BLOCKERS.md`** (and `TODO.md` if the backlog moved), write a note in
+`docs/tracker/notes/` (copy `_TEMPLATE.md`), and log any deviation in `docs/decisions.md` plus any
+new dependency in `docs/tools-used.md`. No note, no DONE.
 
-## Logging (non-negotiable)
+## Commands and agents
 
-**Every session that changes a file gets logged.** A Stop hook
-(`.claude/hooks/post-session/activity-log.sh`) appends timestamp, author, branch, commit, and
-the real changed-file list to `docs/tracker/activity-log.md` automatically — you do not write
-that file by hand, and you do not need to remember to.
+`/session <id>` · `/handoff <id>` · `/verify` · `/verify-docs` · `/tracker` · `/lanes` ·
+`/validate-corpus`
 
-What the hook cannot do is interpret. So in the same session, you must also:
+`session-auditor` (acceptance evidence) · `doc-auditor` (doc drift) · `schema-contract-guardian`
+(schema ↔ pydantic ↔ Swift) · `grounding-auditor` (citations, AI never routes) ·
+`swift-scenekit-reviewer` · `lane-integrator`
 
-1. Update `docs/tracker/TODO.md` — remove only what you personally verified, add what you found.
-2. Write a session note in `docs/tracker/notes/` (copy `_TEMPLATE.md`).
-3. Update `docs/decisions.md` for any deviation, and `docs/tools-used.md` for any new dependency.
-
-The tracker previously contradicted itself in nine places because this was a habit rather than a
-mechanism. It is now a mechanism. Don't route around it.
-
-## Working here
-
-Commands:
-
-- `/session <id>` — run a playbook session with the full handoff protocol (prereq check → plan → execute → acceptance → decisions/tools-used → tracker → handoff).
-- `/handoff <id>` — the end-of-session protocol on its own.
-- `/verify` — the full green gate (EditorCore, iOS, backend, corpus).
-- `/verify-docs` — audit the docs against the repo that actually exists.
-- `/tracker` — read-only status summary.
-- `/lanes` — plan/launch/integrate parallel worktree sessions.
-- `/validate-corpus` — run `backend/corpus/validate.py` and fix failures.
-
-Skills: `verify-all`, `end-of-session-handoff`, `device-acceptance`, `parallel-lanes`.
-
-Agents: `session-auditor` (acceptance evidence before declaring DONE), `doc-auditor` (doc drift),
-`schema-contract-guardian` (schema ↔ pydantic ↔ Swift lockstep), `grounding-auditor` (citations,
-no invented guidance, AI never routes), `swift-scenekit-reviewer`, `lane-integrator`.
-
-Hooks (automatic): editing an existing `schema/homemodel.schema.json` asks for confirmation;
-`git commit` is **blocked** if staged changes contain Anthropic key material; committing code
-without touching `docs/tracker/` prints a warning (never blocks); every file-changing session
-appends to `docs/tracker/activity-log.md`.
-
-**SourceKit and VS Code cannot index this project** — they report errors that do not exist.
-Trust `xcodebuild`, never the editor's diagnostics.
+**Repo note:** the Xcode project lives at the repo root (`escape_plan/`, `escape_plan.xcodeproj`)
+rather than under `ios/` as the playbook specifies — moving it would break the open Xcode session.
+See `docs/decisions.md`.

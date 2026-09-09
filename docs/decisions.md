@@ -1261,6 +1261,58 @@ position. If it recurs on device, look at the `breakdown` swap first.
 - **Anonymization guarantee**: The snapshot extractor iterates over profiles but ONLY aggregates by `bedroom_room_id` for profiles with `.mobility_limited` or `.vision_impaired` tags. Both PDF output and JSON payloads were explicitly verified in `ResponderSnapshotTests.swift` to never contain profile names, device identifiers, or location data (unless manually typed into the home name).
 - **Designed-not-integrated scope lock**: The snapshot is designed for the user to hand to first responders, but explicitly avoids *integrating* with external responder systems for privacy reasons. We provide a structured JSON and PDF that the user can share at their own discretion.
 
+## 2026-09-08 — `BLOCKERS.md` is the status mechanism; CLAUDE.md stopped auto-loading four files
+
+Two problems with one cause. **(1)** Status lived nowhere in particular — the S6 arc was code-complete
+for S6.4–S6.7 while `TODO.md` still carried all four as open, and the LiDAR trip had happened without
+any file saying so. **(2)** Every session paid for that ambiguity up front: the root `CLAUDE.md`
+`@`-referenced three files under `.claude/rules/global/`, and a SessionStart hook injected a 45-line
+handoff recital that the model was instructed to repeat back verbatim. That was ~225 lines of
+always-on context plus a forced first response, most of it duplicated between CLAUDE.md and the
+rules files, before anyone had asked a question.
+
+**What changed.** `docs/tracker/BLOCKERS.md` is new and is now the board: everything blocking or
+unverified, ranked by critical path, with the standing rule (stated in `CLAUDE.md`) that anything
+discovered undone goes there in the same session. `TODO.md` keeps the long-tail backlog and history
+and explicitly defers to `BLOCKERS.md` when the two disagree. `CLAUDE.md` was rewritten to ~120
+self-contained lines carrying a "read this when you're in that territory" routing table instead of
+`@`-references, and `.claude/rules/global/` was **deleted** — its content is now in `CLAUDE.md` as
+the single copy. The four live references to it (`swift-scenekit-reviewer`, `S6-9.md`,
+`S6-EXECUTE.md`, `rules/README.md`) were updated. The SessionStart hook went from 45 lines to 6 and
+no longer demands a verbatim recital; the traps it used to list (dry Anthropic account, SourceKit,
+iOS flake) live in `CLAUDE.md`, which already loads every session.
+
+**Why deletion rather than keeping both.** This repo's documented failure mode is docs contradicting
+each other — the tracker did it in nine places, and the 2026-09-05 scope change had to be applied to
+five files in lockstep. Two copies of the conventions is how that happens again. Scoped rules under
+`languages/`, `paths/` and `vendors/` survive untouched because they carry real detail and were
+already on-demand.
+
+## 2026-09-08 — Three "blockers" were already dead; one diagnosis was wrong
+
+Checked rather than inherited, and the tracker was carrying stale bad news.
+
+- **The Render backend is current.** Its `/openapi.json` reports `schema_version const "2.0"`, a
+  `Household` schema and `peril` on `RoutesRequest`, and serves all nine routes including
+  `/evacuate`. Local `main` and `origin/main` are identical, so auto-deploy is working. Two TODO
+  items ("redeploy from main", "deploy `/evacuate`") were false.
+- **The 2026-09-07 "deployed backend is pre-2.0" note was a misdiagnosis.** It was true of a *local*
+  uvicorn started before the schema commits. What made it look true of Render is that `/health`
+  reports `v1.0` — a hardcoded FastAPI `app.version` (`backend/app/main.py:44`) that says nothing
+  about deployed code, and which `demo-preflight.py` printed prominently. **Fixed at the source:**
+  preflight no longer prints that version and instead has a `check_deployed_schema()` that compares
+  the deployed `HomeModel.schema_version` against this checkout's and fails loudly on a mismatch. It
+  needs no auth, so it runs even without the bearer token.
+- **The LiDAR field trip is done** (2026-09-08, owner-reported): a friend's house, first attempt,
+  mapped correctly, conversion held, routes animated well. This closed the project's largest
+  untested hardware dependency. Marked only what was actually reported — the double-scan,
+  messy-scan, idempotency and artifact-capture lines stay open rather than being swept along, since
+  over-claiming in the tracker is the exact habit this session was cleaning up.
+
+The one blocker that survived contact is the bearer token: `escape_plan/BackendConfig.local.json` is
+still absent and only the owner can supply it. `.env` is read-guarded in `settings.json` and the
+guard held when probed — correctly, so the token was not lifted from it.
+
 ## 2026-09-08 — Object-hazard detection: scoped, vetted, approved as S7 (docs only)
 
 **Decision:** The S7 arc exists and is sanctioned. Ten sessions (`S7-1.md`…`S7-10.md`), a

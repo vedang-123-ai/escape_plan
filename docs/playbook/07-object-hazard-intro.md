@@ -2,9 +2,10 @@
 
 **Status: APPROVED 2026-09-08 by the owner. Not started.**
 Scoped 2026-09-08 against the merged post-S6 tree (`388cf37`, all three cheap suites green).
-The scope locks in `CLAUDE.md`, `.claude/rules/global/conventions.md` and
-`playbook/01-product-spec.md` were updated in lockstep — "furniture detection" left the
-out-of-scope list the day this arc was approved. The rule book for the whole arc is
+The scope locks in `CLAUDE.md` and `playbook/01-product-spec.md` were updated in lockstep —
+"furniture detection" left the out-of-scope list the day this arc was approved. (A third copy
+lived in `.claude/rules/global/conventions.md`; that directory was deleted the same day and
+folded into `CLAUDE.md`, which is now the single copy.) The rule book for the whole arc is
 **`docs/object-hazard-spec.md`**; read it before any S7 session, and treat it as authoritative
 when a session file and the spec disagree.
 

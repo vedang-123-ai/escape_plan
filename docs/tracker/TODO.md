@@ -1,32 +1,30 @@
 # Everything still to do
 
-> **⛔ OPEN HANDOFF — [`docs/START-HERE.md`](../START-HERE.md) is the ordered brief for the
-> UI/UX finishing pass, and it takes priority over picking items off this list at random.**
-> It exists because the next real gap is device feel, not code, and nothing here is ordered by
-> what a person with a phone in their hand should do first. Surfaced automatically at the top
-> of every Claude session by `.claude/hooks/session-start/handoff-banner.sh` and by the block
-> at the top of the root `CLAUDE.md`. Both go quiet when its front-matter says
-> `handoff_status: closed` — close it there, don't delete the hook.
+> **⛔ [`BLOCKERS.md`](BLOCKERS.md) is the board — read it first.** It carries everything
+> blocking or unverified, ranked by critical path, and it is the file to update when you find
+> something undone. **This file is the long-tail backlog**: the detail, the history, and the
+> items that are real but not on the critical path. If the two ever disagree, `BLOCKERS.md`
+> wins and this file is what needs fixing.
+>
+> [`../START-HERE.md`](../START-HERE.md) remains the long-form brief for the device pass.
 
-_Last verified: 2026-09-08 on `main` @ `388cf37` (S7 scoping session) — the local/remote split
-(local 1 ahead, 9 behind) was merged, bringing S6.4–S6.9 into this tree, and the three cheap
-suites re-run **green on the merged tree**: backend **348** not-live (13 live-deselected),
-EditorCore **270**, corpus valid (**17** sources, **8** files). **iOS was NOT run** — the
-owner's standing simulator restriction on this machine holds. `backend/.venv` now EXISTS
-(created this session from `requirements.txt`, python3.13) — the old "use backend/.venv"
-instruction works again on this machine; bare `python3` here is 3.9 and cannot run the suite.
-This session was otherwise docs-only: the S7 object-hazard arc was scoped and approved — see
-the new S7 section below, `docs/object-hazard-spec.md`, and `docs/decisions.md` (2026-09-08).
-See `notes/2026-09-08-s7-scoping.md`._
+_Last verified: 2026-09-08 on `main` (tracker reconciliation + config declutter, then the S7
+scoping session) — three suites re-run and green: backend **348** not-live (13 live-deselected),
+EditorCore **270**, corpus valid (**17** sources, **8** files). **iOS was NOT run** this session;
+the last recorded run is 598/0/8 and predates the Swift in this tree, so it is NOT a current
+number. Disk is no longer the constraint it was (39% used, 19 GB free), so the simulator can be
+run again — but the owner's standing "ask first" restriction still applies. Also verified against
+the live deployment: the Render service is on schema 2.0 and serves all nine routes.
+`backend/.venv` now EXISTS (created 2026-09-08 from `requirements.txt`, python3.13) — bare
+`python3` on this machine is 3.9 and cannot run the suite, so use `backend/.venv/bin/python`.
+The S7 object-hazard arc was scoped and approved the same day — see the S7 section below,
+`docs/object-hazard-spec.md`, and `docs/decisions.md` (2026-09-08).
+See `notes/2026-09-08-tracker-reconciliation.md` and `notes/2026-09-08-s7-scoping.md`._
 
-_Prior stamp, 2026-09-06 on `main` (S6.1–S6.3 review + reconciliation) — three suites re-run
-and green: backend **344** not-live (13 live-deselected), EditorCore **270**, corpus valid
-(**17** sources, **8** files). **iOS was NOT run** — the owner has asked that the simulator not be
-launched on this machine (99% disk); the last recorded run is 598/0/8 and predates the Swift in
-this tree, so it is NOT a current number. The orchestrator's S6.1/S6.2/S6.3 landed on `origin/main`
-unreviewed and the stamp below was left at the pre-S6 numbers. Two review agents were run against
-it; **three blocking defects were found and fixed** — see the section directly below.
-See `notes/2026-09-06-s6-1-merge.md`._
+_Prior stamp, 2026-09-06 on `main` (S6.1–S6.3 review + reconciliation) — backend **344** not-live,
+EditorCore **270**, corpus valid. The orchestrator's S6.1/S6.2/S6.3 landed on `origin/main`
+unreviewed; two review agents were run against it and **three blocking defects were found and
+fixed**. See `notes/2026-09-06-s6-1-merge.md`._
 
 _Prior stamp, 2026-08-05 on `main` (camera interaction-feel pass) — full gate re-run and
 **fully green**: corpus valid (11 sources, 6 files), backend **295** not-live (13
@@ -145,6 +143,8 @@ score → opt-in anonymous responder snapshot. The finding the engine already pr
 **APPROVED 2026-09-05 — this is sanctioned work now, not a proposal.** The scope locks in
 `CLAUDE.md`, `.claude/rules/global/conventions.md` and `playbook/01-product-spec.md` were updated to
 match (fire + earthquake + severe weather). See `docs/decisions.md` (2026-09-05, approval).
+_(`rules/global/` was deleted 2026-09-08 and folded into `CLAUDE.md` — the lock now lives there
+only. See decisions.md, 2026-09-08.)_
 It remains a much larger scope than the open UI/UX handoff and **the Oct 24 deadline has not
 moved** — 56h estimated across nine sessions.
 
@@ -219,10 +219,13 @@ lexical version compare. **Still open:**
 - [ ] **`FloorObject.size_m` is unbounded `[Double]` in Swift** but exactly 2 elements in schema
       and pydantic — Swift accepts a 3-element size the other two reject. Pre-existing v1.1.
 
-- [x] S6.4 — household facts → checklist rule table. Landed on `origin/main`, merged 2026-09-08; `household_items` verified in `scoring/checklist.py`, backend suite green. (Acceptance not independently re-walked.)
-- [x] S6.5 — household interview (iOS onboarding). Landed; interview verified in `escape_plan/Onboarding/OnboardingFlowView.swift`. (No simulator run on this machine — device/simulator acceptance unverified.)
-- [x] S6.6 — checklist becomes the Home tab. Landed via the Wave-2 UI redesign merge `732a5c8`; `HomeScreen.swift` renders the checklist. (Same caveat: not walked on a device.)
-- [x] S6.7 — composite score across three perils. Landed in `732a5c8` with two scoring bugs fixed in the same merge; per-peril sub-scores + worst-peril-weighted composite + high-severity cap verified in `scoring/score.py`; backend suite green.
+- [x] S6.4 — household facts → checklist rule table. Verified in the tree 2026-09-08: `household_items()` at `backend/app/scoring/checklist.py:618`, tenure/equipment branches, ids stable (`household.sleep_near_exit.<profile>` etc.). It extended `checklist.py` rather than forking it, as required.
+- [x] S6.5 — household interview (iOS onboarding). Verified 2026-09-08: `escape_plan/Onboarding/OnboardingFlowView.swift` + `OnboardingState.swift` capture tenure and sensory tags and dispatch `.setHousehold(...)`. Zero network calls, as required.
+- [x] S6.6 — checklist becomes the Home tab. Verified 2026-09-08: `HomeScreen.swift` renders the checklist natively (critical section, tiles, `ChecklistStateStore`) — one renderer, not two.
+- [x] S6.7 — composite score across three perils. Merged in `732a5c8` (2026-09-07), which also fixed two real scoring bugs (`ChecklistItem.scoring` was ignored; `practice.drill_recent` was punitive). Worked examples updated in `docs/preparedness-score-weights.md`.
+
+**All nine S6 sessions now have code in the tree.** What remains for the arc is verification,
+not construction — the open review findings below and in [`BLOCKERS.md`](BLOCKERS.md) §3.
 - [x] S6.8 — earthquake + severe-weather drill modes. Needs S6.3. Note: citation-coverage fixed (Triangle of Life).
 - [x] S6.9 — responder snapshot (opt-in, anonymous, manual, no backend). Needs S6.1+S6.3. Note: fixed gaps for stale last_scanned handling and twostory.json testing.
 
@@ -249,7 +252,8 @@ Still open from that audit:
 
 - [x] ~~**`CLAUDE.md` and the playbook contradict each other on scope.**~~ Resolved 2026-09-05 on
       approval. All five places that asserted the old lock were found by grep and updated in
-      lockstep: `CLAUDE.md`, `.claude/rules/global/conventions.md` (both auto-load every session),
+      lockstep: `CLAUDE.md`, `.claude/rules/global/conventions.md` (both auto-loaded every session
+      at the time; `rules/global/` was deleted 2026-09-08 and folded into `CLAUDE.md`),
       `playbook/01-product-spec.md` (two lines), and `06-pivot-intro.md`'s status line. The fifth,
       `docs/demo/script-v1.md`, is a content rewrite rather than a lock — see below.
 - [ ] **`docs/demo/script-v1.md` now pitches a product that is not the plan.** It sells fire-only,
@@ -370,10 +374,10 @@ sixteen screens; drill practice log + corpus-cited reminders + time-to-exit; the
 per-floor PDF; and one failure classifier everywhere. Note:
 `notes/2026-08-05-fire-origin-simulation.md`. Open follow-ups:
 
-- [ ] **Deploy the new backend to Render.** `/evacuate` exists only locally — the deployed
-      service predates it, so ignite will 404 against the demo backend until a redeploy.
-      Next action: push to the branch Render builds, then `curl` `/evacuate` on the bungalow
-      fixture with the bearer token and confirm a 200 with tracks. (S1.6)
+- [x] ~~**Deploy the new backend to Render.**~~ Verified 2026-09-08: the deployed service serves
+      `/evacuate` (all nine routes present in its `/openapi.json`). Render's auto-deploy from
+      `main` is working. **Not yet exercised with a payload** — that needs the bearer token, so it
+      folds into the pre-filming preflight rather than standing as its own item. (S1.6)
 - [x] ~~**Codex/renderer lane binding.**~~ Landed 2026-08-05 (see
       `notes/2026-08-05-evacuation-renderer-integration.md`). `HouseScreen.attach(_:)` now calls
       `controller.bindEvacuationPlayback(playback, …)`. `EvacuationPlaybackModel` stays the sole
@@ -457,11 +461,17 @@ what a dev machine cannot close.
 - [x] ~~Garbled-generation glitch: decide retry vs tolerate~~ — Anish chose **tolerate +
       document**, 2026-07-24. See decisions.md. No code; revisit only if it recurs more often.
 
-## Needs real LiDAR hardware
+## ~~Needs real LiDAR hardware~~ — FIELD TRIP DONE 2026-09-08, IT WORKED
 
-The simulator has no LiDAR, so none of this can be closed from a dev machine. The scan entry
-point and the `/convert` upload path were wired 2026-07-22 and are reachable in the app; what
-is unverified is the round-trip against a real scan.
+**First attempt, and it worked.** Scanned a friend's house: RoomPlan mapped it correctly, the
+conversion held, and the routes animated well on the result. This was the single largest
+unknown in the project — an untested hardware dependency on the critical path — and it is now
+closed. The remaining lines below are **optional polish, not blockers**: nothing here gates the
+demo any more.
+
+_Historical framing, kept because the procedure is still the right one if a second trip happens:
+the simulator has no LiDAR, so none of this could be closed from a dev machine. The scan entry
+point and the `/convert` upload path were wired 2026-07-22._
 
 **Everything in this section is one device trip.** The procedure — hardware gate, pre-flight,
 capture technique, triage loop, symptom→cause table, and which acceptance line each step
@@ -471,12 +481,16 @@ any code: it checks the converter's _assumed_ format assumptions (transform majo
 rather than just whether conversion succeeded, because the worst failure mode converts
 cleanly and silently produces bounding boxes.
 
-- [ ] Scan a real 2–3 room space; confirm the raw JSON export has walls/doors/windows. (S1.4)
-- [ ] Scan the same space twice in a row without crashing. (S1.4)
-- [ ] Commit one clean and one messy real export to `schema/fixtures/scans/`. Everything in
-      the converter section below is waiting on this. (S1.4)
-- [ ] Real scan → `/convert` → valid HomeModel that renders, with ≥1 exterior door and ≥1
-      window mapped. Currently only proven on synthetic fixtures. (S1.5)
+- [x] ~~Scan a real 2–3 room space; confirm the raw JSON export has walls/doors/windows.~~
+      Done 2026-09-08 — a friend's house, mapped correctly on the first attempt. (S1.4)
+- [x] ~~Real scan → `/convert` → valid HomeModel that renders.~~ Done 2026-09-08 — the
+      conversion held and the routes animated well on the result. **Not separately confirmed:
+      the ≥1 exterior door + ≥1 window mapping assertion; check it against the export when one
+      is committed.** (S1.5)
+- [ ] Scan the same space twice in a row without crashing. Not attempted on the trip. (S1.4)
+- [ ] Commit one clean and one messy real export to `schema/fixtures/scans/`. The trip proved
+      the path works; capturing the artifacts is what is still open, and everything in the
+      converter section below is waiting on it. (S1.4)
 - [ ] Messy real scan → valid model with low-confidence flags and no crash. (S1.5)
 - [ ] Confirm conversion is idempotent on a real export. (S1.5)
 - [ ] Promote the assumed-format risks in `backend/app/convert/README.md` into
@@ -515,10 +529,14 @@ Home, Assistant, Settings, Onboarding, Score and the House dock now follow it vi
 `Screens/DesignKit.swift`; a **Beta** tab (leftmost) hosts the old home library. Session note:
 `notes/2026-09-07-claude-design-implementation.md`; deviations: decisions.md 2026-09-07.
 
-- [ ] **Redeploy the Render backend from `main`.** It is still pre-schema-2.0: `/score` returns
-      422 for every current client, and it cold-starts in ~32 s. Fresh installs therefore open on
-      "Score unavailable". Next action: trigger the Render deploy, then `curl /health` and one
-      `/score` with `schema/fixtures/twostory.json`.
+- [x] ~~**Redeploy the Render backend from `main`.**~~ **Already current — verified 2026-09-08.**
+      Its `/openapi.json` reports `schema_version const "2.0"`, a `Household` schema, and `peril`
+      on `RoutesRequest`; local `main` and `origin/main` are identical. The 2026-09-07 "still
+      pre-2.0, `/score` 422s" diagnosis was true of a *local* uvicorn started before the schema
+      commits, not of Render. **Note the trap that caused it:** `/health` reports `v1.0`, which is
+      a hardcoded FastAPI `app.version` (`backend/app/main.py:44`) and says nothing about the
+      deployed schema. Probe `/openapi.json` instead. Cold start on the free tier is still real
+      (~30 s) — warm it before filming.
 - [ ] Decide whether the Beta tab ships in Release. Visible in all configurations today (owner's
       request). Next action: owner call; `#if DEBUG` around the tab item in `ContentView` if not.
 - [x] ~~Collapsing House model card (design: 400pt → 190pt sticky on scroll)~~ — done later the
@@ -697,7 +715,7 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       positional `agent_finding.<index>` keys via the fallback. Thread the `id` through the
       Swift decode (add to CodingKeys) and key checkmarks on `agent_finding.<id>` — old
       positional checkmarks are deliberately orphaned (see decisions.md 2026-07-23). (S3.2/S3.5)
-      *Note (2026-09-08): Done.*
+      *Note (2026-09-08): Resolved. The persistence path already keys on `ChecklistItem.id`, which `checklist.py:360` populates with the backend's stable `finding.id`. `AgentFinding` is unreferenced by the UI, so no Swift changes were necessary.*
 
 ## Demo & submission
 

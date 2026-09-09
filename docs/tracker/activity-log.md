@@ -1177,6 +1177,20 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 07e413a Untrack .build-assess from git
   - 0c6a0e4 Fix pre-flight: accurate network verification note and PDF byte assertion
 
+## 2026-09-09T03:31:25Z · Anish Yarrakonda · `main` @ `df9d0a2`
+
+**Commits this session**
+  - df9d0a2 Fix integration and hygiene: thread AgentFinding id and resolve scoring P1 task
+  - 07e413a Untrack .build-assess from git
+  - 0c6a0e4 Fix pre-flight: accurate network verification note and PDF byte assertion
+
+## 2026-09-09T03:33:20Z · Anish Yarrakonda · `main` @ `df9d0a2`
+
+**Commits this session**
+  - df9d0a2 Fix integration and hygiene: thread AgentFinding id and resolve scoring P1 task
+  - 07e413a Untrack .build-assess from git
+  - 0c6a0e4 Fix pre-flight: accurate network verification note and PDF byte assertion
+
 ## 2026-09-09T05:40:24Z · vedang-123-ai · `main` @ `162dd49`
 
 **Commits this session**
@@ -1189,6 +1203,43 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
+
+## 2026-09-09T03:47:46Z · Anish Yarrakonda · `main` @ `561ece2`
+
+**Commits this session**
+  - 561ece2 Revert inert integration and scoring code, clarify TODO notes
+  - df9d0a2 Fix integration and hygiene: thread AgentFinding id and resolve scoring P1 task
+  - 07e413a Untrack .build-assess from git
+  - 0c6a0e4 Fix pre-flight: accurate network verification note and PDF byte assertion
+
+**Uncommitted working-tree changes (18)**
+  - M .claude/agents/quality/swift-scenekit-reviewer.md
+  - M .claude/hooks/session-start/handoff-banner.sh
+  - M .claude/rules/README.md
+  - D  .claude/rules/global/architecture.md
+  - D  .claude/rules/global/conventions.md
+  - D  .claude/rules/global/workflows.md
+  - M CLAUDE.md
+  - M docs/START-HERE.md
+  - M docs/decisions.md
+  - M docs/playbook/06-pivot-intro.md
+  - M docs/playbook/S6-9.md
+  - M docs/playbook/S6-EXECUTE.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M docs/tracker/field-test-lidar.md
+  - M scripts/demo-preflight.py
+  - ?? docs/tracker/BLOCKERS.md
+  - ?? docs/tracker/notes/2026-09-08-tracker-reconciliation.md
+
+## 2026-09-09T03:49:10Z · Anish Yarrakonda · `main` @ `0d662c9`
+
+**Commits this session**
+  - 0d662c9 BLOCKERS.md is the status mechanism; halve the always-on context
+  - 561ece2 Revert inert integration and scoring code, clarify TODO notes
+  - df9d0a2 Fix integration and hygiene: thread AgentFinding id and resolve scoring P1 task
+  - 07e413a Untrack .build-assess from git
+  - 0c6a0e4 Fix pre-flight: accurate network verification note and PDF byte assertion
 
 ## 2026-09-09T05:50:20Z · vedang-123-ai · `main` @ `162dd49`
 
