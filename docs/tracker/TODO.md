@@ -649,7 +649,7 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       positional `agent_finding.<index>` keys via the fallback. Thread the `id` through the
       Swift decode (add to CodingKeys) and key checkmarks on `agent_finding.<id>` — old
       positional checkmarks are deliberately orphaned (see decisions.md 2026-07-23). (S3.2/S3.5)
-      *Note (2026-09-08): Done.*
+      *Note (2026-09-08): Resolved. The persistence path already keys on `ChecklistItem.id`, which `checklist.py:360` populates with the backend's stable `finding.id`. `AgentFinding` is unreferenced by the UI, so no Swift changes were necessary.*
 
 ## Demo & submission
 
