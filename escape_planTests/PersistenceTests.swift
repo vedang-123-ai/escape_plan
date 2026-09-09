@@ -279,8 +279,18 @@ final class PersistenceTests: XCTestCase {
             from: Data(contentsOf: PersistenceFixtures.repoRoot
                 .appendingPathComponent("schema/homemodel.schema.json"))
         )
-        XCTAssertTrue(
-            (schema["properties"]?["schema_version"]?["enum"]?.arrayValue?.compactMap({ $0.stringValue }) ?? []).contains(SchemaMigrator.currentVersion),
+        let versions = schema["properties"]?["schema_version"]?["enum"]?
+            .arrayValue?.compactMap({ $0.stringValue }) ?? []
+        XCTAssertFalse(versions.isEmpty, "the schema no longer enumerates schema_version")
+
+        // Membership is NOT enough, and used to be all this asserted. S7.1 widened the
+        // enum from ["1.1","2.0"] to every version the migrators accept, at which point
+        // `contains` would have passed with currentVersion reverted to any of the four —
+        // the one test named for catching that drift could no longer catch it. The
+        // current version must be the NEWEST version the contract knows about.
+        let newest = versions.max { SchemaMigrator.compare($0, $1) == .orderedAscending }
+        XCTAssertEqual(
+            SchemaMigrator.currentVersion, newest,
             "SchemaMigrator.currentVersion has drifted from the schema"
         )
     }
