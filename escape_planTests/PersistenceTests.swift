@@ -235,7 +235,8 @@ final class PersistenceTests: XCTestCase {
         XCTAssertThrowsError(try makeStore().load(homeID: homeID)) { error in
             XCTAssertEqual(
                 error as? PersistenceError,
-                .documentTooNew(documentVersion: "3.0", supportedVersion: "2.0")
+                .documentTooNew(documentVersion: "3.0",
+                                supportedVersion: SchemaMigrator.currentVersion)
             )
         }
         // Refused gracefully: the file is still there, unmodified, and the rest
@@ -252,7 +253,8 @@ final class PersistenceTests: XCTestCase {
         XCTAssertThrowsError(try SchemaMigrator.migrate(HomeDocument(body: old))) { error in
             XCTAssertEqual(
                 error as? PersistenceError,
-                .migrationUnavailable(fromVersion: "0.9", toVersion: "2.0")
+                .migrationUnavailable(fromVersion: "0.9",
+                                      toVersion: SchemaMigrator.currentVersion)
             )
         }
     }
@@ -266,7 +268,7 @@ final class PersistenceTests: XCTestCase {
         let migrated = try SchemaMigrator.migrate(HomeDocument(body: old))
         XCTAssertEqual(migrated.schemaVersion, SchemaMigrator.currentVersion)
         let model = try migrated.decode(as: HomeModel.self)
-        XCTAssertEqual(model.schema_version, "2.0")
+        XCTAssertEqual(model.schema_version, SchemaMigrator.currentVersion)
         XCTAssertTrue(model.floors.allSatisfy { $0.objects.isEmpty },
                       "a migrated 1.0 document has no objects yet")
     }

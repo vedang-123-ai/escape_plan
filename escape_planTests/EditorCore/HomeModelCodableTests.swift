@@ -43,6 +43,56 @@ final class HomeModelCodableTests: XCTestCase {
         }
     }
 
+    // MARK: - Schema 2.1 object fields (S7.1)
+
+    /// A 2.0-shaped object carries neither key. Decoding must supply the values that
+    /// preserve its old meaning exactly — floor-standing, not mounted — because every
+    /// home already on a user's phone is such a document.
+    func testAPre21ObjectDecodesToTheDefaultsThatPreserveItsMeaning() throws {
+        let json = Data("""
+        {
+          "id": "o_legacy", "category": "wardrobe", "center": [1.0, 1.0],
+          "size_m": [1.0, 0.6], "height_m": 2.0, "source": "manual"
+        }
+        """.utf8)
+        let object = try HomeModel.decoder.decode(FloorObject.self, from: json)
+        XCTAssertEqual(object.elevation_m, 0)
+        XCTAssertFalse(object.mounted)
+        XCTAssertFalse(object.secured)
+    }
+
+    /// `mounted` and `secured` answer different questions and must not be conflated:
+    /// hanging something on a wall does not strap the wardrobe next to it.
+    func testMountedAndSecuredAreIndependentThroughACompleteRoundTrip() throws {
+        let original = FloorObject(
+            id: "o_tv", category: .tv, center: Point(x: 1, y: 2),
+            size_m: [1.1, 0.08], height_m: 0.65, source: .manual,
+            secured: false, elevation_m: 1.35, mounted: true)
+
+        let decoded = try HomeModel.decoder.decode(
+            FloorObject.self, from: try HomeModel.encoder().encode(original))
+
+        XCTAssertEqual(decoded, original)
+        XCTAssertEqual(decoded.elevation_m, 1.35)
+        XCTAssertTrue(decoded.mounted)
+        XCTAssertFalse(decoded.secured)
+    }
+
+    /// The four v2.1 categories must survive the wire, and the seven older ones must be
+    /// untouched by their arrival.
+    func testEveryObjectCategoryRoundTrips() throws {
+        for category in ObjectCategory.allCases {
+            let original = FloorObject(
+                id: "o_\(category.rawValue)", category: category,
+                center: Point(x: 0, y: 0), size_m: [0.5, 0.5], height_m: 1.0,
+                source: .manual)
+            let decoded = try HomeModel.decoder.decode(
+                FloorObject.self, from: try HomeModel.encoder().encode(original))
+            XCTAssertEqual(decoded.category, category)
+        }
+        XCTAssertEqual(ObjectCategory.allCases.count, 11)
+    }
+
     func testFixturesAreValidPerTheEditorsOwnRules() throws {
         // The fixtures are pydantic-valid by construction (S0.2). If the editor's client-side
         // validator disagrees with any of them, it's the validator that's wrong — this test is
