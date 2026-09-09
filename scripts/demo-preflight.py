@@ -187,7 +187,14 @@ def check_deployed_schema(base: str) -> None:
     try:
         local_doc = json.loads(schema_file.read_text())
         enum = local_doc.get("properties", {}).get("schema_version", {})
-        local = enum.get("const") or (enum.get("enum") or ["unknown"])[-1]
+        # NOT enum[-1]: since S7.1 this enum lists every version the migrators
+        # accept, three of which are historical. Take the numerically greatest.
+        values = enum.get("enum") or []
+        local = enum.get("const") or (
+            max(values, key=lambda v: tuple(int(p) if p.isdigit() else -1
+                                            for p in v.split(".")))
+            if values else "unknown"
+        )
     except Exception:  # noqa: BLE001
         pass
 
