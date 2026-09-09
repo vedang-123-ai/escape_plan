@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "home_id": "7e9c4b22-8a1d-4f3e-b502-3456789abcd2",
   "name": "Apartment 4B",
   "floors": [
@@ -291,7 +291,9 @@
           "height_m": 2.0,
           "rotation_deg": 0.0,
           "source": "manual",
-          "secured": true
+          "secured": true,
+          "elevation_m": 0,
+          "mounted": false
         }
       ],
       "safety_points": []

@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "home_id": "9a5e6d34-2c3f-4a1b-8d70-456789abcde3",
   "name": "Two-Story House",
   "floors": [
@@ -192,6 +192,98 @@
             2.0
           ],
           "source": "manual"
+        }
+      ],
+      "objects": [
+        {
+          "id": "o_1_sofa_living",
+          "category": "sofa",
+          "center": [
+            1.2,
+            2.0
+          ],
+          "size_m": [
+            2.0,
+            0.9
+          ],
+          "height_m": 0.8,
+          "rotation_deg": 0,
+          "source": "manual",
+          "secured": false,
+          "elevation_m": 0,
+          "mounted": false
+        },
+        {
+          "id": "o_1_heater_near_sofa",
+          "category": "heat_source",
+          "center": [
+            1.2,
+            3.0
+          ],
+          "size_m": [
+            0.3,
+            0.25
+          ],
+          "height_m": 0.5,
+          "rotation_deg": 0,
+          "source": "manual",
+          "secured": false,
+          "elevation_m": 0,
+          "mounted": false
+        },
+        {
+          "id": "o_1_fireplace_far",
+          "category": "heat_source",
+          "center": [
+            3.4,
+            7.6
+          ],
+          "size_m": [
+            1.0,
+            0.3
+          ],
+          "height_m": 1.0,
+          "rotation_deg": 0,
+          "source": "manual",
+          "secured": false,
+          "elevation_m": 0,
+          "mounted": false
+        },
+        {
+          "id": "o_1_water_heater",
+          "category": "water_heater",
+          "center": [
+            9.5,
+            7.5
+          ],
+          "size_m": [
+            0.55,
+            0.55
+          ],
+          "height_m": 1.5,
+          "rotation_deg": 0,
+          "source": "manual",
+          "secured": false,
+          "elevation_m": 0,
+          "mounted": false
+        },
+        {
+          "id": "o_1_bookcase_secured",
+          "category": "bookcase",
+          "center": [
+            0.2,
+            6.0
+          ],
+          "size_m": [
+            0.3,
+            0.9
+          ],
+          "height_m": 1.9,
+          "rotation_deg": 0,
+          "source": "manual",
+          "secured": true,
+          "elevation_m": 0,
+          "mounted": false
         }
       ]
     },
