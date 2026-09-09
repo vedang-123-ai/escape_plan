@@ -21,7 +21,9 @@ extension Point {
 
 extension HomeModel {
     /// The schema version this build reads and writes (schema/homemodel.schema.json).
-    static let currentSchemaVersion = "2.0"
+    // Must track schema/homemodel.schema.json AND SchemaMigrator.currentVersion, which is
+    // a separate constant in a SceneKit-free file this Foundation-only package cannot see.
+    static let currentSchemaVersion = "2.1"
 
     func floor(_ id: String) -> Floor? {
         floors.first { $0.id == id }

@@ -33,6 +33,14 @@ enum Source: String, Codable, Equatable, CaseIterable {
 
 enum ObjectCategory: String, Codable, Equatable, CaseIterable {
     case bed, sofa, table, wardrobe, appliance, storage, other
+    // v2.1 (S7.1). `heat_source` covers fixed stoves/ovens/fireplaces AND portable
+    // heaters: the clearance rule that reads it is identical for all of them.
+    case bookcase, tv, water_heater, heat_source
+
+    /// Human-readable name. `rawValue.capitalized` alone yields "Water_heater".
+    var displayName: String {
+        rawValue.split(separator: "_").map(\.capitalized).joined(separator: " ")
+    }
 }
 
 enum StairKind: String, Codable, Equatable, CaseIterable {

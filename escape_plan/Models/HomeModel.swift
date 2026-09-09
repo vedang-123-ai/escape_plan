@@ -1,5 +1,5 @@
 // HomeModel.swift
-// Swift mirror of schema/homemodel.schema.json v1.1 (the project's one contract).
+// Swift mirror of schema/homemodel.schema.json v2.1 (the project's one contract).
 // Field names, enums, and optionality intentionally match the JSON schema / backend/app/models.py
 // exactly rather than adopting Swift naming conventions — see .claude/rules/languages/swift.md.
 //
@@ -77,13 +77,22 @@ struct FloorObject: Codable, Equatable, Identifiable {
     var source: Source
     var confidence: Double?
     var secured: Bool
+    /// Base height above the floor, meters (v2.1). The prism spans
+    /// `elevation_m ... elevation_m + height_m`, so `height_m` stays the object's OWN
+    /// height and 0 keeps every pre-2.1 object meaning exactly what it meant.
+    var elevation_m: Double
+    /// Attached to a wall/ceiling rather than resting (v2.1). Deliberately distinct from
+    /// `secured`, which is anti-topple strapping of a floor-standing object.
+    var mounted: Bool
 
     private enum CodingKeys: String, CodingKey {
         case id, category, center, size_m, height_m, rotation_deg, source, confidence, secured
+        case elevation_m, mounted
     }
 
     init(id: String, category: ObjectCategory, center: Point, size_m: [Double],
-         height_m: Double, rotation_deg: Double = 0, source: Source, confidence: Double? = nil, secured: Bool = false) {
+         height_m: Double, rotation_deg: Double = 0, source: Source, confidence: Double? = nil,
+         secured: Bool = false, elevation_m: Double = 0, mounted: Bool = false) {
         self.id = id
         self.category = category
         self.center = center
@@ -93,6 +102,8 @@ struct FloorObject: Codable, Equatable, Identifiable {
         self.source = source
         self.confidence = confidence
         self.secured = secured
+        self.elevation_m = elevation_m
+        self.mounted = mounted
     }
 
     init(from decoder: Decoder) throws {
@@ -106,6 +117,8 @@ struct FloorObject: Codable, Equatable, Identifiable {
         source = try container.decode(Source.self, forKey: .source)
         confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
         secured = try container.decodeIfPresent(Bool.self, forKey: .secured) ?? false
+        elevation_m = try container.decodeIfPresent(Double.self, forKey: .elevation_m) ?? 0
+        mounted = try container.decodeIfPresent(Bool.self, forKey: .mounted) ?? false
     }
 }
 
