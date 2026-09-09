@@ -1259,3 +1259,25 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - dec0550 Tracker: activity-log entries from local sessions
   - 162dd49 tracker
 
+## 2026-09-09T21:49:16Z · vedang-123-ai · `main` @ `c65edba`
+
+**Commits this session**
+  - c65edba S7.1's simulator-gated leftovers become S7.2's STEP 0
+  - e695f4e Session note: S7.1 schema 2.1
+  - cdda223 Tracker: S7.1 done; record the five things it opened
+  - 8134f6b decisions: the 2.1 bump, the schema_version breadth ruling, why no mass field
+  - 8305cb8 Docs: schema summary was still v1.1; note the converter's stamp risk
+  - bd5d6ee Preflight: derive the local schema version by value, not enum[-1]
+  - 24eef09 Fix a drift guard that my own enum widening made vacuous
+  - 7ff0df4 Swift tests: 2.1 field coverage, and pin version asserts to the constants
+  - 0f99f67 Derive the object-free fixture list instead of hardcoding it
+  - 9965948 Test that the hazard fixtures stay planted BOTH ways
+  - a2dc307 Backend tests: pin to CURRENT_VERSION, cover 2.0 -> 2.1 and the negatives
+  - cc774f6 AI builder tool schema: track the four new object categories
+  - b7005d9 Fixtures: stamp 2.1, write the new object keys explicitly, seed the hazard bed
+  - 983f730 Renderer: placeholder fixture arms for the four new categories
+  - b7add49 Swift mirror: elevation_m, mounted, four categories, currentSchemaVersion 2.1
+  - 1f3b9c4 Migrators: 2.0 -> 2.1 is a version-stamp bump on both sides
+  - 6760930 pydantic: mirror the 2.1 object fields; schema_version Literal["2.1"]
+  - f3189cf Schema 2.1: object elevation_m, mounted, and four hazard categories
+
