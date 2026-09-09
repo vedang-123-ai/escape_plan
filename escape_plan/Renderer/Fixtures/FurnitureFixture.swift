@@ -40,9 +40,17 @@ enum FurnitureFixture {
         case .sofa:      return sofa(w: w, d: d, h: h)
         case .table:     return table(w: w, d: d, h: h)
         case .wardrobe,
-             .storage:   return seamedBox(w: w, d: d, h: h)
-        case .appliance: return appliance(w: w, d: d, h: h)
-        case .other:     return plainBox(w: w, d: d, h: h)
+             .storage,
+             // Placeholder geometry, S7.1. A bookcase reads as a tall seamed volume, which is
+             // close enough to be honest and wrong enough to be worth replacing — S7.6 gives
+             // these four real fixtures. They are here now only because this switch is
+             // exhaustive over ObjectCategory and the app would not compile without them.
+             .bookcase:  return seamedBox(w: w, d: d, h: h)
+        case .appliance,
+             .water_heater: return appliance(w: w, d: d, h: h)
+        case .other,
+             .tv,
+             .heat_source: return plainBox(w: w, d: d, h: h)
         }
     }
 

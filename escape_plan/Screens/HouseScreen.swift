@@ -1958,12 +1958,12 @@ struct HouseScreen: View {
                         set: { dispatch(.setObjectCategory(objectId: objectId, category: $0)) }
                     )) {
                         ForEach(ObjectCategory.allCases, id: \.self) { category in
-                            Text(category.rawValue.capitalized).tag(category)
+                            Text(category.displayName).tag(category)
                         }
                     }
                     .pickerStyle(.menu)
                     .accessibilityLabel("Object type")
-                    .accessibilityValue(object.category.rawValue.capitalized)
+                    .accessibilityValue(object.category.displayName)
                     .accessibilityIdentifier("house.inspector.objectType")
                     Button {
                         dispatch(.rotateObject(objectId: objectId,
