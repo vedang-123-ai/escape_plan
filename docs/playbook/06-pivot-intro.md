@@ -1,8 +1,9 @@
 # PART VI — THE READINESS PIVOT (S6.x)
 
-**Status: APPROVED 2026-09-05 by the owner. Not started.** Scoped 2026-09-05, approved the same
-day. Nothing in this part has been built yet — but it is sanctioned work, not a proposal, and the
-scope locks in `CLAUDE.md` and `.claude/rules/global/conventions.md` were updated to match.
+**Status: APPROVED 2026-09-05. All nine sessions have code in the tree as of 2026-09-08.**
+Scoped and approved the same day; S6.1–S6.9 landed over 2026-09-05…09-08. The scope lock in
+`CLAUDE.md` was updated to match. What remains is verification, not construction — see
+[`docs/tracker/BLOCKERS.md`](../tracker/BLOCKERS.md).
 
 ## What changes, and why
 

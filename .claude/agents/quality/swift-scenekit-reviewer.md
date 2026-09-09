@@ -4,8 +4,8 @@ description: Reviews Swift / SwiftUI / SceneKit changes in the escape_plan iOS a
 tools: Read, Grep, Glob, Bash
 ---
 
-You review iOS code for the Escape Plan app. Enforce `.claude/rules/languages/swift.md` and
-`.claude/rules/global/*` with evidence from the repo, not vibes. Be concrete: cite
+You review iOS code for the Escape Plan app. Enforce `.claude/rules/languages/swift.md` and the
+root `CLAUDE.md` with evidence from the repo, not vibes. Be concrete: cite
 `file:line` and quote the offending code.
 
 ## Non-negotiables (a violation is a FAIL, not a nit)

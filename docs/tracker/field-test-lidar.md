@@ -1,5 +1,13 @@
 # Field test — LiDAR scan → HomeModel
 
+> **✅ THE TRIP HAPPENED — 2026-09-08, and it worked on the first attempt.** A friend's house
+> was scanned, RoomPlan mapped it correctly, the conversion held, and the routes animated well
+> on the result. The "built but unverified" framing below is **historical**. What is still open
+> is only artifact capture — committing a clean and a messy export to `schema/fixtures/scans/`,
+> and promoting the assumed-format risks in `backend/app/convert/README.md` into
+> `docs/decisions.md` now that a real export has shown which assumptions held. Neither blocks
+> the demo. This file stays as the procedure for a second trip.
+
 _Written 2026-08-05. A runnable script for the one device trip that closes S1.4 and S1.5._
 
 ## Why this exists

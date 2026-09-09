@@ -6,6 +6,10 @@ handoff_opened: 2026-08-05
 
 # START HERE — the UI/UX finishing pass
 
+> **This is the long-form brief. The board is [`tracker/BLOCKERS.md`](tracker/BLOCKERS.md)** —
+> that is where status lives and where you record anything you find undone. Read this file for
+> the *why* and the order; read the board for *what is currently open*.
+
 > **Flip `handoff_status` to `closed` in the front-matter above when this is done.** That is the
 > only thing that stops the session-start banner. Do not delete the banner hook to silence it —
 > if the work is done, close it honestly; if it isn't, the nagging is the point.
@@ -43,12 +47,17 @@ Full history: `docs/decisions.md`. Status of everything: `docs/tracker/TODO.md`.
 ## 2. Before you build to a device — two things or you will lose an hour
 
 1. **Create `escape_plan/BackendConfig.local.json`** with `{"bearer_token": "<the real token>"}`.
-   It is gitignored and **confirmed missing on Anish's machine as of 2026-08-05.** Without it a
-   fresh install reaches the deployed backend and gets **401 on everything**. The app is not
-   broken; it is unauthenticated. Ask Anish for the token.
+   It is gitignored and **still missing as of 2026-09-08.** Without it a fresh install reaches
+   the deployed backend and gets **401 on everything**. The app is not broken; it is
+   unauthenticated. Ask Anish for the token.
 2. **Run `python3 scripts/demo-preflight.py`.** It checks the token file, `/health` (Render's
-   free tier sleeps — a ~50 s cold start reads as a broken app), `/routes`, `/score`, and
-   `/explain`. Exit 0 means the backend is actually ready.
+   free tier sleeps — a ~30–50 s cold start reads as a broken app), whether the *deployed*
+   schema matches this checkout, `/routes`, `/score`, and `/explain`. Exit 0 means the backend
+   is actually ready.
+
+**The deployed backend is current** — verified 2026-09-08: schema 2.0, all nine routes including
+`/evacuate`. Do not spend time redeploying it. And note that `/health`'s `v1.0` is a hardcoded
+FastAPI version, not a deploy signal; it caused a wrong "stale backend" diagnosis on 2026-09-07.
 
 **Known-dead, do not debug:** the Anthropic account is out of credits, so `/explain`, `/analyze`
 and `/chat` return **502** by design. The AI half of the app is dark until someone tops up the
@@ -141,10 +150,15 @@ introduce new colours, and do not put route orange in chrome.**
 - [ ] Frame time measured on hardware on all four fixtures, with the number written down in
       `docs/tracker/TODO.md` — not "feels fine".
 - [ ] The golden path walked end-to-end on a device with no dead taps and no unexplained waits.
-- [ ] The rough-edge list from §3c is filed, and the ones that would read badly on camera are
-      fixed.
-- [ ] `/verify` green, tracker updated, session note written.
+- [ ] The rough-edge list from §3c is filed in [`tracker/BLOCKERS.md`](tracker/BLOCKERS.md), and
+      the ones that would read badly on camera are fixed.
+- [ ] `/verify` green, `BLOCKERS.md` updated, session note written.
 - [ ] `handoff_status` above flipped to `closed`.
 
-Remaining after this: top up the Anthropic account, one LiDAR field trip
-(`docs/tracker/field-test-lidar.md`), and film the demo. Deadline is **Oct 24, 2026.**
+Remaining after this: top up the Anthropic account, then film the demo. Deadline is
+**Oct 24, 2026.**
+
+**The LiDAR field trip is done** — 2026-09-08, first attempt, a friend's house mapped correctly
+and the routes animated well on the result. That was the project's largest untested hardware
+dependency and it is now closed; `tracker/field-test-lidar.md` stays as the procedure if a
+second trip ever happens.
