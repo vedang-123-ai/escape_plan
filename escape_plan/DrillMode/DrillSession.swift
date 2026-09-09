@@ -12,36 +12,32 @@
 import Foundation
 
 enum DrillStep: Equatable {
-    /// The drill starts in the profile's bedroom.
     case start(roomName: String)
-    /// Fly the camera along `segment` (two consecutive route waypoints on one floor) and show
-    /// the instruction for arriving at a waypoint of `destinationKind`.
+    case dropCoverHold(coverObjectName: String?, noCoverFinding: String?)
+    case aftershockEvacuate
     case move(segment: Route, destinationKind: WaypointKind)
-    /// A floor crossing: two consecutive `stair` waypoints sharing node_id with different
-    /// floor_ids. Zero-length in plan space, so there is no camera flight — card only.
     case stairs(fromFloorID: String, toFloorID: String)
-    /// Terminal card: outside meeting place + "mark plan as practiced".
-    case meetingPoint
+    case drillComplete(peril: String)
 }
 
 struct DrillSession: Equatable {
     let profile: Profile
     let route: Route
+    let peril: String
     let steps: [DrillStep]
     private(set) var index: Int = 0
 
-    /// nil when the route has fewer than two waypoints — nothing to walk through.
-    init?(profile: Profile, route: Route, startRoomName: String) {
+    init?(profile: Profile, route: Route, startRoomName: String, peril: String = "fire", coverObjectName: String? = nil, noCoverFinding: String? = nil) {
         guard route.waypoints.count >= 2 else { return nil }
         self.profile = profile
         self.route = route
-        self.steps = Self.deriveSteps(from: route, startRoomName: startRoomName)
+        self.peril = peril
+        self.steps = Self.deriveSteps(from: route, startRoomName: startRoomName, peril: peril, coverObjectName: coverObjectName, noCoverFinding: noCoverFinding)
     }
 
     var currentStep: DrillStep { steps[index] }
     var isAtStart: Bool { index == 0 }
     var isAtEnd: Bool { index == steps.count - 1 }
-    /// 1-based, for "Step 2 of 7" UI copy.
     var stepNumber: Int { index + 1 }
     var stepCount: Int { steps.count }
 
@@ -55,10 +51,14 @@ struct DrillSession: Equatable {
         index -= 1
     }
 
-    // MARK: - Step derivation
-
-    private static func deriveSteps(from route: Route, startRoomName: String) -> [DrillStep] {
+    private static func deriveSteps(from route: Route, startRoomName: String, peril: String, coverObjectName: String?, noCoverFinding: String?) -> [DrillStep] {
         var steps: [DrillStep] = [.start(roomName: startRoomName)]
+        
+        if peril == "earthquake" {
+            steps.append(.dropCoverHold(coverObjectName: coverObjectName, noCoverFinding: noCoverFinding))
+            steps.append(.aftershockEvacuate)
+        }
+        
         let waypoints = route.waypoints
         for i in 0..<(waypoints.count - 1) {
             let from = waypoints[i]
@@ -67,9 +67,6 @@ struct DrillSession: Equatable {
                from.node_id == to.node_id, from.floor_id != to.floor_id {
                 steps.append(.stairs(fromFloorID: from.floor_id, toFloorID: to.floor_id))
             } else {
-                // length_m is unused by the camera tour (it re-measures the path itself);
-                // stairs/window flags and exit id are inherited so the slice stays honest
-                // about the route it came from.
                 let segment = Route(waypoints: [from, to],
                                     length_m: 0,
                                     uses_stairs: route.uses_stairs,
@@ -78,7 +75,7 @@ struct DrillSession: Equatable {
                 steps.append(.move(segment: segment, destinationKind: to.kind))
             }
         }
-        steps.append(.meetingPoint)
+        steps.append(.drillComplete(peril: peril))
         return steps
     }
 }

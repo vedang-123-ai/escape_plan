@@ -14,11 +14,12 @@ extension APIClient {
     /// S2.3 always calls with neither — the base whole-house plan; S3.4 adds profile UI on
     /// top of the same call.
     func fetchRoutes(home: HomeModel,
+                     peril: String? = nil,
                      constraints: RoutingConstraints? = nil,
                      profileID: String? = nil) async throws -> RoutePlan {
         var request = try authenticatedRequest(path: "routes", method: "POST")
         request.httpBody = try HomeModel.encoder().encode(
-            RoutesRequest(home: home, constraints: constraints, profile_id: profileID)
+            RoutesRequest(home: home, peril: peril, constraints: constraints, profile_id: profileID)
         )
         // Render's free tier spins the service down when idle; a cold start comfortably
         // exceeds URLSession's 60 s default.

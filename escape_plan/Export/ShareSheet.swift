@@ -13,38 +13,38 @@
 import SwiftUI
 import UIKit
 
-/// Presents the system share sheet for `url` as soon as it becomes non-nil, then clears the
+/// Presents the system share sheet for `urls` as soon as it becomes non-nil, then clears the
 /// binding when the user is done (which is also what dismisses it in SwiftUI's model).
 struct ShareSheet: UIViewControllerRepresentable {
-    @Binding var url: URL?
+    @Binding var urls: [URL]?
 
     func makeUIViewController(context: Context) -> ShareAnchorController {
         ShareAnchorController()
     }
 
     func updateUIViewController(_ anchor: ShareAnchorController, context: Context) {
-        guard let url else { return }
-        anchor.present(url: url) { self.url = nil }
+        guard let urls, !urls.isEmpty else { return }
+        anchor.present(urls: urls) { self.urls = nil }
     }
 }
 
 /// Invisible anchor the activity controller is presented from.
 final class ShareAnchorController: UIViewController {
-    private var presentedURL: URL?
+    private var presentedURLs: [URL]?
 
-    func present(url: URL, onFinish: @escaping () -> Void) {
-        guard presentedURL != url, presentedViewController == nil else { return }
-        presentedURL = url
+    func present(urls: [URL], onFinish: @escaping () -> Void) {
+        guard presentedURLs != urls, presentedViewController == nil else { return }
+        presentedURLs = urls
 
         // `updateUIViewController` can run before this controller is in the window.
         DispatchQueue.main.async { [weak self] in
             guard let self, self.view.window != nil else {
-                self?.presentedURL = nil
+                self?.presentedURLs = nil
                 return
             }
-            let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            let activity = UIActivityViewController(activityItems: urls, applicationActivities: nil)
             activity.completionWithItemsHandler = { [weak self] _, _, _, _ in
-                self?.presentedURL = nil
+                self?.presentedURLs = nil
                 onFinish()
             }
             if let popover = activity.popoverPresentationController {

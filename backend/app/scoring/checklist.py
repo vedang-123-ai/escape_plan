@@ -91,7 +91,7 @@ class ChecklistItem(BaseModel):
     component: Optional[str] = Field(
         default=None, description="Score component this item contributes to, if any."
     )
-    severity: Literal["info", "high"] = "info"
+    severity: Literal["info", "low", "med", "high"] = "info"
     recurrence_days: Optional[int] = Field(
         default=None,
         description=(
@@ -236,7 +236,10 @@ def practice_items(
             why="Only ~26% of families have practiced their escape plan. [cite: redcross-escape-fact-sheet]",
             done=_is_done("practice.drill_recent", state, drill_recurrence, now),
             source_citation="nfpa-escape-planning",
-            scoring=True,
+            # Bug B fix (S6.7 merge, 2026-09-07): a lapsed/never-done drill must
+            # flag staleness, never lower the score — same non-punitive rule as
+            # rescan.home. See docs/preparedness-score-weights.md.
+            scoring=False,
             component=PRACTICE_COMPONENT,
             recurrence_days=drill_recurrence,
         ),
@@ -367,6 +370,7 @@ def finding_items(
                 done=state.get(item_id, False) is True,
                 source_citation=finding.citation,
                 scoring=False,
+                severity=finding.severity,
             )
         )
     return items

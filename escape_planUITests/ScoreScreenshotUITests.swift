@@ -69,9 +69,9 @@ final class ScoreScreenshotUITests: XCTestCase {
         // lands. Waiting for it therefore fails on exactly the runs that worked —
         // which is what happened on 2026-08-04, where the assertion failed while
         // the captured screenshot showed a perfectly rendered screen.
-        // "How it's scored" is the section header of the breakdown list, so it
-        // exists only once a ScoreBreakdown decoded and rendered.
-        XCTAssertTrue(app.staticTexts["How it's scored"].waitForExistence(timeout: 30),
+        // "Largest Deduction" is the section header of the breakdown list, so it
+        // serves as our readiness probe.
+        XCTAssertTrue(app.staticTexts["Largest Deduction"].waitForExistence(timeout: 30),
                       "Score breakdown never rendered")
         sleep(8)
 

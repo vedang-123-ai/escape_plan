@@ -28,10 +28,10 @@ struct EscapePlanDocument {
     var plan: RoutePlan?
     /// When `plan` was fetched from the engine (from the offline route cache), if known.
     var routesComputedAt: Date?
-    /// The household's outside meeting place, in the user's own words. Empty prints a
-    /// write-it-in rule, which is more useful on paper than an omitted box.
     var meetingPoint: String = ""
     var generatedAt: Date = Date()
+    var scoreResponse: ScoreBreakdown?
+    var isResponderSnapshot: Bool = false
 
     var hasRoutes: Bool { plan != nil }
 }
@@ -139,7 +139,9 @@ enum EscapePlanPDF {
 
         var pages: [Page] = []
         for floor in floors {
-            var remaining = summaryBlocks(for: floor, document: document)
+            var remaining = document.isResponderSnapshot
+                ? responderSnapshotBlocks(for: floor, document: document)
+                : summaryBlocks(for: floor, document: document)
             var isContinuation = false
             repeat {
                 let rect = isContinuation ? continuationSummaryRect : summaryRect
@@ -194,6 +196,95 @@ enum EscapePlanPDF {
     }
 
     // MARK: - Summary content
+    
+    private static func responderSnapshotBlocks(for floor: Floor, document: EscapePlanDocument) -> [Block] {
+        let home = document.home
+        var blocks: [Block] = []
+        
+        blocks.append(sectionTitle("FIRST RESPONDER SUMMARY — \(floor.name.uppercased())"))
+        blocks.append(Block(
+            text: "This is an automatically generated offline snapshot. Names are excluded by design.",
+            font: .italicSystemFont(ofSize: 9), gray: 0.15, spacingBefore: 2))
+            
+        var isStale = true
+        if let lastScanned = home.meta.last_scanned {
+            isStale = Date().timeIntervalSince(lastScanned) > (30 * 24 * 3600)
+        }
+        
+        if isStale {
+            blocks.append(Block(
+                text: "WARNING: Home scan is missing or over 30 days old. Layout and occupant data may be inaccurate.",
+                font: .systemFont(ofSize: 10, weight: .heavy), gray: 0, spacingBefore: 6))
+        }
+            
+        // Vulnerable occupants on this floor
+        var vulnerableCounts: [String: Int] = [:]
+        for profile in home.profiles {
+            if profile.tags.contains(.mobility_limited) || profile.tags.contains(.vision_impaired) {
+                if let located = home.locateRoom(profile.bedroom_room_id), located.floorId == floor.id {
+                    vulnerableCounts[located.room.name] = (vulnerableCounts[located.room.name] ?? 0) + 1
+                }
+            }
+        }
+        
+        if !vulnerableCounts.isEmpty {
+            blocks.append(Block(text: "Occupants Needing Assistance:", font: .systemFont(ofSize: 10.5, weight: .bold), gray: 0, spacingBefore: 8, keepWithNext: true))
+            for (roomName, count) in vulnerableCounts.sorted(by: { $0.key < $1.key }) {
+                blocks.append(Block(text: "• \(count) occupant(s) — \(roomName)", font: .systemFont(ofSize: 10), gray: 0.1, indent: 6, spacingBefore: 2))
+            }
+        }
+        
+        // Safety points (shutoffs) on this floor
+        if !floor.safety_points.isEmpty {
+            blocks.append(Block(text: "Utility Shutoffs & Points of Interest:", font: .systemFont(ofSize: 10.5, weight: .bold), gray: 0, spacingBefore: 8, keepWithNext: true))
+            for pt in floor.safety_points.sorted(by: { $0.kind.rawValue < $1.kind.rawValue }) {
+                let title = pt.kind.rawValue.replacingOccurrences(of: "_", with: " ").capitalized
+                blocks.append(Block(text: "• \(title)", font: .systemFont(ofSize: 10), gray: 0.1, indent: 6, spacingBefore: 2))
+            }
+        }
+        
+        // Hazards on this floor
+        var hazards: [String] = []
+        if let plan = document.plan {
+            for roomPlan in plan.rooms where roomPlan.floor_id == floor.id {
+                for finding in roomPlan.findings where finding.kind == .no_viable_route || finding.kind == .no_viable_safe_room {
+                    hazards.append("\(finding.kind.rawValue.replacingOccurrences(of: "_", with: " ").capitalized): \(roomPlan.room_name)")
+                }
+            }
+        }
+        
+        if !hazards.isEmpty {
+            blocks.append(Block(text: "Identified Hazards:", font: .systemFont(ofSize: 10.5, weight: .bold), gray: 0, spacingBefore: 8, keepWithNext: true))
+            for hazard in hazards {
+                blocks.append(Block(text: "• \(hazard)", font: .systemFont(ofSize: 10), gray: 0.1, indent: 6, spacingBefore: 2))
+            }
+        }
+        
+        // Only append the global info on the first printed floor (level == 0 usually, or just the first in array)
+        if floor.id == home.floorsByLevel.first?.id {
+            blocks.append(sectionTitle("HOME OVERVIEW"))
+            if let score = document.scoreResponse?.score {
+                blocks.append(Block(text: "Composite Readiness Score: \(score)/100", font: .systemFont(ofSize: 10), gray: 0.1, spacingBefore: 4))
+            }
+            var safeRoomName: String? = nil
+            if let srItem = document.scoreResponse?.checklist.first(where: { $0.category == .safe_room }) {
+                if let component = srItem.component, let located = home.locateRoom(component) {
+                    safeRoomName = located.room.name
+                } else {
+                    safeRoomName = srItem.title
+                }
+            }
+            if let name = safeRoomName {
+                blocks.append(Block(text: "Computed Storm Safe Room: \(name)", font: .systemFont(ofSize: 10), gray: 0.1, spacingBefore: 2))
+            }
+            let df = DateFormatter()
+            df.dateStyle = .medium
+            df.timeStyle = .short
+            blocks.append(Block(text: "Generated At: \(df.string(from: document.generatedAt))", font: .systemFont(ofSize: 9), gray: 0.2, spacingBefore: 4))
+        }
+        
+        return blocks
+    }
 
     private static func summaryBlocks(for floor: Floor, document: EscapePlanDocument) -> [Block] {
         let home = document.home

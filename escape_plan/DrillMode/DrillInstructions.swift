@@ -19,16 +19,31 @@ struct DrillCard: Equatable {
 
 enum DrillInstructions {
 
-    static func card(for step: DrillStep, profileName: String) -> DrillCard {
+    static func card(for step: DrillStep, profileName: String, peril: String = "fire") -> DrillCard {
         switch step {
         case .start(let roomName):
-            return DrillCard(
-                title: "Start in \(roomName)",
-                body: "This is \(profileName)'s starting point. Before opening a door, test it: "
-                    + "if the door or handle is warm to the back of your hand, use your second "
-                    + "way out. If there is smoke, get low and go — crawl beneath the smoke "
-                    + "layer where the air is cleaner. [cite: nfpa-escape-planning]"
-            )
+            if peril == "earthquake" {
+                return DrillCard(
+                    title: "Earthquake drill",
+                    body: "Start in \(roomName). When the shaking starts, do not try to run. "
+                        + "Drop to the ground before the earthquake throws you down. "
+                        + "[cite: shakeout-guidance]"
+                )
+            } else if peril == "tornado" {
+                return DrillCard(
+                    title: "Tornado warning",
+                    body: "Start in \(roomName). When a tornado warning is issued, you must seek shelter "
+                        + "immediately in a designated safe room. [cite: redcross-tornado]"
+                )
+            } else {
+                return DrillCard(
+                    title: "Start in \(roomName)",
+                    body: "This is \(profileName)'s starting point. Before opening a door, test it: "
+                        + "if the door or handle is warm to the back of your hand, use your second "
+                        + "way out. If there is smoke, get low and go — crawl beneath the smoke "
+                        + "layer where the air is cleaner. [cite: nfpa-escape-planning]"
+                )
+            }
         case .move(_, let destinationKind):
             return moveCard(toward: destinationKind)
         case .stairs:
@@ -37,7 +52,35 @@ enum DrillInstructions {
                 body: "The route continues on the next floor. Follow the glowing markers down "
                     + "the stairs and keep moving."
             )
-        case .meetingPoint:
+        case .dropCoverHold(let coverObjectName, let noCoverFinding):
+            if let name = coverObjectName {
+                return DrillCard(
+                    title: "Cover and Hold On",
+                    body: "Cover your head and neck with your arms. Seek additional cover by "
+                        + "getting under the \(name). Hold on to your shelter and move with "
+                        + "it until the shaking stops. [cite: shakeout-guidance]"
+                )
+            } else {
+                return DrillCard(
+                    title: "No Cover",
+                    body: noCoverFinding ?? "Drop to the ground and cover your head and neck with your arms. [cite: shakeout-guidance]"
+                )
+            }
+        case .aftershockEvacuate:
+            return DrillCard(
+                title: "Evacuate",
+                body: "When the shaking stops, evaluate your surroundings. Evacuate only if the "
+                    + "building is damaged or if you are instructed to do so. Be cautious of "
+                    + "aftershocks. [cite: fema-earthquake] [cite: usgs-earthquake]"
+            )
+        case .drillComplete(let peril):
+            if peril == "tornado" {
+                return DrillCard(
+                    title: "Safe Room reached",
+                    body: "You have reached your safe room. Wait until the severe weather threat "
+                        + "has passed."
+                )
+            }
             return DrillCard(
                 title: "Meeting place",
                 body: "Gather at your one outside meeting place a safe distance from the home — "
@@ -116,8 +159,12 @@ enum DrillInstructions {
     static var auditableBodies: [String] {
         var steps: [DrillStep] = [
             .start(roomName: "Bedroom"),
+            .dropCoverHold(coverObjectName: "table", noCoverFinding: "No cover in this room — drop to the ground and cover your head and neck with your arms. [cite: shakeout-guidance]"),
+            .dropCoverHold(coverObjectName: nil, noCoverFinding: "No cover in this room — drop to the ground and cover your head and neck with your arms. [cite: shakeout-guidance]"),
+            .aftershockEvacuate,
             .stairs(fromFloorID: "f1", toFloorID: "f0"),
-            .meetingPoint,
+            .drillComplete(peril: "fire"),
+            .drillComplete(peril: "tornado"),
         ]
         let anySegment = Route(waypoints: [], length_m: 0, uses_stairs: false,
                                uses_window: false, exit_id: "exit")
@@ -126,7 +173,11 @@ enum DrillInstructions {
         }
         // Standalone copy is audited by the same test as the cards — a frequency shown
         // without a resolvable citation is exactly the failure this test exists to catch.
-        return steps.map { card(for: $0, profileName: "Sam").body }
+        return steps.map { card(for: $0, profileName: "Sam", peril: "fire").body }
+            + [
+                card(for: .start(roomName: "Bedroom"), profileName: "Sam", peril: "earthquake").body,
+                card(for: .start(roomName: "Bedroom"), profileName: "Sam", peril: "tornado").body
+              ]
             + [practiceFrequencyGuidance, cadenceChoiceNote, drillTimerGoal]
     }
 

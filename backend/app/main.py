@@ -319,10 +319,10 @@ class ScoreRequest(BaseModel):
 
     home: HomeModel
     constraints: Optional[RoutingConstraints] = None
-    findings: list[Finding] = Field(
-        default_factory=list,
-        description="Findings from /analyze (S3.2). Omit for a routes-and-checklist "
-        "score; the findings component then sits at full marks.",
+    findings: Optional[list[Finding]] = Field(
+        default=None,
+        description="Findings from /analyze (S3.2). Omit (None) for a routes-and-checklist "
+        "score; the findings component is then reported as not assessed.",
     )
     checklist_state: dict[str, bool] = Field(
         default_factory=dict,

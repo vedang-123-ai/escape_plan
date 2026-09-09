@@ -14,15 +14,13 @@ import Foundation
 /// backend already validated against the trace; the app keeps them for transparency but
 /// renders `finding`/`recommendation`/`citation`.
 struct AgentFinding: Decodable, Equatable, Identifiable, Hashable {
+    var id: String
     var severity: Severity
     var room_ids: [String]
     var finding: String
     var evidence: [String]
     var recommendation: String
     var citation: String
-
-    /// Findings carry no server id; the content itself identifies the row for SwiftUI lists.
-    var id: String { "\(severity.rawValue)|\(room_ids.joined(separator: ","))|\(finding)" }
 
     /// Tolerant like the route enums: a finding is nested inside the /analyze response, so
     /// an unrecognized severity would fail the whole analysis and the user would see none
@@ -40,11 +38,12 @@ struct AgentFinding: Decodable, Equatable, Identifiable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case severity, room_ids, finding, evidence, recommendation, citation
+        case id, severity, room_ids, finding, evidence, recommendation, citation
     }
 
-    init(severity: Severity, room_ids: [String] = [], finding: String,
+    init(id: String, severity: Severity, room_ids: [String] = [], finding: String,
          evidence: [String] = [], recommendation: String, citation: String) {
+        self.id = id
         self.severity = severity
         self.room_ids = room_ids
         self.finding = finding
@@ -55,6 +54,7 @@ struct AgentFinding: Decodable, Equatable, Identifiable, Hashable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         severity = try container.decode(Severity.self, forKey: .severity)
         room_ids = try container.decodeIfPresent([String].self, forKey: .room_ids) ?? []
         finding = try container.decode(String.self, forKey: .finding)

@@ -89,11 +89,12 @@ extension APIClient {
     /// profile selection is not tracked — the cache stores whatever was last shown).
     /// Any other failure, or a connection failure with an empty cache, rethrows.
     func fetchRoutesCached(home: HomeModel,
+                           peril: String? = nil,
                            profileID: String? = nil,
                            cache: RoutePlanCache? = nil) async throws -> CachedRoutesResult {
         let cache = try cache ?? RoutePlanCache()
         do {
-            let plan = try await fetchRoutes(home: home, profileID: profileID)
+            let plan = try await fetchRoutes(home: home, peril: peril, profileID: profileID)
             try? cache.save(plan)
             return .live(plan)
         } catch where Self.isConnectionFailure(error) {

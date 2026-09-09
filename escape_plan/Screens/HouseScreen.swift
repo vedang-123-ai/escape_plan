@@ -63,6 +63,19 @@ struct HouseScreen: View {
     /// Fullscreen viewing: dock, nav bar, and tab bar step aside and the scene card goes
     /// full-bleed. Purely presentational — no model or route state depends on it.
     @State private var isImmersive = false
+    /// How far the dock has scrolled, clamped to the collapse range. The model card gives up
+    /// height 1:1 against it — the design's 400pt down to 190pt — and the dock's leading
+    /// spacer takes that height back so content tracks the finger exactly.
+    @State private var dockScrollOffset: CGFloat = 0
+    /// 0 at rest, 1 fully collapsed; fades the status banners out of the shrinking card.
+    @State private var collapseProgress: Double = 0
+    @State private var isCardCollapsed = false
+    private static let designCardHeight: CGFloat = 400
+    private static let collapsedCardHeight: CGFloat = 190
+    /// Which job the dock is doing. The design (1a) gives the dock one job at a time — routes
+    /// or the fire simulation — behind a segmented switch, instead of stacking both.
+    private enum DockMode: Hashable { case routes, fire }
+    @State private var dockMode: DockMode = .routes
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -70,8 +83,6 @@ struct HouseScreen: View {
     /// sizes a 240pt box shows about one and a half rows of the route controls; scaled it shows
     /// the same content it always did. Capped so the scene never loses more than it must — the
     /// dock scrolls internally, so the cap costs nothing but a scroll.
-    @ScaledMetric(relativeTo: .body) private var dockHeight: CGFloat = 240
-    private static let maxDockHeight: CGFloat = 420
 
     /// The ordered-steps sheet: the VoiceOver alternative to reading a glowing line, and a
     /// perfectly good way for anyone to get the route as text.
@@ -241,21 +252,28 @@ struct HouseScreen: View {
                                     description: Text(error))
         } else if let session {
             let store = session.store
-            // The scene sits above a FIXED-HEIGHT dock. Chrome (inspector, placement hint,
-            // route controls) appears and vanishes inside the dock, so the scene view's frame
-            // never changes — a mid-gesture resize would shift the world under the user's
-            // finger and break any in-flight drag.
+            // The scene card collapses as the dock scrolls (the design's 1a artboard): 400pt
+            // at rest, shrinking 1:1 with the dock's scroll offset down to 190pt, where it
+            // holds. Dock chrome (inspector, placement hint, route controls) still appears
+            // and vanishes INSIDE the dock and never resizes the scene — the only thing that
+            // does is the user's own scroll, which cannot coincide with an in-flight drag on
+            // the model, so the world never shifts under a finger that is touching it.
             //
-            // View controls (floors, spotlight, fullscreen) DO float over the scene: they are
-            // a fixed-height strip pinned to the card's top edge, so they never resize it, and
-            // the region they cover is empty sky above the model in every framing the camera
-            // rig produces. Immersive mode is the one place the scene's frame changes, and it
-            // is user-initiated from a button — never mid-drag.
+            // View controls (floors, spotlight, fullscreen) float over the scene as a
+            // fixed-height strip pinned to the card's top edge; at the collapsed height the
+            // status banners fade so the strip and the illustrative notice keep their room.
+            GeometryReader { geo in
             VStack(spacing: 0) {
                 sceneCard(for: session)
+                    .frame(height: isImmersive ? nil : cardHeight(in: geo.size.height))
                 if !isImmersive {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
+                            // The design's sticky trick: whatever height the card gave up,
+                            // this spacer takes back, so the content under the finger moves
+                            // exactly as far as the finger did.
+                            Color.clear
+                                .frame(height: collapseDistance(in: geo.size.height))
                             if case .placeOpening(let kind) = tool {
                                 placementHint(kind: kind)
                             }
@@ -268,14 +286,28 @@ struct HouseScreen: View {
                                     .padding(.horizontal)
                             }
                             viewControls(for: store)
+                            // Scroll room for the full collapse even when the dock's own
+                            // content barely overflows — the design pads its dock bottom
+                            // for the same reason. Blank space past the last control.
+                            Color.clear
+                                .frame(height: collapseRange(in: geo.size.height))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        // Both edges are read in the same (global) space and subtracted, so
+                        // the offset needs no named coordinate space to resolve.
+                        .background(GeometryReader { content in
+                            Color.clear.preference(key: DockContentTopKey.self,
+                                                   value: content.frame(in: .global).minY)
+                        })
                     }
-                    .frame(height: min(dockHeight, Self.maxDockHeight))
-                    .background(.regularMaterial)
+                    .modifier(DockScrollOffsetReader { offset in
+                        updateCollapse(offset: offset, containerHeight: geo.size.height)
+                    })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            }
+            .dsPage()
             .toolbar(isImmersive ? .hidden : .visible, for: .navigationBar, .tabBar)
             .statusBarHidden(isImmersive)
             .onChange(of: session.wasDeletedExternally) { _, deleted in
@@ -437,8 +469,14 @@ struct HouseScreen: View {
 
             VStack(spacing: 8) {
                 floatingSceneControls(for: store)
-                routesBanner
-                simulationBanner
+                // Collapsed, the card is a 190pt strip: the status banners fade so the chip
+                // strip and the illustrative notice keep their room. Scrolling back restores them.
+                Group {
+                    routesBanner
+                    simulationBanner
+                }
+                .opacity(isImmersive ? 1 : 1 - collapseProgress)
+                .allowsHitTesting(isImmersive || collapseProgress < 0.5)
                 // Non-negotiable: while a timeline is on screen, this notice is on screen.
                 // It floats over the model, so it survives immersive mode and cannot be
                 // scrolled away in the dock.
@@ -461,6 +499,40 @@ struct HouseScreen: View {
             if isImmersive {
                 Color(DollhousePalette.background).ignoresSafeArea()
             }
+        }
+    }
+
+    // MARK: - Collapsing card
+
+    /// The design's 400pt, capped so a short phone still shows a usable strip of dock at rest.
+    private func expandedCardHeight(in containerHeight: CGFloat) -> CGFloat {
+        min(Self.designCardHeight, max(Self.collapsedCardHeight + 40, containerHeight - 230))
+    }
+
+    /// How far the card can shrink: expanded minus collapsed height.
+    private func collapseRange(in containerHeight: CGFloat) -> CGFloat {
+        expandedCardHeight(in: containerHeight) - Self.collapsedCardHeight
+    }
+
+    private func cardHeight(in containerHeight: CGFloat) -> CGFloat {
+        max(Self.collapsedCardHeight, expandedCardHeight(in: containerHeight) - dockScrollOffset)
+    }
+
+    private func collapseDistance(in containerHeight: CGFloat) -> CGFloat {
+        expandedCardHeight(in: containerHeight) - cardHeight(in: containerHeight)
+    }
+
+    private func updateCollapse(offset: CGFloat, containerHeight: CGFloat) {
+        let range = collapseRange(in: containerHeight)
+        let clamped = min(max(0, offset), range)
+        // Past the collapsed height nothing changes, so stop re-rendering per scroll frame.
+        guard abs(clamped - dockScrollOffset) >= 0.5 else { return }
+        dockScrollOffset = clamped
+        collapseProgress = range > 0 ? Double(clamped / range) : 0
+        let collapsed = clamped >= range - 0.5
+        if collapsed != isCardCollapsed {
+            isCardCollapsed = collapsed
+            Haptics.selection()   // the card seats into place, either way
         }
     }
 
@@ -530,25 +602,56 @@ struct HouseScreen: View {
 
     /// Quiet section header — the dock's wayfinding. Sentence case, secondary, no chrome.
     private func dockHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(.secondary)
+        Text(title).sectionHeaderStyle()
+    }
+
+    /// The design's two-segment card: one job at a time.
+    private var dockModeSwitch: some View {
+        HStack(spacing: 0) {
+            ForEach([DockMode.routes, .fire], id: \.self) { mode in
+                let selected = dockMode == mode
+                Button {
+                    withAnimation(reduceMotion ? nil : .snappy) { dockMode = mode }
+                } label: {
+                    Text(mode == .routes ? "Escape routes" : "Fire simulation")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selected ? .white : DS.bodyInk)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .background(selected ? Theme.accent : .clear,
+                                    in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                }
+                .buttonStyle(HapticPlainButtonStyle())
+                .accessibilityAddTraits(selected ? [.isSelected] : [])
+            }
+        }
+        .dsCard(radius: 12, padding: 3)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Dock shows")
     }
 
     @ViewBuilder
     private func viewControls(for store: HomeModelStore) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            // Floor picking lives on the model itself (floatingSceneControls) and focus is now
-            // intrinsic to the render, so the dock is purely route content.
-            if let routePlan {
-                routeControls(for: routePlan)
+        VStack(alignment: .leading, spacing: 14) {
+            // Floor picking lives on the model itself (floatingSceneControls). The dock does
+            // one job at a time behind the switch: routes, or the fire simulation — which
+            // stays reachable whether or not a route plan has loaded.
+            dockModeSwitch
+            switch dockMode {
+            case .routes:
+                if let routePlan {
+                    routeControls(for: routePlan)
+                } else if isFetchingRoutes {
+                    Text("Planning your escape routes…")
+                        .font(.subheadline)
+                        .foregroundStyle(DS.supporting)
+                        .padding(.top, 4)
+                }
+            case .fire:
+                simulationControls(for: store)
             }
-            // The simulation section is always present, with or without a route plan: it is
-            // its own question ("what if it starts here?"), and hiding the entrance until
-            // routes happen to be loaded would make it feel like a mode you can lose.
-            simulationControls(for: store)
         }
-        .padding()
+        .padding(DS.pagePadding)
         .padding(.bottom, 6)
     }
 
@@ -768,7 +871,7 @@ struct HouseScreen: View {
                   systemImage: "flame.fill")
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.borderedProminent).hapticTap()
         .tint(Theme.warning)
         .disabled(selected == nil || isSimulating)
         .accessibilityLabel(selected.map { "Ignite \($0.room.name)" } ?? "Ignite selected room")
@@ -785,7 +888,7 @@ struct HouseScreen: View {
             Label("Choose a room…", systemImage: "list.bullet")
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.bordered).hapticTap()
         .disabled(isSimulating)
         .accessibilityLabel("Choose a room to ignite")
         .accessibilityHint("Opens a list of every room in the home.")
@@ -870,7 +973,7 @@ struct HouseScreen: View {
             Label("Clear simulation", systemImage: "xmark.circle")
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.bordered).hapticTap()
         .accessibilityLabel("Clear simulation")
         .accessibilityHint("Removes the fire and returns to your normal escape routes.")
         .accessibilityIdentifier("house.simulation.clear")
@@ -906,7 +1009,7 @@ struct HouseScreen: View {
                 .labelStyle(.iconOnly)
                 .font(.title2)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HapticPlainButtonStyle())
         .foregroundStyle(Theme.accent)
         .accessibilityLabel(playback.isPlaying ? "Pause simulation" : "Play simulation")
         .accessibilityValue("\(playback.elapsedLabel) of \(playback.durationLabel)")
@@ -925,7 +1028,7 @@ struct HouseScreen: View {
                 .labelStyle(.iconOnly)
                 .font(.title3)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HapticPlainButtonStyle())
         .foregroundStyle(Theme.accent)
         .accessibilityLabel("Replay from the start")
         .accessibilityHint("Moves back to the moment of ignition and plays.")
@@ -1160,7 +1263,7 @@ struct HouseScreen: View {
             Label("Route steps", systemImage: "list.number")
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.bordered).hapticTap()
         .minimumTapTarget()
         .disabled(narrationRoom == nil)
         .accessibilityLabel(narrationRoom.map { "Route steps for the \($0.room_name)" }
@@ -1370,6 +1473,7 @@ struct HouseScreen: View {
                                    + "and jumps to their bedroom.")
                 .accessibilityIdentifier("plan.profile.picker")
                 .onChange(of: selectedProfileID) { _, newValue in
+                    Haptics.selection()
                     selectedRoomID = newValue.flatMap { id in
                         model.profiles.first { $0.id == id }?.bedroom_room_id
                     }
@@ -1387,7 +1491,7 @@ struct HouseScreen: View {
             .accessibilityLabel("Route to show")
             .accessibilityHint("Choose whose route is drawn on the model.")
             .disabled(isTouring)
-            .onChange(of: selectedRoomID) { _, _ in applyOverlay() }
+            .onChange(of: selectedRoomID) { _, _ in Haptics.selection(); applyOverlay() }
 
             // At the accessibility text sizes the picker and the buttons cannot share a line;
             // they stack rather than truncate.
@@ -1580,7 +1684,7 @@ struct HouseScreen: View {
                       systemImage: isTourRunning ? "stop.circle" : "play.circle")
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.borderedProminent).hapticTap()
             .minimumTapTarget()
             .accessibilityLabel(isTourRunning
                 ? "Stop the tour"
@@ -1632,7 +1736,7 @@ struct HouseScreen: View {
                         Label("Previous stop", systemImage: "chevron.backward")
                             .labelStyle(.iconOnly)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.bordered).hapticTap()
                     .minimumTapTarget()
                     .disabled(index == 0)
                     .accessibilityLabel("Previous stop")
@@ -1644,7 +1748,7 @@ struct HouseScreen: View {
                         Label("Next stop", systemImage: "chevron.forward")
                             .labelStyle(.iconOnly)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.bordered).hapticTap()
                     .minimumTapTarget()
                     .disabled(index >= stops.count - 1)
                     .accessibilityLabel("Next stop")
@@ -2429,4 +2533,49 @@ enum HouseSceneAccessibility {
 #Preview {
     HouseScreen(homeID: nil)
         .environment(APIClient())
+}
+
+/// Reports the dock's scroll offset (0 at rest, growing as content scrolls up). iOS 18+ reads
+/// it straight from the scroll geometry; iOS 17 falls back to the two global-space top edges
+/// (content, viewport) — the classic preference pattern, which the newer ScrollView no longer
+/// re-emits on scroll, hence the split.
+private struct DockScrollOffsetReader: ViewModifier {
+    let onChange: (CGFloat) -> Void
+    @State private var contentTop: CGFloat = 0
+    @State private var viewportTop: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, offset in
+                onChange(offset)
+            }
+        } else {
+            content
+                .background(GeometryReader { viewport in
+                    Color.clear.preference(key: DockViewportTopKey.self,
+                                           value: viewport.frame(in: .global).minY)
+                })
+                .onPreferenceChange(DockContentTopKey.self) { top in
+                    contentTop = top
+                    onChange(viewportTop - contentTop)
+                }
+                .onPreferenceChange(DockViewportTopKey.self) { top in
+                    viewportTop = top
+                    onChange(viewportTop - contentTop)
+                }
+        }
+    }
+}
+
+/// Global-space top edges of the dock's content and of the dock itself (iOS 17 fallback).
+private struct DockContentTopKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+private struct DockViewportTopKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }

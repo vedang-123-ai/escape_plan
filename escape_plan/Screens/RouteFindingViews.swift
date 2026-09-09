@@ -40,6 +40,14 @@ struct RouteFindingStyle {
             RouteFindingStyle(title: "Tight squeeze",
                               icon: "arrow.down.right.and.arrow.up.left",
                               tint: Color(DollhousePalette.warningBadge))
+        case .no_viable_safe_room:
+            RouteFindingStyle(title: "No safe room",
+                              icon: "exclamationmark.triangle.fill",
+                              tint: Color(DollhousePalette.warningBadgeSevere))
+        case .no_cover_in_room:
+            RouteFindingStyle(title: "No cover",
+                              icon: "exclamationmark.triangle.fill",
+                              tint: Color(DollhousePalette.warningBadge))
         case .unknown:
             // A kind newer than this build. The engine's `detail` still reads fine, so
             // show the warning rather than hiding a real safety finding behind a

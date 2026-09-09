@@ -85,6 +85,10 @@ struct GlassChipButtonStyle: ButtonStyle {
             .animation(reduceMotion ? .linear(duration: 0.08)
                                     : .spring(response: 0.3, dampingFraction: 1.0),
                        value: configuration.isPressed)
+            // Same click as every other button in the app, on press-down.
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if pressed { Haptics.press() }
+            }
             // SC 2.5.8: a compact icon-only chip is ~22pt of glyph plus 11pt padding either
             // side; the vertical axis is what falls short, so the whole chip gets a floor.
             .frame(minWidth: WCAG.minimumTargetSize, minHeight: 44)

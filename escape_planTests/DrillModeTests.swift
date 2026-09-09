@@ -36,7 +36,7 @@ final class DrillSessionTests: XCTestCase {
 
         XCTAssertEqual(session.steps.count, 5) // start + 3 segments + meeting point
         XCTAssertEqual(session.steps.first, .start(roomName: "Maya's bedroom"))
-        XCTAssertEqual(session.steps.last, .meetingPoint)
+        XCTAssertEqual(session.steps.last, .drillComplete(peril: "fire"))
 
         // Every middle step is a two-waypoint camera segment over the engine's own waypoints.
         for case let .move(segment, _) in session.steps {
@@ -89,7 +89,7 @@ final class DrillSessionTests: XCTestCase {
         XCTAssertTrue(session.isAtStart, "back() at the start must clamp")
 
         while !session.isAtEnd { session.advance() }
-        XCTAssertEqual(session.currentStep, .meetingPoint)
+        XCTAssertEqual(session.currentStep, .drillComplete(peril: "fire"))
         XCTAssertEqual(session.stepNumber, session.stepCount)
         session.advance()
         XCTAssertTrue(session.isAtEnd, "advance() at the end must clamp")
@@ -122,15 +122,29 @@ final class DrillInstructionsTests: XCTestCase {
         XCTAssertTrue(sawACitation, "drill safety copy should carry at least one citation")
     }
 
+    func testNoTriangleOfLife() {
+        for body in DrillInstructions.auditableBodies {
+            XCTAssertFalse(body.lowercased().contains("triangle of life"), "Drill copy must never recommend the discredited Triangle of Life.")
+            XCTAssertFalse(body.lowercased().contains("next to a desk"), "Drill copy must never recommend getting next to furniture instead of under it.")
+            XCTAssertFalse(body.lowercased().contains("curling up next to"), "Drill copy must never recommend getting next to furniture instead of under it.")
+        }
+    }
+
     func testSafetyClaimCardsCarryCitationsAndNavCardsDoNot() {
-        let start = DrillInstructions.card(for: .start(roomName: "Bedroom"), profileName: "Maya")
+        let start = DrillInstructions.card(for: .start(roomName: "Bedroom"), profileName: "Maya", peril: "fire")
         XCTAssertEqual(start.citations, ["nfpa-escape-planning"])
 
-        let meeting = DrillInstructions.card(for: .meetingPoint, profileName: "Maya")
+        let eqStart = DrillInstructions.card(for: .start(roomName: "Bedroom"), profileName: "Maya", peril: "earthquake")
+        XCTAssertFalse(eqStart.citations.isEmpty, "Earthquake start card must make a cited safety claim")
+
+        let torStart = DrillInstructions.card(for: .start(roomName: "Bedroom"), profileName: "Maya", peril: "tornado")
+        XCTAssertFalse(torStart.citations.isEmpty, "Tornado start card must make a cited safety claim")
+
+        let meeting = DrillInstructions.card(for: .drillComplete(peril: "fire"), profileName: "Maya", peril: "fire")
         XCTAssertFalse(meeting.citations.isEmpty)
 
         let stairs = DrillInstructions.card(for: .stairs(fromFloorID: "f1", toFloorID: "f0"),
-                                            profileName: "Maya")
+                                            profileName: "Maya", peril: "fire")
         XCTAssertTrue(stairs.citations.isEmpty, "navigational copy makes no safety claim")
     }
 

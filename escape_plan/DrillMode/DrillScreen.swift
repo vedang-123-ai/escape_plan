@@ -54,6 +54,8 @@ struct DrillScreen: View {
 
     // MARK: Fire origin (optional)
 
+    @State private var selectedPeril = "fire"
+
     /// Where the fire starts, if the household chose to say. Nil is a first-class answer: the
     /// drill runs identically, and the time comparison stays honestly unavailable.
     @State private var originRoomID: String?
@@ -157,8 +159,11 @@ struct DrillScreen: View {
                         if let session {
                             drillCard(for: session)
                         } else {
+                            perilPicker
                             profilePicker(homeModel)
-                            fireOriginSection(homeModel)
+                            if selectedPeril == "fire" {
+                                fireOriginSection(homeModel)
+                            }
                             practiceSection(homeModel)
                         }
                     }
@@ -169,6 +174,32 @@ struct DrillScreen: View {
         } else {
             ProgressView("Loading…")
         }
+    }
+
+    // MARK: - Peril picking
+
+    @ViewBuilder
+    private var perilPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("What are you practicing?")
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    DSPill(title: "Fire", isSelected: selectedPeril == "fire") {
+                        selectedPeril = "fire"
+                    }
+                    DSPill(title: "Earthquake", isSelected: selectedPeril == "earthquake") {
+                        selectedPeril = "earthquake"
+                    }
+                    DSPill(title: "Severe Weather", isSelected: selectedPeril == "tornado") {
+                        selectedPeril = "tornado"
+                    }
+                }
+            }
+        }
+        .dsCard()
     }
 
     // MARK: - Profile picking
@@ -484,7 +515,7 @@ struct DrillScreen: View {
             // feature), with the ids echoed as chips, like AssistantScreen.
             DrillCitedText(text: card.body)
 
-            if case .meetingPoint = session.currentStep {
+            if case .drillComplete = session.currentStep {
                 comparisonCard
                 meetingPointActions
             }
@@ -721,6 +752,7 @@ struct DrillScreen: View {
             defer { isFetchingRoutes = false }
             do {
                 let result = try await apiClient.fetchRoutesCached(home: homeModel,
+                                                                   peril: selectedPeril,
                                                                    profileID: profile.id)
                 guard !Task.isCancelled else { return }
                 let plan: RoutePlan
@@ -754,6 +786,10 @@ struct DrillScreen: View {
             routesNotice = "The engine returned no plan for \(profile.name)'s bedroom."
             return
         }
+        if plan.peril == "tornado", let finding = room.findings.first(where: { $0.kind == .no_viable_safe_room }) {
+            routesNotice = "\(finding.detail) Leave immediately and seek shelter in a nearby sturdy building. [cite: redcross-tornado]"
+            return
+        }
         guard let primary = room.primary else {
             // Findings are the engine's words, shown verbatim — the app never writes its own
             // safety judgments.
@@ -761,8 +797,17 @@ struct DrillScreen: View {
             routesNotice = "No primary route for \(profile.name).\(detail)"
             return
         }
+        
+        let coverObjectName = room.cover_object_id.flatMap { id in
+            homeModel.floors.flatMap(\.objects).first(where: { $0.id == id })?.category.rawValue
+        }
+        let noCoverFinding = room.findings.first(where: { $0.kind == .no_cover_in_room })?.detail
+
         guard let drill = DrillSession(profile: profile, route: primary,
-                                       startRoomName: room.room_name) else {
+                                       startRoomName: room.room_name,
+                                       peril: plan.peril ?? "fire",
+                                       coverObjectName: coverObjectName,
+                                       noCoverFinding: noCoverFinding) else {
             routesNotice = "The route for \(profile.name) is too short to walk through."
             return
         }
@@ -847,7 +892,8 @@ struct DrillScreen: View {
 
         guard outcome == .completed else { return }
         let result = DrillTimeComparison(elapsed: seconds, modeled: modeled,
-                                         personName: session.profile.name)
+                                         personName: session.profile.name,
+                                         peril: session.peril)
         comparison = result
         AccessibilityNotification.Announcement(result.accessibilitySummary).post()
         if let homeModel {

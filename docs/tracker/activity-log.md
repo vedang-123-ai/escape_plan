@@ -1128,6 +1128,55 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - f556bbe Tornado: stop telling every bungalow to leave the house
   - 52c439c Review is agent-run now: no human reviewer, no PR gate
 
+## 2026-09-07T23:55:59Z · Anish Yarrakonda · `main` @ `dac8673`
+
+**Uncommitted working-tree changes (4)**
+  - M escape_plan/Models/ScoreModels.swift
+  - M escape_plan/Screens/HomeScreen.swift
+  - M escape_planTests/ScoreModelsTests.swift
+  - ?? escape_planUITests/CriticalSectionUITests.swift
+
+## 2026-09-08T05:26:45Z · Anish Yarrakonda · `main` @ `9a6e9dc`
+
+**Uncommitted working-tree changes (11)**
+  - M  backend/app/scoring/checklist.py
+  - M  backend/app/scoring/score.py
+  - UU backend/tests/test_scoring.py
+  - M  docs/preparedness-score-weights.md
+  - M  docs/tracker/activity-log.md
+  - M  escape_plan/Models/ScoreModels.swift
+  - UU escape_plan/Screens/HomeScreen.swift
+  - UU escape_plan/Screens/ScoreScreen.swift
+  - M  escape_planTests/ScoreModelsTests.swift
+  - M  escape_planUITests/ScoreScreenshotUITests.swift
+  - ?? escape_planTests/CriticalSectionTests.swift
+
+## 2026-09-08T05:43:31Z · Anish Yarrakonda · `main` @ `732a5c8`
+
+**Commits this session**
+  - 732a5c8 Merge Wave-2 UI redesign with S6.7 composite score, fix two scoring bugs
+
+## 2026-09-08T06:32:50Z · Anish Yarrakonda · `main` @ `732a5c8`
+
+**Uncommitted working-tree changes (11)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/DrillMode/DrillInstructions.swift
+  - M escape_plan/DrillMode/DrillScreen.swift
+  - M escape_plan/DrillMode/DrillSession.swift
+  - M escape_plan/DrillMode/DrillTimeComparison.swift
+  - M escape_plan/Export/RouteNarration.swift
+  - M escape_plan/Models/RoutePlan.swift
+  - M escape_plan/Networking/APIClient+Cache.swift
+  - M escape_plan/Networking/APIClient+Routes.swift
+  - M escape_plan/Screens/RouteFindingViews.swift
+  - M escape_planTests/DrillModeTests.swift
+
+## 2026-09-09T03:08:13Z · Anish Yarrakonda · `main` @ `07e413a`
+
+**Commits this session**
+  - 07e413a Untrack .build-assess from git
+  - 0c6a0e4 Fix pre-flight: accurate network verification note and PDF byte assertion
+
 ## 2026-09-09T05:40:24Z · vedang-123-ai · `main` @ `162dd49`
 
 **Commits this session**

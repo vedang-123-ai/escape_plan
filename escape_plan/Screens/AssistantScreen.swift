@@ -26,32 +26,31 @@ struct AssistantScreen: View {
     @State private var home: HomeModel?
     @State private var homeLoadError: String?
     @State private var loaded = false
+    @FocusState private var composerFocused: Bool
 
     private let store = try? ConversationStore()
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                header
                 groundingHeader
                 messageList
-                if let errorMessage {
-                    errorBanner(errorMessage)
-                }
-                inputBar
             }
-            .navigationTitle("Assistant")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        newChat()
-                    } label: {
-                        Label("New Chat", systemImage: "square.and.pencil")
+            // The composer lives in the bottom safe-area inset, not at the foot of the stack:
+            // the keyboard shrinks the inset's host, so the field rides on the keyboard's top
+            // edge on every device, and the list keeps its own room above it.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 0) {
+                    if let errorMessage {
+                        errorBanner(errorMessage)
                     }
-                    .disabled(messages.isEmpty && errorMessage == nil)
-                    .accessibilityLabel("New chat")
-                    .accessibilityHint("Clears this conversation and starts a fresh one.")
+                    inputBar
                 }
             }
+            .dsPage()
+            .navigationTitle("Assistant")
+            .toolbar(.hidden, for: .navigationBar)
         }
         .task { loadIfNeeded() }
         .onChange(of: scenePhase) { _, phase in
@@ -61,19 +60,51 @@ struct AssistantScreen: View {
 
     // MARK: - Subviews
 
-    /// Which home the chat is grounded in — the backend requires a full HomeModel per turn.
+    /// Title row from the design: sparkle badge, "Assistant", which home it knows, new chat.
+    private var header: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(Theme.accent, in: Circle())
+                .shadow(color: Theme.accent.opacity(0.3), radius: 5, y: 4)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Assistant")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(DS.ink)
+                    .accessibilityAddTraits(.isHeader)
+                if let home {
+                    Text("AI · knows \(home.name)")
+                        .font(.footnote)
+                        .foregroundStyle(DS.supporting)
+                        .accessibilityLabel("Answers are about your home, \(home.name).")
+                }
+            }
+            Spacer()
+            Button {
+                newChat()
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(Theme.accentText)
+                    .frame(width: 44, height: 44)
+            }
+            .disabled(messages.isEmpty && errorMessage == nil)
+            .hapticTap()
+            .accessibilityLabel("New chat")
+            .accessibilityHint("Clears this conversation and starts a fresh one.")
+        }
+        .padding(.horizontal, DS.pagePadding)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+    }
+
+    /// Only the failure case remains here; the grounded home is named in the header.
     @ViewBuilder
     private var groundingHeader: some View {
-        if let home {
-            Label("Grounded in \(home.name)", systemImage: "house")
-                .font(.caption)
-                .foregroundStyle(Theme.supporting)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                .background(.bar)
-                .accessibilityLabel("Answers are about your home, \(home.name).")
-                .accessibilityAddTraits(.isHeader)
-        } else if let homeLoadError {
+        if home == nil, let homeLoadError {
             Label(homeLoadError, systemImage: "exclamationmark.triangle")
                 .font(.caption)
                 .foregroundStyle(Theme.warning)
@@ -107,11 +138,27 @@ struct AssistantScreen: View {
                             .transition(.opacity)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, DS.pagePadding)
                 .padding(.vertical, 12)
                 .animation(reduceMotion ? .linear(duration: 0.15) : .spring(duration: 0.35),
                            value: messages.count)
                 .animation(.easeInOut(duration: 0.2), value: isSending)
+            }
+            // Dragging the list down sheds the keyboard with the finger; a tap on empty list
+            // space does it at once. Neither steals taps from the suggestion pills.
+            .scrollDismissesKeyboard(.interactively)
+            .onTapGesture { composerFocused = false }
+            .onChange(of: composerFocused) { _, focused in
+                // The keyboard would cover the newest message unless the list follows it up.
+                guard focused, let last = messages.last else { return }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(80))
+                    if reduceMotion {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    } else {
+                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                    }
+                }
             }
             .onChange(of: messages.count) {
                 if let last = messages.last {
@@ -136,23 +183,62 @@ struct AssistantScreen: View {
         }
     }
 
+    /// Prompts that hold for any home (the design's were tied to its demo house).
+    private let suggestions = ["Why does my route go this way?", "What should I fix first?",
+                               "How do I run a drill?", "Where should smoke alarms go?"]
+
     private var emptyState: some View {
-        ContentUnavailableView {
-            Label("Ask about your escape plan", systemImage: "bubble.left.and.bubble.right")
-        } description: {
-            Text("Ask anything about your family's escape plan — why a route goes the way it "
-                 + "does, what to practice, what to fix first. Answers come from FEMA, NFPA, "
-                 + "and Red Cross guidance, with sources shown.")
+        ZStack {
+            AssistantGlow()
+            VStack(spacing: 22) {
+                Text("What would you like to know about your home?")
+                    .font(.system(size: 26, weight: .bold))
+                    .kerning(-0.3)
+                    .foregroundStyle(DS.ink)
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
+                    ForEach(suggestions, id: \.self) { text in
+                        Button {
+                            draft = text
+                            send()
+                        } label: {
+                            Text(text)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(Theme.accentText)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 14)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .background(DS.card, in: Capsule())
+                                .shadow(color: DS.shadowColor, radius: 9, y: 6)
+                        }
+                        .buttonStyle(DSPressStyle())
+                        .disabled(home == nil)
+                    }
+                }
+            }
+            .padding(.horizontal, 4)
         }
-        .padding(.top, 40)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 60)
+        .padding(.bottom, 30)
     }
 
     private var typingIndicator: some View {
         HStack {
-            ProgressView()
-                .padding(12)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+            Group {
+                if reduceMotion {
+                    ProgressView()
+                } else {
+                    TypingDots()
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(DS.card, in: UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 4,
+                                                            bottomTrailingRadius: 18, topTrailingRadius: 18,
+                                                            style: .continuous))
+            .shadow(color: DS.shadowColor, radius: 9, y: 6)
             Spacer(minLength: 40)
         }
         .accessibilityElement(children: .ignore)
@@ -178,30 +264,35 @@ struct AssistantScreen: View {
                     .accessibilityHint("Sends your last question again.")
             }
         }
-        .padding(10)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .padding(.horizontal)
-        .padding(.bottom, 4)
+        .foregroundStyle(DS.bodyInk)
+        .dsCard(radius: 12, padding: 12)
+        .padding(.horizontal, DS.pagePadding)
+        .padding(.bottom, 6)
     }
 
     private var inputBar: some View {
-        HStack(spacing: 8) {
-            TextField("Ask about fire safety in your home…", text: $draft, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
+        HStack(spacing: 10) {
+            TextField("Ask anything…", text: $draft, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(.body)
+                .foregroundStyle(DS.ink)
                 .lineLimit(1...4)
+                .padding(.leading, 12)
+                .focused($composerFocused)
+                .submitLabel(.send)
                 .onSubmit { send() }
                 .accessibilityLabel("Your question")
-                .accessibilityHint("Ask anything about fire safety or your escape plan.")
+                .accessibilityHint("Ask anything about safety or your escape plan.")
             Button {
                 send()
             } label: {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.title2)
-                    // SC 2.5.8: a `.title2` glyph is ~22pt, under the 24pt minimum target and
-                    // well under Apple's 44pt. The glyph stays its size; the TARGET grows.
-                    .minimumTapTarget()
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(canSend ? Theme.accent : Color(.systemGray3), in: Circle())
             }
+            .buttonStyle(DSPressStyle())
             .disabled(!canSend)
             .accessibilityLabel("Send")
             .accessibilityHint(canSend
@@ -210,9 +301,11 @@ struct AssistantScreen: View {
                                   ? "Unavailable until a home is loaded."
                                   : "Unavailable until you type a question."))
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .padding(6)
+        .background(DS.card, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .shadow(color: DS.shadowColor, radius: 9, y: 6)
+        .padding(.horizontal, DS.pagePadding)
+        .padding(.vertical, 10)
     }
 
     private var canSend: Bool {
@@ -313,22 +406,30 @@ private struct MessageBubble: View {
 
     var body: some View {
         HStack {
-            if isUser { Spacer(minLength: 40) }
-            VStack(alignment: .leading, spacing: 6) {
+            if isUser { Spacer(minLength: 60) }
+            VStack(alignment: .leading, spacing: 8) {
                 Text(message.content)
+                    .font(.body)
+                    .lineSpacing(3)
                     .textSelection(.enabled)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    // `Color.accentColor` behind white text measured 2.71:1 in dark mode — the
+                    // app's own chat was its worst contrast failure. `Theme.bubbleUser` is a
+                    // single deep green that carries white text at 5.04:1 on both pages.
+                    .background(isUser ? AnyShapeStyle(Theme.bubbleUser) : AnyShapeStyle(DS.card),
+                                in: UnevenRoundedRectangle(
+                                    topLeadingRadius: 18,
+                                    bottomLeadingRadius: isUser ? 18 : 4,
+                                    bottomTrailingRadius: isUser ? 4 : 18,
+                                    topTrailingRadius: 18,
+                                    style: .continuous))
+                    .foregroundStyle(isUser ? Color.white : DS.ink)
+                    .shadow(color: isUser ? .clear : DS.shadowColor, radius: 9, y: 6)
                 if !message.citations.isEmpty {
-                    citationChips
+                    citationChips.padding(.leading, 4)
                 }
             }
-            .padding(12)
-            // `Color.accentColor` behind white text measured 2.71:1 in dark mode — the app's
-            // own chat was its worst contrast failure. `Theme.bubbleUser` is a single deep
-            // green that carries white text at 5.04:1 and still clears 3:1 against both pages.
-            .background(isUser ? AnyShapeStyle(Theme.bubbleUser)
-                               : AnyShapeStyle(Color(.secondarySystemBackground)))
-            .foregroundStyle(isUser ? Color.white : Color.primary)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
             if !isUser { Spacer(minLength: 40) }
         }
         // Who said it is conveyed by side + fill, neither of which a screen reader can see.
@@ -360,19 +461,66 @@ private struct FlowLayoutish: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(items, id: \.self) { id in
-                    Text(id)
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(Color.primary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color(.tertiarySystemBackground))
-                        .clipShape(Capsule())
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(DS.supporting)
+                        Text(id)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(DS.bodyInk)
+                    }
+                    .padding(.horizontal, 10)
+                    .frame(height: 30)
+                    .background(DS.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .shadow(color: Color(red: 27/255, green: 35/255, blue: 64/255).opacity(0.08), radius: 5, y: 3)
                 }
             }
         }
         // Already spoken as part of the bubble's combined label; kept out of the tree so the
         // ids aren't read twice.
         .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Design touches
+
+/// Soft green radial glow that breathes behind the empty state (the design's `epglow`).
+/// Static under Reduce Motion — the presence stays, the movement goes.
+private struct AssistantGlow: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var swell = false
+
+    var body: some View {
+        Circle()
+            .fill(RadialGradient(colors: [Theme.accent.opacity(0.22), Theme.accent.opacity(0.08), .clear],
+                                 center: .center, startRadius: 0, endRadius: 170))
+            .frame(width: 340, height: 340)
+            .scaleEffect(swell ? 1.12 : 1.0)
+            .opacity(swell ? 1.0 : 0.9)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) { swell = true }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Three dots pulsing in sequence (the design's `epdot`).
+private struct TypingDots: View {
+    @State private var on = false
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .fill(Color(.systemGray))
+                    .frame(width: 8, height: 8)
+                    .opacity(on ? 1 : 0.25)
+                    .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)
+                        .delay(Double(i) * 0.2), value: on)
+            }
+        }
+        .onAppear { on = true }
     }
 }
 
