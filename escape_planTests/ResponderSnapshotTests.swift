@@ -79,5 +79,10 @@ extension ResponderSnapshotTests {
         
         let pdfOutput = EscapePlanPDF.render(plan)
         XCTAssertTrue(pdfOutput.data.count > 0, "PDF renders without error and produces data")
+        
+        guard let pdfString = String(data: pdfOutput.data, encoding: .utf8) ?? String(data: pdfOutput.data, encoding: .ascii) else {
+            return
+        }
+        XCTAssertFalse(pdfString.contains("Grandpa Joe"), "PDF bytes must not contain the name")
     }
 }
