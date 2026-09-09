@@ -24,7 +24,7 @@ from app.routing.engine import compute_route_plan
 from app.routing.graph import build_graph
 from app.routing.nav_grid import build_room_grid, nearest_walkable, object_contains
 from app.routing.pathfind import grid_path, path_length
-from tests.conftest import REPO_ROOT, load_fixture
+from tests.conftest import FIXTURES_DIR, REPO_ROOT, load_fixture
 
 THRESHOLDS_PATH = REPO_ROOT / "backend" / "corpus" / "egress_thresholds.json"
 
@@ -183,8 +183,24 @@ def test_route_plan_on_blocked_fixture_is_deterministic(thresholds) -> None:
 
 def test_object_free_fixtures_keep_straight_legs(thresholds) -> None:
     """No golden churn: homes without objects must produce byte-identical plans
-    to the pre-B3 engine — straight legs, no path waypoints, no new findings."""
-    for name in ("bungalow.json", "twostory.json"):
+    to the pre-B3 engine — straight legs, no path waypoints, no new findings.
+
+    The fixture list is DERIVED rather than hardcoded. It used to name bungalow and
+    twostory; S7.1 seeded twostory with object-hazard test objects, at which point a
+    hardcoded list would have had to either lose a fixture silently or start asserting
+    something untrue. Deriving it means the guard automatically covers every genuinely
+    object-free fixture and can never quietly become a test of the wrong thing — with
+    the emptiness assert below as the tripwire if the last one ever gains an object.
+    """
+    names = sorted(
+        f.name
+        for f in FIXTURES_DIR.glob("*.json")
+        if not any(
+            floor.get("objects") for floor in json.loads(f.read_text()).get("floors", [])
+        )
+    )
+    assert names, "no object-free fixture is left — this guard has gone vacuous"
+    for name in names:
         home = HomeModel.model_validate(load_fixture(name))
         plan = compute_route_plan(home, thresholds)
         for room in plan.rooms:
