@@ -1,7 +1,7 @@
 from typing import Any
 import copy
 
-CURRENT_VERSION = "2.0"
+CURRENT_VERSION = "2.1"
 
 def _as_tuple(version: str) -> tuple[int, ...]:
     """Compare versions numerically, not lexically.
@@ -52,7 +52,14 @@ def migrate(data: Any) -> Any:
     if current == "1.1":
         migrated["schema_version"] = "2.0"
         current = "2.0"
-        
+
+    # 2.0 -> 2.1: adds FloorObject.elevation_m (default 0) and .mounted (default
+    # False), plus four ObjectCategory values. Every addition is defaulted and no
+    # existing field changed meaning, so the stamp is the whole migration.
+    if current == "2.0":
+        migrated["schema_version"] = "2.1"
+        current = "2.1"
+
     if current != CURRENT_VERSION:
         raise ValueError(f"No upgrade path from home format {version} to {CURRENT_VERSION}.")
         

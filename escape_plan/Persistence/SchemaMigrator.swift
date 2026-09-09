@@ -8,17 +8,29 @@ import Foundation
 /// Checks `schema_version` on load and, when a document predates this build,
 /// runs it forward through the registered migrations.
 ///
-/// Migration stub, per S2.4: no older schema versions exist yet (1.0 is the
-/// first), so `migrations` is empty. The shape is here so that the first real
-/// `schema_version` bump is a one-entry addition rather than a redesign.
+/// Three steps are registered as of schema 2.1: 1.0 → 1.1 → 2.0 → 2.1. Each is a
+/// version-stamp rewrite, because every addition in those bumps was optional and
+/// defaulted — the decoders tolerate the fields' absence, so there is no data to
+/// rewrite, only the stamp that tells the next loader what it is looking at.
 enum SchemaMigrator {
     /// The version this build reads and writes. Must track
     /// `schema/homemodel.schema.json`'s `schema_version` const.
-    static let currentVersion = "2.0"
+    static let currentVersion = "2.1"
 
     /// Ordered one-step migrations, keyed by the version they upgrade *from*.
     /// Add an entry alongside any schema_version bump.
     static let migrations: [String: (HomeDocument) throws -> HomeDocument] = [
+
+        // 2.0 → 2.1: adds FloorObject.elevation_m (default 0) and .mounted (default false),
+        // plus four ObjectCategory values. Every addition is defaulted and no existing field
+        // changed meaning, so the version stamp is the whole migration.
+        "2.0": { document in
+            guard case .object(var root) = document.body else {
+                throw PersistenceError.missingSchemaVersion
+            }
+            root["schema_version"] = .string("2.1")
+            return HomeDocument(body: .object(root))
+        },
 
         "1.1": { document in
             guard case .object(var root) = document.body else {
