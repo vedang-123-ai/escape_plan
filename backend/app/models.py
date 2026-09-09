@@ -1,4 +1,4 @@
-"""Pydantic models for the HomeModel contract (schema/homemodel.schema.json v1.1).
+"""Pydantic models for the HomeModel contract (schema/homemodel.schema.json v2.1).
 
 These models are the executable half of the contract: JSON Schema checks shape,
 these validators check the structural invariants JSON Schema cannot express —
@@ -52,6 +52,12 @@ class ObjectCategory(str, Enum):
     appliance = "appliance"
     storage = "storage"
     other = "other"
+    # v2.1 (S7.1). One category covers fixed stoves/ovens/fireplaces and portable
+    # heaters alike: the clearance rule that reads it is the same for all of them.
+    bookcase = "bookcase"
+    tv = "tv"
+    water_heater = "water_heater"
+    heat_source = "heat_source"
 
 
 class StairKind(str, Enum):
@@ -295,6 +301,14 @@ class FloorObject(SourcedModel):
     height_m: float = Field(gt=0)
     rotation_deg: float = 0.0
     secured: bool = False
+    # v2.1 (S7.1). Base height above the floor: the prism spans
+    # elevation_m .. elevation_m + height_m, so height_m stays the object's OWN
+    # height and 0 keeps every pre-2.1 object meaning exactly what it meant.
+    elevation_m: float = Field(default=0.0, ge=0.0)
+    # v2.1 (S7.1). How it is installed, not whether it is strapped — `secured`
+    # answers that, and merging the two would make an unstrapped wardrobe look
+    # safe the moment someone hung a picture.
+    mounted: bool = False
 
     @model_validator(mode="after")
     def _check(self) -> "FloorObject":
@@ -384,7 +398,7 @@ class Meta(StrictModel):
 
 
 class HomeModel(StrictModel):
-    schema_version: Literal["2.0"]
+    schema_version: Literal["2.1"]
     home_id: str
     name: str = Field(min_length=1)
     floors: list[Floor] = Field(min_length=1)
