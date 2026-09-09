@@ -1313,6 +1313,65 @@ The one blocker that survived contact is the bearer token: `escape_plan/BackendC
 still absent and only the owner can supply it. `.env` is read-guarded in `settings.json` and the
 guard held when probed — correctly, so the token was not lifted from it.
 
+## 2026-09-09 — S7.1: schema 2.1, and the schema_version breadth ruling
+
+**What was added.** `FloorObject.elevation_m` (number ≥ 0, default 0 — the height of the
+object's *base*, so the prism spans `elevation_m .. elevation_m + height_m` and `height_m`
+stays the object's own height), `FloorObject.mounted` (bool, default false), and four
+`ObjectCategory` values: `bookcase`, `tv`, `water_heater`, `heat_source`. `schema_version`
+is `"2.1"`. Every addition is optional and defaulted, so any 2.0 document is a valid 2.1
+document minus the stamp, and both migrators treat 2.0 → 2.1 as a version rewrite.
+
+**`mounted` is not `secured`, and merging them was considered and rejected.** `mounted` is
+how the object is installed; `secured` is whether a floor-standing object has anti-topple
+strapping. One field would have meant an unstrapped wardrobe reading as safe the moment
+someone hung a picture on the wall. The two stay orthogonal, with a Codable test pinning it.
+
+**Why there is no mass/weight field.** Category plus dimensions carry every signal the
+spec's rules actually use. A kilogram figure would have to be guessed by the user or invented
+by the app, and a fabricated number in a safety tool is worse than an absent one — it invites
+a threshold comparison that means nothing. Ruled out at scoping and confirmed here.
+
+**One `heat_source`, not three.** Fixed stoves, ovens, fireplaces and portable space heaters
+share a single category because the clearance rule that reads it is identical for all of them.
+Splitting them would multiply cases without ever changing an answer.
+
+**The `schema_version` breadth ruling** (closes the tracker item that had it "disagreeing three
+ways"). The three breadths are deliberate and each now carries its reason at its definition:
+
+| Where | Breadth | Because |
+| --- | --- | --- |
+| JSON Schema | `enum ["1.0","1.1","2.0","2.1"]` | it validates documents **on disk**, and a 1.1 file on a user's phone is a legitimate document |
+| pydantic | `Literal["2.1"]` | it validates the **post-migration in-memory model**, where anything but current is a bug |
+| Swift | bare `String` | it must **read** the old stamp before it can migrate it |
+
+The rejected alternative was `const: "2.1"` in the JSON Schema. It would have made the schema
+unable to describe any document the app can actually open. The standing observation that JSON
+Schema cannot distinguish a 1.1 document from a 2.1 one is true and inherent — every addition
+since 1.1 has been optional, so the stamp is the only signal, which is precisely why the
+migrators rewrite it.
+
+**`FurnitureFixture` placeholders are deliberate.** The renderer's switch is exhaustive over
+`ObjectCategory`, so the four new cases had to gain arms in this session or the app would not
+compile. They map to existing geometry (`bookcase` → seamed box, `water_heater` → appliance,
+`tv`/`heat_source` → plain box). S7.6 replaces them; shipping approximate white miniatures for
+one session is cheaper and more honest than blocking the schema bump on modelling work.
+
+**Deviation worth naming: a test's premise had to change.** `test_obstacles.py`'s no-golden-churn
+guard asserted that `bungalow` and `twostory` produce straight legs because they have no objects.
+Seeding `twostory` — which S7.1 explicitly requires — made that premise false. The list is now
+**derived** from the fixtures rather than hardcoded, with an assert that it is non-empty, so it
+covers every genuinely object-free fixture and cannot silently become vacuous. The cost is real
+and recorded in `BLOCKERS.md`: the derived set is now only `bungalow.json`, so the property is no
+longer verified on a multi-floor home.
+
+**The guardian caught a defect this session created.** Widening the `schema_version` enum made
+`testCurrentVersionMatchesTheSchemaContract` vacuous — it asserted *membership*, so it would have
+passed with `currentVersion` reverted to any of the four values. The one test named for catching
+version drift had stopped being able to. It now asserts equality against the numerically greatest
+enum entry. Worth recording as a pattern: **a guard that checks membership in a set gets weaker
+every time the set grows**, and the growth is usually in a different commit than the guard.
+
 ## 2026-09-08 — Object-hazard detection: scoped, vetted, approved as S7 (docs only)
 
 **Decision:** The S7 arc exists and is sanctioned. Ten sessions (`S7-1.md`…`S7-10.md`), a
