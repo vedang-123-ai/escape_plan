@@ -669,12 +669,12 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
 
 ## Process & repo hygiene
 
-- [ ] **`.build-assess/` is tracked in git — 2,826 derived-data files.** Committed in `ce18f63`
+- [x] **`.build-assess/` is tracked in git — 2,826 derived-data files.** Committed in `ce18f63`
       (2026-07-22) before `.build-*/` reached `.gitignore`; ignore rules never untrack. Every
       `xcodebuild … -derivedDataPath .build-assess` run since then dirties the tree with hundreds
       of module-cache "deletions" and index "modifications", which hides real changes in
       `git status`. Next action: `git rm -r --cached .build-assess` in its own commit (no source
-      change), then confirm `git status` is clean after a build. Found 2026-09-07.
+      change), then confirm `git status` is clean after a build. Found 2026-09-07. Note: Done 2026-09-08.
 
 - [ ] **iOS test runs are ~1-in-3 flaky at launch (found 2026-08-04).** Three identical
       back-to-back full runs: pass / fail (10 failures) / pass. Every failure was
