@@ -112,7 +112,8 @@ photo-assist sessions at the tail suggest tags the user must confirm. ~45h core 
 + ~16h stretch/optional. Cut order: S7.10 → S7.9 → S7.8 → S7.7's visual half; never cut
 S7.1–S7.5.
 
-- [ ] S7.1 — schema 2.1 (`elevation_m`, `mounted`, categories bookcase/tv/water_heater/heat_source). Blocks S7.3/S7.4/S7.6. Next action: read `docs/object-hazard-spec.md` §3, then `$defs.object`; the FurnitureFixture exhaustive switch must gain arms in the same change.
+- [x] S7.1 — schema 2.1 (`elevation_m`, `mounted`, categories bookcase/tv/water_heater/heat_source). **DONE 2026-09-09.** Lockstep across JSON Schema, pydantic, Swift Codable, the bundled fixture copies and `ai/builder.py`'s tool schema; `schema-contract-guardian` run and its findings acted on. Backend **360** not-live, EditorCore **273**, corpus valid, all six fixtures pass `app.validate`. **S7.3/S7.4/S7.6 are unblocked.** Two acceptance items could not be closed on this machine — see `BLOCKERS.md` §3. See `notes/2026-09-09-s7-1-schema-2-1.md`.
+  - Also resolved here: the logged "`schema_version` breadth disagrees three ways". Ruling — JSON Schema lists every version the migrators accept (it validates documents on disk), pydantic is `Literal` current-only (it validates the post-migration in-memory model), Swift stays a bare `String` (it must read the old stamp before it can migrate it). Three breadths, one reason each; documented in `decisions.md`.
 - [ ] S7.2 — corpus: heating/electrical fire sources + `object_hazard_thresholds.json`. Blocks S7.4. Next action: find current NFPA/USFA URLs and verify each resolves before stamping a retrieved date (the S6.2 dead-URL defect class).
 - [ ] S7.3 — scan objects through the pipeline (RawScanExport v3, RPObject parsing, category map, elevation). Needs S7.1. Next action: read `backend/app/convert/README.md`'s risk table in full first.
 - [ ] S7.4 — the object-hazard engine (`routing/object_hazards.py` — `hazard.py` is TAKEN; R4 widens `obstructions.py`). Needs S7.1+S7.2. Next action: read `obstructions.py` in full; its counterfactual/bisection machinery is the house style.
@@ -210,12 +211,13 @@ lexical version compare. **Still open:**
       all 8 of `SchemaV2ContractTests.swift`. Most port cleanly (their pydantic already enforces
       the invariants); a few depend on the fixture seeding above. Next action: port the
       seeding-independent ones.
-- [ ] **Three files still self-describe as v1.1** after the bump — `homemodel.schema.json:5`,
-      `backend/app/models.py:1`, `escape_plan/Models/HomeModel.swift:2`.
-- [ ] **`schema_version` breadth disagrees three ways** — schema `enum ["1.1","2.0"]`, pydantic
-      `Literal["2.0"]`, Swift a bare `String`. And because every 2.0 addition is optional, the
-      JSON Schema cannot actually distinguish a 1.1 document from a 2.0 one. Next action:
-      consider `const: "2.0"`, with `"1.1"` accepted only by the migrators.
+- [x] **Three files still self-describe as v1.1** after the bump — fixed in S7.1 (2026-09-09):
+      all three now say v2.1, as does `docs/schema-summary.md`, which had missed 2.0 entirely.
+- [x] **`schema_version` breadth disagrees three ways** — RULED in S7.1 (2026-09-09). The three
+      breadths are deliberate and each is documented at its definition; see the S7.1 line above
+      and `decisions.md`. The observation that JSON Schema cannot tell a 1.1 document from a 2.1
+      one stands and is inherent: every addition since 1.1 has been optional, so the stamp is the
+      only signal — which is exactly why the migrators rewrite it.
 - [ ] **`FloorObject.size_m` is unbounded `[Double]` in Swift** but exactly 2 elements in schema
       and pydantic — Swift accepts a 3-element size the other two reject. Pre-existing v1.1.
 

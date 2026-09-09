@@ -93,11 +93,46 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       types. `/convert` sets `response_model_exclude_none=True` and is masked; `/build` does not
       and is exposed. Next action: declare both nullable or set the flag on `/build`, then widen
       the serialize test to the whole document.
-- [ ] **`schema_version` breadth disagrees three ways** — JSON Schema `enum ["1.1","2.0"]`,
-      pydantic `Literal["2.0"]` (confirmed live on the deployed service), Swift a bare `String`.
-      And because every 2.0 addition is optional, the JSON Schema cannot actually tell a 1.1
-      document from a 2.0 one. Next action: consider `const: "2.0"`, `"1.1"` accepted only by
-      the migrators.
+- [x] **`schema_version` breadth disagrees three ways** — RULED and closed in S7.1 (2026-09-09).
+      The three breadths are deliberate: JSON Schema lists every migrator-accepted version
+      (it validates documents on disk), pydantic is `Literal` current-only (it validates the
+      post-migration in-memory model), Swift is a bare `String` (it must read the old stamp
+      before it can migrate it). Each is documented at its definition. See `decisions.md`.
+
+**Opened by S7.1 (2026-09-09) — schema 2.1**
+- [ ] **The deployed backend is on schema 2.0; this checkout is on 2.1.** Render auto-deploys
+      from `main`, so pushing S7.1 should clear it, but it is NOT verified. Until it is,
+      `/convert` and `/routes` against the live service are answering from a different contract
+      than the app now writes. Next action: after the push, run `python3 scripts/demo-preflight.py`
+      and confirm `check_deployed_schema()` reports 2.1. (Preflight cannot run on this machine
+      today — see §4.)
+- [ ] **Two S7.1 acceptance items are simulator-gated and were NOT run.**
+      `HomeModelRoundTripTests` and `PersistenceTests` live outside the symlinked EditorCore
+      package, so `swift test` does not reach them. **The fix for the vacuous drift guard
+      (`testCurrentVersionMatchesTheSchemaContract`) is in `PersistenceTests` and has therefore
+      never executed.** Next action, one command:
+      `xcodebuild test -project escape_plan.xcodeproj -scheme escape_plan -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .build-merge CODE_SIGNING_ALLOWED=NO -only-testing:escape_planTests/PersistenceTests -only-testing:escape_planTests/HomeModelRoundTripTests`
+- [ ] **`bookcase` and `water_heater` produce NO mitigation checklist item.**
+      `backend/app/scoring/checklist.py:504` filters on `heavy_categories = {"wardrobe",
+      "storage", "appliance"}`. A bookcase is the ShakeOut-canonical topple hazard and a water
+      heater the canonical strap target, so **a user who picks the newer, more accurate category
+      loses a recommendation they would have gotten yesterday.** Deliberately deferred, not
+      overlooked: extending the set here would collide with S7.4's `hazard.topple.<id>` items and
+      produce exactly the duplicate strap-it item ruled out at scoping. **This is an S7.4
+      obligation, and S7.4 is not done until it is discharged.**
+- [ ] **Routing is elevation-blind — latent, but mechanically real.** Nothing under
+      `backend/app/routing/` reads `elevation_m` or `mounted`; `build_room_grid` rasterizes any
+      footprint it is handed, so a wall-mounted TV erodes walkable floor (proved: moving
+      `o_u_tv_over_bed` mid-room drops free cells 5476 → 5296). It does not bite today only
+      because the seeded TV overlaps the bed, which the fixture already blocks — meaning the
+      fixture hides it. Next action: when the router learns about elevation, add the mid-room
+      mounted case to the fixtures so the guard is real.
+- [ ] **The no-golden-churn guard lost its multi-floor coverage.** `test_obstacles.py`'s
+      object-free fixture list is now derived rather than hardcoded (good), but seeding
+      `twostory` means the derived set is exactly `['bungalow.json']` — the only multi-floor,
+      stairs-carrying fixture dropped out, so "no objects ⇒ straight legs" is no longer verified
+      across floors. Next action: add an object-free multi-floor fixture, or assert the property
+      per-room instead of per-home.
 - [ ] **Three files still self-describe as v1.1** after the bump — `homemodel.schema.json:5`,
       `backend/app/models.py:1`, `escape_plan/Models/HomeModel.swift:2`.
 - [ ] **`FloorObject.size_m` is unbounded `[Double]` in Swift** but exactly 2 elements in schema
@@ -168,6 +203,13 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       unit target runs under Swift Testing. True counts come only from
       `xcrun xcresulttool get test-results summary --path <bundle>`. Next action: when someone
       touches the `/verify` skill, have it read the result bundle.
+- [ ] **This machine's Python cannot verify TLS, so `demo-preflight.py` cannot reach the backend.**
+      Found 2026-09-09: `/health` and `/openapi.json` both fail with
+      `CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate`. It is a local trust
+      store problem, not a backend one, and **the iPhone uses the system trust store and is
+      unaffected** — but it means preflight cannot be used as a filming gate from here. Next
+      action: `pip install certifi`, or run `Install Certificates.command` in the Python.app
+      folder, then re-run preflight.
 - [ ] **`/health` reports `v1.0` and that is meaningless** — it is a hardcoded FastAPI `app.version`
       (`backend/app/main.py:44`), not a deploy or schema signal. It read as "stale backend" on
       2026-09-07 and cost a diagnosis. Next action: have `demo-preflight.py` probe
