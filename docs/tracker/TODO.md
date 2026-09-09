@@ -8,7 +8,18 @@
 > at the top of the root `CLAUDE.md`. Both go quiet when its front-matter says
 > `handoff_status: closed` — close it there, don't delete the hook.
 
-_Last verified: 2026-09-06 on `main` (S6.1–S6.3 review + reconciliation) — three suites re-run
+_Last verified: 2026-09-08 on `main` @ `388cf37` (S7 scoping session) — the local/remote split
+(local 1 ahead, 9 behind) was merged, bringing S6.4–S6.9 into this tree, and the three cheap
+suites re-run **green on the merged tree**: backend **348** not-live (13 live-deselected),
+EditorCore **270**, corpus valid (**17** sources, **8** files). **iOS was NOT run** — the
+owner's standing simulator restriction on this machine holds. `backend/.venv` now EXISTS
+(created this session from `requirements.txt`, python3.13) — the old "use backend/.venv"
+instruction works again on this machine; bare `python3` here is 3.9 and cannot run the suite.
+This session was otherwise docs-only: the S7 object-hazard arc was scoped and approved — see
+the new S7 section below, `docs/object-hazard-spec.md`, and `docs/decisions.md` (2026-09-08).
+See `notes/2026-09-08-s7-scoping.md`._
+
+_Prior stamp, 2026-09-06 on `main` (S6.1–S6.3 review + reconciliation) — three suites re-run
 and green: backend **344** not-live (13 live-deselected), EditorCore **270**, corpus valid
 (**17** sources, **8** files). **iOS was NOT run** — the owner has asked that the simulator not be
 launched on this machine (99% disk); the last recorded run is 598/0/8 and predates the Swift in
@@ -65,27 +76,64 @@ This is the single source of truth for open work. It replaces the old `board.md`
 - Every line names the concrete next action. If you can't name one, it isn't ready to be here.
 - The `(S3.2)` tag links back to `docs/playbook/S3-2.md` for the original spec.
 
-**Verified green as of the stamp above** — if you change code, re-run `/verify`:
+**Last recorded green per suite** (dates differ — the newest full-gate run per row, not one
+snapshot; if you change code, re-run `/verify`):
 
 | Suite | Count | Command |
 |---|---|---|
-| Backend pytest | 295 pass, 13 live-deselected (2026-08-05) | `python3 -m pytest backend/tests/ -m "not live"` |
+| Backend pytest | 348 pass, 13 live-deselected (2026-09-08) | `backend/.venv/bin/python -m pytest backend/tests/ -m "not live"` |
 | Backend live suites | 12 pass (2026-07-24); the 13th (`agent_bungalow_blocked`) has never run. **Blocked on credits as of 2026-08-04, not just on a key** | `set -a; . ./.env; set +a; python3 -m pytest backend/tests/ -m "live"` (latency bounds can flake on API variance) |
-| EditorCore (SwiftPM) | 261 pass (2026-08-05) | `swift test --package-path tools/editorcore` |
-| iOS (unit + UI) | 563 pass, 8 skipped (2026-08-05) — **launch flake still real, re-run before believing a red** | `xcodebuild test -scheme escape_plan …` |
-| Corpus | 11 sources, 6 files (2026-08-05) | `python3 backend/corpus/validate.py` |
+| EditorCore (SwiftPM) | 270 pass (2026-09-08; the 261 previously listed here contradicted the 2026-08-05 stamp's own 270 — table was stale) | `swift test --package-path tools/editorcore` |
+| iOS (unit + UI) | 563 pass, 8 skipped (2026-08-05 — **predates the S6 Swift; NOT current**) — launch flake still real, re-run before believing a red | `xcodebuild test -scheme escape_plan …` (owner go-ahead required on this machine) |
+| Corpus | 17 sources, 8 files (2026-09-08) | `python3 backend/corpus/validate.py` |
 
-**Heads-up on `python3`:** on at least one machine the system `python3` is 3.9 and cannot
-import pydantic; that machine needs its own venv. On this one (2026-08-04) system `python3` is
-3.13.5 with pydantic 2.13.3 and runs everything — and **`backend/.venv` does not exist**, so
-the old "use `backend/.venv/bin/python`" instruction fails outright. Check before assuming.
+**Heads-up on `python3`:** machine-dependent, check before assuming. On the machine used
+2026-09-08, system `python3` is 3.9 (cannot import pydantic) and **`backend/.venv` now exists**
+(created that session from `backend/requirements.txt`, python3.13) — use
+`backend/.venv/bin/python`. An earlier machine (2026-08-04) had a 3.13.5 system python and no
+venv; both states have been true on "this" machine at different times.
 
 ---
 
-## APPROVED PIVOT — the readiness arc (S6.1–S6.9, approved 2026-09-05, NOT STARTED)
+## APPROVED ARC — object hazard detection (S7.1–S7.10, approved 2026-09-08, NOT STARTED)
 
-Scoped and written up, zero code written. Full brief: [`../playbook/06-pivot-intro.md`](../playbook/06-pivot-intro.md);
+Scoped, vetted and approved 2026-09-08; zero code written. Rule book:
+[`../object-hazard-spec.md`](../object-hazard-spec.md) (authoritative over session files);
+charter: [`../playbook/07-object-hazard-intro.md`](../playbook/07-object-hazard-intro.md); one
+paste-ready prompt per session in `../playbook/S7-1.md` … `S7-10.md`; orchestration brief in
+`../playbook/S7-EXECUTE.md`. Scope-lock reversal ("furniture detection" was out of scope until
+this approval) recorded in `docs/decisions.md` (2026-09-08) with the lockstep edits to
+`CLAUDE.md`, `.claude/rules/global/conventions.md` and `playbook/01-product-spec.md`.
+
+**What it is:** RoomPlan's already-detected objects (currently thrown away between
+`apple-raw.json` and `/convert`) plus a guided manual "hazard hunt" feed a deterministic
+object-hazard engine: topple arcs vs. beds, overhead loads over sleepers, heater clearances,
+blocked egress windows, unstrapped water heaters — every finding carrying a number, a
+threshold, a citation and an action. No custom ML (explicitly out of scope); optional Vision
+photo-assist sessions at the tail suggest tags the user must confirm. ~45h core (S7.1–S7.7)
++ ~16h stretch/optional. Cut order: S7.10 → S7.9 → S7.8 → S7.7's visual half; never cut
+S7.1–S7.5.
+
+- [ ] S7.1 — schema 2.1 (`elevation_m`, `mounted`, categories bookcase/tv/water_heater/heat_source). Blocks S7.3/S7.4/S7.6. Next action: read `docs/object-hazard-spec.md` §3, then `$defs.object`; the FurnitureFixture exhaustive switch must gain arms in the same change.
+- [ ] S7.2 — corpus: heating/electrical fire sources + `object_hazard_thresholds.json`. Blocks S7.4. Next action: find current NFPA/USFA URLs and verify each resolves before stamping a retrieved date (the S6.2 dead-URL defect class).
+- [ ] S7.3 — scan objects through the pipeline (RawScanExport v3, RPObject parsing, category map, elevation). Needs S7.1. Next action: read `backend/app/convert/README.md`'s risk table in full first.
+- [ ] S7.4 — the object-hazard engine (`routing/object_hazards.py` — `hazard.py` is TAKEN; R4 widens `obstructions.py`). Needs S7.1+S7.2. Next action: read `obstructions.py` in full; its counterfactual/bisection machinery is the house style.
+- [ ] S7.5 — surfacing: checklist (`hazard.<rule>.<obj_id>`, category `mitigation`, supersedes `mitigation.secure.*` per object), score-cap verification, agent tool `check_object_hazards`. Needs S7.4. Next action: read the merged S6.7 `score.py` Bug A comment — it is the severity-cap contract.
+- [ ] S7.6 — editor: secured/elevation/mounted controls + the guided hazard hunt (zero network). Needs S7.1. Next action: closes the long-standing `setOpeningWidth` no-UI item while in the inspector.
+- [ ] S7.7 — 3D emphasis + the device pass (real scan with objects; frame-time number). Needs S7.4+S7.5+S7.6. Next action: human with an iPhone; extends `field-test-lidar.md`.
+- [ ] S7.8 — STRETCH: exit-path re-check (partial re-scan diff, "something new", never a guessed category). Needs S7.3+S7.4. First core-adjacent cut after the Vision pair.
+- [ ] S7.9 — OPTIONAL: Vision photo-assist feasibility spike + capture. Needs S7.6. A documented NO-GO that cuts S7.10 is a SUCCESS outcome.
+- [ ] S7.10 — OPTIONAL: Vision suggestions → editor flow. Needs S7.9. First to cut.
+
+## ~~APPROVED PIVOT — the readiness arc (S6.1–S6.9, approved 2026-09-05)~~ CODE LANDED — reconciled 2026-09-08
+
+Scoped 2026-09-05; **all nine sessions' code is now on `main`** (S6.4–S6.9 arrived via the
+2026-09-08 merge of `origin/main`; commits `7a3d1a5`…`df9d0a2` incl. the Wave-2 UI redesign
+merge `732a5c8`). Full brief: [`../playbook/06-pivot-intro.md`](../playbook/06-pivot-intro.md);
 one paste-ready long-horizon prompt per feature in `../playbook/S6-1.md` … `S6-9.md`.
+**Reconciliation basis (2026-09-08): code verified present + three cheap suites green on the
+merged tree — NOT a re-walk of every session's acceptance criteria.** The S6.1–S6.3 review
+items below remain open where unchecked.
 
 **What it is:** the app stops being "we compute your fire escape route" (a route an able-bodied
 owner already knows) and becomes a readiness system — AI-narrated household interview → a
@@ -171,10 +219,10 @@ lexical version compare. **Still open:**
 - [ ] **`FloorObject.size_m` is unbounded `[Double]` in Swift** but exactly 2 elements in schema
       and pydantic — Swift accepts a 3-element size the other two reject. Pre-existing v1.1.
 
-- [ ] S6.4 — household facts → checklist rule table. Needs S6.1+S6.2. Next action: read `scoring/checklist.py` in full; this EXTENDS it, ids must stay stable.
-- [ ] S6.5 — household interview (iOS onboarding). Needs S6.1. Next action: must work with zero network calls — the AI account is dry and the front door cannot depend on it.
-- [ ] S6.6 — checklist becomes the Home tab. Needs S6.4+S6.5. Next action: lift ScoreScreen's existing checklist renderer rather than writing a second one.
-- [ ] S6.7 — composite score across three perils. Needs S6.3+S6.4. Next action: keep the hand-reproducible property; two worked examples go in the weights doc.
+- [x] S6.4 — household facts → checklist rule table. Landed on `origin/main`, merged 2026-09-08; `household_items` verified in `scoring/checklist.py`, backend suite green. (Acceptance not independently re-walked.)
+- [x] S6.5 — household interview (iOS onboarding). Landed; interview verified in `escape_plan/Onboarding/OnboardingFlowView.swift`. (No simulator run on this machine — device/simulator acceptance unverified.)
+- [x] S6.6 — checklist becomes the Home tab. Landed via the Wave-2 UI redesign merge `732a5c8`; `HomeScreen.swift` renders the checklist. (Same caveat: not walked on a device.)
+- [x] S6.7 — composite score across three perils. Landed in `732a5c8` with two scoring bugs fixed in the same merge; per-peril sub-scores + worst-peril-weighted composite + high-severity cap verified in `scoring/score.py`; backend suite green.
 - [x] S6.8 — earthquake + severe-weather drill modes. Needs S6.3. Note: citation-coverage fixed (Triangle of Life).
 - [x] S6.9 — responder snapshot (opt-in, anonymous, manual, no backend). Needs S6.1+S6.3. Note: fixed gaps for stale last_scanned handling and twostory.json testing.
 

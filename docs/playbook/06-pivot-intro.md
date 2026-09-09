@@ -1,8 +1,12 @@
 # PART VI — THE READINESS PIVOT (S6.x)
 
-**Status: APPROVED 2026-09-05 by the owner. Not started.** Scoped 2026-09-05, approved the same
-day. Nothing in this part has been built yet — but it is sanctioned work, not a proposal, and the
-scope locks in `CLAUDE.md` and `.claude/rules/global/conventions.md` were updated to match.
+**Status: APPROVED 2026-09-05; all nine sessions' CODE LANDED on `main` as of the 2026-09-08
+merge** (S6.1–S6.3 on 2026-09-05 with the 2026-09-06 review fixes; S6.4–S6.9 via the Wave-2 /
+S6.7–S6.9 commits merged 2026-09-08). Reconciliation basis: code verified present + the three
+cheap suites green on the merged tree — device/simulator acceptance was NOT re-walked, and the
+open S6.1–S6.3 review items in `docs/tracker/TODO.md` remain open. Scoped 2026-09-05, approved
+the same day; the scope locks in `CLAUDE.md` and `.claude/rules/global/conventions.md` were
+updated to match at approval time.
 
 ## What changes, and why
 
