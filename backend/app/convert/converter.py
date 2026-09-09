@@ -286,6 +286,11 @@ def convert_scan(
     home_id = str(uuid.uuid5(_ID_NAMESPACE, "|".join(all_surface_ids) or home_name))
 
     return HomeModel(
+        # This is a 2.1-shaped document wearing a 1.1 stamp: HomeModel's before-validator
+        # migrates it forward on construction, so what comes out is stamped current. It
+        # survives only because every migration to date is a stamp rewrite — the first one
+        # that TRANSFORMS data will run that transform over output that never needed it.
+        # S7.3 owns the converter; stamp it CURRENT_VERSION there. (Noted S7.1.)
         schema_version="1.1",
         home_id=home_id,
         name=home_name,
