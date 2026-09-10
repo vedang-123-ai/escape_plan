@@ -248,10 +248,12 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       `xcrun xcresulttool get test-results summary --path <bundle>`. Next action: when someone
       touches the `/verify` skill, have it read the result bundle.
 - [x] **Plain `python3` now works and the machine's trust store validates.** `demo-preflight.py` CAN reach the backend because the preflight script uses a working request mechanism, and one-off HTTP checks used `certifi` (note: `validate.py` itself remains stdlib-only).
-- [ ] **`/health` reports `v1.0` and that is meaningless** — it is a hardcoded FastAPI `app.version`
-      (`backend/app/main.py:44`), not a deploy or schema signal. It read as "stale backend" on
-      2026-09-07 and cost a diagnosis. Next action: have `demo-preflight.py` probe
-      `/openapi.json` for `schema_version` instead, or stop printing the version.
+- [x] **`/health` reports `v1.0` and that is meaningless** — it is a hardcoded FastAPI `app.version`
+      (`backend/app/main.py:145`), not a deploy or schema signal. It read as "stale backend" on
+      2026-09-07 and cost a diagnosis. Verified 2026-09-10: already resolved, not by this
+      session — `demo-preflight.py:167` deliberately does not print `body["version"]` (comment
+      explains why), and `check_deployed_schema()` already probes `/openapi.json` for
+      `schema_version` instead, exactly the fix this line asked for.
 
 ---
 
