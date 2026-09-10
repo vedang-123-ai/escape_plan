@@ -31,6 +31,11 @@ final class DollhouseScene {
         let node: SCNNode
         let solidMaterials: [SCNMaterial]
         let part: GhostPart
+        /// The node's `renderingOrder` as built (before any ghosting ever happens). `.structure`
+        /// covers walls, fixtures AND furniture objects, which sit in different bands
+        /// (`RenderOrder.walls`/`.fixtures`/`.objects`) — so un-ghosting must restore each node's
+        /// own value, not a single constant.
+        let solidRenderingOrder: Int
     }
 
     /// One floor of the home, and the node holding everything on it.
@@ -102,8 +107,7 @@ final class DollhouseScene {
                         entry.node.castsShadow = false
                     } else {
                         geometry.materials = entry.solidMaterials
-                        entry.node.renderingOrder = entry.part == .slab
-                            ? RenderOrder.opaque : entry.node.renderingOrder
+                        entry.node.renderingOrder = entry.solidRenderingOrder
                         entry.node.castsShadow = true
                     }
                 }
@@ -301,7 +305,8 @@ enum DollhouseSceneBuilder {
                 part = .structure
             }
             entries.append(DollhouseScene.GhostEntry(
-                node: node, solidMaterials: geometry.materials, part: part))
+                node: node, solidMaterials: geometry.materials, part: part,
+                solidRenderingOrder: node.renderingOrder))
         }
         return entries
     }

@@ -29,7 +29,11 @@ struct HouseScreen: View {
     /// When the caller owns a `HomeLibrary`, the session registers as its open editor so a
     /// home deleted from the list closes this screen and drops its undo history.
     var library: HomeLibrary?
-    var initialSelection: Selection? = nil
+    /// The checklist row that opened this screen, if any. Resolved to an object against the
+    /// loaded model — never parsed into a selection by the caller, because only this screen
+    /// knows which object ids the home actually has (S7.7).
+    var initialFocusItemID: String? = nil
+    @State private var initialSelection: Selection?
     @State private var hasFocusedInitial = false
 
     @Environment(APIClient.self) private var apiClient
@@ -181,9 +185,10 @@ struct HouseScreen: View {
 
     private let documentStore: HomeDocumentStore?
 
-    init(homeID: String?, library: HomeLibrary? = nil, onModelChanged: (() -> Void)? = nil) {
+    init(homeID: String?, library: HomeLibrary? = nil, initialFocusItemID: String? = nil, onModelChanged: (() -> Void)? = nil) {
         self.homeID = homeID
         self.library = library
+        self.initialFocusItemID = initialFocusItemID
         self.onModelChanged = onModelChanged
         self.documentStore = try? HomeDocumentStore()
     }
@@ -2207,7 +2212,6 @@ struct HouseScreen: View {
                 invalidateRoutes()
             }
             session = newSession
-            if let initialSelection { newSession.store.select(initialSelection) }
             library?.editor = newSession
             // A brand-new home has nothing on disk yet — write it immediately so it shows up
             // in the home list without waiting for the first edit.
@@ -2216,14 +2220,20 @@ struct HouseScreen: View {
             }
             fetchRoutes()
             
-            // Extract hazard object IDs from cache to show advisory emphasis
+            // Advisory emphasis and finding→object focus both key off the cached score: the
+            // engine decided what is hazardous, this screen only draws what it was told.
             if let activeHomeID = homeID, let cache = try? ScoreCache(), let score = cache.load(homeID: activeHomeID) {
-                let hazardObjIDs = score.checklist.compactMap { item -> String? in
-                    let parts = item.id.split(separator: ".")
-                    return (parts.first == "hazard" && parts.count >= 3) ? String(parts[2]) : nil
-                }
-                hazardObjectIDs = Set(hazardObjIDs)
+                let model = newSession.store.model
+                hazardObjectIDs = Set(score.checklist
+                    .filter { $0.id.hasPrefix("hazard.") }
+                    .flatMap { $0.objectIDs(in: model) })
                 controller?.setHazardObjects(hazardObjectIDs)
+
+                if let itemID = initialFocusItemID,
+                   let target = score.checklist.first(where: { $0.id == itemID })?.objectIDs(in: model).first {
+                    initialSelection = .object(objectId: target)
+                    newSession.store.select(.object(objectId: target))
+                }
             }
         } catch {
             loadError = "\(error)"

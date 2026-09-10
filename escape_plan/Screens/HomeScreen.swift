@@ -26,24 +26,11 @@ struct HomeScreen: View {
     @State private var drillHomeID: String?
     /// Quick-details sheet for one checklist row (the row itself is compact).
     @State private var detailItem: ChecklistItem?
-    @State private var initialSelection: Selection?
+    /// The checklist row a tap came from, handed to `HouseScreen` so it can resolve the row to
+    /// an object against the loaded model and swing the camera to it (S7.7).
+    @State private var focusItemID: String?
     /// Rows hide their detail line by default; this reveals every one inline.
     @AppStorage("home.checklist.showDetails") private var showAllDetails = false
-    
-    private func getObjectIDs(from itemID: String) -> [String] {
-        let parts = itemID.split(separator: ".")
-        if parts.first == "hazard" && parts.count >= 3 {
-            return [String(parts[2])]
-        } else if parts.first == "mitigation" && parts.count >= 3 && parts[1] == "secure" {
-            return [String(parts[2])]
-        } else if parts.first == "routes" && parts.count >= 4 {
-            let kind = parts[1]
-            if kind == "blocked_opening" || kind == "narrows_route" {
-                return parts[3].split(separator: "-").map { String($0) }
-            }
-        }
-        return []
-    }
     
     // Scan conversion
     @State private var isConverting = false
@@ -105,7 +92,7 @@ struct HomeScreen: View {
                 )
             }
             .navigationDestination(item: $openHomeID) { homeID in
-                HouseScreen(homeID: homeID, library: library, initialSelection: initialSelection) { 
+                HouseScreen(homeID: homeID, library: library, initialFocusItemID: focusItemID) { 
                     library.refresh()
                     Task { await initialLoad() } // Reload checklist
                 }
@@ -672,12 +659,7 @@ struct HomeScreen: View {
         
         switch category {
         case .smoke_alarm, .routes, .egress, .agent_finding, .recommendation, .mitigation, .other, .safe_room, .shutoffs:
-            let objIDs = getObjectIDs(from: item.id)
-            if let firstObj = objIDs.first {
-                initialSelection = .object(objectId: firstObj)
-            } else {
-                initialSelection = nil
-            }
+            focusItemID = item.id
             // Needs floor plan edit or route view
             openHomeID = activeHomeID
         case .practice:

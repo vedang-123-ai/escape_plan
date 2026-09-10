@@ -278,8 +278,15 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
             }
         }
         
-        // Theme.caution (dark) — reads as a clear amber advisory in the 3D scene without being red/orange.
-        let cautionColor = UIColor(hex: 0xF59E0B)
+        // Advisory amber, read straight off `Theme.cautionComponents` rather than re-typed as a
+        // hex here, so the 3D advisory and the UI chrome can never drift apart. The dark value is
+        // the one that reads against the dollhouse's own ground. Route orange stays reserved for
+        // lit routes and exits — this is deliberately the amber, not that.
+        let caution = Theme.cautionComponents.dark
+        let cautionColor = UIColor(red: CGFloat(caution.r),
+                                   green: CGFloat(caution.g),
+                                   blue: CGFloat(caution.b),
+                                   alpha: 1)
         
         for id in hazardObjectIDs {
             if let objNode = dollhouse.scene.rootNode.childNode(withName: "object:\(id)", recursively: true) {

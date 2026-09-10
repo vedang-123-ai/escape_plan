@@ -1374,3 +1374,18 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-10T06:03:23Z · Anish Yarrakonda · `main` @ `87f7f42`
+
+**Commits this session**
+  - 87f7f42 J1/J4/J5: Close-out gaps for S7.5/S7.6
+
+**Uncommitted working-tree changes (8)**
+  - M docs/decisions.md
+  - M docs/tracker/notes/2026-09-09-s7-7-3d-non-device.md
+  - M escape_plan/Renderer/DollhouseScene.swift
+  - M escape_plan/Renderer/UnifiedSceneController.swift
+  - M escape_plan/Screens/HomeScreen.swift
+  - M escape_plan/Screens/HouseScreen.swift
+  - ?? escape_plan/Models/ChecklistItem+Objects.swift
+  - ?? escape_planTests/HazardEmphasisTests.swift
+

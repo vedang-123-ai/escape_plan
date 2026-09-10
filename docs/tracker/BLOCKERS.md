@@ -6,11 +6,12 @@ what actually stops the project from shipping, ranked by what is on the critical
 
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
-_Last verified 2026-09-09 on `main` (commit `2bf41c4` + fix-forward). Re-run this session and
-green: backend **382** pass (13 live-deselected), EditorCore **273** pass, corpus valid (**23**
-sources, **9** files, **2** threshold files). **iOS: 598 passed, 0 failed, 8 skipped** (iPhone 17
-Pro / iOS 26.5 simulator, `xcresulttool` summary from bundle
-`Test-escape_plan-2026.09.09_21-53-52--0700.xcresult`)._
+_Last verified 2026-09-09 on `main` (commit `2bf41c4` + fix-forward, through S7.7's non-device
+half). Re-run this session and green: backend **382** pass (13 live-deselected), EditorCore
+**273** pass, corpus valid (**23** sources, **9** files, **2** threshold files). **iOS: 608
+passed, 0 failed, 8 skipped** (iPhone 17 Pro / iOS 26.5 simulator, single uncontended run,
+`xcresulttool` summary from bundle `Test-escape_plan-2026.09.09_23-01-10--0700.xcresult`; the
+10-test jump from 598 is the new `HazardEmphasisTests`)._
 
 
 **Rules**

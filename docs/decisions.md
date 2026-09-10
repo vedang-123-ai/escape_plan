@@ -1325,6 +1325,41 @@ guard held when probed — correctly, so the token was not lifted from it.
 2. **Inspector Scope:** The inspector now exposes `secured`, `mounted`, and `elevation_m` directly on the object panel to let the user address hazards.
 3. **`setOpeningWidth` Closed:** The long-standing `setOpeningWidth` no-UI item was implemented as a stepper inside the Opening inspector, cleanly closing that backlog item alongside the object controls.
 
+### 2026-09-09: S7.7 — 3D emphasis (non-device half)
+
+1. **Finding → object resolution moved into the model, not the checklist string.** The prior
+   attempt parsed a checklist item's id client-side with `itemID.split(separator: "-")`, which
+   shreds `routes.blocked_opening.<room>.<obj>-<obj>` findings because object ids themselves
+   contain hyphens (`obj-1a2b3c4d` from the converter, a raw `UUID().uuidString` from the Hazard
+   Hunt). Replaced with `ChecklistItem.objectIDs(in:)` (`Models/ChecklistItem+Objects.swift`),
+   which matches candidate ids against the ones the loaded `HomeModel` actually has — an id for an
+   object that has since been deleted resolves to nothing rather than to a wrong neighbor. Covered
+   by `HazardEmphasisTests` (hyphen-in-tail, multi-culprit, UUID, deleted/unknown cases).
+2. **Advisory ring color reads from `Theme.cautionComponents.dark` at runtime, not a re-typed
+   hex.** `UnifiedSceneController.applyHazardObjects` previously wrote `UIColor(hex: 0xF59E0B)` —
+   the right color, but a second, driftable copy of it. Now built from `Theme.cautionComponents`'s
+   own `SRGB`, so the 3D advisory and the UI chrome can never disagree. No new colour was
+   introduced (verified by grepping the diff for `Color(`/`UIColor(hex`/raw hex literals).
+3. **Fixed a real ghost-floor rendering bug found by testing the ring, not aimed at on purpose.**
+   `DollhouseScene.GhostEntry` never recorded a node's as-built `renderingOrder`, so
+   `setActiveFloor`'s un-ghost branch wrote `entry.node.renderingOrder = entry.node.renderingOrder`
+   for every `.structure` node (walls, fixtures, **and furniture objects**, which all land in that
+   bucket) — a no-op. A floor ghosted once (which the builder does immediately, since it opens on
+   the top floor) permanently stuck its objects at `RenderOrder.ghostWall` (90) instead of
+   `RenderOrder.objects` (2), never restoring the correct order once the floor became active again.
+   Added `GhostEntry.solidRenderingOrder`, captured once at classification time (before any
+   ghosting), and the un-ghost branch now restores that instead of a self-assignment. This is
+   exactly the "ghost-floor stacking with mounted objects" case S7-7.md calls out — caught by
+   `testAdvisoryRingLandsOnTheNamedObjectsOnly` failing with `90 != 2` on the first honest run of a
+   two-floor fixture.
+4. **One ring treatment for every rule; severity stays in the checklist, not the color.** A hazard-
+   flagged object gets a torus ring in the advisory amber at the object's own floor plane — the
+   `highlightPlacement` selection-ring pattern, reused rather than reinvented, per S7-7.md's "do
+   not invent a second camera/emphasis behavior."
+5. **The device pass is untouched and stays open.** Real scan + camera feel + the measured frame-
+   time number need a physical iPhone and a human; see `BLOCKERS.md` §2. Nothing here claims that
+   half.
+
 ### 2026-09-09: S7.4 Corrective Cycle
 
 1. **Inline `[cite:]` Tags Removed from Engine Prose (G1):** `ObjectHazard.detail` and `Obstruction.detail` strings are rendered raw by the iOS UI (HouseScreen inspector, RouteNarrationView). Inline `[cite: source-id]` tags were breaking the view. Fix: detail strings are now tag-free prose. Grounding is structurally carried by `ObjectHazard.citation`, which `checklist.py` uses to compose the `why=` payload for the AI layer. The UI never sees citation markup.
