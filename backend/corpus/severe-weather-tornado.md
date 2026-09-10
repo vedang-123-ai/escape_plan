@@ -15,7 +15,7 @@ This document provides severe weather and tornado safety guidelines based on inf
 ## Safe Location and Sheltering
 
 When a tornado warning is issued, you must seek shelter immediately in a designated safe room [cite: redcross-tornado]. 
-- The safest location is a FEMA-rated safe room or storm shelter, or a basement [cite: fema-tornado]. A basement or underground shelter provides near-absolute protection against extreme winds and flying debris that can easily destroy above-ground walls [cite: fema-tornado].
+- A FEMA-rated safe room or storm shelter built to FEMA criteria provides near-absolute protection in extreme wind events [cite: fema-tornado]. An ordinary basement is substantially safer than an above-ground room during a tornado, but it is not a FEMA-rated safe room; NWS directs people at home to shelter in a basement, safe room, or interior room away from windows [cite: noaa-tornado].
 - If a basement is not available, move to the lowest floor and find the most interior room—such as a bathroom, closet, or hallway—putting as many walls as possible between you and the outside [cite: noaa-tornado].
 - Stay far away from windows, doors, and outside walls [cite: noaa-tornado].
 

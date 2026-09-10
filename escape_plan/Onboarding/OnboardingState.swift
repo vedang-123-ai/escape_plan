@@ -30,12 +30,21 @@ final class OnboardingState {
 
     private(set) var seededHome: HomeModel?
     private(set) var seedError: String?
+    private(set) var hasExistingLibrary = false
+    private let documentStore: HomeDocumentStore?
+
+    init(documentStore: HomeDocumentStore? = nil) {
+        self.documentStore = documentStore
+    }
 
     func seedIfNeeded() {
         guard seededHome == nil else { return }
         do {
-            seededHome = try FixtureSeeder.seedDemoHome(into: try HomeDocumentStore())
-            seedError = nil
+            seededHome = try FixtureSeeder.seedDemoHome(into: try store())
+            hasExistingLibrary = seededHome == nil
+            seedError = hasExistingLibrary
+                ? "A saved home is already available; onboarding won't add a demo copy."
+                : nil
         } catch {
             seedError = "Couldn't create the demo home: \(error.localizedDescription)"
         }
@@ -53,7 +62,7 @@ final class OnboardingState {
             ?? ordered.first?.rooms.first?.id ?? ""
             
         do {
-            let documentStore = try HomeDocumentStore()
+            let documentStore = try store()
             let store = try HomeModelStore(model: home)
             
             store.onCommit = { commit in
@@ -85,5 +94,12 @@ final class OnboardingState {
         } catch {
             print("Failed to initialize store: \(error)")
         }
+    }
+
+    private func store() throws -> HomeDocumentStore {
+        if let documentStore {
+            return documentStore
+        }
+        return try HomeDocumentStore()
     }
 }

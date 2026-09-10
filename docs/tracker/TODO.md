@@ -164,36 +164,37 @@ this session** — tornado "leave the house" defect, the grounding desync, the u
 claim, two mis-citations, `household` nullability, `profile.tags` required, and the migrator's
 lexical version compare. **Still open:**
 
-- [ ] **`/build` serializes `confidence: null` and `egress: null`, which the schema rejects.**
-      Pre-existing and confirmed by the guardian: 2.0 made `meta.last_scanned` and
-      `household.tenure` nullable but left `confidence` and `opening.egress` as bare types.
-      `/convert` sets `response_model_exclude_none=True` and is masked; **`/build` does not and
-      is exposed** — `BuildResult.home` emits both. Next action: either declare both nullable or
-      set `response_model_exclude_none=True` on `/build`, then widen the serialize test to the
-      whole document.
-- [ ] **FEMA over-claim in the new corpus.** `severe-weather-tornado.md:18` says a basement
-      "provides near-absolute protection". That is FEMA P-361/P-320 language reserved for safe
-      rooms **built to FEMA criteria**, not a property of basements generally. Next action: split
-      the sentence — near-absolute for the FEMA-rated safe room, "substantially safer" for an
-      ordinary basement.
-- [ ] **Dead URL carrying a fresh retrieved date.** `sources.json:129` has
+- [x] **`/build` serializes `confidence: null` and `egress: null`, which the schema rejects.**
+      Fixed 2026-09-09: `response_model_exclude_none=True` added to `/build`, matching `/convert`.
+      `test_build_response_has_no_null_optionals` recursively checks the whole HTTP document.
+- [x] **FEMA over-claim in the new corpus.** `severe-weather-tornado.md:18` said a basement
+      "provides near-absolute protection" — FEMA P-361/P-320 language reserved for safe rooms
+      **built to FEMA criteria**, not a property of basements generally. Fixed 2026-09-09: split
+      into a FEMA-rated-safe-room claim and a separate, NOAA-cited ordinary-basement claim.
+- [x] **Dead URL carrying a fresh retrieved date.** `sources.json:129` had
       `fema.gov/plan/prevent/saferoom` (retired years ago) stamped `"retrieved": "2026-09-05"`.
-      A retrieved date asserts somebody fetched it — this is an originality claim a judge could
-      check. Current path is `/emergency-managers/risk-management/safe-rooms`. Next action:
-      re-verify all six new URLs resolve, then correct.
-- [ ] **`shakeout-guidance` cite precision.** `sources.json:113` points at
-      `earthquakecountry.org/step5/` (Drop, Cover, Hold On) but is cited for furniture securing,
-      which is step 1.
-- [ ] **`test_perils.py` tornado assertion is weak.** It asserts only
-      `primary.exit_id != "d_front"`, which passes trivially now that `exit_id` holds a room id.
-      The shelter actually chosen for all 7 twostory rooms is `r_hall1` — the room containing the
-      front door. Next action: assert on `ext_openings == 0` or on room type, not a door id.
-- [ ] **`exterior_edges` mixes int indices with `f"op_{id}"` strings**
+      Fixed 2026-09-09: repointed to `/emergency-managers/risk-management/building-science/safe-rooms`,
+      verified live (HTTP 200, and the fetched page's text contains the near-absolute-protection
+      claim FEMA-criteria language this corpus cites it for).
+- [x] **`shakeout-guidance` cite precision.** `sources.json:113` pointed at
+      `earthquakecountry.org/step5/` (Drop, Cover, Hold On) but was cited for furniture securing,
+      which is step 1. A first pass just repointed the one id to `/step1/`, which broke the
+      *other* five citations of the same id for Drop/Cover/Hold-On content elsewhere in
+      `earthquake-preparedness.md` (caught by independent review — `validate.py` checks id
+      resolution, not content match). Fixed 2026-09-09 by splitting into two source ids —
+      `shakeout-guidance` (`/step1/`, furniture/water-heater) and `shakeout-guidance-dcho`
+      (`/step5/`, Drop/Cover/Hold-On) — both fetched and confirmed live with matching content.
+- [x] **`test_perils.py` tornado assertion is weak.** It asserted only
+      `primary.exit_id != "d_front"`, which passed trivially now that `exit_id` holds a room id.
+      Fixed 2026-09-09: now asserts the chosen shelter's room type is an approved interior type.
+- [x] **`exterior_edges` mixes int indices with `f"op_{id}"` strings**
       (`routing/perils/tornado.py:63-91`). If the `else` at :70 ever fires the same wall is
-      counted twice, inflating `ext_walls` and corrupting the ranking. Zero hits on current
-      fixtures; a live trap for scan-derived homes. Next action: use one key space.
-- [ ] **`routing/perils/objective.py` is a stub** — four unused imports and a "we will put
-      shared logic here if needed" comment. Delete or implement.
+      counted twice, inflating `ext_walls` and corrupting the ranking. Fixed 2026-09-09: one
+      integer key space throughout; `test_paired_room_opening_uses_the_polygon_edge_key_once`
+      exercises the previously-zero-hit branch and proves the wall count stays four.
+- [x] **`routing/perils/objective.py` was a stub** — four unused imports and a "we will put
+      shared logic here if needed" comment. Verified nothing imports it (`rg`), then deleted
+      2026-09-09.
 - [ ] **`RouteFinding` has no `citation` field**, so finding-level safety text is validated by
       nothing — which is exactly why the uncited shelter directive shipped green.
       `test_citation_resolution` only walks `ChecklistItem.source_citation`. Next action: add
@@ -220,8 +221,9 @@ lexical version compare. **Still open:**
       and `decisions.md`. The observation that JSON Schema cannot tell a 1.1 document from a 2.1
       one stands and is inherent: every addition since 1.1 has been optional, so the stamp is the
       only signal — which is exactly why the migrators rewrite it.
-- [ ] **`FloorObject.size_m` is unbounded `[Double]` in Swift** but exactly 2 elements in schema
-      and pydantic — Swift accepts a 3-element size the other two reject. Pre-existing v1.1.
+- [x] **`FloorObject.size_m` was unbounded `[Double]` in Swift** but exactly 2 elements in schema
+      and pydantic — Swift accepted a 3-element size the other two reject. Fixed 2026-09-09 at
+      the Codable boundary (decode and encode both reject any size but width+depth).
 
 - [x] S6.4 — household facts → checklist rule table. Verified in the tree 2026-09-08: `household_items()` at `backend/app/scoring/checklist.py:618`, tenure/equipment branches, ids stable (`household.sleep_near_exit.<profile>` etc.). It extended `checklist.py` rather than forking it, as required.
 - [x] S6.5 — household interview (iOS onboarding). Verified 2026-09-08: `escape_plan/Onboarding/OnboardingFlowView.swift` + `OnboardingState.swift` capture tenure and sensory tags and dispatch `.setHousehold(...)`. Zero network calls, as required.
@@ -359,11 +361,13 @@ pan inertia, latching two-finger arbitration, and looser movement limits. Open:
 - [ ] The tuning constants (#8/#9) are a **starting point, not an answer**: apron `0.6 ×`
       extent, distance `0.35…4.0 ×` extent, orbit `0.6 π` per view height, axis-lock sample
       20 pt. Tune by feel on device; the orbit rate and the axis-lock threshold interact.
-- [ ] `RouteRedrawAfterEditUITests` detects the route by counting **orange** pixels
+- [x] `RouteRedrawAfterEditUITests` detected the route by counting **orange** pixels
       (`r > 190, g 80–180, b < 90`). Routes have been blue since the 2026-08-05 colour pass, so
-      that test can no longer pass. It is skipped unless `ROUTE_REDRAW=1`, so it does not gate
-      CI — which is exactly why it will stay broken until someone needs it. Next action: retune
-      the predicate to `DollhousePalette.routePrimary` (`#123FB0`).
+      that test could no longer pass. Fixed 2026-09-09: retuned to
+      `DollhousePalette.routePrimary` (`#123FB0`). **See `BLOCKERS.md` §3 — a separate,
+      newly-discovered bootstrap gap (no home seeded when the test skips onboarding) stops the
+      live run before it reaches this check, so the predicate fix is verified by direct
+      calculation, not yet by a full green live run.**
 - [ ] `UnifiedSceneView` (DrillScreen) and `EditorSceneView` (HouseScreen) now share
       `CameraGestureDriver`, but still duplicate their `shouldRecognizeSimultaneouslyWith`
       policy and their recognizer setup. Fold the recognizer installation into the driver too,

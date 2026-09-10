@@ -109,10 +109,18 @@
     {
       "id": "shakeout-guidance",
       "org": "Earthquake Country Alliance (Great ShakeOut)",
-      "doc_title": "Seven Steps to Earthquake Safety",
+      "doc_title": "Seven Steps to Earthquake Safety — Step 1: Secure Your Space",
+      "url": "https://www.earthquakecountry.org/step1/",
+      "retrieved": "2026-09-09",
+      "topics": ["earthquake", "furniture", "water-heaters", "renters", "triangle-of-life"]
+    },
+    {
+      "id": "shakeout-guidance-dcho",
+      "org": "Earthquake Country Alliance (Great ShakeOut)",
+      "doc_title": "Seven Steps to Earthquake Safety — Step 5: Drop, Cover, and Hold On",
       "url": "https://www.earthquakecountry.org/step5/",
-      "retrieved": "2026-09-05",
-      "topics": ["earthquake", "drop-cover-hold-on", "renters", "triangle-of-life"]
+      "retrieved": "2026-09-09",
+      "topics": ["earthquake", "drop-cover-hold-on", "triangle-of-life"]
     },
     {
       "id": "noaa-tornado",
@@ -126,8 +134,8 @@
       "id": "fema-tornado",
       "org": "FEMA (Federal Emergency Management Agency)",
       "doc_title": "FEMA Safe Rooms",
-      "url": "https://www.fema.gov/plan/prevent/saferoom",
-      "retrieved": "2026-09-05",
+      "url": "https://www.fema.gov/emergency-managers/risk-management/building-science/safe-rooms",
+      "retrieved": "2026-09-09",
       "topics": ["tornado", "safe-room", "construction"]
     },
     {
@@ -194,7 +202,7 @@
     {"file": "home-fire-escape-redcross.md", "primary_id": "redcross-escape-plan", "source_ids": ["redcross-escape-plan", "redcross-two-minutes", "redcross-escape-fact-sheet"]},
     {"file": "fire-facts-stats.md", "primary_id": "fire-facts-stats", "source_ids": ["nfpa-smoke-alarms-report", "redcross-two-minutes", "redcross-escape-fact-sheet"]},
     {"file": "special-considerations.md", "primary_id": "special-considerations", "source_ids": ["usfa-disabilities", "nfpa-evacuation-disabilities", "nfpa-escape-planning", "usfa-smoke-alarms", "redcross-escape-plan"]},
-    {"file": "earthquake-preparedness.md", "primary_id": "earthquake-preparedness", "source_ids": ["usgs-earthquake", "fema-earthquake", "shakeout-guidance"]},
+    {"file": "earthquake-preparedness.md", "primary_id": "earthquake-preparedness", "source_ids": ["usgs-earthquake", "fema-earthquake", "shakeout-guidance", "shakeout-guidance-dcho"]},
     {"file": "severe-weather-tornado.md", "primary_id": "severe-weather-tornado", "source_ids": ["noaa-tornado", "fema-tornado", "redcross-tornado"]},
     {"file": "heating-electrical-fire-safety.md", "primary_id": "heating-electrical-fire-safety", "source_ids": ["nfpa-heating-safety", "nfpa-cooking-safety", "nfpa-electrical-safety", "usfa-dryer-safety", "nfpa-heating-report", "nfpa-cooking-report"]}
   ]

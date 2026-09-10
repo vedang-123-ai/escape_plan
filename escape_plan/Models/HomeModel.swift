@@ -112,6 +112,12 @@ struct FloorObject: Codable, Equatable, Identifiable {
         category = try container.decode(ObjectCategory.self, forKey: .category)
         center = try container.decode(Point.self, forKey: .center)
         size_m = try container.decode([Double].self, forKey: .size_m)
+        guard size_m.count == 2 else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .size_m, in: container,
+                debugDescription: "FloorObject.size_m must contain exactly width and depth"
+            )
+        }
         height_m = try container.decode(Double.self, forKey: .height_m)
         rotation_deg = try container.decodeIfPresent(Double.self, forKey: .rotation_deg) ?? 0
         source = try container.decode(Source.self, forKey: .source)
@@ -119,6 +125,28 @@ struct FloorObject: Codable, Equatable, Identifiable {
         secured = try container.decodeIfPresent(Bool.self, forKey: .secured) ?? false
         elevation_m = try container.decodeIfPresent(Double.self, forKey: .elevation_m) ?? 0
         mounted = try container.decodeIfPresent(Bool.self, forKey: .mounted) ?? false
+    }
+
+    func encode(to encoder: Encoder) throws {
+        guard size_m.count == 2 else {
+            throw EncodingError.invalidValue(
+                size_m,
+                .init(codingPath: encoder.codingPath + [CodingKeys.size_m],
+                      debugDescription: "FloorObject.size_m must contain exactly width and depth")
+            )
+        }
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(category, forKey: .category)
+        try container.encode(center, forKey: .center)
+        try container.encode(size_m, forKey: .size_m)
+        try container.encode(height_m, forKey: .height_m)
+        try container.encode(rotation_deg, forKey: .rotation_deg)
+        try container.encode(source, forKey: .source)
+        try container.encodeIfPresent(confidence, forKey: .confidence)
+        try container.encode(secured, forKey: .secured)
+        try container.encode(elevation_m, forKey: .elevation_m)
+        try container.encode(mounted, forKey: .mounted)
     }
 }
 

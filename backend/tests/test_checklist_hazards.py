@@ -182,3 +182,30 @@ def test_object_hazard_item_capping_score_roundtrip(bungalow, object_hazard_thre
     # Check off the item
     breakdown_checked = compute_score(home, plan, [], {hazard_items[0].id: True}, thresholds, object_hazard_thresholds=object_hazard_thresholds)
     assert breakdown_checked.score == 83
+
+
+def test_bookcase_and_water_heater_use_specific_hazards_without_generic_duplicates(
+    bungalow, object_hazard_thresholds, thresholds
+):
+    """S7.4's specific hazards supersede, rather than supplement, generic straps."""
+    from app.models import FloorObject
+
+    home = HomeModel.model_validate(bungalow)
+    home.floors[0].objects.extend([
+        FloorObject(id="bookcase_1", source="manual", category="bookcase", center=(1, 1),
+                    size_m=(1, 0.4), height_m=2, secured=False),
+        FloorObject(id="bed_1", source="manual", category="bed", center=(1.5, 1),
+                    size_m=(2, 2), height_m=0.5),
+        FloorObject(id="water_heater_1", source="manual", category="water_heater", center=(4, 4),
+                    size_m=(1, 1), height_m=1.5, secured=False),
+    ])
+    plan = compute_route_plan(home, thresholds, peril="earthquake")
+    checklist = build_checklist(
+        home, plan, [], {}, thresholds, earthquake_plan=plan,
+        object_hazard_thresholds=object_hazard_thresholds,
+    )
+    ids = {item.id for item in checklist}
+
+    assert "hazard.topple.bookcase_1" in ids
+    assert "hazard.water_heater_unsecured.water_heater_1" in ids
+    assert not {"mitigation.secure.bookcase_1", "mitigation.secure.water_heater_1"} & ids

@@ -1388,4 +1388,51 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - M escape_plan/Screens/HouseScreen.swift
   - ?? escape_plan/Models/ChecklistItem+Objects.swift
   - ?? escape_planTests/HazardEmphasisTests.swift
+## 2026-09-10T06:31:42Z · Anish Yarrakonda · `main` @ `f4bde0a`
+
+**Commits this session**
+  - f4bde0a S7.7 (non-device half): finding→object 3D emphasis, fix ghost-floor renderingOrder bug
+
+**Uncommitted working-tree changes (17)**
+  - M backend/app/main.py
+  - D backend/app/routing/perils/objective.py
+  - M backend/app/routing/perils/tornado.py
+  - M backend/corpus/severe-weather-tornado.md
+  - M backend/corpus/sources.json
+  - M backend/tests/test_api.py
+  - M backend/tests/test_checklist_hazards.py
+  - M backend/tests/test_perils.py
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Models/HomeModel.swift
+  - M escape_plan/Onboarding/FixtureSeeder.swift
+  - M escape_plan/Onboarding/OnboardingFlowView.swift
+  - M escape_plan/Onboarding/OnboardingState.swift
+  - M escape_planTests/EditorCore/HomeModelCodableTests.swift
+  - M escape_planTests/OnboardingTests.swift
+  - M escape_planUITests/RouteRedrawAfterEditUITests.swift
+
+## 2026-09-10T06:34:27Z · Anish Yarrakonda · `main` @ `f4bde0a`
+
+**Commits this session**
+  - f4bde0a S7.7 (non-device half): finding→object 3D emphasis, fix ghost-floor renderingOrder bug
+
+**Uncommitted working-tree changes (17)**
+  - M backend/app/main.py
+  - D backend/app/routing/perils/objective.py
+  - M backend/app/routing/perils/tornado.py
+  - M backend/corpus/severe-weather-tornado.md
+  - M backend/corpus/sources.json
+  - M backend/tests/test_api.py
+  - M backend/tests/test_checklist_hazards.py
+  - M backend/tests/test_perils.py
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Models/HomeModel.swift
+  - M escape_plan/Onboarding/FixtureSeeder.swift
+  - M escape_plan/Onboarding/OnboardingFlowView.swift
+  - M escape_plan/Onboarding/OnboardingState.swift
+  - M escape_planTests/EditorCore/HomeModelCodableTests.swift
+  - M escape_planTests/OnboardingTests.swift
+  - M escape_planUITests/RouteRedrawAfterEditUITests.swift
 

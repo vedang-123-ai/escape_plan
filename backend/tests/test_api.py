@@ -176,6 +176,35 @@ def test_convert_response_has_no_null_optionals(client: TestClient):
     assert_no_nulls(resp.json())
 
 
+def test_build_response_has_no_null_optionals(
+    client: TestClient, bungalow: dict, monkeypatch: pytest.MonkeyPatch
+):
+    """/build returns a nested HomeModel, so its entire document must be JSON-Schema-shaped."""
+    from app import main
+    from app.ai.builder import BuildResult
+
+    monkeypatch.setattr(
+        main,
+        "run_builder",
+        lambda **_kwargs: BuildResult(
+            home=HomeModel.model_validate(bungalow), trace=[], truncated=False
+        ),
+    )
+    response = client.post("/build", json={"description": "a bungalow"}, headers=AUTH)
+    assert response.status_code == 200
+
+    def assert_no_nulls(node: object, path: str = "$") -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                assert value is not None, f"null value at {path}.{key}"
+                assert_no_nulls(value, f"{path}.{key}")
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                assert_no_nulls(value, f"{path}[{index}]")
+
+    assert_no_nulls(response.json())
+
+
 def test_convert_requires_token(client: TestClient):
     assert client.post("/convert", json={"scan": {}}).status_code == 401
 

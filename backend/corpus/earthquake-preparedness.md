@@ -5,7 +5,7 @@ doc_title: Earthquake Preparedness and Safety
 url: https://www.usgs.gov/programs/earthquake-hazards/prepare
 retrieved: 2026-09-05
 topics: [earthquake, drop-cover-hold-on, utilities, renter-friendly, evacuation]
-additional_source_ids: [usgs-earthquake, fema-earthquake, shakeout-guidance]
+additional_source_ids: [usgs-earthquake, fema-earthquake, shakeout-guidance, shakeout-guidance-dcho]
 ---
 
 # Earthquake Preparedness and Safety
@@ -14,10 +14,10 @@ This document outlines the safety guidelines for earthquake preparedness, drawin
 
 ## Drop, Cover, and Hold On
 
-During an earthquake, the official guidance is to Drop, Cover, and Hold On [cite: shakeout-guidance]. 
-- **DROP** to the ground before the shaking throws you down [cite: shakeout-guidance].
-- **COVER** your head and neck with your arms. Seek additional cover by getting under a sturdy desk or table [cite: shakeout-guidance]. A doorway does NOT count as cover; modern doorways are no stronger than the rest of the building and do not protect you from falling or flying objects [cite: shakeout-guidance].
-- **HOLD ON** to your shelter and move with it until the shaking stops [cite: shakeout-guidance].
+During an earthquake, the official guidance is to Drop, Cover, and Hold On [cite: shakeout-guidance-dcho]. 
+- **DROP** to the ground before the shaking throws you down [cite: shakeout-guidance-dcho].
+- **COVER** your head and neck with your arms. Seek additional cover by getting under a sturdy desk or table [cite: shakeout-guidance-dcho]. A doorway does NOT count as cover; modern doorways are no stronger than the rest of the building and do not protect you from falling or flying objects [cite: shakeout-guidance-dcho].
+- **HOLD ON** to your shelter and move with it until the shaking stops [cite: shakeout-guidance-dcho].
 
 The "Triangle of Life" theory—which suggests curling up next to furniture rather than getting under it—is widely discredited by the USGS and emergency management experts [cite: usgs-earthquake]. Attempting to move next to furniture is dangerous because it exposes you to falling objects, which are the most common cause of earthquake injuries [cite: usgs-earthquake].
 

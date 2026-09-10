@@ -21,9 +21,8 @@ final class RouteRedrawAfterEditUITests: XCTestCase {
 
     private var outDir: URL?
 
-    /// Orange primary-route pixels, as a fraction of the frame. The route ribbon is the only
-    /// strongly saturated orange in the 3D view — the fixture-kit walls are desaturated
-    /// browns and the exit glows are green.
+    /// Primary-route blue pixels, as a fraction of the frame. This matches
+    /// `DollhousePalette.routePrimary` (#123FB0), not the retired orange route color.
     private func routePixelFraction(_ screenshot: XCUIScreenshot) -> Double {
         guard let cg = screenshot.image.cgImage else { return 0 }
         let width = cg.width, height = cg.height
@@ -38,8 +37,8 @@ final class RouteRedrawAfterEditUITests: XCTestCase {
         var hits = 0
         for i in stride(from: 0, to: raw.count, by: 4) {
             let r = Double(raw[i]), g = Double(raw[i + 1]), b = Double(raw[i + 2])
-            // Route orange sits near (240, 130, 40): red-dominant, green mid, blue low.
-            if r > 190, g > 80, g < 180, b < 90, r - b > 120 {
+            // #123FB0 is blue-dominant; allow lighting and antialiasing around it.
+            if b > 110, r < 80, g > 35, g < 115, b - r > 75 {
                 hits += 1
             }
         }

@@ -67,7 +67,11 @@ def count_exterior_walls(room: Room, floor: Floor) -> int:
             if op.wall_segment.room_id == room.id:
                 exterior_edges.add(op.wall_segment.edge_index)
             else:
-                exterior_edges.add(f"op_{op.id}")
+                # ``edge_index`` is the wall key even when the opening is
+                # represented from its paired room. Keeping this in the same
+                # integer key space as the polygon pass prevents that wall
+                # from being counted once as an opening and once as exposed.
+                exterior_edges.add(op.wall_segment.edge_index)
                 
     other_segments = []
     for r in floor.rooms:

@@ -1360,6 +1360,66 @@ guard held when probed — correctly, so the token was not lifted from it.
    time number need a physical iPhone and a human; see `BLOCKERS.md` §2. Nothing here claims that
    half.
 
+### 2026-09-09: Backlog cleanup — close every agent-doable "Known defect"
+
+Picked up an interrupted run (a Codex session ran out of context mid-pass) and finished it: closed
+every item in `BLOCKERS.md` §3 "Known defects" that didn't need a schema bump, a routing-engine
+redesign, or physical hardware, and fixed the tracker's own duplicate-`## 3` heading bug.
+
+1. **Verified two items as already-closed instead of re-fixing them, per CLAUDE.md's "code exists
+   is not verification" rule.** `bookcase`/`water_heater` already produce specific `hazard.*`
+   items with no generic `mitigation.secure.*` duplicate — confirmed by reading
+   `object_hazards.py`'s R1/R5 rules and `checklist.py`'s `suppressed_ids`, then adding
+   `test_bookcase_and_water_heater_use_specific_hazards_without_generic_duplicates` to prove it
+   rather than trusting the read. The "three files still say v1.1" line was also already false —
+   `models.py`, `HomeModel.swift`, and the schema all say 2.1 (S7.1 fixed the files but never
+   crossed the line off).
+2. **`/build`'s null-serialization gap and `FloorObject.size_m`'s unbounded array were fixed for
+   real**, each with a new test that exercises the previously-untested path
+   (`test_build_response_has_no_null_optionals`,
+   `testFloorObjectRejectsASizeWithMoreThanWidthAndDepth`). `exterior_edges`'s mixed int/string
+   keys were also collapsed to one integer key space, but an independent review pass caught that
+   the branch this "fixed" was already unreachable for any pydantic-validated `HomeModel` —
+   `Opening._check` guarantees `wall_segment.room_id` can only be the room itself in this
+   code path, never the paired room, so it was never a live double-counting trap for scan-derived
+   homes the way the original `BLOCKERS.md` line claimed. Harmless hardening of dead code, not a
+   bug fix; corrected in `BLOCKERS.md` rather than left overstated.
+3. **Onboarding's demo-home seeding is now idempotent and testable.** `FixtureSeeder.seedDemoHome`
+   returns `nil` instead of seeding into a non-empty library; `OnboardingState` gained an injectable
+   `HomeDocumentStore` so tests stop writing into the real `Documents/Homes` the test host shares
+   with the app. One side effect worth flagging, not fixing now: `OnboardingState.seedError` is
+   reused for the benign "library already has a home" case, and `OnboardingFlowView` renders it
+   with a warning-triangle icon — cosmetically alarming for a non-error, but functionally inert
+   (the view navigates away in the same action). Left as a minor polish item, not reopened as a
+   defect.
+4. **Three corpus/grounding fixes, each re-verified live in this session** (not trusted from the
+   prior pass): the FEMA safe-room claim now separates "near-absolute" (a safe room built to FEMA
+   criteria) from "substantially safer" (an ordinary basement, NOAA-cited); the dead
+   `fema.gov/plan/prevent/saferoom` URL now points at
+   `/emergency-managers/risk-management/building-science/safe-rooms`, fetched and confirmed (via
+   `WebFetch`, since `curl` alone gets a `403` from Akamai bot-protection — a new variant of the
+   "HTTP 200 isn't content proof" trap S7.2 already learned, this time HTTP-status-isn't-proof-of-
+   reachability-at-all) to actually contain the near-absolute-protection/FEMA-criteria language;
+   `shakeout-guidance` was repointed at `/step1/` (furniture/water-heater securing) — correct for
+   the furniture-securing citations, but the same source id was also cited five times for
+   Drop/Cover/Hold-On content in `earthquake-preparedness.md`'s own separate section, which the
+   repoint silently broke (an independent review caught this — `validate.py` only checks that a
+   cite id resolves, not that its content matches the claim). Fixed by splitting into two source
+   ids: `shakeout-guidance` stays on `/step1/` for the furniture/water-heater claims,
+   `shakeout-guidance-dcho` (new) points at `/step5/` for the five Drop/Cover/Hold-On claims —
+   both URLs fetched and confirmed live with matching content.
+5. **`RouteRedrawAfterEditUITests` is retuned but not fully closed — recorded honestly, not
+   claimed.** The pixel predicate now matches `DollhousePalette.routePrimary` (#123FB0 = R18/G63/
+   B176 satisfies `b>110, r<80, 35<g<115, b-r>75` by direct calculation). Running it live for
+   what looks like the first time ever (`TEST_RUNNER_ROUTE_REDRAW=1` against a local backend)
+   surfaced a second, unrelated, pre-existing bug: the test's `-onboarding.completed YES` launch
+   argument skips `OnboardingFlowView` entirely, which is the only place anything seeds a demo
+   home — so a fresh simulator install has no home for House screen to show, and the test fails
+   at "House screen never finished loading" before it ever reaches the pixel check. This is a new
+   `BLOCKERS.md` line, not a regression from this session's fix, and not swept under the closed
+   item above.
+6. **`routing/perils/objective.py` deleted**, confirmed by `rg` that nothing imported it first.
+
 ### 2026-09-09: S7.4 Corrective Cycle
 
 1. **Inline `[cite:]` Tags Removed from Engine Prose (G1):** `ObjectHazard.detail` and `Obstruction.detail` strings are rendered raw by the iOS UI (HouseScreen inspector, RouteNarrationView). Inline `[cite: source-id]` tags were breaking the view. Fix: detail strings are now tag-free prose. Grounding is structurally carried by `ObjectHazard.citation`, which `checklist.py` uses to compose the `why=` payload for the AI layer. The UI never sees citation markup.

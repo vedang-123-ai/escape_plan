@@ -295,6 +295,9 @@ class BuildRequest(BaseModel):
 @app.post(
     "/build",
     response_model=BuildResult,
+    # BuildResult contains a HomeModel. As with /convert, omit optional model
+    # fields rather than serializing schema-invalid nulls into that document.
+    response_model_exclude_none=True,
     dependencies=[Depends(require_token)],
 )
 def build(request: BuildRequest) -> BuildResult:

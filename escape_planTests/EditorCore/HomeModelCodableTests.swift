@@ -93,6 +93,21 @@ final class HomeModelCodableTests: XCTestCase {
         XCTAssertEqual(ObjectCategory.allCases.count, 11)
     }
 
+    func testFloorObjectRejectsASizeWithMoreThanWidthAndDepth() {
+        let json = Data("""
+        {"id":"o_bad","category":"table","center":[0,0],"size_m":[1,1,1],
+         "height_m":1,"source":"manual"}
+        """.utf8)
+        XCTAssertThrowsError(try HomeModel.decoder.decode(FloorObject.self, from: json))
+    }
+
+    func testFloorObjectCannotEncodeAMutatedInvalidSize() {
+        var object = FloorObject(id: "o_bad", category: .table, center: Point(x: 0, y: 0),
+                                 size_m: [1, 1], height_m: 1, source: .manual)
+        object.size_m = [1, 1, 1]
+        XCTAssertThrowsError(try HomeModel.encoder().encode(object))
+    }
+
     func testFixturesAreValidPerTheEditorsOwnRules() throws {
         // The fixtures are pydantic-valid by construction (S0.2). If the editor's client-side
         // validator disagrees with any of them, it's the validator that's wrong — this test is

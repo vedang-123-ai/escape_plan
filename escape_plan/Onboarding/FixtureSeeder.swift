@@ -47,10 +47,11 @@ enum FixtureSeeder {
         return seeded
     }
 
-    /// Loads the twostory fixture, flags it, and saves it as a new home document.
+    /// Loads the twostory fixture, flags it, and saves it only into an empty library.
     /// Fully local — works with no network and no backend.
     @discardableResult
-    static func seedDemoHome(into store: HomeDocumentStore) throws -> HomeModel {
+    static func seedDemoHome(into store: HomeDocumentStore) throws -> HomeModel? {
+        guard store.list().isEmpty else { return nil }
         let seeded = flagAsScanned(try FixtureLoader.load(.twostory))
         try store.save(model: seeded)
         return seeded

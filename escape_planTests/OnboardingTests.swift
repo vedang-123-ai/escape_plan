@@ -62,11 +62,33 @@ final class OnboardingTests: XCTestCase {
 
     func testSeedDemoHomeWritesLoadableDocument() throws {
         let store = try HomeDocumentStore(directory: scratch)
-        let seeded = try FixtureSeeder.seedDemoHome(into: store)
+        let seeded = try XCTUnwrap(FixtureSeeder.seedDemoHome(into: store))
 
         let loaded = try store.load(homeID: seeded.home_id, as: HomeModel.self)
         XCTAssertEqual(loaded.home_id, seeded.home_id)
         XCTAssertEqual(ReviewItem.items(in: loaded).count, FixtureSeeder.flaggedItemBudget)
+    }
+
+    func testSeedDemoHomeDoesNotAddADuplicateToANonemptyLibrary() throws {
+        let store = try HomeDocumentStore(directory: scratch)
+        _ = try XCTUnwrap(FixtureSeeder.seedDemoHome(into: store))
+
+        XCTAssertNil(try FixtureSeeder.seedDemoHome(into: store))
+        XCTAssertEqual(store.list().count, 1)
+    }
+
+    @MainActor
+    func testOnboardingSkipsTheDemoAndExitsCleanlyForAnExistingLibrary() throws {
+        let store = try HomeDocumentStore(directory: scratch)
+        _ = try XCTUnwrap(FixtureSeeder.seedDemoHome(into: store))
+        let state = OnboardingState(documentStore: store)
+
+        state.seedIfNeeded()
+
+        XCTAssertNil(state.seededHome)
+        XCTAssertTrue(state.hasExistingLibrary)
+        XCTAssertNotNil(state.seedError)
+        XCTAssertEqual(store.list().count, 1)
     }
 
     // MARK: - RoutePlanCache
@@ -146,7 +168,7 @@ final class OnboardingTests: XCTestCase {
     }
     @MainActor
     func testOnboardingCreatesUndoStackEntries() throws {
-        let state = OnboardingState()
+        let state = OnboardingState(documentStore: try HomeDocumentStore(directory: scratch))
         state.seedIfNeeded()
         let seeded = try XCTUnwrap(state.seededHome)
         

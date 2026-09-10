@@ -119,10 +119,14 @@ struct OnboardingFlowView: View {
             }
             footer(primary: "Get started", action: {
                 state.seedIfNeeded()
-                if state.seededHome != nil { state.step = .whoLivesHere }
+                if state.seededHome != nil {
+                    state.step = .whoLivesHere
+                } else if state.hasExistingLibrary {
+                    onFinished()
+                }
             }, later: {
                 state.seedIfNeeded()
-                state.commitAndFinish()
+                if state.seededHome != nil { state.commitAndFinish() }
                 onFinished()
             })
         }

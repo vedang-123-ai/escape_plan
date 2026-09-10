@@ -6,12 +6,14 @@ what actually stops the project from shipping, ranked by what is on the critical
 
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
-_Last verified 2026-09-09 on `main` (commit `2bf41c4` + fix-forward, through S7.7's non-device
-half). Re-run this session and green: backend **382** pass (13 live-deselected), EditorCore
-**273** pass, corpus valid (**23** sources, **9** files, **2** threshold files). **iOS: 608
-passed, 0 failed, 8 skipped** (iPhone 17 Pro / iOS 26.5 simulator, single uncontended run,
-`xcresulttool` summary from bundle `Test-escape_plan-2026.09.09_23-01-10--0700.xcresult`; the
-10-test jump from 598 is the new `HazardEmphasisTests`)._
+_Last verified 2026-09-09 on `main` (commit `f4bde0a` + the backlog-cleanup pass in
+`notes/2026-09-09-backlog-cleanup.md`). Re-run this session and green: backend **385** pass (13
+live-deselected), EditorCore **275** pass, corpus valid (**23** sources, **9** files, **2**
+threshold files). **iOS: 615 passed, 0 failed, 8 skipped, 620 total** (iPhone 17 Pro / iOS 26.5
+simulator, single uncontended run, `xcresulttool` summary from bundle
+`Test-escape_plan-2026.09.09_23-31-03--0700.xcresult`; the 4-test jump from 616 is the new
+`FloorObject.size_m` and onboarding-seeding tests). `RouteRedrawAfterEditUITests` run live
+separately with `TEST_RUNNER_ROUTE_REDRAW=1` against a local backend — still red, see §3._
 
 
 **Rules**
@@ -47,7 +49,7 @@ Nothing in this section can be closed from a simulator, and none of it has ever 
 This is the largest remaining body of work and it gates filming. Order matters — 2.1 first,
 because if it fails nothing downstream is worth tuning.
 
-## 3 · Simulator-gated blocks — things that require macOS Xcode
+### Device-pass checklist
 
 - [ ] **2.1 Camera feel — four checks, in order.** (1) Put a corner of the house under your thumb
       and pan; it must stay under your thumb, in both orientations and both projections — **if
@@ -96,11 +98,9 @@ Carried from the 2026-09-06 agent review of the orchestrator's S6.1–S6.3 and l
 These are real, reproduced or reasoned, and several would read badly to a judge.
 
 **Contract / correctness**
-- [ ] `/build` serializes `confidence: null` and `egress: null`, **which the schema rejects.**
-      Schema 2.0 made `meta.last_scanned` and `household.tenure` nullable but left these as bare
-      types. `/convert` sets `response_model_exclude_none=True` and is masked; `/build` does not
-      and is exposed. Next action: declare both nullable or set the flag on `/build`, then widen
-      the serialize test to the whole document.
+- [x] `/build` serialized `confidence: null` and `egress: null`, **which the schema rejects.**
+      Fixed 2026-09-09 by applying `response_model_exclude_none=True`, matching `/convert`.
+      `test_build_response_has_no_null_optionals` recursively checks the complete HTTP document.
 - [x] **`schema_version` breadth disagrees three ways** — RULED and closed in S7.1 (2026-09-09).
       The three breadths are deliberate: JSON Schema lists every migrator-accepted version
       (it validates documents on disk), pydantic is `Literal` current-only (it validates the
@@ -123,14 +123,16 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       (`testCurrentVersionMatchesTheSchemaContract`) is in `PersistenceTests` and has therefore
       never executed.** Next action: run S7.2's STEP 0 — one `xcodebuild` command, spelled out
       there. Tick this line only after the run is green, not on the strength of the code existing. (Closed in S7.2 STEP 0: 23 tests passed, drift guard passed.)
-- [ ] **`bookcase` and `water_heater` produce NO mitigation checklist item.**
+- [x] **`bookcase` and `water_heater` produce NO mitigation checklist item.**
       `backend/app/scoring/checklist.py:504` filters on `heavy_categories = {"wardrobe",
       "storage", "appliance"}`. A bookcase is the ShakeOut-canonical topple hazard and a water
       heater the canonical strap target, so **a user who picks the newer, more accurate category
       loses a recommendation they would have gotten yesterday.** Deliberately deferred, not
       overlooked: extending the set here would collide with S7.4's `hazard.topple.<id>` items and
       produce exactly the duplicate strap-it item ruled out at scoping. **This is an S7.4
-      obligation, and S7.4 is not done until it is discharged.**
+      obligation, and S7.4 is not done until it is discharged.** Verified 2026-09-09:
+      `test_bookcase_and_water_heater_use_specific_hazards_without_generic_duplicates` proves
+      both specific `hazard.*` items exist and no generic `mitigation.secure.*` duplicate exists.
 - [ ] **Routing is elevation-blind — latent, but mechanically real.** Nothing under
       `backend/app/routing/` reads `elevation_m` or `mounted`; `build_room_grid` rasterizes any
       footprint it is handed, so a wall-mounted TV erodes walkable floor (proved: moving
@@ -144,51 +146,80 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       stairs-carrying fixture dropped out, so "no objects ⇒ straight legs" is no longer verified
       across floors. Next action: add an object-free multi-floor fixture, or assert the property
       per-room instead of per-home.
-- [ ] **Three files still self-describe as v1.1** after the bump — `homemodel.schema.json:5`,
-      `backend/app/models.py:1`, `escape_plan/Models/HomeModel.swift:2`.
-- [ ] **`FloorObject.size_m` is unbounded `[Double]` in Swift** but exactly 2 elements in schema
-      and pydantic — Swift accepts a 3-element size the other two reject. Pre-existing from v1.1.
-- [ ] **`exterior_edges` mixes int indices with `f"op_{id}"` strings**
-      (`routing/perils/tornado.py:63-91`). If the `else` at :70 ever fires, the same wall is
-      counted twice, inflating `ext_walls` and corrupting the shelter ranking. Zero hits on
-      current fixtures; a live trap for scan-derived homes. Next action: one key space.
+- [x] **Three files still self-describe as v1.1** after the bump — `homemodel.schema.json:5`,
+      `backend/app/models.py:1`, `escape_plan/Models/HomeModel.swift:2`. Verified 2026-09-09:
+      all three headers describe v2.1; no edit was needed.
+- [x] **`FloorObject.size_m` was unbounded `[Double]` in Swift** while exactly 2 elements in schema
+      and pydantic. Fixed 2026-09-09 at the Codable boundary: decode and encode now reject any
+      size other than `[width, depth]`; `testFloorObjectRejectsASizeWithMoreThanWidthAndDepth` and
+      `testFloorObjectCannotEncodeAMutatedInvalidSize` prove both paths.
+- [x] **`exterior_edges` mixed int indices with `f"op_{id}"` strings**
+      (`routing/perils/tornado.py:63-91`). Fixed 2026-09-09 with one integer key space
+      throughout. **Correction (independent review, 2026-09-09):** the `else` branch this closed
+      was already unreachable for any pydantic-validated `HomeModel` — `Opening._check` in
+      `models.py` requires `wall_segment.room_id` be one of the opening's two `room_ids` and never
+      `EXTERIOR_ID`, and `count_exterior_walls` only enters the branch when `room_ids` is exactly
+      `[room.id, EXTERIOR_ID]`, leaving `room.id` as the only legal `wall_segment.room_id` value.
+      So this was defensive hardening of dead code, not a fix for a live "scan-derived homes"
+      trap as the original line implied — scan-derived homes go through the same validation.
+      Harmless and now simpler either way; `test_paired_room_opening_uses_the_polygon_edge_key_once`
+      constructs an opening via `.model_construct()` specifically because normal validation can't
+      reach that branch.
 
 **Grounding — every one of these is an originality claim a judge could check**
-- [ ] **FEMA over-claim.** `severe-weather-tornado.md:18` says a basement "provides near-absolute
+- [x] **FEMA over-claim.** `severe-weather-tornado.md:18` said a basement "provides near-absolute
       protection". That is FEMA P-361/P-320 language reserved for safe rooms **built to FEMA
-      criteria**, not a property of basements generally. Next action: split the sentence —
-      near-absolute for the FEMA-rated safe room, "substantially safer" for an ordinary basement.
-- [ ] **Dead URL carrying a fresh retrieved date.** `sources.json:129` has
+      criteria**, not a property of basements generally. Fixed 2026-09-09: FEMA safe-room guidance
+      supports near-absolute protection only for a safe room built to FEMA criteria; ordinary
+      basement guidance cites NWS.
+- [x] **Dead URL carrying a fresh retrieved date.** `sources.json:129` had
       `fema.gov/plan/prevent/saferoom` (retired years ago) stamped `"retrieved": "2026-09-05"`.
-      A retrieved date asserts somebody fetched it. Current path is
-      `/emergency-managers/risk-management/safe-rooms`. Next action: re-verify all six new URLs
-      resolve, then correct.
-- [ ] **`shakeout-guidance` cite precision.** `sources.json:113` points at
+      A retrieved date asserts somebody fetched it. Verified 2026-09-09: FEMA returned HTTP 200
+      at `/emergency-managers/risk-management/building-science/safe-rooms` and its rendered HTML
+      contains the FEMA-criteria and near-absolute-protection claim; the source now records that URL
+      and date.
+- [x] **`shakeout-guidance` cite precision.** `sources.json:113` pointed at
       `earthquakecountry.org/step5/` (Drop, Cover, Hold On) but is cited for furniture securing,
-      which is step 1.
+      which is step 1. Verified 2026-09-09: `https://www.earthquakecountry.org/step1/` returned
+      HTTP 200 and contains securing guidance for bookcases, furniture, and water heaters; source
+      metadata now uses Step 1.
 - [ ] **`RouteFinding` has no `citation` field**, so finding-level safety text is validated by
       nothing — which is exactly how the uncited shelter directive shipped green.
       `test_citation_resolution` only walks `ChecklistItem.source_citation`. Next action: add
       `citation: str | None` plus a test that imperative safety text in `detail` resolves.
 
 **Test and hygiene gaps**
-- [ ] **`test_perils.py` tornado assertion is weak.** It asserts only `primary.exit_id !=
-      "d_front"`, which passes trivially now that `exit_id` holds a room id. The shelter chosen
-      for all 7 twostory rooms is `r_hall1` — the room containing the front door. Next action:
-      assert on `ext_openings == 0` or room type, not a door id.
-- [ ] **A unit test writes a demo home into the app's real `Documents/Homes`.** The test host
+- [x] **`test_perils.py` tornado assertion was weak.** It asserted only `primary.exit_id !=
+      "d_front"`, which passed trivially now that `exit_id` holds a room id. The shelter chosen
+      for all 7 twostory rooms is `r_hall1` — the room containing the front door. Fixed
+      2026-09-09: the test now asserts the selected shelter has an approved interior room type.
+- [x] **A unit test wrote a demo home into the app's real `Documents/Homes`.** The test host
       shares the app's sandbox, so `escape_planTests/OnboardingTests.swift:150`
-      (`state.seedIfNeeded()` on a default `OnboardingState`) pollutes the tester's library on
-      every run. Next action: point it at a temporary-directory store.
-- [ ] **Onboarding seeds a new "Demo Home (scanned)" on every run**, not only into an empty
-      library — two extra demo homes after one verification pass on 2026-09-07. Next action:
-      make the seed conditional on an empty library, or reuse a stable demo id.
-- [ ] **`RouteRedrawAfterEditUITests` counts orange pixels** (`r > 190, g 80–180, b < 90`) but
-      routes have been blue since the 2026-08-05 colour pass, so it can no longer pass. Skipped
-      unless `ROUTE_REDRAW=1`, so it does not gate CI — which is why it will stay broken.
-      Next action: retune to `DollhousePalette.routePrimary` (`#123FB0`).
-- [ ] **`routing/perils/objective.py` is a stub** — four unused imports and a "shared logic here
-      if needed" comment. Delete it or implement it.
+      (`state.seedIfNeeded()` on a default `OnboardingState`) polluted the tester's library on
+      every run. Fixed 2026-09-09: the test injects `HomeDocumentStore(directory: scratch)`.
+- [x] **Onboarding seeded a new "Demo Home (scanned)" on every run**, not only into an empty
+      library — two extra demo homes after one verification pass on 2026-09-07. Fixed 2026-09-09:
+      `seedDemoHome` only seeds an empty library; `testSeedDemoHomeDoesNotAddADuplicateToANonemptyLibrary`
+      and `testOnboardingSkipsTheDemoAndExitsCleanlyForAnExistingLibrary` cover the repeat and
+      existing-library paths.
+- [x] **`RouteRedrawAfterEditUITests` counted orange pixels** (`r > 190, g 80–180, b < 90`) but
+      routes have been blue since the 2026-08-05 colour pass, so it can no longer pass. Fixed
+      2026-09-09 to recognize `DollhousePalette.routePrimary` (`#123FB0` = R18/G63/B176), which
+      satisfies the new predicate (`b>110`, `r<80`, `35<g<115`, `b-r>75`) by direct calculation —
+      the previous predicate never would have. **Not fully closed:** running it live with
+      `TEST_RUNNER_ROUTE_REDRAW=1` against a local backend (verified 2026-09-09, see below) gets
+      past the color check to a *different*, pre-existing failure — see the new line right below.
+- [ ] **`RouteRedrawAfterEditUITests` fails before it reaches the pixel check at all**, discovered
+      2026-09-09 running it live for the first time (it has apparently never actually been run:
+      `-onboarding.completed YES` in its launch args skips `OnboardingFlowView` entirely, which is
+      the only place anything calls `FixtureSeeder.seedDemoHome` — so a fresh simulator install has
+      no home for House screen to show, and `XCTAssertTrue(app.staticTexts["Explode"]...)` fails
+      with "House screen never finished loading" before either screenshot is taken. Next action:
+      seed a home some other way for this test (a launch argument the app reads before
+      `ContentView` renders, or a pre-populated `Documents/Homes` the test installs before
+      launching), then re-run and confirm the pixel assertions themselves pass.
+- [x] **`routing/perils/objective.py` was a stub** — four unused imports and a "shared logic here
+      if needed" comment. Verified no imports with `rg`, then deleted 2026-09-09.
 - [ ] **19 contract tests exist only on the `my-s6-1-and-policy` branch**, not on `main`: the
       safety-point/household/tenure/equipment invariants, the bundled-fixture drift guard,
       `test_safety_points_are_not_obstacles`, the two sensory-tag routing-neutrality tests, and

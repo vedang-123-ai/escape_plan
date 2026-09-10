@@ -1,9 +1,10 @@
 import json
 import pytest
-from app.models import HomeModel, Profile
+from app.models import EXTERIOR_ID, Floor, HomeModel, Opening, Room, Source, WallSegmentRef
 from app.routing.plan import RoutingConstraints
 from app.routing.engine import compute_route_plan
 from app.routing.egress import EgressThresholds
+from app.routing.perils.tornado import count_exterior_walls
 
 from tests.conftest import load_fixture, REPO_ROOT
 
@@ -35,8 +36,30 @@ def test_fire_vs_tornado_different_destinations(twostory, thresholds):
     # Fire routes to an exterior door
     assert room_fire.primary.exit_id == "d_front"
     
-    # Tornado routes to an interior room
-    assert room_tornado.primary.exit_id != "d_front"
+    # Tornado routes to a designated interior shelter type, not a door id.
+    shelter = next(room for room in twostory.floors[0].rooms if room.id == room_tornado.primary.exit_id)
+    assert shelter.type.value in {"bathroom", "closet", "hall"}
+
+
+def test_paired_room_opening_uses_the_polygon_edge_key_once():
+    """Exercise the non-host-room opening branch without double-counting its wall."""
+    room = Room(
+        id="room", name="Room", type="other", polygon=[(0, 0), (2, 0), (2, 2), (0, 2)],
+        source=Source.manual,
+    )
+    # This representation cannot arrive through standard HomeModel validation:
+    # an Opening validates its host room against room_ids.  Construct it directly
+    # to pin the defensive branch for imported/pre-validation routing input.
+    opening = Opening.model_construct(
+        id="exit", kind="door", room_ids=["room", EXTERIOR_ID],
+        wall_segment=WallSegmentRef(room_id="paired-room", edge_index=1, t0=0.25, t1=0.75),
+        width_m=1, height_m=2, sill_height_m=0, source=Source.manual,
+    )
+    floor = Floor.model_construct(
+        id="floor", level=0, name="Ground", height_m=2.5, rooms=[room], openings=[opening]
+    )
+
+    assert count_exterior_walls(room, floor) == 4
 
 def test_mobility_limited_tornado_no_viable_safe_room(twostory, thresholds):
     constraints = RoutingConstraints(avoid_stairs=True)
