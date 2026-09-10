@@ -37,11 +37,16 @@ Pro / iOS 26.5 simulator, `xcresulttool` summary from bundle
 
 ---
 
-## 2 · Device-gated — needs a physical iPhone, roughly one focused session
+## 2 · Device blocks — things that require the physical iPhone 17 Pro
+
+- [ ] **S7.7 Device Pass: Real Scan Verification.** Real-scan objects (furniture, doors, windows) must be confirmed to accurately capture and map to schema `v2.1` via physical RoomPlan scan. Owner must run on device.
+- [ ] **S7.7 Device Pass: Camera feel and Frame-time metrics.** The updated SceneKit renderer and object rendering frame-times must hit 60fps on physical silicon. Owner must run on device and record the frame-time number in `field-test-lidar.md`.
 
 Nothing in this section can be closed from a simulator, and none of it has ever been done.
 This is the largest remaining body of work and it gates filming. Order matters — 2.1 first,
 because if it fails nothing downstream is worth tuning.
+
+## 3 · Simulator-gated blocks — things that require macOS Xcode
 
 - [ ] **2.1 Camera feel — four checks, in order.** (1) Put a corner of the house under your thumb
       and pan; it must stay under your thumb, in both orientations and both projections — **if
