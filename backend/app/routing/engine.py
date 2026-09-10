@@ -322,6 +322,7 @@ def compute_route_plan(
                             )
                         ),
                         object_ids=list(blamed.object_ids) if blamed else [],
+                        citation="usfa-escape-plans",
                     )
                 )
 
@@ -336,6 +337,7 @@ def compute_route_plan(
                         room_id=room.id,
                         detail=narrowing.detail,
                         object_ids=list(narrowing.object_ids),
+                        citation="usfa-escape-plans",
                     )
                 )
 
@@ -351,8 +353,9 @@ def compute_route_plan(
                             room_id=room.id,
                             detail=(
                                 f"No cover in this room — drop to the ground and "
-                                "cover your head and neck with your arms. [cite: shakeout-guidance]"
-                            )
+                                "cover your head and neck with your arms."
+                            ),
+                            citation="shakeout-guidance-dcho",
                         )
                     )
 
@@ -369,9 +372,9 @@ def compute_route_plan(
                             detail=(
                                 "No interior room could be reached from here. If you "
                                 "are in a mobile or manufactured home, go now to a "
-                                "nearby sturdy building or community shelter. "
-                                "[cite: redcross-tornado]"
+                                "nearby sturdy building or community shelter."
                             ),
+                            citation="redcross-tornado",
                         )
                     )
             else:

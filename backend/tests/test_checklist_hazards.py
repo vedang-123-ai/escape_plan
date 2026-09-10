@@ -209,3 +209,20 @@ def test_bookcase_and_water_heater_use_specific_hazards_without_generic_duplicat
     assert "hazard.topple.bookcase_1" in ids
     assert "hazard.water_heater_unsecured.water_heater_1" in ids
     assert not {"mitigation.secure.bookcase_1", "mitigation.secure.water_heater_1"} & ids
+
+@pytest.mark.parametrize("fixture_name", ["bungalow", "apartment", "twostory", "bungalow-narrow", "bungalow-blocked"])
+def test_route_finding_citation_resolution(fixture_name, thresholds, sources):
+    from tests.conftest import load_fixture
+    home = HomeModel.model_validate(load_fixture(f"{fixture_name}.json"))
+    
+    plan_fire = compute_route_plan(home, thresholds, peril="fire")
+    plan_tornado = compute_route_plan(home, thresholds, peril="tornado")
+    plan_earthquake = compute_route_plan(home, thresholds, peril="earthquake")
+    
+    valid_ids = {s["id"] for s in sources}
+    
+    for plan in [plan_fire, plan_tornado, plan_earthquake]:
+        for room in plan.rooms:
+            for finding in room.findings:
+                if finding.citation is not None:
+                    assert finding.citation in valid_ids, f"Finding {finding.kind} in {room.room_id} has invalid citation {finding.citation}"

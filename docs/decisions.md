@@ -1551,3 +1551,7 @@ device checks not re-run).
 
 
 
+
+### S7.3 — 2026-09-10
+- **UI Test Sandboxing**: `RouteRedrawAfterEditUITests` was failing because the simulator's app sandbox persists between runs, so `HomeDocumentStore().list()` was returning an old blank home instead of the `Demo Home`. To ensure deterministic tests, we introduced a `-TEST_SEED_DEMO_HOME` launch argument to bypass the `.isEmpty` check and force-seed the `twostory` fixture.
+- **RouteRedraw Pixel Check via Active Floor**: The White Model overhaul made unselected floors render as translucent white shells, reducing route pixel counts on ground floors when testing a route starting upstairs. We updated the test to manually select the `Upstairs` active floor picker before screenshotting to restore the original #123FB0 solid route color.

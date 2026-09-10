@@ -65,6 +65,7 @@ final class RouteRedrawAfterEditUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-onboarding.completed", "YES",
+            "-TEST_SEED_DEMO_HOME", "YES",
             "-APIClient.baseURL", env["ROUTE_REDRAW_BASE_URL"] ?? "http://localhost:8000",
             "-APIClient.bearerToken", env["ROUTE_REDRAW_TOKEN"] ?? "dev-local-token",
         ]
@@ -74,12 +75,15 @@ final class RouteRedrawAfterEditUITests: XCTestCase {
         app.tabBars.buttons["House"].tap()
 
         // Routes arrive from the backend a beat after the scene builds.
-        XCTAssertTrue(app.staticTexts["Explode"].waitForExistence(timeout: 20),
+        XCTAssertTrue(app.buttons["house.addMenu"].waitForExistence(timeout: 20),
                       "House screen never finished loading")
-        XCTAssertTrue(app.otherElements["plan.route.picker"].waitForExistence(timeout: 20)
-                        || app.segmentedControls.firstMatch.waitForExistence(timeout: 5),
-                      "route controls never appeared — no plan was fetched at all")
-        sleep(6)
+        XCTAssertTrue(app.buttons["plan.route.picker"].waitForExistence(timeout: 20), "route controls never appeared")
+        XCTAssertTrue(app.segmentedControls.firstMatch.waitForExistence(timeout: 5), "Profiles missing! Blank home loaded instead of Two-Story House.")
+        sleep(3)
+        if app.buttons["Upstairs"].waitForExistence(timeout: 5) {
+            app.buttons["Upstairs"].tap()
+        }
+        sleep(3)
 
         let before = XCUIScreen.main.screenshot()
         shoot("before-edit", before)
@@ -93,7 +97,7 @@ final class RouteRedrawAfterEditUITests: XCTestCase {
         // Add Object commits through HomeModelStore.onCommit -> invalidateRoutes(), which
         // clears the overlay, debounces ~900ms, refetches, and redraws. It also rebuilds the
         // dollhouse (objects are rendered), which is what fires `onRebuild`.
-        let addButton = app.buttons["Add"]
+        let addButton = app.buttons["house.addMenu"]
         XCTAssertTrue(addButton.waitForExistence(timeout: 10), "no Add menu in the toolbar")
         addButton.tap()
         let addObject = app.buttons["Add Object"]

@@ -76,6 +76,7 @@ class RouteFinding(BaseModel):
     """Objects the obstruction analysis blamed for a `blocked_opening` or a
     `narrows_route`, so the app can highlight them and the advice can say WHICH
     thing to move. Additive and defaulted — an older client simply ignores it."""
+    citation: Optional[str] = None
 
 
 class RoomRoutePlan(BaseModel):

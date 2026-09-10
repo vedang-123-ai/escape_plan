@@ -156,11 +156,11 @@ def test_earthquake_finding_has_valid_citation(twostory, thresholds):
     plan = compute_route_plan(twostory, thresholds, peril="earthquake")
     bath = next(r for r in plan.rooms if r.room_id == "r_bath2")
     finding = next(f for f in bath.findings if f.kind == "no_cover_in_room")
-    assert "[cite: shakeout-guidance]" in finding.detail
+    assert finding.citation == "shakeout-guidance-dcho"
     
     with open(REPO_ROOT / "backend/corpus/sources.json") as f:
         sources = json.load(f)
-    assert any(s["id"] == "shakeout-guidance" for s in sources["sources"])
+    assert any(s["id"] == "shakeout-guidance-dcho" for s in sources["sources"])
 
 def test_determinism_perils(twostory, thresholds):
     plan_t1 = compute_route_plan(twostory, thresholds, peril="tornado")

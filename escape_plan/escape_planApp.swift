@@ -11,6 +11,15 @@ struct escape_planApp: App {
     @State private var apiClient = APIClient()
 
     init() {
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-TEST_SEED_DEMO_HOME") {
+            if let store = try? HomeDocumentStore(), var model = try? FixtureLoader.load(.twostory) {
+                model.home_id = "TEST-DEMO-HOME-1234"
+                try? store.save(model: model)
+            }
+        }
+#endif
+        
         // Install the three starter homes before any screen reads the library.
         // At launch rather than inside onboarding on purpose: skipping the tour
         // ("I'll map my own home") must not leave the demo path with nothing to

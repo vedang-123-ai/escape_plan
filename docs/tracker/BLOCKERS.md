@@ -140,7 +140,7 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       because the seeded TV overlaps the bed, which the fixture already blocks — meaning the
       fixture hides it. Next action: when the router learns about elevation, add the mid-room
       mounted case to the fixtures so the guard is real.
-- [ ] **The no-golden-churn guard lost its multi-floor coverage.** `test_obstacles.py`'s
+- [x] **The no-golden-churn guard lost its multi-floor coverage.** `test_obstacles.py`'s
       object-free fixture list is now derived rather than hardcoded (good), but seeding
       `twostory` means the derived set is exactly `['bungalow.json']` — the only multi-floor,
       stairs-carrying fixture dropped out, so "no objects ⇒ straight legs" is no longer verified
@@ -183,7 +183,7 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       which is step 1. Verified 2026-09-09: `https://www.earthquakecountry.org/step1/` returned
       HTTP 200 and contains securing guidance for bookcases, furniture, and water heaters; source
       metadata now uses Step 1.
-- [ ] **`RouteFinding` has no `citation` field**, so finding-level safety text is validated by
+- [x] **`RouteFinding` has no `citation` field**, so finding-level safety text is validated by
       nothing — which is exactly how the uncited shelter directive shipped green.
       `test_citation_resolution` only walks `ChecklistItem.source_citation`. Next action: add
       `citation: str | None` plus a test that imperative safety text in `detail` resolves.
@@ -209,7 +209,7 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       the previous predicate never would have. **Not fully closed:** running it live with
       `TEST_RUNNER_ROUTE_REDRAW=1` against a local backend (verified 2026-09-09, see below) gets
       past the color check to a *different*, pre-existing failure — see the new line right below.
-- [ ] **`RouteRedrawAfterEditUITests` fails before it reaches the pixel check at all**, discovered
+- [x] **`RouteRedrawAfterEditUITests` fails before it reaches the pixel check at all**, discovered
       2026-09-09 running it live for the first time (it has apparently never actually been run:
       `-onboarding.completed YES` in its launch args skips `OnboardingFlowView` entirely, which is
       the only place anything calls `FixtureSeeder.seedDemoHome` — so a fresh simulator install has
@@ -217,7 +217,7 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       with "House screen never finished loading" before either screenshot is taken. Next action:
       seed a home some other way for this test (a launch argument the app reads before
       `ContentView` renders, or a pre-populated `Documents/Homes` the test installs before
-      launching), then re-run and confirm the pixel assertions themselves pass.
+      launching), then re-run and confirm the pixel assertions themselves pass. Fixed 2026-09-10 by force-seeding `twostory` via the `-TEST_SEED_DEMO_HOME` launch argument, replacing the deprecated `Explode` element with `house.addMenu`, and resolving pixel ghosting by tapping the `Upstairs` floor button to make it active before the screenshot.
 - [x] **`routing/perils/objective.py` was a stub** — four unused imports and a "shared logic here
       if needed" comment. Verified no imports with `rg`, then deleted 2026-09-09.
 - [ ] **19 contract tests exist only on the `my-s6-1-and-policy` branch**, not on `main`: the

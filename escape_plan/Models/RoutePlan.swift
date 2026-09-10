@@ -132,9 +132,10 @@ struct RouteFinding: Codable, Equatable {
     /// thing to move. Defaulted rather than optional: the server omits it for every
     /// other finding kind, and an empty list is the honest reading of "nothing blamed".
     var object_ids: [String] = []
+    var citation: String?
 
     private enum CodingKeys: String, CodingKey {
-        case kind, room_id, detail, object_ids
+        case kind, room_id, detail, object_ids, citation
     }
 
     init(from decoder: Decoder) throws {
@@ -143,13 +144,15 @@ struct RouteFinding: Codable, Equatable {
         room_id = try container.decode(String.self, forKey: .room_id)
         detail = try container.decode(String.self, forKey: .detail)
         object_ids = try container.decodeIfPresent([String].self, forKey: .object_ids) ?? []
+        citation = try container.decodeIfPresent(String.self, forKey: .citation)
     }
 
-    init(kind: FindingKind, room_id: String, detail: String, object_ids: [String] = []) {
+    init(kind: FindingKind, room_id: String, detail: String, object_ids: [String] = [], citation: String? = nil) {
         self.kind = kind
         self.room_id = room_id
         self.detail = detail
         self.object_ids = object_ids
+        self.citation = citation
     }
 
     /// Tolerant on purpose. This enum is nested inside RoutePlan, so a kind this build
