@@ -267,6 +267,14 @@ final class OrbitCameraRig {
         animate(to: target, duration: 0.35)
     }
 
+    /// Slide the orbit centre to a specific point without changing zoom or viewing angle.
+    func focus(on center: CameraRigModel.Vec3) {
+        var target = model
+        target.pivot = center
+        target.clampPivot()
+        animate(to: target, duration: 0.35)
+    }
+
     /// True once the camera has wandered far enough from a framed view that offering a recenter
     /// affordance is useful — the chip should appear quietly, like Maps' compass, not sit there
     /// permanently.

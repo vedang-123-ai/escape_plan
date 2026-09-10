@@ -144,6 +144,20 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
         scnView.setNeedsDisplay()
     }
 
+    /// Glide the orbit centre to a specific selection.
+    func focusCamera(on selection: Selection) {
+        guard let home = currentHome else { return }
+        switch highlightPlacement(selection, in: home) {
+        case .floor(let p):
+            rig.focus(on: CameraRigModel.Vec3(x: p.x, y: floorPlaneY, z: -p.y))
+        case .wall(let p, let h, _):
+            rig.focus(on: CameraRigModel.Vec3(x: p.x, y: floorPlaneY + h, z: -p.y))
+        case nil:
+            break
+        }
+        scnView.setNeedsDisplay()
+    }
+
     var isCameraOffHome: Bool {
         guard let currentHome else { return false }
         return rig.isOffHome(currentHome)
@@ -245,6 +259,43 @@ final class UnifiedSceneController: NSObject, EditorSceneAdapter {
             applyTopDownFrame(home: home, floorId: activeFloorId)
         }
         onRebuild?(result.dollhouse)
+        applyHazardObjects()
+        scnView.setNeedsDisplay()
+    }
+    
+    private var hazardObjectIDs: Set<String> = []
+    
+    func setHazardObjects(_ ids: Set<String>) {
+        hazardObjectIDs = ids
+        applyHazardObjects()
+    }
+    
+    private func applyHazardObjects() {
+        guard let dollhouse = dollhouse else { return }
+        dollhouse.scene.rootNode.enumerateChildNodes { node, _ in
+            if node.name == "advisory_ring" {
+                node.removeFromParentNode()
+            }
+        }
+        
+        // Theme.caution (dark) — reads as a clear amber advisory in the 3D scene without being red/orange.
+        let cautionColor = UIColor(hex: 0xF59E0B)
+        
+        for id in hazardObjectIDs {
+            if let objNode = dollhouse.scene.rootNode.childNode(withName: "object:\(id)", recursively: true) {
+                let ring = SCNTorus(ringRadius: 0.32, pipeRadius: 0.018)
+                ring.firstMaterial?.diffuse.contents = cautionColor
+                ring.firstMaterial?.emission.contents = cautionColor
+                ring.firstMaterial?.lightingModel = .constant
+                ring.firstMaterial?.writesToDepthBuffer = false
+                let marker = SCNNode(geometry: ring)
+                marker.name = "advisory_ring"
+                marker.renderingOrder = RenderOrder.exitMarkers
+                marker.castsShadow = false
+                marker.position = SCNVector3(0, 0.02, 0)
+                objNode.addChildNode(marker)
+            }
+        }
         scnView.setNeedsDisplay()
     }
 

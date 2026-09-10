@@ -1313,6 +1313,24 @@ The one blocker that survived contact is the bearer token: `escape_plan/BackendC
 still absent and only the owner can supply it. `.env` is read-guarded in `settings.json` and the
 guard held when probed — correctly, so the token was not lifted from it.
 
+### 2026-09-09: Object Hazard Surfacing (S7.5)
+
+1. **Supersession Mapping:** We decided that specific object hazards (like an unstrapped wardrobe causing a topple risk near an egress path) replace the generic `mitigation.secure.<id>` items. The specific `hazard.<rule_id>.<object_id>` checklist item is generated, and any generic "strap heavy furniture" items for that object are skipped so we don't present duplicate items to the user. If the user had previously checked off the generic item, its status is carried forward as `done=True` on the new specific hazard.
+2. **No Weight Change:** Object hazard findings are classified as advisory (`scoring=False`). However, if an object hazard produces a `high` severity item (e.g. unsecured water heater or topple risk over an egress path), it triggers the existing high-severity composite score cap (capping the score at 40). We made zero changes to score weights because the existing S6.7 score cap natively handles this logic exactly as intended.
+3. **R4 Wording Audit Result:** We audited the `RouteNarration.swift` language around obstructed windows to ensure it did not improperly use the word "door" (a potential silent bug). The wording correctly resolves to "A way out of the Bedroom is blocked", which perfectly covers both door and window obstructions without requiring any code changes.
+
+### 2026-09-09: S7.6 Hazard Hunt Editor
+
+1. **Hunt Question Set:** The guided hunt checks for `heat_source` (portable heaters), `bookcase` (heavy/tall items near bed), `tv` (mounted above bed), and `water_heater` (strapped in garage/utility). It asserts nothing natively—it merely adds the objects, and the backend engine runs its physics pass.
+2. **Inspector Scope:** The inspector now exposes `secured`, `mounted`, and `elevation_m` directly on the object panel to let the user address hazards.
+3. **`setOpeningWidth` Closed:** The long-standing `setOpeningWidth` no-UI item was implemented as a stepper inside the Opening inspector, cleanly closing that backlog item alongside the object controls.
+
+### 2026-09-09: S7.4 Corrective Cycle
+
+1. **Inline `[cite:]` Tags Removed from Engine Prose (G1):** `ObjectHazard.detail` and `Obstruction.detail` strings are rendered raw by the iOS UI (HouseScreen inspector, RouteNarrationView). Inline `[cite: source-id]` tags were breaking the view. Fix: detail strings are now tag-free prose. Grounding is structurally carried by `ObjectHazard.citation`, which `checklist.py` uses to compose the `why=` payload for the AI layer. The UI never sees citation markup.
+2. **`elevation_m` Scene Placement — Early S7.7 Landing (H3):** `DollhouseScene.makeObject` sets `y: object.elevation_m` when placing furniture nodes. `FurnitureFixture` builds nodes with local origin at the object's base (y=0 is the floor of the object), so `elevation_m` correctly lifts a mounted TV's base to its wall-mount height while a floor-standing object sits at floor level. This is S7.7 scope (3D emphasis) but landed early because the one-line change is correct and was already committed in S7.6. Kept rather than reverted; pinned by a comment in `DollhouseScene.swift:465`.
+3. **Typing (H5):** `compute_score`'s `object_hazard_thresholds` parameter was `Optional[Any]`, and `config.get_object_hazard_thresholds()` had no return annotation. Fixed with `TYPE_CHECKING` imports to break the import cycle while providing real types for static analysis.
+
 ## 2026-09-09 — S7.4: Object-hazard engine implementation and R4 wording
 *   **Context:** S7.4 dictates the implementation of R1, R2, R3, R4, and R5 from the object-hazard spec in `backend/app/routing/object_hazards.py` and `obstructions.py`.
 *   **Decision:** The engine implements R1, R2, R3, and R5 strictly as detailed in the spec with deterministic execution, using variables loaded exclusively from `object_hazard_thresholds.json`. No parameters were hardcoded. Citations were explicitly added to the deterministic detail output produced by the engine itself to guarantee any later LLM consumption correctly references the specific corpus materials (e.g. `[cite: nfpa-heating-safety]`).
@@ -1438,14 +1456,3 @@ device checks not re-run).
 
 
 
-### 2026-09-09: Object Hazard Surfacing (S7.5)
-
-1. **Supersession Mapping:** We decided that specific object hazards (like an unstrapped wardrobe causing a topple risk near an egress path) replace the generic `mitigation.secure.<id>` items. The specific `hazard.<rule_id>.<object_id>` checklist item is generated, and any generic "strap heavy furniture" items for that object are skipped so we don't present duplicate items to the user. If the user had previously checked off the generic item, its status is carried forward as `done=True` on the new specific hazard.
-2. **No Weight Change:** Object hazard findings are classified as advisory (`scoring=False`). However, if an object hazard produces a `high` severity item (e.g. unsecured water heater or topple risk over an egress path), it triggers the existing high-severity composite score cap (capping the score at 40). We made zero changes to score weights because the existing S6.7 score cap natively handles this logic exactly as intended.
-3. **R4 Wording Audit Result:** We audited the `RouteNarration.swift` language around obstructed windows to ensure it did not improperly use the word "door" (a potential silent bug). The wording correctly resolves to "A way out of the Bedroom is blocked", which perfectly covers both door and window obstructions without requiring any code changes.
-
-### 2026-09-09: S7.4 Corrective Cycle
-
-1. **Inline `[cite:]` Tags Removed from Engine Prose (G1):** `ObjectHazard.detail` and `Obstruction.detail` strings are rendered raw by the iOS UI (HouseScreen inspector, RouteNarrationView). Inline `[cite: source-id]` tags were breaking the view. Fix: detail strings are now tag-free prose. Grounding is structurally carried by `ObjectHazard.citation`, which `checklist.py` uses to compose the `why=` payload for the AI layer. The UI never sees citation markup.
-2. **`elevation_m` Scene Placement — Early S7.7 Landing (H3):** `DollhouseScene.makeObject` sets `y: object.elevation_m` when placing furniture nodes. `FurnitureFixture` builds nodes with local origin at the object's base (y=0 is the floor of the object), so `elevation_m` correctly lifts a mounted TV's base to its wall-mount height while a floor-standing object sits at floor level. This is S7.7 scope (3D emphasis) but landed early because the one-line change is correct and was already committed in S7.6. Kept rather than reverted; pinned by a comment in `DollhouseScene.swift:465`.
-3. **Typing (H5):** `compute_score`'s `object_hazard_thresholds` parameter was `Optional[Any]`, and `config.get_object_hazard_thresholds()` had no return annotation. Fixed with `TYPE_CHECKING` imports to break the import cycle while providing real types for static analysis.

@@ -122,7 +122,7 @@ S7.1–S7.5.
 - [ ] S7.7 — 3D emphasis + the device pass (real scan with objects; frame-time number). Needs S7.4+S7.5+S7.6 (all done). Next action: 3D hazard highlighting on the dollhouse (non-device half), then human with an iPhone for the device pass; extends `field-test-lidar.md`.
   - [ ] Real-scan object verification: confirm objects (furniture, doors, windows) are accurately captured in the real scan export.
 - [ ] S7.8 — STRETCH: exit-path re-check (partial re-scan diff, "something new", never a guessed category). Needs S7.3+S7.4. First core-adjacent cut after the Vision pair.
-- [ ] S7.9 — OPTIONAL: Vision photo-assist feasibility spike + capture. Needs S7.6. A documented NO-GO that cuts S7.10 is a SUCCESS outcome.
+- [ ] S7.9 — OPTIONAL: Vision photo-assist feasibility spike + capture. Needs S7.6 (done). A documented NO-GO that cuts S7.10 is a SUCCESS outcome.
 - [ ] S7.10 — OPTIONAL: Vision suggestions → editor flow. Needs S7.9. First to cut.
 
 ## ~~APPROVED PIVOT — the readiness arc (S6.1–S6.9, approved 2026-09-05)~~ CODE LANDED — reconciled 2026-09-08
@@ -588,7 +588,7 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
 
 - [x] `setOpeningWidth` exists in the reducer with tests but has **no UI entry point** — add a
       width control (stepper/slider) to the opening inspector in `HouseScreen` (EditorScreen
-      was merged into it in revamp A3). (Lane A)
+      was merged into it in revamp A3). (Lane A). **Closed in S7.6 via `HouseScreen` inspector stepper.**
 - [ ] The House *tab*'s standalone `HouseScreen()` has no `HomeLibrary`, so the
       delete-under-editor seam only protects the HomeScreen→Editor push path. Cross-tab
       delete while the House tab holds the same home is still unguarded — share one library

@@ -175,7 +175,7 @@ enum RouteNarration {
     /// Short label for a person: "Ada (child) — Bedroom 1".
     static func profileLine(_ profile: Profile, in home: HomeModel) -> String {
         let bedroom = Index(home: home).roomName(profile.bedroom_room_id) ?? profile.bedroom_room_id
-        let tags = profile.tags.map(tagName).joined(separator: ", ")
+        let tags = profile.tags.map { tagName($0) }.joined(separator: ", ")
         return tags.isEmpty ? "\(profile.name) — \(bedroom)" : "\(profile.name) (\(tags)) — \(bedroom)"
     }
 

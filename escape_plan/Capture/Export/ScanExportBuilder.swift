@@ -58,6 +58,7 @@ protocol ScanStructureConvertible {
 
 // MARK: - Builder
 
+@MainActor
 enum ScanExportBuilder {
 
     /// Build the export document. Pure: no I/O, no clock, no globals — the

@@ -29,6 +29,8 @@ struct HouseScreen: View {
     /// When the caller owns a `HomeLibrary`, the session registers as its open editor so a
     /// home deleted from the list closes this screen and drops its undo history.
     var library: HomeLibrary?
+    var initialSelection: Selection? = nil
+    @State private var hasFocusedInitial = false
 
     @Environment(APIClient.self) private var apiClient
     @Environment(\.dismiss) private var dismiss
@@ -207,6 +209,9 @@ struct HouseScreen: View {
         // The flag is read HERE (the view layer): EvacuationPlaybackModel lives in Models/,
         // which is compiled into the pure-Foundation editorcore package with no UIKit.
         .onAppear { playback.isSteppedMode = reduceMotion }
+        .onChange(of: controller) { _, newController in
+            focusInitialSelection(controller: newController)
+        }
         .onChange(of: reduceMotion) { _, newValue in
             playback.isSteppedMode = newValue
             // `RouteOverlay` reads the flag once, at construction, so a user who turns Reduce
@@ -404,6 +409,18 @@ struct HouseScreen: View {
         controller?.focusCamera(onFloor: id)
         overlayHolder.overlay?.refreshFloorFocus()
         controller?.scnView.setNeedsDisplay()
+    }
+
+    @State private var hazardObjectIDs: Set<String> = []
+
+    private func focusInitialSelection(controller: UnifiedSceneController?) {
+        guard let controller else { return }
+        if !hazardObjectIDs.isEmpty {
+            controller.setHazardObjects(hazardObjectIDs)
+        }
+        guard let initialSelection, !hasFocusedInitial else { return }
+        controller.focusCamera(on: initialSelection)
+        hasFocusedInitial = true
     }
 
     /// Re-creates the route overlay against the live dollhouse with the new motion preference
@@ -2190,6 +2207,7 @@ struct HouseScreen: View {
                 invalidateRoutes()
             }
             session = newSession
+            if let initialSelection { newSession.store.select(initialSelection) }
             library?.editor = newSession
             // A brand-new home has nothing on disk yet — write it immediately so it shows up
             // in the home list without waiting for the first edit.
@@ -2197,6 +2215,16 @@ struct HouseScreen: View {
                 autosave(newStore, documentStore: documentStore)
             }
             fetchRoutes()
+            
+            // Extract hazard object IDs from cache to show advisory emphasis
+            if let activeHomeID = homeID, let cache = try? ScoreCache(), let score = cache.load(homeID: activeHomeID) {
+                let hazardObjIDs = score.checklist.compactMap { item -> String? in
+                    let parts = item.id.split(separator: ".")
+                    return (parts.first == "hazard" && parts.count >= 3) ? String(parts[2]) : nil
+                }
+                hazardObjectIDs = Set(hazardObjIDs)
+                controller?.setHazardObjects(hazardObjectIDs)
+            }
         } catch {
             loadError = "\(error)"
         }

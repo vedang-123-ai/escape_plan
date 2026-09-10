@@ -26,8 +26,24 @@ struct HomeScreen: View {
     @State private var drillHomeID: String?
     /// Quick-details sheet for one checklist row (the row itself is compact).
     @State private var detailItem: ChecklistItem?
+    @State private var initialSelection: Selection?
     /// Rows hide their detail line by default; this reveals every one inline.
     @AppStorage("home.checklist.showDetails") private var showAllDetails = false
+    
+    private func getObjectIDs(from itemID: String) -> [String] {
+        let parts = itemID.split(separator: ".")
+        if parts.first == "hazard" && parts.count >= 3 {
+            return [String(parts[2])]
+        } else if parts.first == "mitigation" && parts.count >= 3 && parts[1] == "secure" {
+            return [String(parts[2])]
+        } else if parts.first == "routes" && parts.count >= 4 {
+            let kind = parts[1]
+            if kind == "blocked_opening" || kind == "narrows_route" {
+                return parts[3].split(separator: "-").map { String($0) }
+            }
+        }
+        return []
+    }
     
     // Scan conversion
     @State private var isConverting = false
@@ -60,27 +76,7 @@ struct HomeScreen: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
-                        Section {
-                            Button { showingScan = true } label: { Label("Scan New Home", systemImage: "camera.viewfinder") }
-                                .accessibilityIdentifier("Scan New Home")
-                            Button { showingNewHome = true } label: { Label("Build Manually", systemImage: "plus") }
-                                .accessibilityIdentifier("Build Manually")
-                            Button { showingBuildFromPlan = true } label: { Label("Import Plan", systemImage: "wand.and.stars") }
-                                .accessibilityIdentifier("Import Plan")
-                        }
-                        Section("Homes") {
-                            ForEach(library.homes) { home in
-                                Button {
-                                    switchActiveHome(to: home.id)
-                                } label: {
-                                    if activeHomeID == home.id {
-                                        Label(home.name, systemImage: "checkmark")
-                                    } else {
-                                        Text(home.name)
-                                    }
-                                }
-                            }
-                        }
+                        menuContent
                     } label: {
                         Label("Menu", systemImage: "ellipsis.circle")
                     }
@@ -109,7 +105,7 @@ struct HomeScreen: View {
                 )
             }
             .navigationDestination(item: $openHomeID) { homeID in
-                HouseScreen(homeID: homeID, library: library) { 
+                HouseScreen(homeID: homeID, library: library, initialSelection: initialSelection) { 
                     library.refresh()
                     Task { await initialLoad() } // Reload checklist
                 }
@@ -125,6 +121,31 @@ struct HomeScreen: View {
             }
             .navigationDestination(item: $drillHomeID) { homeID in
                 DrillScreen(homeID: homeID)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var menuContent: some View {
+        Section {
+            Button { showingScan = true } label: { Label("Scan New Home", systemImage: "camera.viewfinder") }
+                .accessibilityIdentifier("Scan New Home")
+            Button { showingNewHome = true } label: { Label("Build Manually", systemImage: "plus") }
+                .accessibilityIdentifier("Build Manually")
+            Button { showingBuildFromPlan = true } label: { Label("Import Plan", systemImage: "wand.and.stars") }
+                .accessibilityIdentifier("Import Plan")
+        }
+        Section("Homes") {
+            ForEach(library.homes) { home in
+                Button {
+                    switchActiveHome(to: home.id)
+                } label: {
+                    if activeHomeID == home.id {
+                        Label(home.name, systemImage: "checkmark")
+                    } else {
+                        Text(home.name)
+                    }
+                }
             }
         }
     }
@@ -648,13 +669,21 @@ struct HomeScreen: View {
         // Narrative items -> local toggle.
         
         let category = item.category
-        if category == .smoke_alarm || category == .routes || category == .egress || category == .agent_finding || category == .recommendation {
+        
+        switch category {
+        case .smoke_alarm, .routes, .egress, .agent_finding, .recommendation, .mitigation, .other, .safe_room, .shutoffs:
+            let objIDs = getObjectIDs(from: item.id)
+            if let firstObj = objIDs.first {
+                initialSelection = .object(objectId: firstObj)
+            } else {
+                initialSelection = nil
+            }
             // Needs floor plan edit or route view
             openHomeID = activeHomeID
-        } else if category == .practice {
+        case .practice:
             // Drill
             drillHomeID = activeHomeID
-        } else {
+        default:
             // Narrative only: toggle
             toggleDone(item)
         }

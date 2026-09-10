@@ -1354,3 +1354,23 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - ?? backend/app/routing/object_hazards.py
   - …and 20 more
 
+## 2026-09-10T04:48:21Z · Anish Yarrakonda · `main` @ `2bf41c4`
+
+**Commits this session**
+  - 2bf41c4 S7.4 corrective cycle, S7.5 surfacing, S7.6 Hazard Hunt editor UI
+
+**Uncommitted working-tree changes (1)**
+  - ?? result.txt
+
+## 2026-09-10T05:04:42Z · Anish Yarrakonda · `main` @ `8141abb`
+
+**Commits this session**
+  - 8141abb S7.7: Add device-pass items to BLOCKERS.md
+  - e310aec H4: Update tracker with S7.6 completion and exact iOS metrics
+  - 5bae7a3 H3: Pin FurnitureFixture base-anchor convention for elevation_m
+  - eebc4c1 H5: TYPE_CHECKING imports for ObjectHazardThresholds in config.py and score.py
+  - 2bf41c4 S7.4 corrective cycle, S7.5 surfacing, S7.6 Hazard Hunt editor UI
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+

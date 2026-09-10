@@ -73,8 +73,8 @@ final class RoomCaptureController {
     private var delegateBox: CaptureDelegateBox?
     #endif
 
-    init(store: ScanStore = ScanStore(), now: @escaping () -> Date = Date.init) {
-        self.store = store
+    init(store: ScanStore? = nil, now: @escaping () -> Date = Date.init) {
+        self.store = store ?? ScanStore()
         self.now = now
     }
 

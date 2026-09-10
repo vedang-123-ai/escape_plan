@@ -15,6 +15,7 @@
 import XCTest
 @testable import escape_plan
 
+@MainActor
 final class ScanExportTests: XCTestCase {
 
     // MARK: - Fixtures
