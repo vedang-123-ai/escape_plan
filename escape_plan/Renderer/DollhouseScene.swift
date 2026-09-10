@@ -463,6 +463,10 @@ enum DollhouseSceneBuilder {
                                          depth: object.size_m[1],
                                          height: object.height_m)
         node.name = "object:\(object.id)"
+        // FurnitureFixture builds nodes with local origin at the base (y = 0 is the floor
+        // of the object). Setting scene y to elevation_m lifts a wall-mounted TV's base to
+        // its mount height, while a floor-standing piece (elevation 0) sits correctly at
+        // floor level. Early landing from S7.7 scope — see decisions.md 2026-09-09.
         node.position = DollhouseGeometry.scenePoint(object.center, y: object.elevation_m)
         // Plan CCW rotation about +y: plan +y maps to scene −z, so a CCW plan rotation is a
         // positive rotation about the scene's +y axis.
