@@ -143,9 +143,12 @@ def test_citation_resolution(fixture_name, thresholds, sources, request):
     plan_tornado = compute_route_plan(home, thresholds, peril="tornado")
     plan_earthquake = compute_route_plan(home, thresholds, peril="earthquake")
     
+    from app import config
+    object_hazard_thresholds = config.get_object_hazard_thresholds()
     checklist = build_checklist(
         home, plan_fire, [], {}, thresholds,
-        tornado_plan=plan_tornado, earthquake_plan=plan_earthquake
+        tornado_plan=plan_tornado, earthquake_plan=plan_earthquake,
+        object_hazard_thresholds=object_hazard_thresholds
     )
     
     valid_ids = {s["id"] for s in sources}
@@ -153,3 +156,29 @@ def test_citation_resolution(fixture_name, thresholds, sources, request):
     for item in checklist:
         if item.source_citation is not None:
             assert item.source_citation in valid_ids, f"Item {item.id} has invalid citation {item.source_citation}"
+
+@pytest.fixture
+def object_hazard_thresholds():
+    from app.routing.object_hazards import ObjectHazardThresholds
+    from app import config
+    return config.get_object_hazard_thresholds()
+
+def test_object_hazard_item_capping_score_roundtrip(bungalow, object_hazard_thresholds, thresholds):
+    from app.models import FloorObject
+    home = HomeModel.model_validate(bungalow)
+    heater = FloorObject(id="heater_1", source="manual", category="water_heater", center=(1.0, 1.0), size_m=(1.0, 1.0), height_m=2.0, rotation_deg=0.0, secured=False)
+    home.floors[0].objects.append(heater)
+    
+    plan = compute_route_plan(home, thresholds)
+    
+    from app.scoring.score import compute_score
+    breakdown = compute_score(home, plan, [], {}, thresholds, object_hazard_thresholds=object_hazard_thresholds)
+    
+    # Verify the high severity item exists
+    hazard_items = [i for i in breakdown.checklist if i.category == "mitigation" and i.severity == "high"]
+    assert len(hazard_items) > 0
+    assert breakdown.score == 40
+    
+    # Check off the item
+    breakdown_checked = compute_score(home, plan, [], {hazard_items[0].id: True}, thresholds, object_hazard_thresholds=object_hazard_thresholds)
+    assert breakdown_checked.score == 83

@@ -639,6 +639,9 @@ struct HouseScreen: View {
             dockModeSwitch
             switch dockMode {
             case .routes:
+                if (Double(store.model.schema_version) ?? 1.0) >= 2.0 {
+                    HazardHuntView(store: store)
+                }
                 if let routePlan {
                     routeControls(for: routePlan)
                 } else if isFetchingRoutes {
@@ -1898,39 +1901,50 @@ struct HouseScreen: View {
             }
         case .opening(let openingId):
             if let opening = store.activeFloor.openings.first(where: { $0.id == openingId }) {
-                inspectorBar {
-                    Picker("Kind", selection: Binding(
-                        get: { opening.kind },
-                        set: { dispatch(.setOpeningKind(openingId: openingId, kind: $0)) }
-                    )) {
-                        ForEach(OpeningKind.allCases, id: \.self) { kind in
-                            Text(kind.rawValue.capitalized).tag(kind)
+                VStack(spacing: 0) {
+                    inspectorBar {
+                        Picker("Kind", selection: Binding(
+                            get: { opening.kind },
+                            set: { dispatch(.setOpeningKind(openingId: openingId, kind: $0)) }
+                        )) {
+                            ForEach(OpeningKind.allCases, id: \.self) { kind in
+                                Text(kind.rawValue.capitalized).tag(kind)
+                            }
                         }
+                        .pickerStyle(.segmented)
+                        // A hard 180pt segmented control clipped "Window" at the accessibility
+                        // sizes; the cap only applies while the text still fits inside it.
+                        .frame(maxWidth: dynamicTypeSize >= .accessibility1 ? .infinity : 180)
+                        .accessibilityLabel("Opening kind")
+                        .accessibilityHint("Doors and windows are routed differently by the engine.")
+                        .accessibilityIdentifier("house.inspector.openingKind")
+                        Text(opening.isExit ? "Exterior" : "Interior")
+                            .font(.caption)
+                            .foregroundStyle(Theme.supporting)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel(opening.isExit
+                                ? "This opening leads outside — the engine can use it as an exit."
+                                : "Interior opening.")
+                        Spacer()
+                        Button(role: .destructive) {
+                            dispatch(.deleteOpening(openingId: openingId))
+                        } label: {
+                            Label("Delete Opening", systemImage: "trash").labelStyle(.iconOnly)
+                        }
+                        .minimumTapTarget()
+                        .accessibilityLabel("Delete this \(opening.kind.rawValue)")
+                        .accessibilityHint("Removes it from the wall and re-plans the routes.")
+                        .accessibilityIdentifier("house.inspector.deleteOpening")
                     }
-                    .pickerStyle(.segmented)
-                    // A hard 180pt segmented control clipped "Window" at the accessibility
-                    // sizes; the cap only applies while the text still fits inside it.
-                    .frame(maxWidth: dynamicTypeSize >= .accessibility1 ? .infinity : 180)
-                    .accessibilityLabel("Opening kind")
-                    .accessibilityHint("Doors and windows are routed differently by the engine.")
-                    .accessibilityIdentifier("house.inspector.openingKind")
-                    Text(opening.isExit ? "Exterior" : "Interior")
-                        .font(.caption)
-                        .foregroundStyle(Theme.supporting)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityLabel(opening.isExit
-                            ? "This opening leads outside — the engine can use it as an exit."
-                            : "Interior opening.")
-                    Spacer()
-                    Button(role: .destructive) {
-                        dispatch(.deleteOpening(openingId: openingId))
-                    } label: {
-                        Label("Delete Opening", systemImage: "trash").labelStyle(.iconOnly)
+                    inspectorBar {
+                        Stepper(value: Binding(
+                            get: { opening.width_m },
+                            set: { dispatch(.setOpeningWidth(openingId: openingId, width_m: $0)) }
+                        ), in: 0.1...10, step: 0.1) {
+                            Text("Width: \(opening.width_m, specifier: "%.2f")m")
+                        }
+                        .accessibilityIdentifier("house.inspector.openingWidth")
                     }
-                    .minimumTapTarget()
-                    .accessibilityLabel("Delete this \(opening.kind.rawValue)")
-                    .accessibilityHint("Removes it from the wall and re-plans the routes.")
-                    .accessibilityIdentifier("house.inspector.deleteOpening")
                 }
             }
         case .stairs(let stairsId):
@@ -1952,40 +1966,94 @@ struct HouseScreen: View {
             }
         case .object(let objectId):
             if let object = store.model.floors.flatMap(\.objects).first(where: { $0.id == objectId }) {
-                inspectorBar {
-                    Picker("Type", selection: Binding(
-                        get: { object.category },
-                        set: { dispatch(.setObjectCategory(objectId: objectId, category: $0)) }
-                    )) {
-                        ForEach(ObjectCategory.allCases, id: \.self) { category in
-                            Text(category.displayName).tag(category)
+                VStack(spacing: 0) {
+                    inspectorBar {
+                        Picker("Type", selection: Binding(
+                            get: { object.category },
+                            set: { dispatch(.setObjectCategory(objectId: objectId, category: $0)) }
+                        )) {
+                            ForEach(ObjectCategory.allCases, id: \.self) { category in
+                                Text(category.displayName).tag(category)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityLabel("Object type")
+                        .accessibilityValue(object.category.displayName)
+                        .accessibilityIdentifier("house.inspector.objectType")
+                        Button {
+                            dispatch(.rotateObject(objectId: objectId,
+                                                   rotation_deg: (object.rotation_deg + 45)
+                                                       .truncatingRemainder(dividingBy: 360)))
+                        } label: {
+                            Label("Rotate 45°", systemImage: "rotate.right")
+                                .labelStyle(.iconOnly)
+                        }
+                        .minimumTapTarget()
+                        .accessibilityLabel("Rotate 45 degrees")
+                        .accessibilityValue("\(Int(object.rotation_deg)) degrees")
+                        .accessibilityIdentifier("house.inspector.rotateObject")
+                        Spacer()
+                        Button(role: .destructive) {
+                            dispatch(.deleteObject(objectId: objectId))
+                        } label: {
+                            Label("Delete Object", systemImage: "trash").labelStyle(.iconOnly)
+                        }
+                        .minimumTapTarget()
+                        .accessibilityLabel("Delete this \(object.category.rawValue)")
+                        .accessibilityIdentifier("house.inspector.deleteObject")
+                    }
+                    inspectorBar {
+                        Toggle("Strapped to the wall?", isOn: Binding(
+                            get: { object.secured },
+                            set: { dispatch(.setObjectSecured(objectId: objectId, secured: $0)) }
+                        ))
+                        .accessibilityIdentifier("house.inspector.secured")
+                    }
+                    inspectorBar {
+                        Stepper(value: Binding(
+                            get: { object.size_m[0] },
+                            set: { dispatch(.resizeObject(objectId: objectId, size_m: [$0, object.size_m[1]], height_m: object.height_m)) }
+                        ), in: 0.1...10, step: 0.1) {
+                            Text("W: \(object.size_m[0], specifier: "%.2f")m")
+                        }
+                        .accessibilityIdentifier("house.inspector.width")
+                        
+                        Stepper(value: Binding(
+                            get: { object.size_m[1] },
+                            set: { dispatch(.resizeObject(objectId: objectId, size_m: [object.size_m[0], $0], height_m: object.height_m)) }
+                        ), in: 0.1...10, step: 0.1) {
+                            Text("D: \(object.size_m[1], specifier: "%.2f")m")
+                        }
+                        .accessibilityIdentifier("house.inspector.depth")
+                    }
+                    inspectorBar {
+                        Stepper(value: Binding(
+                            get: { object.height_m },
+                            set: { dispatch(.resizeObject(objectId: objectId, size_m: object.size_m, height_m: $0)) }
+                        ), in: 0.1...10, step: 0.1) {
+                            Text("H: \(object.height_m, specifier: "%.2f")m")
+                        }
+                        .accessibilityIdentifier("house.inspector.height")
+                        
+                        if [.tv, .storage, .bookcase, .appliance, .heat_source, .other].contains(object.category) {
+                            Toggle("Mounted", isOn: Binding(
+                                get: { object.mounted },
+                                set: { dispatch(.setObjectMounted(objectId: objectId, mounted: $0)) }
+                            ))
+                            .accessibilityIdentifier("house.inspector.mounted")
                         }
                     }
-                    .pickerStyle(.menu)
-                    .accessibilityLabel("Object type")
-                    .accessibilityValue(object.category.displayName)
-                    .accessibilityIdentifier("house.inspector.objectType")
-                    Button {
-                        dispatch(.rotateObject(objectId: objectId,
-                                               rotation_deg: (object.rotation_deg + 45)
-                                                   .truncatingRemainder(dividingBy: 360)))
-                    } label: {
-                        Label("Rotate 45°", systemImage: "rotate.right")
-                            .labelStyle(.iconOnly)
+                    if object.mounted {
+                        inspectorBar {
+                            Stepper(value: Binding(
+                                get: { object.elevation_m },
+                                set: { dispatch(.setObjectElevation(objectId: objectId, elevation_m: $0)) }
+                            ), in: 0.0...10, step: 0.1) {
+                                Text("Elevation: \(object.elevation_m, specifier: "%.2f")m")
+                            }
+                            .accessibilityIdentifier("house.inspector.elevation")
+                        }
                     }
-                    .minimumTapTarget()
-                    .accessibilityLabel("Rotate 45 degrees")
-                    .accessibilityValue("\(Int(object.rotation_deg)) degrees")
-                    .accessibilityIdentifier("house.inspector.rotateObject")
-                    Spacer()
-                    Button(role: .destructive) {
-                        dispatch(.deleteObject(objectId: objectId))
-                    } label: {
-                        Label("Delete Object", systemImage: "trash").labelStyle(.iconOnly)
-                    }
-                    .minimumTapTarget()
-                    .accessibilityLabel("Delete this \(object.category.rawValue)")
-                    .accessibilityIdentifier("house.inspector.deleteObject")
                 }
             }
         case .none, .wall, .vertex:

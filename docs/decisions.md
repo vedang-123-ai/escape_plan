@@ -1313,6 +1313,30 @@ The one blocker that survived contact is the bearer token: `escape_plan/BackendC
 still absent and only the owner can supply it. `.env` is read-guarded in `settings.json` and the
 guard held when probed — correctly, so the token was not lifted from it.
 
+## 2026-09-09 — S7.4: Object-hazard engine implementation and R4 wording
+*   **Context:** S7.4 dictates the implementation of R1, R2, R3, R4, and R5 from the object-hazard spec in `backend/app/routing/object_hazards.py` and `obstructions.py`.
+*   **Decision:** The engine implements R1, R2, R3, and R5 strictly as detailed in the spec with deterministic execution, using variables loaded exclusively from `object_hazard_thresholds.json`. No parameters were hardcoded. Citations were explicitly added to the deterministic detail output produced by the engine itself to guarantee any later LLM consumption correctly references the specific corpus materials (e.g. `[cite: nfpa-heating-safety]`).
+*   **R4 Audit Result:** R4 extended the existing `analyze_obstructions` methodology to evaluate egress-qualifying windows by reusing threshold-parsing code. We aggressively audited `Obstruction.detail` and removed hardcoded mentions of "door" and "doorway" in favor of "opening" and "escape path". Egress-qualifying windows that are blocked by furniture now emit `blocks_opening` appropriately while non-egress windows ignore similar blockages.
+*   **Spec Deviations:** Inline citations were removed because they broke the UI, so we rely on the `citation` field.
+
+## 2026-09-09 — S7.3: Scan objects through the pipeline
+
+**Category mapping:** RoomPlan object categories are mapped to schema 2.1 carefully: `bed`, `sofa`, `table`, `storage` pass through exactly. `television` -> `tv`, `stove`/`oven`/`fireplace` -> `heat_source`, and `refrigerator`/`dishwasher`/`washerDryer` -> `appliance`. We drop `chair`, `sink`, `toilet`, `bathtub`, and `stairs` completely to avoid polluting the model with non-hazard geometry.
+
+**Schema stamp change:** The schema output version was updated from 1.1 to CURRENT_VERSION (2.1). S7.3 owned this change because this is where the pipeline actually generates a new home scan document containing the S7.1 additions.
+
+**Elevation epsilon (0.01 m clamp):** A 0.01 m threshold (1 cm) was added to clamp near-zero elevations to 0.0. This prevents falsely flagging grounded objects as suspended due to minor LiDAR measurement noise.
+
+**Drop count surfacing:** The count of discarded (dropped) objects is now surfaced directly in the conversion metadata log to maintain transparency regarding filtered geometry.
+
+## 2026-09-09 — S7.2: Object-hazard thresholds and NFPA sourcing
+
+**Sourcing choice:** We elected to use NFPA sources for four of the required fire safety topic areas (heating, cooking, electrical, space heaters), and USFA for the fifth (dryers). The NFPA pages and the USFA PDF were verified live and returned HTTP 200 reliably, whereas specific HTML URLs like `/causes/electrical-fires/` and `/causes/dryer-fires/` returned 404, but others like `/prevent-fires/heating/` are 200.
+
+**Threshold definitions:** `object_hazard_thresholds.json` is explicitly divided into two blocks to maintain citation integrity:
+1. `cited`: Standards rooted in safety codes (e.g., the 3-foot clearance rule from NFPA). Imperial values are preserved for citation fidelity, while metric values are authoritative for computation.
+2. `engineering_constants`: Geometric judgments made by the team (e.g., `topple_min_height_m`, `topple_slenderness_ratio`, `overhead_min_elevation_m`). These carry a `basis` string explicitly stating they are *not* codified safety standards. This prevents the app from falsely presenting a team heuristic as official NFPA/FEMA guidance.
+
 ## 2026-09-09 — S7.1: schema 2.1, and the schema_version breadth ruling
 
 **What was added.** `FloorObject.elevation_m` (number ≥ 0, default 0 — the height of the
@@ -1411,3 +1435,11 @@ was reconciled against the merged tree (S6.4–S6.9 code verified present — `h
 `OnboardingFlowView`, the HomeScreen checklist, the composite in `score.py`, `DrillMode/`, and
 the `ResponderSnapshot*` exporters; boxes updated with that evidence, full acceptance walks and
 device checks not re-run).
+
+
+
+### 2026-09-09: Object Hazard Surfacing (S7.5)
+
+1. **Supersession Mapping:** We decided that specific object hazards (like an unstrapped wardrobe causing a topple risk near an egress path) replace the generic `mitigation.secure.<id>` items. The specific `hazard.<rule_id>.<object_id>` checklist item is generated, and any generic "strap heavy furniture" items for that object are skipped so we don't present duplicate items to the user. If the user had previously checked off the generic item, its status is carried forward as `done=True` on the new specific hazard.
+2. **No Weight Change:** Object hazard findings are classified as advisory (`scoring=False`). However, if an object hazard produces a `high` severity item (e.g. unsecured water heater or topple risk over an egress path), it triggers the existing high-severity composite score cap (capping the score at 40). We made zero changes to score weights because the existing S6.7 score cap natively handles this logic exactly as intended.
+3. **R4 Wording Audit Result:** We audited the `RouteNarration.swift` language around obstructed windows to ensure it did not improperly use the word "door" (a potential silent bug). The wording correctly resolves to "A way out of the Bedroom is blocked", which perfectly covers both door and window obstructions without requiring any code changes.

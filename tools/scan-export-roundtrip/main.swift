@@ -42,6 +42,7 @@ struct FakeRoom: ScanRoomConvertible {
     var windows: [FakeSurface] = []
     var openings: [FakeSurface] = []
     var exportSections: [RawScanSection] = []
+    var exportObjects: [any ScanObjectConvertible] = []
 
     var exportWalls: [any ScanSurfaceConvertible] { walls }
     var exportDoors: [any ScanSurfaceConvertible] { doors }

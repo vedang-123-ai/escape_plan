@@ -63,10 +63,21 @@ def compute_score(
     *,
     tornado_plan: Optional[RoutePlan] = None,
     earthquake_plan: Optional[RoutePlan] = None,
+    object_hazard_thresholds: Optional[Any] = None,
     now: Optional[datetime] = None,
 ) -> ScoreBreakdown:
     findings = findings or []
-    items = build_checklist(home, plan, findings, state or {}, thresholds, tornado_plan=tornado_plan, earthquake_plan=earthquake_plan, now=now)
+    items = build_checklist(
+        home,
+        plan,
+        findings,
+        state or {},
+        thresholds,
+        tornado_plan=tornado_plan,
+        earthquake_plan=earthquake_plan,
+        object_hazard_thresholds=object_hazard_thresholds,
+        now=now,
+    )
 
     sub_scores_raw = {"fire": 100.0, "earthquake": 100.0, "severe_weather": 100.0}
     largest_deduction_item: Optional[ChecklistItem] = None

@@ -97,6 +97,25 @@ def section(label: str, cx: float, cz: float) -> dict:
     return {"label": label, "center": [cx, 1.0, cz]}
 
 
+def object_item(name: str, cx: float, cz: float, size_x: float, size_z: float, height: float, category: str, conf: str = "high", rot: float = 0.0, floor_y: float = 0.0, elev: float = 0.0) -> dict:
+    cy = floor_y + elev + height / 2.0
+    a = math.radians(rot)
+    dx, dz = math.cos(a), math.sin(a)
+    transform = [
+        round(dx, 6), 0.0, round(dz, 6), 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        round(-dz, 6), 0.0, round(dx, 6), 0.0,
+        round(cx, 6), round(cy, 6), round(cz, 6), 1.0,
+    ]
+    return {
+        "identifier": ident(name),
+        "transform": transform,
+        "dimensions": [round(size_x, 6), round(height, 6), round(size_z, 6)],
+        "confidence": {conf: {}},
+        "category": {category: {}},
+    }
+
+
 # ---------------------------------------------------------------------------
 # 1. Clean rectangular bungalow — 2 rooms, shared door by IDENTIFIER match
 # ---------------------------------------------------------------------------
@@ -110,6 +129,10 @@ def bungalow() -> dict:
         "windows": [window("bungalow/window-living", (0.0, 1.0), (0.0, 2.0), 1.2, 0.8)],
         "openings": [],
         "sections": [section("livingRoom", 2.5, 2.0)],
+        "objects": [
+            object_item("bungalow/sofa", 2.0, 2.0, 2.0, 0.9, 0.8, "sofa"),
+            object_item("bungalow/tv", 2.0, 0.5, 1.2, 0.2, 0.8, "television", elev=0.5),
+        ],
     }
     bedroom = {
         "identifier": ident("bungalow/room-bedroom"),
@@ -118,8 +141,15 @@ def bungalow() -> dict:
         "windows": [window("bungalow/window-bedroom", (1.5, 8.0), (2.5, 8.0), 1.2, 0.8)],
         "openings": [],
         "sections": [section("bedroom", 2.5, 6.0)],
+        "objects": [
+            object_item("bungalow/bed", 2.5, 7.0, 1.6, 2.0, 0.6, "bed", conf="high"),
+            object_item("bungalow/chair", 1.0, 5.0, 0.5, 0.5, 0.9, "chair", conf="high"), # dropped category
+            object_item("bungalow/storage", 4.0, 5.0, 1.0, 0.5, 2.0, "storage", conf="medium"),
+            object_item("bungalow/stove", 4.0, 7.0, 0.8, 0.8, 0.9, "stove", conf="low"),
+            object_item("bungalow/unknown", 1.0, 7.0, 0.5, 0.5, 0.5, "some_unknown_category", conf="low"),
+        ],
     }
-    return {"version": 2, "rooms": [living, bedroom]}
+    return {"version": 3, "rooms": [living, bedroom]}
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +181,7 @@ def messy() -> dict:
         conf="medium",
         center_override=r((1.45, 0.6)),
     )
-    return {
+    room_dict = {
         "identifier": ident("messy/room"),
         "walls": walls,
         "doors": [drifting],
@@ -159,6 +189,7 @@ def messy() -> dict:
         "openings": [],
         "sections": [],
     }
+    return {"version": 2, "rooms": [room_dict]}
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +205,10 @@ def shared_door() -> dict:
         "windows": [window("shared/window-kitchen", (0.0, 1.0), (0.0, 2.0), 1.0, 0.9)],
         "openings": [],
         "sections": [section("kitchen", 2.0, 1.5)],
+        "objects": [
+            object_item("shared/stove", 1.0, 0.5, 0.8, 0.8, 0.9, "stove"),
+            object_item("shared/fridge", 3.0, 0.5, 0.9, 0.9, 1.8, "refrigerator"),
+        ],
     }
     hall = {
         "identifier": ident("shared/room-hall"),
@@ -185,9 +220,16 @@ def shared_door() -> dict:
         "windows": [],
         "openings": [],
         "sections": [section("hallway", 6.0, 1.5)],
+        "objects": [],
     }
-    return {"version": 2, "rooms": [kitchen, hall]}
+    return {"version": 3, "rooms": [kitchen, hall]}
 
+
+def empty_scan() -> dict:
+    return {"version": 3, "rooms": [{
+        "identifier": ident("empty/room"),
+        "walls": [], "doors": [], "windows": [], "openings": [], "sections": [], "objects": []
+    }]}
 
 def main() -> None:
     SCANS_DIR.mkdir(parents=True, exist_ok=True)
@@ -195,6 +237,7 @@ def main() -> None:
         "synthetic-bungalow.roomplan.json": bungalow(),
         "synthetic-messy.roomplan.json": messy(),
         "synthetic-shared-door.roomplan.json": shared_door(),
+        "synthetic-empty.roomplan.json": empty_scan(),
     }
     for name, data in fixtures.items():
         path = SCANS_DIR / name

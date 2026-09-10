@@ -82,3 +82,11 @@ All reproduce the fixtures in `schema/fixtures/`, with no agent findings and an 
 - **Severe Weather:** 100 − 5 (meeting point, general) = **95**
 
 **Composite:** `0.5×60 + 0.25×95 + 0.25×95` = 30 + 23.75 + 23.75 = 77.5 → round-half-up → **78**
+
+### bungalow.json with an unstrapped water heater
+
+Bungalow with an unsecured `water_heater` object. This violates the `water_heater_unsecured` rule, generating an unresolved `mitigation` checklist item with `high` severity.
+
+- The sub-score components are identical to the baseline bungalow: **Fire=70**, **Earthquake=95**, **Severe Weather=95**.
+- However, because an unresolved high-severity item exists, the composite score is capped at **40**.
+- Checking off the item releases the cap, returning the composite score to **83**.

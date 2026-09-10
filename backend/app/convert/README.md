@@ -98,4 +98,7 @@ penalties). All output ids are deterministic functions of the input identifiers
 - Rooms scanned with missing walls (open-plan) rely on the fallback bbox.
 - `sections` labels may be absent → rooms come out as `type: "other"`, "Room N".
 - Two doors legitimately 0.35 m apart in different rooms could be falsely paired by
-  the geometric matcher (identifier match is tried first).
+  proximity if they lose their UUIDs.
+- Object transformations are assumed to map identically to surface transforms.
+- Dropped object categories (chairs, bathtubs) could be desired in the future, requiring a migration.
+- Elevation extraction relies on a < 0.01m floor threshold logic that might misidentify rugs as floating.

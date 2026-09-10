@@ -228,11 +228,14 @@ class ConvertRequest(BaseModel):
 def convert(request: ConvertRequest) -> HomeModel:
     """RoomPlan export → validated HomeModel (S1.5 converter, pure)."""
     try:
-        return convert_scan(
+        model, warnings = convert_scan(
             request.scan,
             home_name=request.home_name,
             timestamp=datetime.now(timezone.utc),
         )
+        for w in warnings:
+            logging.warning(f"convert_scan: {w}")
+        return model
     except Exception as exc:  # malformed exports are a client error, not a 500
         raise HTTPException(
             status_code=422, detail=f"scan could not be converted: {exc}"

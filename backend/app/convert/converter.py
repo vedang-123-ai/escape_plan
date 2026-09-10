@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
+
 from app.convert.geometry import (
     EdgePlacement,
     PolygonResult,
@@ -22,11 +23,14 @@ from app.convert.geometry import (
     polygon_from_walls,
 )
 from app.convert.roomplan import RPRoom, RPStructure, RPSurface
+from app.schema_migrator import CURRENT_VERSION
 from app.models import (
     EXTERIOR_ID,
     Floor,
+    FloorObject,
     HomeModel,
     Meta,
+    ObjectCategory,
     Opening,
     OpeningKind,
     Point,
@@ -61,6 +65,23 @@ _SECTION_ROOM_TYPES: dict[str, RoomType] = {
     "stairs": RoomType.hall,
     "garage": RoomType.garage,
 }
+
+
+_OBJ_CATEGORY_MAP: dict[str, ObjectCategory] = {
+    "bed": ObjectCategory.bed,
+    "sofa": ObjectCategory.sofa,
+    "table": ObjectCategory.table,
+    "storage": ObjectCategory.storage,
+    "television": ObjectCategory.tv,
+    "stove": ObjectCategory.heat_source,
+    "oven": ObjectCategory.heat_source,
+    "fireplace": ObjectCategory.heat_source,
+    "refrigerator": ObjectCategory.appliance,
+    "dishwasher": ObjectCategory.appliance,
+    "washerDryer": ObjectCategory.appliance,
+}
+
+_DROPPED_OBJ_CATS: set[str] = {"chair", "sink", "toilet", "bathtub", "stairs"}
 
 
 def _slug(identifier: str, prefix: str) -> str:
@@ -239,7 +260,7 @@ def convert_scan(
     *,
     home_name: str = "Scanned Home",
     timestamp: datetime,
-) -> HomeModel:
+) -> tuple[HomeModel, list[str]]:
     """Convert a RoomPlan JSON export (see README.md for the assumed format) into a
     validated HomeModel. Deterministic: the same export and timestamp always produce
     an identical model (idempotency is a S1.5 acceptance criterion).
@@ -251,10 +272,13 @@ def convert_scan(
 
     model_rooms: list[Room] = []
     converted: list[_ConvertedRoom] = []
+    warnings: list[str] = []
     for index, room in enumerate(structure.rooms):
         model_room, conv = _convert_room(room, index)
         model_rooms.append(model_room)
         converted.append(conv)
+        for note in conv.result.notes:
+            warnings.append(f"{model_room.name}: {note}")
     polygons = [list(r.polygon) for r in model_rooms]
 
     raw: list[_RawOpening] = []
@@ -275,6 +299,44 @@ def convert_scan(
     # Deterministic order regardless of pairing traversal order.
     openings.sort(key=lambda o: o.id)
 
+    model_objects: list[FloorObject] = []
+    dropped_objects = 0
+    for index, room in enumerate(structure.rooms):
+        host_floor_y = converted[index].floor_y
+        for obj in room.objects:
+            if obj.category in _DROPPED_OBJ_CATS:
+                dropped_objects += 1
+                continue
+            cat = _OBJ_CATEGORY_MAP.get(obj.category, ObjectCategory.other)
+            cx, cz = obj.plan_center
+            
+            elevation = max(0.0, round(obj.center_y - obj.dimensions[1] / 2.0 - host_floor_y, 3))
+            if elevation < 0.01:
+                elevation = 0.0
+            
+            height = round(max(obj.dimensions[1], 0.01), 3)
+            size_x, _, size_z = obj.dimensions
+            size_x = round(max(size_x, 0.01), 3)
+            size_z = round(max(size_z, 0.01), 3)
+            
+            model_objects.append(
+                FloorObject(
+                    id=_slug(obj.identifier, "obj"),
+                    category=cat,
+                    center=(round(cx, 3), round(cz, 3)),
+                    size_m=(size_x, size_z),
+                    height_m=height,
+                    rotation_deg=round(obj.rotation_deg, 3),
+                    secured=False,
+                    elevation_m=elevation,
+                    source=Source.scan,
+                    confidence=obj.confidence.value_float,
+                )
+            )
+            
+    if dropped_objects > 0:
+        warnings.append(f"Dropped {dropped_objects} objects of excluded categories.")
+
     heights = [w.height for room in structure.rooms for w in room.walls]
     height_m = round(statistics.median(heights), 3) if heights else DEFAULT_WALL_HEIGHT_M
 
@@ -285,13 +347,8 @@ def convert_scan(
     )
     home_id = str(uuid.uuid5(_ID_NAMESPACE, "|".join(all_surface_ids) or home_name))
 
-    return HomeModel(
-        # This is a 2.1-shaped document wearing a 1.1 stamp: HomeModel's before-validator
-        # migrates it forward on construction, so what comes out is stamped current. It
-        # survives only because every migration to date is a stamp rewrite — the first one
-        # that TRANSFORMS data will run that transform over output that never needed it.
-        # S7.3 owns the converter; stamp it CURRENT_VERSION there. (Noted S7.1.)
-        schema_version="1.1",
+    model = HomeModel(
+        schema_version=CURRENT_VERSION,
         home_id=home_id,
         name=home_name,
         floors=[
@@ -302,9 +359,11 @@ def convert_scan(
                 height_m=max(height_m, 0.01),
                 rooms=model_rooms,
                 openings=openings,
+                objects=model_objects,
             )
         ],
         stairs=[],
         profiles=[],
         meta=Meta(created=timestamp, modified=timestamp),
     )
+    return model, warnings

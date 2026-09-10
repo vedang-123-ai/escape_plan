@@ -24,6 +24,7 @@ SCAN_NAMES = [
     "synthetic-bungalow.roomplan.json",
     "synthetic-messy.roomplan.json",
     "synthetic-shared-door.roomplan.json",
+    "synthetic-empty.roomplan.json",
 ]
 
 
@@ -32,7 +33,7 @@ def load_scan(name: str) -> dict:
 
 
 def convert(name: str) -> HomeModel:
-    return convert_scan(load_scan(name), home_name=name, timestamp=TS)
+    return convert_scan(load_scan(name), home_name=name, timestamp=TS)[0]
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +77,8 @@ def find_opening(model: HomeModel, kind: str, room_ids: set[str]) -> Opening:
 # Every output must satisfy the full HomeModel contract
 # ---------------------------------------------------------------------------
 
+from app.schema_migrator import CURRENT_VERSION
+
 @pytest.mark.parametrize("name", SCAN_NAMES)
 def test_output_validates_against_schema_and_pydantic(name):
     model = convert(name)
@@ -83,6 +86,7 @@ def test_output_validates_against_schema_and_pydantic(name):
     schema = json.loads(SCHEMA_PATH.read_text())
     jsonschema.validate(document, schema)  # shape
     HomeModel.model_validate(document)  # geometry + cross-refs round-trip
+    assert model.schema_version == CURRENT_VERSION
 
 
 @pytest.mark.parametrize("name", SCAN_NAMES)
@@ -93,7 +97,7 @@ def test_conversion_is_idempotent(name):
     # Pre-parsed input takes the same path.
     via_structure = convert_scan(
         RPStructure.parse(load_scan(name)), home_name=name, timestamp=TS
-    ).model_dump_json(exclude_none=True)
+    )[0].model_dump_json(exclude_none=True)
     assert via_structure == first
 
 
@@ -155,6 +159,91 @@ class TestBungalow:
         # as ONE opening, not two.
         doors = [op for op in floor.openings if op.kind.value == "door"]
         assert len(doors) == 2  # front + shared
+
+    def test_objects_converted_and_categories_mapped(self, model):
+        floor = model.floors[0]
+        # We had sofa, tv, bed, chair, storage, stove, unknown
+        assert len(floor.objects) == 6 # chair was dropped
+        
+        cats = {obj.category.value for obj in floor.objects}
+        assert "sofa" in cats
+        assert "tv" in cats
+        assert "bed" in cats
+        assert "storage" in cats
+        assert "heat_source" in cats # stove maps to heat_source
+        assert "other" in cats # unknown maps to other
+        assert "chair" not in cats
+        
+        tv = next(obj for obj in floor.objects if obj.category.value == "tv")
+        assert tv.elevation_m == 0.5
+        assert tv.height_m == 0.8
+        
+        bed = next(obj for obj in floor.objects if obj.category.value == "bed")
+        assert bed.size_m == (1.6, 2.0)
+        assert bed.elevation_m == 0.0
+
+def test_exhaustive_category_map():
+    from app.convert.converter import _OBJ_CATEGORY_MAP, _DROPPED_OBJ_CATS
+    # Assert every documented RoomPlan object category is either mapped or dropped explicitly
+    # iOS 17 RoomPlan categories:
+    rp_categories = {
+        "storage", "refrigerator", "stove", "bed", "sink", "washerDryer", "toilet",
+        "bathtub", "oven", "dishwasher", "table", "sofa", "chair", "fireplace",
+        "television", "stairs"
+    }
+    handled = set(_OBJ_CATEGORY_MAP.keys()) | _DROPPED_OBJ_CATS
+    assert rp_categories.issubset(handled), f"Unhandled RoomPlan categories: {rp_categories - handled}"
+
+
+def test_object_rotation_matches_surfaces():
+    from app.convert.roomplan import RPStructure
+    import math
+
+    # Object rotation convention must match surfaces: 
+    # The transform's X-axis vector defines rotation.
+    # We construct a dummy structure with a surface and an object facing the same way.
+    
+    # 45 deg rotation
+    a = math.radians(45)
+    dx, dz = math.cos(a), math.sin(a)
+    transform = [
+        dx, 0.0, dz, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        -dz, 0.0, dx, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    ]
+    
+    struct = {
+        "version": 3,
+        "rooms": [{
+            "identifier": "dummy",
+            "walls": [{
+                "identifier": "wall",
+                "transform": transform,
+                "dimensions": [1.0, 1.0, 0.0],
+                "confidence": {"high": {}},
+                "category": {"wall": {}},
+                "parentIdentifier": None,
+                "story": 0,
+            }],
+            "objects": [{
+                "identifier": "obj",
+                "transform": transform,
+                "dimensions": [1.0, 1.0, 1.0],
+                "confidence": {"high": {}},
+                "category": {"sofa": {}}
+            }]
+        }]
+    }
+    
+    rp = RPStructure.parse(struct)
+    wall = rp.rooms[0].walls[0]
+    obj = rp.rooms[0].objects[0]
+    
+    wall_rot = math.degrees(math.atan2(wall.transform[2], wall.transform[0]))
+    assert wall_rot == pytest.approx(45.0)
+    assert obj.rotation_deg == pytest.approx(45.0)
+    assert wall_rot == obj.rotation_deg
 
 
 # ---------------------------------------------------------------------------
@@ -223,16 +312,24 @@ class TestSharedDoorGeometric:
         # 4 raw door/window surfaces pair down to exactly 3 openings.
         assert len(floor.openings) == 3
 
+    def test_objects_kitchen_appliances_mapped(self, model):
+        floor = model.floors[0]
+        # shared_door has stove and fridge
+        assert len(floor.objects) == 2
+        cats = {obj.category.value for obj in floor.objects}
+        assert cats == {"heat_source", "appliance"}
+
 
 # ---------------------------------------------------------------------------
 # Lenient input parsing (assumed Swift JSONEncoder quirks)
 # ---------------------------------------------------------------------------
 
 def test_accepts_bare_string_confidence_and_nested_transform():
-    scan = load_scan("synthetic-messy.roomplan.json")
+    scan = load_scan("synthetic-messy.roomplan.json")["rooms"][0]
     for s in scan["walls"]:
         s["confidence"] = next(iter(s["confidence"]))  # {"low": {}} -> "low"
         flat = s["transform"]
         s["transform"] = [flat[i : i + 4] for i in range(0, 16, 4)]
     reference = convert("synthetic-messy.roomplan.json").model_dump_json(exclude_none=True)
-    assert convert_scan(scan, home_name="synthetic-messy.roomplan.json", timestamp=TS).model_dump_json(exclude_none=True) == reference
+    assert convert_scan(scan, home_name="synthetic-messy.roomplan.json", timestamp=TS)[0].model_dump_json(exclude_none=True) == reference
+

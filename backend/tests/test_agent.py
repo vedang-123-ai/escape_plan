@@ -508,3 +508,37 @@ def test_analyze_endpoint_maps_agent_error_to_502(apartment: dict, monkeypatch):
     monkeypatch.setattr("app.main.run_agent_analysis", boom)
     resp = TestClient(app).post("/analyze", json={"home": apartment}, headers=AUTH)
     assert resp.status_code == 502
+
+def test_check_object_hazards_is_registered_as_a_tool():
+    from app.ai.agent import TOOLS
+    tool = next(t for t in TOOLS if t["name"] == "check_object_hazards")
+    assert "required" not in tool["input_schema"]
+    assert set(tool["input_schema"]["properties"]) == {"room_id"}
+
+def test_check_object_hazards_names_the_hazards_and_citations(blocked_home_and_thresholds):
+    from app.ai.agent import _dispatch_tool
+    from app.models import FloorObject
+    home, thresholds = blocked_home_and_thresholds
+    
+    # Add a water heater that triggers a hazard
+    heater = FloorObject(id="heater_1", source="manual", category="water_heater", center=(1.0, 1.0), size_m=(1.0, 1.0), height_m=2.0, rotation_deg=0.0, secured=False)
+    home.floors[0].objects.append(heater)
+    
+    out = _dispatch_tool("check_object_hazards", {}, home, thresholds)
+    hazards = out["hazards"]
+    
+    # Assert we found the hazard
+    assert len(hazards) >= 1
+    heater_hazard = next(h for h in hazards if h["object_id"] == "heater_1" and h["rule_id"] == "water_heater_unsecured")
+    assert heater_hazard["rule_id"] == "water_heater_unsecured"
+    assert heater_hazard["severity"] == "high"
+    assert heater_hazard["citation"] == "fema-earthquake"
+    assert "detail" in heater_hazard
+    assert "Strap it to wall studs" in heater_hazard["detail"] or "strap it" in heater_hazard["detail"].lower()
+
+def test_check_object_hazards_room_filter_scopes_to_one_room(blocked_home_and_thresholds):
+    from app.ai.agent import _dispatch_tool
+    home, thresholds = blocked_home_and_thresholds
+    out_all = _dispatch_tool("check_object_hazards", {}, home, thresholds)
+    out_room = _dispatch_tool("check_object_hazards", {"room_id": "r_bedroom"}, home, thresholds)
+    assert all(h["room_id"] == "r_bedroom" for h in out_room["hazards"])

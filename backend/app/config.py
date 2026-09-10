@@ -48,3 +48,10 @@ def get_thresholds() -> EgressThresholds:
     """Egress thresholds from the corpus (metric authoritative), loaded once."""
     data = json.loads((CORPUS_DIR / "egress_thresholds.json").read_text())
     return EgressThresholds.from_corpus(data)
+
+@lru_cache(maxsize=1)
+def get_object_hazard_thresholds():
+    """Object hazard thresholds from the corpus, loaded once."""
+    from app.routing.object_hazards import ObjectHazardThresholds
+    data = json.loads((CORPUS_DIR / "object_hazard_thresholds.json").read_text())
+    return ObjectHazardThresholds.model_validate(data)

@@ -32,6 +32,7 @@ CITE_RE = re.compile(r"\[cite:\s*([a-z0-9-]+)\]")
 
 SQFT_TO_M2 = 0.09290304
 IN_TO_M = 0.0254
+FT_TO_M = 0.3048
 
 errors: list[str] = []
 
@@ -144,13 +145,55 @@ def main() -> int:
             if isinstance(t, dict):
                 check_threshold(f"{section}.{name}", t)
 
+    # 6. object_hazard_thresholds.json
+    oht_path = CORPUS_DIR / "object_hazard_thresholds.json"
+    if oht_path.exists():
+        try:
+            oht = json.loads(oht_path.read_text())
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"FATAL: cannot load object_hazard_thresholds.json: {e}", file=sys.stderr)
+            return 1
+
+        # 6a. cited thresholds: source_doc_id must resolve, imperial↔metric consistency
+        for name, entry in oht.get("cited", {}).items():
+            if not isinstance(entry, dict):
+                continue
+            sid = entry.get("source_doc_id")
+            if sid not in source_ids:
+                err(f"object_hazard_thresholds.json: cited.{name}: source_doc_id {sid!r} not in sources.json")
+            # imperial↔metric consistency checks
+            pairs = [("value_ft", "value_m", FT_TO_M), ("value_in", "value_m", IN_TO_M)]
+            for imp, met, factor in pairs:
+                if imp in entry and met in entry:
+                    expected = entry[imp] * factor
+                    actual = entry[met]
+                    if abs(expected - actual) / expected > 0.01:
+                        err(
+                            f"object_hazard_thresholds.json: cited.{name}: {imp}={entry[imp]} converts to "
+                            f"{expected:.4f}, but {met}={actual} (>1% off)"
+                        )
+
+        # 6b. engineering_constants: each must have a non-empty 'basis' string
+        for name, entry in oht.get("engineering_constants", {}).items():
+            if not isinstance(entry, dict):
+                continue
+            basis = entry.get("basis")
+            if not basis or not isinstance(basis, str) or not basis.strip():
+                err(f"object_hazard_thresholds.json: engineering_constants.{name}: missing or empty 'basis' string")
+            val = entry.get("value")
+            if val is None or not isinstance(val, (int, float)):
+                err(f"object_hazard_thresholds.json: engineering_constants.{name}: missing or non-numeric 'value'")
+
     if errors:
         print(f"CORPUS INVALID — {len(errors)} problem(s):", file=sys.stderr)
         for e in errors:
             print(f"  - {e}", file=sys.stderr)
         return 1
     n_md = len(on_disk)
-    print(f"Corpus valid: {len(source_ids)} sources, {n_md} corpus files, thresholds consistent.")
+    n_threshold_files = sum(1 for f in ["egress_thresholds.json", "object_hazard_thresholds.json"]
+                            if (CORPUS_DIR / f).exists())
+    print(f"Corpus valid: {len(source_ids)} sources, {n_md} corpus files, "
+          f"{n_threshold_files} threshold file(s) consistent.")
     return 0
 
 

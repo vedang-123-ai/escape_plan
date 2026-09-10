@@ -205,6 +205,26 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "check_object_hazards",
+        "description": (
+            "Run the deterministic object hazard analysis: checks for unsecured tall "
+            "furniture, heavy items over beds, heat clearance violations, and unstrapped "
+            "water heaters. Returns, per finding, the rule_id, severity, target, clearances, "
+            "and the exact detail sentence and citation. Optionally scope to one room. "
+            "Use this to find furniture hazards."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "room_id": {
+                    "type": "string",
+                    "description": "Optional — restrict to one room. Omit to check the whole home.",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "search_corpus",
         "description": (
             "Search the fire-safety grounding corpus for guidance on a topic (e.g. "
@@ -240,14 +260,17 @@ Hard rules:
    fact. Every factual claim about routes or egress must come from \
    compute_routes or check_egress; every claim that furniture is in the way, \
    and every distance you tell someone to move it, must come from \
-   check_obstructions. Never estimate a clearance or a move distance yourself. \
+   check_obstructions. Every claim about an object hazard (unsecured furniture, \
+   heat clearance), every distance and every severity must come from \
+   check_object_hazards. Never estimate a clearance, distance, or severity yourself. \
    Every safety recommendation must be grounded by search_corpus and cite a \
    real source id it returned.
 2. Inspect systematically: get_home_summary first, then examine every room \
    (get_room / list_openings), run compute_routes to see the engine's own \
    bottleneck and no_secondary_egress findings, check_egress on any \
-   opening that looks marginal (small windows, high sills), and \
-   check_obstructions to find furniture standing in the way of a doorway.
+   opening that looks marginal (small windows, high sills), \
+   check_obstructions to find furniture standing in the way of a doorway, \
+   and check_object_hazards to find dangerous furniture or equipment.
 3. A finding without a real tool call behind it is worthless and will be \
    discarded — always call the tool, look at its actual output, THEN write \
    the finding, and reference the exact tool_use_id(s) you used as evidence. \
@@ -259,11 +282,16 @@ Hard rules:
    obstruction on a sleeping room's only way out; med = marginal egress \
    (fails a threshold), a bottleneck opening, or any other 'blocks_opening'; \
    low = best-practice gaps with no acute failure, including 'narrows_route' \
-   squeezes. An obstruction finding is worth writing even when it is easy to \
+   squeezes. For check_object_hazards, high hazards land as high findings; \
+   you may not upgrade or downgrade the severity check_object_hazards gives you. \
+   An obstruction finding is worth writing even when it is easy to \
    fix — moving a wardrobe is the cheapest safety improvement in the house — \
    so name the object, say which doorway, and quote the measured distance \
    check_obstructions returned.
-5. When you have checked every room, call submit_findings exactly once with \
+5. Focus on routes and route protection. Do not guess about general electrical \
+   safety, trip hazards from small items, or things not modeled in the app. \
+   Use check_object_hazards instead of making assumptions about furniture.
+6. When you have checked every room, call submit_findings exactly once with \
    your complete findings list. If you have nothing to report, submit an \
    empty findings list — do not pad it.
 """
@@ -440,6 +468,36 @@ def _dispatch_tool(
                     "detail": o.detail,
                 }
                 for o in found
+            ]
+        }
+
+    if name == "check_object_hazards":
+        from app.routing.object_hazards import analyze_object_hazards
+        from app import config
+        object_thresholds = config.get_object_hazard_thresholds()
+        room_id = tool_input.get("room_id")
+        hazards = analyze_object_hazards(home, object_thresholds)
+        if room_id is not None:
+            hazards = [h for h in hazards if h.room_id == room_id]
+        return {
+            "hazards": [
+                {
+                    "rule_id": h.rule_id,
+                    "severity": h.severity,
+                    "floor_id": h.floor_id,
+                    "room_id": h.room_id,
+                    "room_name": h.room_name,
+                    "object_id": h.object_id,
+                    "object_category": h.object_category,
+                    "target": h.target,
+                    "reach_m": h.reach_m,
+                    "gap_m": h.gap_m,
+                    "clearance_m": h.clearance_m,
+                    "threshold_m": h.threshold_m,
+                    "citation": h.citation,
+                    "detail": h.detail,
+                }
+                for h in hazards
             ]
         }
 

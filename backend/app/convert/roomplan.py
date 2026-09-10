@@ -8,6 +8,7 @@ polygonCorners, ...), and the parser must not break when Apple adds more.
 
 from __future__ import annotations
 
+import math
 from enum import Enum
 from typing import Any, Optional
 
@@ -118,6 +119,42 @@ class RPSection(LenientModel):
         return _unwrap_enum_object(v)
 
 
+class RPObject(LenientModel):
+    """An object detected in the scan."""
+
+    identifier: str
+    category: str
+    transform: list[float] = Field(min_length=16, max_length=16)
+    dimensions: tuple[float, float, float]
+    confidence: RPConfidence = RPConfidence.medium
+
+    @field_validator("transform", mode="before")
+    @classmethod
+    def _flatten_transform(cls, v: Any) -> Any:
+        if isinstance(v, list) and len(v) == 4 and all(isinstance(c, list) for c in v):
+            return [x for col in v for x in col]
+        return v
+
+    @field_validator("confidence", "category", mode="before")
+    @classmethod
+    def _unwrap(cls, v: Any) -> Any:
+        return _unwrap_enum_object(v)
+
+    @property
+    def plan_center(self) -> PlanPoint:
+        return (self.transform[12], self.transform[14])
+
+    @property
+    def center_y(self) -> float:
+        return self.transform[13]
+
+    @property
+    def rotation_deg(self) -> float:
+        dx, dz = self.transform[0], self.transform[2]
+        # x-axis direction
+        return math.degrees(math.atan2(dz, dx))
+
+
 class RPRoom(LenientModel):
     """One CapturedRoom (one scanned room)."""
 
@@ -127,7 +164,7 @@ class RPRoom(LenientModel):
     windows: list[RPSurface] = Field(default_factory=list)
     openings: list[RPSurface] = Field(default_factory=list)
     sections: list[RPSection] = Field(default_factory=list)
-
+    objects: list[RPObject] = Field(default_factory=list)
 
 class RPStructure(LenientModel):
     """A CapturedStructure (merged multi-room scan)."""

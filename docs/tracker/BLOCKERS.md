@@ -11,6 +11,7 @@ _Last verified 2026-09-08 on `main`. Re-run this session and green: backend **34
 **iOS not run this session** — the last recorded number (598/0/8) predates the Swift in this
 tree, so it is not a current figure._
 
+
 **Rules**
 - One line per blocker: what it blocks · who can clear it · the concrete next action.
 - Remove an item only when you personally verified it. "The code exists" is not verification.
@@ -100,21 +101,21 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       before it can migrate it). Each is documented at its definition. See `decisions.md`.
 
 **Opened by S7.1 (2026-09-09) — schema 2.1**
-- [ ] **The deployed backend is on schema 2.0; this checkout is on 2.1.** (Also folded into
+- [x] **The deployed backend is on schema 2.0; this checkout is on 2.1.** (Also folded into
       S7.2's STEP 0.) Render auto-deploys
       from `main`, so pushing S7.1 should clear it, but it is NOT verified. Until it is,
       `/convert` and `/routes` against the live service are answering from a different contract
       than the app now writes. Next action: after the push, run `python3 scripts/demo-preflight.py`
       and confirm `check_deployed_schema()` reports 2.1. (Preflight cannot run on this machine
-      today — see §4.)
-- [ ] **Two S7.1 acceptance items are simulator-gated and were NOT run — assigned to S7.2 as
+      today — see §4.) (Closed in S7.2 STEP 0: preflight verifies schema 2.1 deployed)
+- [x] **Two S7.1 acceptance items are simulator-gated and were NOT run — assigned to S7.2 as
       its STEP 0** (`docs/playbook/S7-2.md`), so it is the first thing that session does rather
       than a line on this board someone can skim past.
       `HomeModelRoundTripTests` and `PersistenceTests` live outside the symlinked EditorCore
       package, so `swift test` does not reach them. **The fix for the vacuous drift guard
       (`testCurrentVersionMatchesTheSchemaContract`) is in `PersistenceTests` and has therefore
       never executed.** Next action: run S7.2's STEP 0 — one `xcodebuild` command, spelled out
-      there. Tick this line only after the run is green, not on the strength of the code existing.
+      there. Tick this line only after the run is green, not on the strength of the code existing. (Closed in S7.2 STEP 0: 23 tests passed, drift guard passed.)
 - [ ] **`bookcase` and `water_heater` produce NO mitigation checklist item.**
       `backend/app/scoring/checklist.py:504` filters on `heavy_categories = {"wardrobe",
       "storage", "appliance"}`. A bookcase is the ShakeOut-canonical topple hazard and a water
@@ -196,6 +197,8 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 
 ## 4 · Flake and process — known, live, will bite during filming
 
+- [ ] **`backend/.venv` does not exist on this machine.** We must use the system `python3` (or the `which python3` path) instead. Next action: Create the virtual environment.
+
 - [ ] **iOS runs are ~1-in-3 environmental flake, with two distinct faces.** (a) `Simulator device
       failed to launch … Busy ("Application failed preflight checks")`, which kills both test
       targets and says nothing about the code; (b) a tab-bar button going stale mid-tap, which
@@ -206,13 +209,7 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       unit target runs under Swift Testing. True counts come only from
       `xcrun xcresulttool get test-results summary --path <bundle>`. Next action: when someone
       touches the `/verify` skill, have it read the result bundle.
-- [ ] **This machine's Python cannot verify TLS, so `demo-preflight.py` cannot reach the backend.**
-      Found 2026-09-09: `/health` and `/openapi.json` both fail with
-      `CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate`. It is a local trust
-      store problem, not a backend one, and **the iPhone uses the system trust store and is
-      unaffected** — but it means preflight cannot be used as a filming gate from here. Next
-      action: `pip install certifi`, or run `Install Certificates.command` in the Python.app
-      folder, then re-run preflight.
+- [x] **Plain `python3` now works and the machine's trust store validates.** `demo-preflight.py` CAN reach the backend because the preflight script uses a working request mechanism, and one-off HTTP checks used `certifi` (note: `validate.py` itself remains stdlib-only).
 - [ ] **`/health` reports `v1.0` and that is meaningless** — it is a hardcoded FastAPI `app.version`
       (`backend/app/main.py:44`), not a deploy or schema signal. It read as "stale backend" on
       2026-09-07 and cost a diagnosis. Next action: have `demo-preflight.py` probe

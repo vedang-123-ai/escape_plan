@@ -29,6 +29,17 @@ protocol ScanSurfaceConvertible {
     var exportStory: Int? { get }
 }
 
+/// One captured object.
+protocol ScanObjectConvertible {
+    var exportIdentifier: UUID { get }
+    /// 16 floats, column-major.
+    var exportTransform: [Float] { get }
+    /// `[width, height, depth]`.
+    var exportDimensions: [Float] { get }
+    var exportConfidence: RawScanConfidence { get }
+    var exportCategory: String { get }
+}
+
 /// One captured room.
 protocol ScanRoomConvertible {
     var exportIdentifier: UUID? { get }
@@ -36,6 +47,7 @@ protocol ScanRoomConvertible {
     var exportDoors: [any ScanSurfaceConvertible] { get }
     var exportWindows: [any ScanSurfaceConvertible] { get }
     var exportOpenings: [any ScanSurfaceConvertible] { get }
+    var exportObjects: [any ScanObjectConvertible] { get }
     var exportSections: [RawScanSection] { get }
 }
 
@@ -75,6 +87,7 @@ enum ScanExportBuilder {
             doors: room.exportDoors.map(makeSurface(from:)),
             windows: room.exportWindows.map(makeSurface(from:)),
             openings: room.exportOpenings.map(makeSurface(from:)),
+            objects: room.exportObjects.map(makeObject(from:)),
             sections: room.exportSections
         )
     }
@@ -90,6 +103,16 @@ enum ScanExportBuilder {
             category: surface.exportCategory,
             parentIdentifier: surface.exportParentIdentifier?.uuidString.lowercased(),
             story: surface.exportStory
+        )
+    }
+
+    static func makeObject(from object: any ScanObjectConvertible) -> RawScanObject {
+        RawScanObject(
+            identifier: object.exportIdentifier.uuidString.lowercased(),
+            transform: object.exportTransform,
+            dimensions: object.exportDimensions,
+            confidence: object.exportConfidence,
+            category: object.exportCategory
         )
     }
 }

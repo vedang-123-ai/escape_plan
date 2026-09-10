@@ -1,0 +1,14 @@
+{
+  "version": 3,
+  "rooms": [
+    {
+      "identifier": "1d846e0e-0814-531c-a628-30851f1604a7",
+      "walls": [],
+      "doors": [],
+      "windows": [],
+      "openings": [],
+      "sections": [],
+      "objects": []
+    }
+  ]
+}

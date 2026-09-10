@@ -33,6 +33,18 @@ final class ScanExportTests: XCTestCase {
         )
     }
 
+    private func object(_ seed: String,
+                        category: String = "sofa",
+                        confidence: RawScanConfidence = .high) -> FakeExportObject {
+        FakeExportObject(
+            exportIdentifier: UUID(uuidString: "00000000-0000-5000-8000-0000000000\(seed)")!,
+            exportTransform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2.5, 1.25, 0, 1],
+            exportDimensions: [5, 2.5, 0],
+            exportConfidence: confidence,
+            exportCategory: category
+        )
+    }
+
     // MARK: - Wire format
 
     /// Swift encodes a case-less enum as `{"high": {}}`; the converter's parser
@@ -75,6 +87,7 @@ final class ScanExportTests: XCTestCase {
             walls: [surface("01")],
             doors: [surface("02", category: .door(isOpen: false))],
             windows: [surface("03", category: .window)],
+            objects: [object("04", category: "table")],
             exportSections: [RawScanSection(label: "livingRoom", center: [1, 1, 1])]
         )
         let export = ScanExportBuilder.makeExport(
@@ -83,9 +96,11 @@ final class ScanExportTests: XCTestCase {
             exportedAt: Date(timeIntervalSince1970: 0)
         )
 
-        XCTAssertEqual(export.version, 2)
+        XCTAssertEqual(export.version, 3)
         XCTAssertEqual(export.rooms.count, 1)
         XCTAssertEqual(export.rooms[0].walls.count, 1)
+        XCTAssertEqual(export.rooms[0].objects.count, 1)
+        XCTAssertEqual(export.rooms[0].objects[0].category, "table")
         XCTAssertEqual(export.rooms[0].sections.first?.label, "livingRoom")
         XCTAssertEqual(export.capture?.mode, "mergedStructure")
 
@@ -137,18 +152,28 @@ struct FakeExportSurface: ScanSurfaceConvertible {
     var exportStory: Int?
 }
 
+struct FakeExportObject: ScanObjectConvertible {
+    var exportIdentifier: UUID
+    var exportTransform: [Float]
+    var exportDimensions: [Float]
+    var exportConfidence: RawScanConfidence
+    var exportCategory: String
+}
+
 struct FakeExportRoom: ScanRoomConvertible {
     var exportIdentifier: UUID?
     var walls: [FakeExportSurface] = []
     var doors: [FakeExportSurface] = []
     var windows: [FakeExportSurface] = []
     var openings: [FakeExportSurface] = []
+    var objects: [FakeExportObject] = []
     var exportSections: [RawScanSection] = []
 
     var exportWalls: [any ScanSurfaceConvertible] { walls }
     var exportDoors: [any ScanSurfaceConvertible] { doors }
     var exportWindows: [any ScanSurfaceConvertible] { windows }
     var exportOpenings: [any ScanSurfaceConvertible] { openings }
+    var exportObjects: [any ScanObjectConvertible] { objects }
 }
 
 struct FakeExportStructure: ScanStructureConvertible {

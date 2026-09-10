@@ -1259,3 +1259,98 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - dec0550 Tracker: activity-log entries from local sessions
   - 162dd49 tracker
 
+## 2026-09-09T22:54:34Z · Anish Yarrakonda · `main` @ `c65edba`
+
+**Uncommitted working-tree changes (5)**
+  - M backend/corpus/sources.json
+  - M backend/corpus/validate.py
+  - M docs/tracker/BLOCKERS.md
+  - ?? backend/corpus/heating-electrical-fire-safety.md
+  - ?? backend/corpus/object_hazard_thresholds.json
+
+## 2026-09-09T23:19:45Z · Anish Yarrakonda · `main` @ `c65edba`
+
+**Uncommitted working-tree changes (9)**
+  - M backend/corpus/sources.json
+  - M backend/corpus/validate.py
+  - M docs/decisions.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - ?? backend/corpus/heating-electrical-fire-safety.md
+  - ?? backend/corpus/object_hazard_thresholds.json
+  - ?? docs/tracker/notes/2026-09-09-s7-2-object-corpus.md
+
+## 2026-09-09T23:21:00Z · Anish Yarrakonda · `main` @ `c65edba`
+
+**Uncommitted working-tree changes (9)**
+  - M backend/corpus/sources.json
+  - M backend/corpus/validate.py
+  - M docs/decisions.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - ?? backend/corpus/heating-electrical-fire-safety.md
+  - ?? backend/corpus/object_hazard_thresholds.json
+  - ?? docs/tracker/notes/2026-09-09-s7-2-object-corpus.md
+
+## 2026-09-09T23:47:15Z · Anish Yarrakonda · `main` @ `c65edba`
+
+**Uncommitted working-tree changes (27)**
+  - M backend/app/convert/README.md
+  - M backend/app/convert/converter.py
+  - M backend/app/convert/roomplan.py
+  - M backend/corpus/sources.json
+  - M backend/corpus/validate.py
+  - M backend/scripts/gen_scan_fixtures.py
+  - M backend/scripts/triage_scan.py
+  - M backend/tests/test_convert.py
+  - M docs/decisions.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Capture/Export/RawScanExport.swift
+  - M escape_plan/Capture/Export/RoomPlanScanSource.swift
+  - M escape_plan/Capture/Export/ScanExportBuilder.swift
+  - M escape_planTests/ScanExportTests.swift
+  - M schema/fixtures/scans/synthetic-bungalow.roomplan.json
+  - M schema/fixtures/scans/synthetic-shared-door.roomplan.json
+  - M tools/scan-export-roundtrip/main.swift
+  - ?? backend/corpus/heating-electrical-fire-safety.md
+  - ?? backend/corpus/object_hazard_thresholds.json
+  - ?? docs/tracker/notes/2026-09-09-s7-2-object-corpus.md
+  - ?? docs/tracker/notes/2026-09-09-s7-3-scan-objects.md
+  - ?? read_pdf.py
+  - ?? search.js
+  - …and 2 more
+
+## 2026-09-10T03:56:07Z · Anish Yarrakonda · `main` @ `c65edba`
+
+**Uncommitted working-tree changes (45)**
+  - M backend/app/convert/README.md
+  - M backend/app/convert/converter.py
+  - M backend/app/convert/roomplan.py
+  - M backend/app/main.py
+  - M backend/app/routing/engine.py
+  - M backend/app/routing/obstructions.py
+  - M backend/corpus/sources.json
+  - M backend/corpus/validate.py
+  - M backend/scripts/gen_scan_fixtures.py
+  - M backend/scripts/triage_scan.py
+  - M backend/tests/test_convert.py
+  - M backend/tests/test_obstructions.py
+  - M docs/decisions.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Capture/Export/RawScanExport.swift
+  - M escape_plan/Capture/Export/RoomPlanScanSource.swift
+  - M escape_plan/Capture/Export/ScanExportBuilder.swift
+  - M escape_planTests/ScanExportTests.swift
+  - M schema/fixtures/scans/synthetic-bungalow.roomplan.json
+  - M schema/fixtures/scans/synthetic-messy.roomplan.json
+  - M schema/fixtures/scans/synthetic-shared-door.roomplan.json
+  - M tools/scan-export-roundtrip/main.swift
+  - ?? backend/app/routing/object_hazards.py
+  - …and 20 more
+

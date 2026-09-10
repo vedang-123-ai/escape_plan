@@ -463,7 +463,7 @@ enum DollhouseSceneBuilder {
                                          depth: object.size_m[1],
                                          height: object.height_m)
         node.name = "object:\(object.id)"
-        node.position = DollhouseGeometry.scenePoint(object.center, y: 0)
+        node.position = DollhouseGeometry.scenePoint(object.center, y: object.elevation_m)
         // Plan CCW rotation about +y: plan +y maps to scene −z, so a CCW plan rotation is a
         // positive rotation about the scene's +y axis.
         node.eulerAngles.y = Float(object.rotation_deg * .pi / 180)

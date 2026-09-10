@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "description": "Machine-readable object-hazard thresholds consumed by the deterministic object-hazard engine (S7.4). 'cited' thresholds carry source ids resolving in sources.json; 'engineering_constants' are our own geometric judgment calls, labeled as such and tunable without touching engine code. The HomeModel schema uses meters, so metric values are authoritative for computation and imperial values are the as-codified citations.",
+  "cited": {
+    "heater_clearance": {
+      "value_ft": 3,
+      "value_m": 0.9144,
+      "source_doc_id": "nfpa-heating-safety",
+      "note": "NFPA recommends keeping anything that can burn at least 3 feet away from heating equipment. Imperial value is the as-published recommendation; metric is authoritative for computation."
+    }
+  },
+  "engineering_constants": {
+    "topple_min_height_m": {
+      "value": 1.2,
+      "unit": "m",
+      "basis": "Our geometric judgment: objects shorter than 1.2 m are unlikely to topple dangerously in an earthquake. This is NOT a codified safety standard — it is a conservative engineering threshold chosen to filter low-risk items while catching bookcases, wardrobes, and tall storage."
+    },
+    "topple_slenderness_ratio": {
+      "value": 2.0,
+      "unit": "dimensionless",
+      "basis": "Our geometric judgment: an object whose height exceeds twice its narrowest base dimension is slender enough to topple. This is NOT a codified safety standard — it approximates the static stability threshold for a rigid body on a flat surface under horizontal acceleration."
+    },
+    "overhead_min_elevation_m": {
+      "value": 0.9,
+      "unit": "m",
+      "basis": "Our geometric judgment: objects mounted 0.9 m or higher above the floor are above a lying person and can fall onto someone in a bed or on a sofa during an earthquake. This is NOT a codified safety standard — it approximates the height of a person's head when lying on a standard mattress."
+    },
+    "door_approach_radius_m": {
+      "value": 0.6,
+      "unit": "m",
+      "basis": "Our geometric judgment: an object toppling within this radius of a door's midpoint is considered a hazard to egress. This is NOT a codified standard, but a conservative heuristic."
+    }
+  }
+}

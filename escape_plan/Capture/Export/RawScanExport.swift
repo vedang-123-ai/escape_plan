@@ -167,6 +167,22 @@ struct RawScanSection: Codable, Equatable {
     var center: [Float]?
 }
 
+// MARK: - Object
+
+/// One 3D object.
+struct RawScanObject: Codable, Equatable {
+    /// Stable RoomPlan UUID. The converter derives every output id from this
+    /// (uuid5), so conversion is idempotent.
+    var identifier: String
+    /// 16 floats, **column-major** `simd_float4x4`.
+    var transform: [Float]
+    /// `[width, height, depth]`.
+    var dimensions: [Float]
+    var confidence: RawScanConfidence
+    /// e.g. "sofa", "table"
+    var category: String
+}
+
 // MARK: - Room / structure
 
 /// One `CapturedRoom`.
@@ -176,6 +192,7 @@ struct RawScanRoom: Codable, Equatable {
     var doors: [RawScanSurface]
     var windows: [RawScanSurface]
     var openings: [RawScanSurface]
+    var objects: [RawScanObject]
     var sections: [RawScanSection]
 
     init(identifier: String? = nil,
@@ -183,12 +200,14 @@ struct RawScanRoom: Codable, Equatable {
          doors: [RawScanSurface] = [],
          windows: [RawScanSurface] = [],
          openings: [RawScanSurface] = [],
+         objects: [RawScanObject] = [],
          sections: [RawScanSection] = []) {
         self.identifier = identifier
         self.walls = walls
         self.doors = doors
         self.windows = windows
         self.openings = openings
+        self.objects = objects
         self.sections = sections
     }
 }
@@ -216,10 +235,10 @@ struct RawScanCaptureMeta: Codable, Equatable {
     var fallbackReason: String?
 }
 
-/// The top-level document written to disk: `{"version": 2, "rooms": [...]}`.
+/// The top-level document written to disk: `{"version": 3, "rooms": [...]}`.
 struct RawScanExport: Codable, Equatable {
     /// Matches the `version` key on the committed synthetic fixtures.
-    static let formatVersion = 2
+    static let formatVersion = 3
 
     var version: Int
     var rooms: [RawScanRoom]

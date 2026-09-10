@@ -38,8 +38,8 @@ import math
 from dataclasses import dataclass
 from typing import Literal
 
-from app.models import EXTERIOR_ID, Floor, FloorObject, HomeModel, Point, Polygon, Room
-from app.routing.egress import EgressThresholds
+from app.models import EXTERIOR_ID, Floor, FloorObject, HomeModel, Point, Polygon, Room, OpeningKind
+from app.routing.egress import EgressThresholds, check_egress
 from app.routing.graph import opening_midpoint, polygon_centroid
 from app.routing.nav_grid import build_room_grid, objects_intersecting
 from app.routing.pathfind import grid_path
@@ -95,14 +95,14 @@ class Obstruction:
         if self.kind == "blocks_opening":
             return (
                 f"{objects.capitalize()} blocks the way to '{self.opening_id}' from "
-                f"inside {self.room_name} — there is no path to that doorway at all. "
+                f"inside {self.room_name} — there is no path to that opening at all. "
                 f"Moving it about {self.suggested_move_m:.2f} m clear of the approach "
                 f"restores a {self.required_width_m:.2f} m escape path."
             )
         return (
             f"The path to '{self.opening_id}' from inside {self.room_name} squeezes to "
             f"{self.passable_width_m:.2f} m past {objects} — still passable, but under "
-            f"the {self.target_width_m:.2f} m that keeps a doorway comfortable in the "
+            f"the {self.target_width_m:.2f} m that keeps an opening comfortable in the "
             f"dark ({self.required_width_m:.2f} m of code clearance plus "
             f"{COMFORT_MARGIN_M:.2f} m of margin each side). Moving it about "
             f"{self.suggested_move_m:.2f} m restores that."
@@ -213,7 +213,6 @@ def analyze_obstructions(
     """
     code_c = code_clearance_m(thresholds)
     comfort_c = code_c + COMFORT_MARGIN_M
-    required_width = thresholds.door_min_width_m
     out: list[Obstruction] = []
 
     for floor in home.floors:
@@ -234,6 +233,18 @@ def analyze_obstructions(
                 # An exit's other side is EXTERIOR — the approach still matters.
                 if op.room_ids == [EXTERIOR_ID]:
                     continue
+                
+                if op.kind == OpeningKind.window:
+                    is_grade = floor.level <= 0
+                    assessment = op.egress if op.egress is not None else check_egress(op, thresholds, grade_floor=is_grade)
+                    if not assessment.viable:
+                        continue
+                    required_width = thresholds.window_min_width_m
+                elif op.kind == OpeningKind.door:
+                    required_width = thresholds.door_min_width_m
+                else:
+                    continue
+
                 host_polygon = polygons.get(op.wall_segment.room_id)
                 if host_polygon is None:
                     continue
@@ -267,7 +278,7 @@ def analyze_obstructions(
                 # A blockage is judged at the code clearance; a squeeze is judged at
                 # the comfort width, which is the only reason it was flagged at all.
                 target_width = (
-                    required_width if not code_ok else 2 * comfort_c
+                    required_width if not code_ok else required_width + 2 * COMFORT_MARGIN_M
                 )
                 out.append(
                     Obstruction(

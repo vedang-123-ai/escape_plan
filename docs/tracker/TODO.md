@@ -93,9 +93,9 @@ venv; both states have been true on "this" machine at different times.
 
 ---
 
-## APPROVED ARC — object hazard detection (S7.1–S7.10, approved 2026-09-08, NOT STARTED)
+## APPROVED ARC — object hazard detection (S7.1–S7.10, approved 2026-09-08)
 
-Scoped, vetted and approved 2026-09-08; zero code written. Rule book:
+Scoped, vetted and approved 2026-09-08; 4 sessions are done. Rule book:
 [`../object-hazard-spec.md`](../object-hazard-spec.md) (authoritative over session files);
 charter: [`../playbook/07-object-hazard-intro.md`](../playbook/07-object-hazard-intro.md); one
 paste-ready prompt per session in `../playbook/S7-1.md` … `S7-10.md`; orchestration brief in
@@ -114,12 +114,13 @@ S7.1–S7.5.
 
 - [x] S7.1 — schema 2.1 (`elevation_m`, `mounted`, categories bookcase/tv/water_heater/heat_source). **DONE 2026-09-09.** Lockstep across JSON Schema, pydantic, Swift Codable, the bundled fixture copies and `ai/builder.py`'s tool schema; `schema-contract-guardian` run and its findings acted on. Backend **360** not-live, EditorCore **273**, corpus valid, all six fixtures pass `app.validate`. **S7.3/S7.4/S7.6 are unblocked.** Two acceptance items could not be closed on this machine (simulator-gated) and are now **STEP 0 of S7.2** — see `docs/playbook/S7-2.md` and `BLOCKERS.md` §3. See `notes/2026-09-09-s7-1-schema-2-1.md`.
   - Also resolved here: the logged "`schema_version` breadth disagrees three ways". Ruling — JSON Schema lists every version the migrators accept (it validates documents on disk), pydantic is `Literal` current-only (it validates the post-migration in-memory model), Swift stays a bare `String` (it must read the old stamp before it can migrate it). Three breadths, one reason each; documented in `decisions.md`.
-- [ ] S7.2 — corpus: heating/electrical fire sources + `object_hazard_thresholds.json`. Blocks S7.4. **Starts with STEP 0: the simulator run S7.1 could not do.** Then:  find current NFPA/USFA URLs and verify each resolves before stamping a retrieved date (the S6.2 dead-URL defect class).
-- [ ] S7.3 — scan objects through the pipeline (RawScanExport v3, RPObject parsing, category map, elevation). Needs S7.1. Next action: read `backend/app/convert/README.md`'s risk table in full first.
-- [ ] S7.4 — the object-hazard engine (`routing/object_hazards.py` — `hazard.py` is TAKEN; R4 widens `obstructions.py`). Needs S7.1+S7.2. Next action: read `obstructions.py` in full; its counterfactual/bisection machinery is the house style.
-- [ ] S7.5 — surfacing: checklist (`hazard.<rule>.<obj_id>`, category `mitigation`, supersedes `mitigation.secure.*` per object), score-cap verification, agent tool `check_object_hazards`. Needs S7.4. Next action: read the merged S6.7 `score.py` Bug A comment — it is the severity-cap contract.
+- [x] S7.2 — corpus: heating/electrical fire sources + `object_hazard_thresholds.json`. Blocks S7.4. DONE 2026-09-09. 23 sources, 9 files. NFPA/USFA URLs verified and stamped.
+- [x] S7.3 — scan objects through the pipeline (RawScanExport v3, RPObject parsing, category map, elevation). Needs S7.1. DONE 2026-09-09. Unblocks S7.8.
+- [x] S7.4 — the object-hazard engine (`routing/object_hazards.py` — `hazard.py` is TAKEN; R4 widens `obstructions.py`). Needs S7.1+S7.2. DONE 2026-09-09. All rules implemented and tests pass. Unblocks S7.5 and S7.8.
+- [x] S7.5 — surfacing: checklist (`hazard.<rule>.<obj_id>`, category `mitigation`, supersedes `mitigation.secure.*` per object), score-cap verification, agent tool `check_object_hazards`. Needs S7.4. DONE 2026-09-09. **S7.7 is now unblocked.**
 - [ ] S7.6 — editor: secured/elevation/mounted controls + the guided hazard hunt (zero network). Needs S7.1. Next action: closes the long-standing `setOpeningWidth` no-UI item while in the inspector.
 - [ ] S7.7 — 3D emphasis + the device pass (real scan with objects; frame-time number). Needs S7.4+S7.5+S7.6. Next action: human with an iPhone; extends `field-test-lidar.md`.
+  - [ ] Real-scan object verification: confirm objects (furniture, doors, windows) are accurately captured in the real scan export.
 - [ ] S7.8 — STRETCH: exit-path re-check (partial re-scan diff, "something new", never a guessed category). Needs S7.3+S7.4. First core-adjacent cut after the Vision pair.
 - [ ] S7.9 — OPTIONAL: Vision photo-assist feasibility spike + capture. Needs S7.6. A documented NO-GO that cuts S7.10 is a SUCCESS outcome.
 - [ ] S7.10 — OPTIONAL: Vision suggestions → editor flow. Needs S7.9. First to cut.
@@ -585,7 +586,7 @@ see `notes/2026-07-23-lane-a-editor-completion.md`. Stairs on a hand-built two-s
 verified in the recorded manual-build run. The old "Render URL is not the app's default"
 item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render URL._
 
-- [ ] `setOpeningWidth` exists in the reducer with tests but has **no UI entry point** — add a
+- [x] `setOpeningWidth` exists in the reducer with tests but has **no UI entry point** — add a
       width control (stepper/slider) to the opening inspector in `HouseScreen` (EditorScreen
       was merged into it in revamp A3). (Lane A)
 - [ ] The House *tab*'s standalone `HouseScreen()` has no `HomeLibrary`, so the

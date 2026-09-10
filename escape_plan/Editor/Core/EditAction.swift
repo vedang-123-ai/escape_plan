@@ -70,6 +70,9 @@ enum EditAction: Equatable, Sendable {
     case rotateObject(objectId: String, rotation_deg: Double)
     case resizeObject(objectId: String, size_m: [Double], height_m: Double)
     case setObjectCategory(objectId: String, category: ObjectCategory)
+    case setObjectSecured(objectId: String, secured: Bool)
+    case setObjectMounted(objectId: String, mounted: Bool)
+    case setObjectElevation(objectId: String, elevation_m: Double)
 
     // MARK: Stairs (S2.2)
     /// Connects `fromRoomId` on `fromFloorId` to `toRoomId` on another floor. `footprint` is a
@@ -121,6 +124,9 @@ extension EditAction {
         case .rotateObject: return "Rotate Object"
         case .resizeObject: return "Resize Object"
         case .setObjectCategory: return "Change Object Type"
+        case .setObjectSecured: return "Toggle Object Secured"
+        case .setObjectMounted: return "Toggle Object Mounted"
+        case .setObjectElevation: return "Change Object Elevation"
         case .addStairs: return "Add Stairs"
         case .deleteStairs: return "Delete Stairs"
         case .confirmAIDraft: return "Confirm AI Draft"

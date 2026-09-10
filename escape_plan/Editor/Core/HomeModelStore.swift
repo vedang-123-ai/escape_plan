@@ -294,6 +294,25 @@ final class HomeModelStore {
             let (f, o) = try objectIndex(draft, objectId)
             draft.floors[f].objects[o].category = category
             return nil
+            
+        case .setObjectSecured(let objectId, let secured):
+            let (f, o) = try objectIndex(draft, objectId)
+            draft.floors[f].objects[o].secured = secured
+            return nil
+            
+        case .setObjectMounted(let objectId, let mounted):
+            let (f, o) = try objectIndex(draft, objectId)
+            draft.floors[f].objects[o].mounted = mounted
+            return nil
+            
+        case .setObjectElevation(let objectId, let elevation_m):
+            if elevation_m < 0 {
+                throw ValidationIssue(.openingDimensions, entityId: objectId,
+                                      "elevation cannot be negative")
+            }
+            let (f, o) = try objectIndex(draft, objectId)
+            draft.floors[f].objects[o].elevation_m = elevation_m
+            return nil
 
         case .addStairs(let fromFloorId, let fromRoomId, let toFloorId, let toRoomId,
                         let footprint, let kind):

@@ -491,7 +491,55 @@ def safe_room_items(
     return items
 
 
-def mitigation_items(home: HomeModel, state: ChecklistState) -> list[ChecklistItem]:
+from app.routing.object_hazards import ObjectHazardThresholds, analyze_object_hazards, ObjectHazard
+
+def object_hazard_items(home: HomeModel, thresholds: ObjectHazardThresholds, state: ChecklistState) -> list[ChecklistItem]:
+    hazards = analyze_object_hazards(home, thresholds)
+    items: list[ChecklistItem] = []
+    
+    for h in hazards:
+        item_id = f"hazard.{h.rule_id}.{h.object_id}"
+        
+        hazard_tag: HazardTag = "general"
+        if h.rule_id in ("topple", "overhead", "water_heater_unsecured"):
+            hazard_tag = "earthquake"
+        elif h.rule_id == "heat_clearance":
+            hazard_tag = "fire"
+            
+        done = state.get(item_id, False) is True
+        
+        if h.rule_id in ("topple", "water_heater_unsecured") and not done:
+            generic_id = f"mitigation.secure.{h.object_id}"
+            renter_id = f"{generic_id}.renter"
+            if state.get(generic_id, False) is True or state.get(renter_id, False) is True:
+                done = True
+
+        title = f"Resolve hazard on {h.object_category} '{h.object_id}'"
+        if h.rule_id == "topple":
+            title = f"Secure {h.object_category} '{h.object_id}' to prevent toppling"
+        elif h.rule_id == "overhead":
+            title = f"Relocate heavy items from {h.object_category} '{h.object_id}'"
+        elif h.rule_id == "heat_clearance":
+            title = f"Move {h.object_category} '{h.object_id}' away from heat source"
+        elif h.rule_id == "water_heater_unsecured":
+            title = f"Strap water heater '{h.object_id}'"
+
+        items.append(ChecklistItem(
+            id=item_id,
+            category="mitigation",
+            hazard=hazard_tag,
+            title=title,
+            detail=h.detail,
+            why=f"[cite: {h.citation}]",
+            done=done,
+            source_citation=h.citation,
+            scoring=False,
+            severity=h.severity,
+        ))
+    return items
+
+
+def mitigation_items(home: HomeModel, state: ChecklistState, hazards: list[ObjectHazard] | None = None) -> list[ChecklistItem]:
     """Earthquake mitigation items for unsecured tall/heavy objects.
 
     Tenure-aware: renters get adhesive-strap guidance (corpus-cited from
@@ -503,12 +551,22 @@ def mitigation_items(home: HomeModel, state: ChecklistState) -> list[ChecklistIt
     )
     heavy_categories = {"wardrobe", "storage", "appliance"}
     items: list[ChecklistItem] = []
+    
+    suppressed_ids = set()
+    if hazards:
+        for h in hazards:
+            if h.rule_id in ("topple", "water_heater_unsecured"):
+                suppressed_ids.add(h.object_id)
+                
     for floor in home.floors:
         for obj in floor.objects:
             if obj.category.value not in heavy_categories:
                 continue
             if obj.secured:
                 continue
+            if obj.id in suppressed_ids:
+                continue
+                
             if is_renter:
                 item_id = f"mitigation.secure.{obj.id}.renter"
                 title = f"Secure {obj.category.value} '{obj.id}' with earthquake-rated adhesive straps"
@@ -813,6 +871,7 @@ def build_checklist(
     tornado_plan: Optional[RoutePlan] = None,
     earthquake_plan: Optional[RoutePlan] = None,
     now: Optional[datetime] = None,
+    object_hazard_thresholds: Optional[ObjectHazardThresholds] = None,
 ) -> list[ChecklistItem]:
     """The full deterministic checklist, ordered scoring-items-first.
 
@@ -833,6 +892,10 @@ def build_checklist(
     if earthquake_plan is not None:
         all_plans.append(earthquake_plan)
 
+    hazards = []
+    if object_hazard_thresholds:
+        hazards = analyze_object_hazards(home, object_hazard_thresholds)
+
     items = [
         *smoke_alarm_items(home, state),
         *practice_items(state, now),
@@ -842,7 +905,8 @@ def build_checklist(
         # S6.4 additions:
         *shutoff_items(home, state),
         *safe_room_items(tornado_plan, state),
-        *mitigation_items(home, state),
+        *(object_hazard_items(home, object_hazard_thresholds, state) if object_hazard_thresholds else []),
+        *mitigation_items(home, state, hazards=hazards),
         *supply_kit_items(state),
         *alert_items(home, state),
         *household_items(home, state, plan, tornado_plan),

@@ -35,7 +35,7 @@ from app.models import HomeModel  # noqa: E402
 # that is what makes the idempotency check below meaningful.
 FIXED_TIME = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
-SURFACE_ARRAYS = ("walls", "doors", "windows", "openings")
+SURFACE_ARRAYS = ("walls", "doors", "windows", "openings", "objects")
 
 # Emitted by the converter when a room's wall chain could not be closed into a
 # simple polygon (app/convert/README.md, pipeline step 5).
@@ -223,8 +223,25 @@ def is_axis_aligned(polygon: list[tuple[float, float]]) -> bool:
                for i in range(n))
 
 
-def report_model(home: HomeModel) -> None:
+def point_in_polygon(polygon, point):
+    x, y = point
+    inside = False
+    n = len(polygon)
+    for i in range(n):
+        x1, y1 = polygon[i]
+        x2, y2 = polygon[(i + 1) % n]
+        if ((y1 > y) != (y2 > y)) and (x < (x2 - x1) * (y - y1) / (y2 - y1) + x1):
+            inside = not inside
+    return inside
+
+def report_model(home: HomeModel, export: dict[str, Any]) -> None:
     section("Converted HomeModel")
+    
+    from app.convert.converter import _slug
+    rooms_data = export.get("rooms", [export])
+    raw_objects = [obj for r in rooms_data for obj in r.get("objects", [])]
+    orig_cats = {_slug(o["identifier"], "obj"): o.get("category", "unknown") for o in raw_objects if "identifier" in o}
+    
     rectangles = 0
     for floor in home.floors:
         print(f"  floor {floor.id!r} level={floor.level} height={floor.height_m}m")
@@ -240,9 +257,25 @@ def report_model(home: HomeModel) -> None:
             exit_marker = " EXIT" if "EXTERIOR" in op.room_ids else ""
             print(f"    {op.kind:<7} {op.id!r} conf={op.confidence} "
                   f"w={op.width_m}m rooms={list(op.room_ids)}{exit_marker}")
+        for obj in floor.objects:
+            orig_cat = orig_cats.get(obj.id, "unknown")
+            print(f"    object  {obj.id!r} category={obj.category.value} (raw: {orig_cat}) conf={obj.confidence} "
+                  f"size={obj.size_m[0]}x{obj.size_m[1]}m height={obj.height_m}m elev={obj.elevation_m}m")
 
     all_rooms = [r for f in home.floors for r in f.rooms]
     all_openings = [o for f in home.floors for o in f.openings]
+    all_objects = [o for f in home.floors for o in f.objects]
+    
+    converted_ids = {o.id for o in all_objects}
+    dropped = [o for o in raw_objects if "identifier" in o and _slug(o["identifier"], "obj") not in converted_ids]
+    for d in dropped:
+        print(f"    DROPPED {d['identifier']!r} category={d.get('category')}")
+
+    for floor in home.floors:
+        for obj in floor.objects:
+            inside = any(point_in_polygon(r.polygon, obj.center) for r in floor.rooms)
+            if not inside:
+                note("WARN", f"Object {obj.id!r} center {obj.center} is OUTSIDE all room polygons")
 
     section("Acceptance signals")
     if not all_rooms:
@@ -300,7 +333,7 @@ def report_model(home: HomeModel) -> None:
 
 def check_idempotency(export: dict[str, Any], first: HomeModel) -> None:
     section("Idempotency")
-    second = convert_scan(export, home_name="Triage", timestamp=FIXED_TIME)
+    second, _ = convert_scan(export, home_name="Triage", timestamp=FIXED_TIME)
     a = first.model_dump_json(exclude_none=True)
     b = second.model_dump_json(exclude_none=True)
     if a == b:
@@ -345,7 +378,9 @@ def main() -> int:
     check_rooms(rooms)
 
     try:
-        home = convert_scan(export, home_name="Triage", timestamp=FIXED_TIME)
+        home, warnings = convert_scan(export, home_name="Triage", timestamp=FIXED_TIME)
+        for w in warnings:
+            note("WARN", f"Converter: {w}")
     except Exception as exc:  # noqa: BLE001 — the whole point is to report, not raise
         section("Conversion")
         note("FAIL", f"convert_scan raised {type(exc).__name__}: {exc}")
@@ -353,7 +388,7 @@ def main() -> int:
               "add this export to schema/fixtures/scans/ and write a failing test first.")
         return 2
 
-    report_model(home)
+    report_model(home, export)
     check_idempotency(export, home)
     check_contract(home)
 

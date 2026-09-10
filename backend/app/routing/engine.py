@@ -304,7 +304,7 @@ def compute_route_plan(
 
             for opening_id in graph.blocked_openings.get(room.id, []):
                 # Name the culprit when the counterfactual can identify one — "move
-                # the wardrobe 0.85 m" is advice; "an object blocks the doorway" is
+                # the wardrobe 0.85 m" is advice; "an object blocks the opening" is
                 # a shrug. Falls back to the generic wording when the obstruction is
                 # the room's geometry rather than its furniture.
                 blamed = obstructions_by_opening.get((room.id, opening_id))
@@ -317,7 +317,7 @@ def compute_route_plan(
                             if blamed is not None
                             else (
                                 f"Opening '{opening_id}' can't be reached from inside "
-                                f"'{room.name}' — an object blocks the doorway or "
+                                f"'{room.name}' — an object blocks the opening or "
                                 "narrows its approach below the egress clearance."
                             )
                         ),

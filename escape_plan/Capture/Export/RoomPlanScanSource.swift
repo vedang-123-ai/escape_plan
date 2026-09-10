@@ -67,6 +67,29 @@ extension CapturedRoom.Surface: ScanSurfaceConvertible {
     }
 }
 
+// MARK: - Object
+
+@available(iOS 16.0, *)
+extension CapturedRoom.Object: ScanObjectConvertible {
+    var exportIdentifier: UUID { identifier }
+    var exportTransform: [Float] { transform.exportColumnMajorFloats }
+    var exportDimensions: [Float] { [dimensions.x, dimensions.y, dimensions.z] }
+
+    var exportConfidence: RawScanConfidence {
+        switch confidence {
+        case .high: return .high
+        case .medium: return .medium
+        case .low: return .low
+        @unknown default: return .medium
+        }
+    }
+
+    var exportCategory: String {
+        let raw = String(describing: category)
+        return raw.components(separatedBy: "(").first ?? raw
+    }
+}
+
 // MARK: - Room
 
 @available(iOS 16.0, *)
@@ -80,6 +103,7 @@ extension CapturedRoom: ScanRoomConvertible {
     var exportDoors: [any ScanSurfaceConvertible] { doors }
     var exportWindows: [any ScanSurfaceConvertible] { windows }
     var exportOpenings: [any ScanSurfaceConvertible] { openings }
+    var exportObjects: [any ScanObjectConvertible] { objects }
 
     var exportSections: [RawScanSection] {
         sections.map { section in

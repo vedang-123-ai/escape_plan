@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from app.models import FloorObject, HomeModel, ObjectCategory, Source
+from app.models import FloorObject, HomeModel, ObjectCategory, Source, EXTERIOR_ID
 from app.routing.egress import EgressThresholds
 from app.routing.obstructions import (
     COMFORT_MARGIN_M,
@@ -225,3 +225,57 @@ def test_squeeze_suggests_a_move_that_actually_closes_the_gap(thresholds) -> Non
     found = analyze_obstructions(_narrow_home(), thresholds)[0]
     assert found.passable_width_m + found.suggested_move_m >= found.target_width_m
     assert round(found.suggested_move_m * 100) % 5 == 0
+
+# ---------------------------------------------------------------------------
+# Window egress obstruction
+
+from app.models import Opening, WallSegmentRef, OpeningKind
+
+def _window_home(is_egress: bool) -> HomeModel:
+    home = _blocked_home()
+    # Replace the door with a window
+    # Make it egress-qualifying or not based on is_egress
+    floor = home.floors[0]
+    
+    # Let's find a room to put the window in
+    room_id = "r_bedroom"
+    
+    # We will just add a window to the floor and a blocking object
+    window = Opening(
+        id="w_test_window",
+        kind=OpeningKind.window,
+        room_ids=[room_id, EXTERIOR_ID],
+        wall_segment=WallSegmentRef(room_id=room_id, edge_index=0, t0=0.4, t1=0.6),
+        width_m=1.0 if is_egress else 0.4, # 0.4 fails width, 1.0 passes
+        height_m=1.5 if is_egress else 0.4, # fails height
+        sill_height_m=1.0,
+        source=Source.scan,
+        confidence=1.0,
+    )
+    floor.openings.append(window)
+    
+    floor.objects.clear()
+    
+    # Add an object right in front of the window (edge 0 is usually y=0 or x=0)
+    # The room is typically a box. Let's just put a massive object covering the whole room.
+    blocker = _box("o_window_blocker", (2.5, 2.5), size=(5.0, 5.0))
+    floor.objects.append(blocker)
+    
+    return home
+
+def test_egress_window_blocked_emits_finding(thresholds) -> None:
+    home = _window_home(is_egress=True)
+    obstructions = analyze_obstructions(home, thresholds)
+    window_obs = [o for o in obstructions if o.opening_id == "w_test_window"]
+    assert len(window_obs) == 1
+    assert window_obs[0].kind == "blocks_opening"
+    assert window_obs[0].object_ids == ("o_window_blocker",)
+    assert window_obs[0].required_width_m == thresholds.window_min_width_m
+    assert "door" not in window_obs[0].detail.lower()
+
+def test_non_egress_window_blocked_emits_nothing(thresholds) -> None:
+    home = _window_home(is_egress=False)
+    obstructions = analyze_obstructions(home, thresholds)
+    window_obs = [o for o in obstructions if o.opening_id == "w_test_window"]
+    assert len(window_obs) == 0
+
