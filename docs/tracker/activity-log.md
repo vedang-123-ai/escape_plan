@@ -1436,3 +1436,8 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - M escape_planTests/OnboardingTests.swift
   - M escape_planUITests/RouteRedrawAfterEditUITests.swift
 
+## 2026-09-10T18:32:13Z · Anish Yarrakonda · `main` @ `cddf695`
+
+**Commits this session**
+  - cddf695 Backlog cleanup: close every agent-doable Known Defect in BLOCKERS.md
+
