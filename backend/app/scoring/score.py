@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import math
-from typing import Optional, Sequence
+from typing import Optional, Sequence, TYPE_CHECKING
 from datetime import datetime
+
+if TYPE_CHECKING:
+    from app.routing.object_hazards import ObjectHazardThresholds
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -63,7 +66,7 @@ def compute_score(
     *,
     tornado_plan: Optional[RoutePlan] = None,
     earthquake_plan: Optional[RoutePlan] = None,
-    object_hazard_thresholds: Optional[Any] = None,
+    object_hazard_thresholds: Optional[ObjectHazardThresholds] = None,
     now: Optional[datetime] = None,
 ) -> ScoreBreakdown:
     findings = findings or []

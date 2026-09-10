@@ -10,10 +10,14 @@ import json
 import os
 from functools import lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
 from app.routing.egress import EgressThresholds
+
+if TYPE_CHECKING:
+    from app.routing.object_hazards import ObjectHazardThresholds
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 CORPUS_DIR = BACKEND_DIR / "corpus"
@@ -50,8 +54,10 @@ def get_thresholds() -> EgressThresholds:
     return EgressThresholds.from_corpus(data)
 
 @lru_cache(maxsize=1)
-def get_object_hazard_thresholds():
+def get_object_hazard_thresholds() -> ObjectHazardThresholds:
     """Object hazard thresholds from the corpus, loaded once."""
-    from app.routing.object_hazards import ObjectHazardThresholds
+    # Runtime import to break the import cycle (config → object_hazards → models → …).
+    # The type annotation uses the TYPE_CHECKING import at module level.
+    from app.routing.object_hazards import ObjectHazardThresholds as _OHT
     data = json.loads((CORPUS_DIR / "object_hazard_thresholds.json").read_text())
-    return ObjectHazardThresholds.model_validate(data)
+    return _OHT.model_validate(data)
