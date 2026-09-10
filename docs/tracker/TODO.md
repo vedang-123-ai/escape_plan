@@ -118,8 +118,8 @@ S7.1–S7.5.
 - [x] S7.3 — scan objects through the pipeline (RawScanExport v3, RPObject parsing, category map, elevation). Needs S7.1. DONE 2026-09-09. Unblocks S7.8.
 - [x] S7.4 — the object-hazard engine (`routing/object_hazards.py` — `hazard.py` is TAKEN; R4 widens `obstructions.py`). Needs S7.1+S7.2. DONE 2026-09-09. All rules implemented and tests pass. Unblocks S7.5 and S7.8.
 - [x] S7.5 — surfacing: checklist (`hazard.<rule>.<obj_id>`, category `mitigation`, supersedes `mitigation.secure.*` per object), score-cap verification, agent tool `check_object_hazards`. Needs S7.4. DONE 2026-09-09. **S7.7 is now unblocked.**
-- [ ] S7.6 — editor: secured/elevation/mounted controls + the guided hazard hunt (zero network). Needs S7.1. Next action: closes the long-standing `setOpeningWidth` no-UI item while in the inspector.
-- [ ] S7.7 — 3D emphasis + the device pass (real scan with objects; frame-time number). Needs S7.4+S7.5+S7.6. Next action: human with an iPhone; extends `field-test-lidar.md`.
+- [x] S7.6 — editor: secured/elevation/mounted controls + the guided hazard hunt (zero network). Needs S7.1. DONE 2026-09-09. `HazardHuntView.swift` added, `EditAction` extended with `setObjectSecured`/`setObjectMounted`/`setObjectElevation`, `HouseScreen` inspector updated. iOS suite: 598 passed, 0 failed, 8 skipped (iPhone 17 Pro / iOS 26.5). See `notes/2026-09-09-s7-6-hazard-hunt.md`.
+- [ ] S7.7 — 3D emphasis + the device pass (real scan with objects; frame-time number). Needs S7.4+S7.5+S7.6 (all done). Next action: 3D hazard highlighting on the dollhouse (non-device half), then human with an iPhone for the device pass; extends `field-test-lidar.md`.
   - [ ] Real-scan object verification: confirm objects (furniture, doors, windows) are accurately captured in the real scan export.
 - [ ] S7.8 — STRETCH: exit-path re-check (partial re-scan diff, "something new", never a guessed category). Needs S7.3+S7.4. First core-adjacent cut after the Vision pair.
 - [ ] S7.9 — OPTIONAL: Vision photo-assist feasibility spike + capture. Needs S7.6. A documented NO-GO that cuts S7.10 is a SUCCESS outcome.
