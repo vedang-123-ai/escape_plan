@@ -6,14 +6,15 @@ what actually stops the project from shipping, ranked by what is on the critical
 
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
-_Last verified 2026-09-09 on `main` (commit `f4bde0a` + the backlog-cleanup pass in
-`notes/2026-09-09-backlog-cleanup.md`). Re-run this session and green: backend **385** pass (13
-live-deselected), EditorCore **275** pass, corpus valid (**23** sources, **9** files, **2**
-threshold files). **iOS: 615 passed, 0 failed, 8 skipped, 620 total** (iPhone 17 Pro / iOS 26.5
-simulator, single uncontended run, `xcresulttool` summary from bundle
-`Test-escape_plan-2026.09.09_23-31-03--0700.xcresult`; the 4-test jump from 616 is the new
-`FloorObject.size_m` and onboarding-seeding tests). `RouteRedrawAfterEditUITests` run live
-separately with `TEST_RUNNER_ROUTE_REDRAW=1` against a local backend — still red, see §3._
+_Last verified 2026-09-10 on `main`. **Re-run and green this session:** EditorCore **295** pass
+(275 + the 20 new hazard-hunt planner tests), corpus valid (**24** sources, **9** files, **2**
+threshold files). **NOT re-run this session:** backend (**385** pass as of 2026-09-09, 13
+live-deselected — `pytest` is not installed for any interpreter on this machine, see §4) and iOS
+(**615 passed, 0 failed, 8 skipped, 620 total** as of 2026-09-09, iPhone 17 Pro / iOS 26.5
+simulator, `xcresulttool` summary from bundle
+`Test-escape_plan-2026.09.09_23-31-03--0700.xcresult`). `HazardHuntView.swift` changed after that
+iOS run and has not been compiled since. `RouteRedrawAfterEditUITests` run live separately with
+`TEST_RUNNER_ROUTE_REDRAW=1` against a local backend — still red, see §3._
 
 
 **Rules**
@@ -220,6 +221,20 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       launching), then re-run and confirm the pixel assertions themselves pass. Fixed 2026-09-10 by force-seeding `twostory` via the `-TEST_SEED_DEMO_HOME` launch argument, replacing the deprecated `Explode` element with `house.addMenu`, and resolving pixel ghosting by tapping the `Upstairs` floor button to make it active before the screenshot.
 - [x] **`routing/perils/objective.py` was a stub** — four unused imports and a "shared logic here
       if needed" comment. Verified no imports with `rg`, then deleted 2026-09-09.
+- [ ] **The hazard hunt's iOS half is unverified.** `HazardHuntView.swift` was rewritten
+      2026-09-10 to render `HazardHuntPlan` (three defects fixed — see
+      `notes/2026-09-10-hazard-hunt-rough-edges.md`). The planner is green on EditorCore
+      (**295** tests) but **the iOS target has not been compiled since**, so the view is
+      typechecked by nothing. Next action: one `xcodebuild` run, owner-gated per the simulator
+      restriction. Do not tick this on the strength of EditorCore being green — it does not
+      compile SwiftUI.
+
+- [ ] **The hunt's scan-seeding has never met a real scan.** The new relabel questions ("the
+      scan found a tall storage unit — is it a bookcase?") are driven by scanned objects, and
+      every test feeds them synthetic ones. Whether RoomPlan actually returns a tall `storage`
+      for a real bookcase, or an `appliance` for a real water heater, is unknown. Next action:
+      fold into the §2 device pass — walk the hunt in a real scanned room.
+
 - [ ] **19 contract tests exist only on the `my-s6-1-and-policy` branch**, not on `main`: the
       safety-point/household/tenure/equipment invariants, the bundled-fixture drift guard,
       `test_safety_points_are_not_obstacles`, the two sensory-tag routing-neutrality tests, and
@@ -235,7 +250,11 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 
 ## 4 · Flake and process — known, live, will bite during filming
 
-- [ ] **`backend/.venv` does not exist on this machine.** We must use the system `python3` (or the `which python3` path) instead. Next action: Create the virtual environment.
+- [ ] **`backend/.venv` does not exist, and NO interpreter on this machine has `pytest`.**
+      Verified 2026-09-10: system `python3` is 3.9 and `/opt/homebrew/bin/python3.13` both
+      report `No module named pytest`, so **the backend suite cannot be run here at all** — not
+      just "use a different python". Anything backend-side is unverifiable on this machine until
+      the venv exists. Next action: create it from `backend/requirements.txt`.
 
 - [ ] **iOS runs are ~1-in-3 environmental flake, with two distinct faces.** (a) `Simulator device
       failed to launch … Busy ("Application failed preflight checks")`, which kills both test
