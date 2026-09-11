@@ -1563,3 +1563,52 @@ device checks not re-run).
 **Why:** A macOS CLI script testing `VNClassifyImageRequest` on representative images (space heater, water heater, bookcase, wall-mounted TV, mirror, radiator, etc.) yielded only one usable label mapping (`television` for Wall-mounted TV). Other objects returned overly generic labels (e.g. `structure`, `portal`) or completely misidentified the subject.
 
 The established S7 playbook gate explicitly required 2+ target classes to receive usable label mappings to proceed to S7.10. Since the condition failed, building the Vision classifier into the app's Hazard Hunt is unwarranted and the feature is cancelled. S7.9's NO-GO represents a successful completion of the spike and a clean cutoff of S7.10.
+
+## 2026-09-10 — The hazard hunt asks about what the scan found
+
+**Decision:** Hunt question generation moves out of `HazardHuntView` into
+`HazardHuntPlan` (EditorCore, Foundation-only, pure), and the questions are now derived from
+the objects already in the room rather than asked cold.
+
+**Why it moved:** the questions lived inside a SwiftUI view, which `swift test` cannot reach
+and the iOS suite never exercised. Three defects survived there unnoticed — one of them
+silently disabled a rule that cites FEMA. Logic no test can reach is logic nobody is checking;
+the view is now a renderer for a tested value.
+
+**The three defects, and what replaced them:**
+
+1. **The water-heater question was inverted.** It asked "Water heater — strapped?" and a Yes
+   created a heater with `secured: true`; a No created **nothing at all**. So the user with an
+   unstrapped water heater — precisely the hazard `water_heater_unsecured` exists to catch —
+   answered honestly and the model recorded nothing. It is now two questions ("is there one?",
+   then "is it strapped?"), and the No branch dispatches `setObjectSecured(false)` rather than
+   skipping, so every combination of answers lands in the model.
+   `testUnstrappedWaterHeaterIsRecordedInsteadOfDropped` is the guard.
+
+2. **Every answer landed at the room's centroid.** All four hazard rules are measured in
+   distance — topple reach to the bed, clearance from the heat source — so a confirmed bookcase
+   dropped in the middle of the room was a correct answer measured against the wrong place.
+   Objects the app can place from real geometry now are: the fallback bookcase goes beside the
+   scanned bed (first side that fits inside the room polygon, fixed order for determinism), and
+   a mounted object goes at the bed's center with `elevation_m` set. Objects it genuinely
+   cannot place — a portable heater has no scanned counterpart — carry a `placementHint` the
+   view renders, instead of a silent guess.
+
+3. **It asked cold.** The hunt ignored the scan, so a room whose scan already contained a
+   1.9 m `storage` unit was still asked "anything tall and heavy near the bed?", inviting a
+   second object on top of the first. Now a tall scanned `storage`/`wardrobe` produces a
+   *relabel* question (`setObjectCategory(.bookcase)`) against that object, and the cold
+   fallback is only asked when the room has nothing topple-prone at all. Same for the water
+   heater: a scanned `appliance` in a utility room is offered for relabeling before a new
+   object is invented. This is the cheap half of "close the gap between RoomPlan's taxonomy
+   and ours" — RoomPlan sees the box and gets the label wrong; only the label needs asking.
+
+**Also ruled here:** the mounted-above-the-bed question is not asked in a bedroom with no bed
+("above it" needs an "it"), the strap question is skipped for `mounted` objects (a wall shelf
+is not a floor-standing topple risk), and the heater question is skipped in bathrooms and
+kitchens. Scope discipline: no new colour (the hint uses `DS.supporting`), no new
+`EditAction` — every answer is expressed in the vocabulary S7.6 already added.
+
+**Not done here:** the placement improvement helps only where the scan found an anchor. The
+general fix is the same one the S7.9 NO-GO leaves open — better identification of scanned
+objects — and it stays open.
