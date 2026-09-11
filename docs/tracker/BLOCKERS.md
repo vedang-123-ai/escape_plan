@@ -225,15 +225,16 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       2026-09-10 to render `HazardHuntPlan` (three defects fixed — see
       `notes/2026-09-10-hazard-hunt-rough-edges.md`). The planner is green on EditorCore
       (**295** tests) but **the iOS target has not been compiled since**, so the view is
-      typechecked by nothing. Next action: one `xcodebuild` run, owner-gated per the simulator
-      restriction. Do not tick this on the strength of EditorCore being green — it does not
-      compile SwiftUI.
+      typechecked by nothing. **Handed to S7.7 as its STEP 0** (`docs/playbook/S7-7.md`) so it
+      is the first thing that session does — one `xcodebuild build`, spelled out there — rather
+      than a line here someone can skim past. Do not tick this on the strength of EditorCore
+      being green; it does not compile SwiftUI.
 
 - [ ] **The hunt's scan-seeding has never met a real scan.** The new relabel questions ("the
       scan found a tall storage unit — is it a bookcase?") are driven by scanned objects, and
       every test feeds them synthetic ones. Whether RoomPlan actually returns a tall `storage`
-      for a real bookcase, or an `appliance` for a real water heater, is unknown. Next action:
-      fold into the §2 device pass — walk the hunt in a real scanned room.
+      for a real bookcase, or an `appliance` for a real water heater, is unknown. Folded into
+      the §2 device pass via S7.7's STEP 0 — walk the hunt in a real scanned room.
 
 - [ ] **19 contract tests exist only on the `my-s6-1-and-policy` branch**, not on `main`: the
       safety-point/household/tenure/equipment invariants, the bundled-fixture drift guard,
