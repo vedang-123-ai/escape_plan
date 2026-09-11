@@ -698,6 +698,7 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       Swift cases automatically. Today's sweep was by hand and found the gap six days late;
       nothing stops the next one. Cheapest version: a pytest that imports the enums, greps
       the Swift sources, and asserts the value sets match.
+- [ ] **S7.10 is CUT.** The Vision feasibility spike (S7.9) failed the gate (fewer than two target classes got usable mappings). The feature is cancelled, per the playbook. (S7.9/S7.10)
 
 ## Backend
 

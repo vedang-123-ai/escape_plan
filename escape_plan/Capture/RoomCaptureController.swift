@@ -47,6 +47,7 @@ enum ScanPhase: Equatable {
 @MainActor
 @Observable
 final class RoomCaptureController {
+    var recheckRoomID: String? = nil
 
     private(set) var phase: ScanPhase = .instructions
     /// Rooms captured so far this session (one per run/stop cycle).
@@ -108,6 +109,20 @@ final class RoomCaptureController {
 
     /// Finish the current room. Keeps ARKit tracking alive so the next room
     /// shares a world origin — the precondition for a coherent merge.
+    func startSingleRoomScan(roomID: String) {
+        reset()
+        recheckRoomID = roomID
+        #if canImport(RoomPlan) && !targetEnvironment(simulator)
+        installDelegateIfNeeded()
+        let configuration = RoomCaptureSession.Configuration()
+        configuration.isCoachingEnabled = true
+        roomCaptureView.captureSession.run(configuration: configuration)
+        phase = .scanning
+        #else
+        phase = .failed("Scanning requires a LiDAR-equipped device.")
+        #endif
+    }
+
     func finishCurrentRoom() {
         #if canImport(RoomPlan) && !targetEnvironment(simulator)
         roomCaptureView.captureSession.stop(pauseARSession: false)
@@ -213,17 +228,20 @@ final class RoomCaptureController {
             do {
                 let builder = StructureBuilder(options: [.beautifyObjects])
                 let structure = try await builder.capturedStructure(from: rooms)
-                return (structure, .mergedStructure, nil, structure)
+                let mode: RawScanCaptureMode = self.recheckRoomID != nil ? .singleRoom : .mergedStructure
+                return (structure, mode, nil, structure)
             } catch {
                 // Not fatal: the playbook's documented fallback. S1.5 merges.
                 let reason = "StructureBuilder merge failed (\(error.localizedDescription)); "
                     + "exported \(rooms.count) unmerged room(s)."
                 print("[RoomCaptureController] \(reason)")
-                return (CapturedRoomCollection(rooms: rooms), .sequentialRooms, reason, rooms)
+                let mode: RawScanCaptureMode = self.recheckRoomID != nil ? .singleRoom : .sequentialRooms
+        return (CapturedRoomCollection(rooms: rooms), mode, reason, rooms)
             }
         }
         let reason = "StructureBuilder needs iOS 17; exported \(rooms.count) unmerged room(s)."
-        return (CapturedRoomCollection(rooms: rooms), .sequentialRooms, reason, rooms)
+        let mode: RawScanCaptureMode = self.recheckRoomID != nil ? .singleRoom : .sequentialRooms
+        return (CapturedRoomCollection(rooms: rooms), mode, reason, rooms)
     }
 
     /// Best-effort USDZ. A failed USDZ must not cost the user the JSON.

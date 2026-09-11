@@ -21,6 +21,7 @@ struct HomeScreen: View {
     @State private var showingNewHome = false
     @State private var showingBuildFromPlan = false
     @State private var showingScan = false
+    @State private var targetRecheckRoomID: String? = nil
     @State private var openHomeID: String?
     @State private var scoreHomeID: String?
     @State private var drillHomeID: String?
@@ -84,9 +85,14 @@ struct HomeScreen: View {
             }
             .fullScreenCover(isPresented: $showingScan) {
                 ScanFlowView(
+                    recheckRoomID: targetRecheckRoomID,
                     onFinished: { artifacts in
                         showingScan = false
-                        Task { await importScan(artifacts) }
+                        if let rid = targetRecheckRoomID {
+                            Task { await processRecheck(artifacts: artifacts, roomID: rid) }
+                        } else {
+                            Task { await importScan(artifacts) }
+                        }
                     },
                     onCancel: { showingScan = false }
                 )
@@ -208,7 +214,9 @@ struct HomeScreen: View {
             ChecklistItemSheet(item: item,
                                isDone: isDone(item),
                                primary: primaryAction(for: item),
-                               onPrimary: { performPrimaryAction(for: item) })
+                               onPrimary: { performPrimaryAction(for: item) },
+                               secondary: item.id == "practice.drill_recent" ? ChecklistRowAction(title: "Re-check with the camera", icon: "camera.viewfinder", navigates: false) : nil,
+                               onSecondary: item.id == "practice.drill_recent" ? { detailItem = nil; targetRecheckRoomID = getPrimaryRouteCorridor(); showingScan = true } : nil)
         }
     }
 
@@ -530,7 +538,7 @@ struct HomeScreen: View {
     /// items keep a one-tap checkbox on the left; engine-scored items show their state only.
     private func checklistRow(_ item: ChecklistItem, isHighSeverity: Bool) -> some View {
         let done = isDone(item)
-        return HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             checkbox(for: item, done: done)
             Button {
                 detailItem = item
@@ -714,6 +722,18 @@ struct HomeScreen: View {
     
     // MARK: - Scoring
     
+    
+    private func getPrimaryRouteCorridor() -> String? {
+        guard let activeHome else { return nil }
+        // Simple heuristic: just grab the first room that is a hall or the first room.
+        for floor in activeHome.floors {
+            if let hall = floor.rooms.first(where: { $0.type == .hall }) {
+                return hall.id
+            }
+        }
+        return activeHome.floors.first?.rooms.first?.id
+    }
+
     private func initialLoad() async {
         guard let activeHomeID else { return }
         checklistState = stateStore.load(homeID: activeHomeID)
@@ -734,7 +754,7 @@ struct HomeScreen: View {
     }
     
     private func fetchScore() async {
-        guard let activeHome else { return }
+        guard var activeHome = activeHome else { return }
         isScoring = true
         defer { isScoring = false }
         do {
@@ -754,6 +774,30 @@ struct HomeScreen: View {
     }
     
     // MARK: - Scan Conversion (copied from original)
+    
+    private func processRecheck(artifacts: ScanArtifacts, roomID: String) async {
+        isConverting = true
+        defer { isConverting = false }
+        do {
+            guard var activeHome = activeHome else { return }
+            let scanModel = try await apiClient.convertScan(at: artifacts.rawJSON, homeName: "Recheck")
+            let diffRequest = DiffRequest(stored_model: activeHome, scan_model: scanModel, target_room_id: roomID)
+            let result = try await apiClient.diffObstructions(diffRequest)
+            
+            // If we found any new obstructions, we want to inform the user. For now just show alert or update model?
+            // Actually, S7.8 just says "if a new object intrudes on the route corridor or an opening approach, say so."
+            // The score breakdown will re-fetch if we update the model! So we just save the new injected model.
+            // But wait, the diff endpoint returns DiffResult. We can inject the diff_objects into the activeHome.
+            if let targetFloorIdx = activeHome.floors.firstIndex(where: { $0.rooms.contains(where: { $0.id == roomID }) }) {
+                activeHome.floors[targetFloorIdx].objects.append(contentsOf: result.diff_objects)
+                try library.store.save(model: activeHome)
+                await fetchScore()
+            }
+        } catch {
+            scanFailure = BackendFailure(error, while: .score)
+        }
+    }
+
     private func importScan(_ artifacts: ScanArtifacts) async {
         isConverting = true
         lastScanArtifacts = artifacts
@@ -939,6 +983,8 @@ private struct ChecklistItemSheet: View {
     let isDone: Bool
     let primary: ChecklistRowAction
     let onPrimary: () -> Void
+    var secondary: ChecklistRowAction? = nil
+    var onSecondary: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -977,6 +1023,18 @@ private struct ChecklistItemSheet: View {
                 DSPrimaryButton(title: primary.title, systemImage: primary.icon, action: onPrimary)
                     .padding(.horizontal, DS.pagePadding)
                     .padding(.bottom, 8)
+                if let sec = secondary, let onSec = onSecondary {
+                    Button(action: onSec) {
+                        Label(sec.title, systemImage: sec.icon)
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(DS.inset, in: Capsule())
+                            .foregroundStyle(DS.ink)
+                    }
+                    .padding(.horizontal, DS.pagePadding)
+                    .padding(.bottom, 8)
+                }
             }
             .dsPage()
             .navigationBarTitleDisplayMode(.inline)

@@ -53,3 +53,35 @@ private struct ConvertRequest: Encodable {
     let scan: JSONValue
     let home_name: String
 }
+
+
+struct DiffRequest: Encodable {
+    let stored_model: HomeModel
+    let scan_model: HomeModel
+    let target_room_id: String
+}
+
+struct DiffResult: Decodable {
+    let success: Bool
+    let error: String?
+    let diff_objects: [FloorObject]
+    }
+
+extension APIClient {
+    func diffObstructions(_ request: DiffRequest) async throws -> DiffResult {
+        var req = try authenticatedRequest(path: "diff_obstructions", method: "POST")
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        req.httpBody = try encoder.encode(request)
+        
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(DiffResult.self, from: data)
+    }
+}

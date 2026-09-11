@@ -37,6 +37,7 @@ private struct ScanHeroGlyph: View {
 
 struct ScanFlowView: View {
     /// Called once the scan's artifacts are on disk.
+    var recheckRoomID: String? = nil
     var onFinished: (ScanArtifacts) -> Void
     /// Called if the user backs out before finishing.
     var onCancel: () -> Void = {}

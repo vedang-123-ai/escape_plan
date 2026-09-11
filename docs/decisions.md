@@ -1555,3 +1555,11 @@ device checks not re-run).
 ### S7.3 — 2026-09-10
 - **UI Test Sandboxing**: `RouteRedrawAfterEditUITests` was failing because the simulator's app sandbox persists between runs, so `HomeDocumentStore().list()` was returning an old blank home instead of the `Demo Home`. To ensure deterministic tests, we introduced a `-TEST_SEED_DEMO_HOME` launch argument to bypass the `.isEmpty` check and force-seed the `twostory` fixture.
 - **RouteRedraw Pixel Check via Active Floor**: The White Model overhaul made unselected floors render as translucent white shells, reducing route pixel counts on ground floors when testing a route starting upstairs. We updated the test to manually select the `Upstairs` active floor picker before screenshotting to restore the original #123FB0 solid route color.
+
+## 2026-09-10 — S7.9 Vision Feasibility NO-GO
+
+**Decision:** S7.10 is explicitly CUT following a negative result in the S7.9 Vision feasibility spike.
+
+**Why:** A macOS CLI script testing `VNClassifyImageRequest` on representative images (space heater, water heater, bookcase, wall-mounted TV, mirror, radiator, etc.) yielded only one usable label mapping (`television` for Wall-mounted TV). Other objects returned overly generic labels (e.g. `structure`, `portal`) or completely misidentified the subject.
+
+The established S7 playbook gate explicitly required 2+ target classes to receive usable label mappings to proceed to S7.10. Since the condition failed, building the Vision classifier into the app's Hazard Hunt is unwarranted and the feature is cancelled. S7.9's NO-GO represents a successful completion of the spike and a clean cutoff of S7.10.

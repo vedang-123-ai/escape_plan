@@ -280,13 +280,19 @@ def route_items(
             elif finding.kind == "blocked_opening":
                 blocked = "-".join(finding.object_ids) or "obstruction"
                 item_id = f"routes.{finding.kind}.{room.room_id}.{blocked}"
-                title = f"Clear the way out of {room.room_name}"
+                if any(oid.startswith("scan_") for oid in finding.object_ids):
+                    title = "Something new is in your escape path"
+                else:
+                    title = f"Clear the way out of {room.room_name}"
                 citation = "usfa-escape-plans"
                 why = "A blocked exit doubles the time to escape. [cite: usfa-escape-plans]"
             elif finding.kind == "narrows_route":
                 squeezed = "-".join(finding.object_ids) or "obstruction"
                 item_id = f"routes.{finding.kind}.{room.room_id}.{squeezed}"
-                title = f"Widen the way out of {room.room_name}"
+                if any(oid.startswith("scan_") for oid in finding.object_ids):
+                    title = "Something new is in your escape path"
+                else:
+                    title = f"Widen the way out of {room.room_name}"
                 citation = "usfa-escape-plans"
                 why = "A tight exit slows evacuation, especially in the dark. [cite: usfa-escape-plans]"
             else:

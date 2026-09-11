@@ -29,6 +29,11 @@
       "value": 0.6,
       "unit": "m",
       "basis": "Our geometric judgment: an object toppling within this radius of a door's midpoint is considered a hazard to egress. This is NOT a codified standard, but a conservative heuristic."
+    },
+    "registration_tolerance_m": {
+      "value": 0.3,
+      "unit": "m",
+      "basis": "Our geometric judgment: measured on synthetic pairs with 0.15m translation jitter, which yields a max center distance of ~0.21m. We pad to 0.3m to account for real-world RoomPlan drift during a partial scan."
     }
   }
 }

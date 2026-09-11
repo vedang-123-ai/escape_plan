@@ -221,6 +221,8 @@ enum RawScanCaptureMode: String, Codable {
     /// Fallback: unmerged per-room captures. Shared doors will have *different*
     /// identifiers, so the converter's geometric pairing path has to carry it.
     case sequentialRooms
+    /// A single-room capture used for partial re-checks (e.g. S7.8).
+    case singleRoom
 }
 
 /// Provenance for the calibration pass. The converter ignores unknown top-level

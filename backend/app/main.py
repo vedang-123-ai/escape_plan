@@ -8,6 +8,7 @@ the shared bearer token.
 from __future__ import annotations
 
 import logging
+from app.routing.diff import compute_diff
 import secrets
 from datetime import datetime, timezone
 from typing import Annotated, Any, Optional, Literal
@@ -17,6 +18,21 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
+from app.models import HomeModel, FloorObject
+from app.routing.obstructions import Obstruction
+from app.routing.egress import EgressThresholds
+
+class DiffRequest(BaseModel):
+    stored_model: HomeModel
+    scan_model: HomeModel
+    target_room_id: str
+
+class DiffResult(BaseModel):
+    success: bool
+    error: str | None = None
+    diff_objects: list[FloorObject]
+    obstructions: list[Obstruction]
+
 
 from app.ai.agent import AgentError, AnalysisResult, run_agent_analysis
 from app.ai.builder import BuilderError, BuildResult, run_builder
@@ -378,3 +394,20 @@ def score(request: ScoreRequest) -> ScoreBreakdown:
         except GroundingError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
     return breakdown
+
+@app.post(
+    "/diff_obstructions",
+    response_model=DiffResult,
+    tags=["Routing"],
+    summary="Diff a partial scan against a stored room",
+    description="Finds new objects and re-evaluates egress obstructions.",
+)
+def diff_obstructions(req: DiffRequest):
+    thresholds = EgressThresholds(window_min_area_m2=0, window_min_area_grade_m2=0, window_min_height_m=0, window_min_width_m=0, window_max_sill_m=0, door_min_width_m=0.8, door_min_height_m=2.0)
+    # Read registration tolerance from object_hazard_thresholds
+    with open("corpus/object_hazard_thresholds.json") as f:
+        import json
+        t_data = json.load(f)
+    tol = t_data["engineering_constants"]["registration_tolerance_m"]["value"]
+    
+    return compute_diff(req.stored_model, req.scan_model, req.target_room_id, thresholds, tol)
