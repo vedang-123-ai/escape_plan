@@ -6,14 +6,16 @@ what actually stops the project from shipping, ranked by what is on the critical
 
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
-_Last verified 2026-09-10 on `main`. **Re-run and green this session:** EditorCore **295** pass
-(275 + the 20 new hazard-hunt planner tests), corpus valid (**24** sources, **9** files, **2**
-threshold files). **NOT re-run this session:** backend (**385** pass as of 2026-09-09, 13
-live-deselected — `pytest` is not installed for any interpreter on this machine, see §4) and iOS
-(**615 passed, 0 failed, 8 skipped, 620 total** as of 2026-09-09, iPhone 17 Pro / iOS 26.5
-simulator, `xcresulttool` summary from bundle
-`Test-escape_plan-2026.09.09_23-31-03--0700.xcresult`). `HazardHuntView.swift` changed after that
-iOS run and has not been compiled since. `RouteRedrawAfterEditUITests` run live separately with
+_Last verified 2026-09-14 on `main` @ `33ef233` (the merge of `origin/main`'s S9.1 commit
+`0103a74` into the local S7.7 line). **Re-run and green this session, post-merge:** backend
+**394** pass / 13 live-deselected (via `backend/.venv` — the old "no pytest on this machine" line
+was wrong, see §4), EditorCore **295** pass, corpus valid (**24** sources, **9** files, **2**
+threshold files). **NOT run this session:** iOS (**615 passed, 0 failed, 8 skipped, 620 total** as
+of 2026-09-09, iPhone 17 Pro / iOS 26.5 simulator, `xcresulttool` summary from bundle
+`Test-escape_plan-2026.09.09_23-31-03--0700.xcresult`) — that number now predates BOTH
+`HazardHuntView.swift` and the entire S9.1 Swift surface (`SemanticMatcher.swift`,
+`DiffReviewSheet.swift`, `HomeScreen.swift`), none of which has been compiled since. Treat the iOS
+count as stale, not as a pass. `RouteRedrawAfterEditUITests` run live separately with
 `TEST_RUNNER_ROUTE_REDRAW=1` against a local backend — still red, see §3._
 
 
@@ -251,11 +253,31 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 
 ## 4 · Flake and process — known, live, will bite during filming
 
-- [ ] **`backend/.venv` does not exist, and NO interpreter on this machine has `pytest`.**
-      Verified 2026-09-10: system `python3` is 3.9 and `/opt/homebrew/bin/python3.13` both
-      report `No module named pytest`, so **the backend suite cannot be run here at all** — not
-      just "use a different python". Anything backend-side is unverifiable on this machine until
-      the venv exists. Next action: create it from `backend/requirements.txt`.
+- [ ] **The S9.1 merge (`0103a74`) brought in Swift that has NEVER been compiled.** Merged to
+      `main` 2026-09-14 as `33ef233`. New/changed: `escape_plan/Drill/SemanticMatcher.swift`
+      (282 lines, new), `escape_plan/Screens/DiffReviewSheet.swift` (new),
+      `escape_plan/Screens/HomeScreen.swift` (modified), plus two new test files
+      `SemanticMatcherTests.swift` / `SemanticMatcherRotTests.swift`. None of it has been through
+      `xcodebuild` on this machine (owner's standing simulator restriction), and the new test
+      files are not known to be wired into the `escape_planTests` target in the `.xcodeproj`.
+      What IS verified post-merge: backend **394** not-live pass, EditorCore **295** pass, corpus
+      valid (24 sources / 9 files / 2 threshold files). Next action: compile the app target before
+      trusting any S9.1 claim — this stacks on the same untested-iOS debt as S7.7's STEP 0.
+
+- [ ] **15 `patch_*.py` scratch scripts were committed to the repo root by `0103a74`.**
+      `patch_apiclient.py`, `patch_diff*.py`, `patch_homescreen*.py`, `patch_main.py`,
+      `patch_object_hazards.py`, `patch_test*.py`, `patch_tests.py`, `patch_trackers.py`. They are
+      one-shot string-replacement scripts used to author that commit, not project code, and they
+      are dead weight in a repo whose originality story gets read by judges. Left in place during
+      the merge deliberately — deleting another author's files is not a merge resolution. Next
+      action: confirm with the author, then `git rm` them.
+
+- [x] **`backend/.venv` EXISTS and the backend suite runs here.** The 2026-09-10 claim that no
+      interpreter on this machine has `pytest` was wrong — it was tested from the repo root, where
+      `.venv` does not exist. The venv is at **`backend/.venv`** (Python 3.13.9, pytest 9.1.1).
+      Verified 2026-09-14: `cd backend && .venv/bin/python -m pytest tests/ -m "not live" -q` →
+      **394 passed, 13 deselected**. Backend work is NOT unverifiable on this machine. Note the
+      invocation: bare `python3` is 3.9 and will still say `No module named pytest`.
 
 - [ ] **iOS runs are ~1-in-3 environmental flake, with two distinct faces.** (a) `Simulator device
       failed to launch … Busy ("Application failed preflight checks")`, which kills both test
