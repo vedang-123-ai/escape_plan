@@ -1520,3 +1520,74 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-11T01:10:29Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Commits this session**
+  - 4eb4041 S7.8 and S7.9 completion
+
+## 2026-09-11T01:29:42Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T01:31:41Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T01:33:39Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T01:40:42Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T02:58:31Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T03:19:00Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T03:35:53Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T03:51:26Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T04:59:04Z · vedang-123-ai · `main` @ `ccd0d19`
+
+**Commits this session**
+  - ccd0d19 Tracker: the hunt fix, what it leaves unverified, and an honest test stamp
+  - 00e4830 decisions: the three hunt defects, and why the questions moved to EditorCore
+  - 74e09f3 Hazard hunt view: render the plan instead of owning the questions
+  - 1ae2827 Tests: 20 guards on the hunt, incl. the inverted water-heater question
+  - e0ed758 Hazard hunt: move question generation into EditorCore as a pure plan
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T05:00:26Z · vedang-123-ai · `main` @ `6768621`
+
+**Commits this session**
+  - 6768621 BLOCKERS: point both hunt lines at S7.7's STEP 0
+  - c88c150 S7.7 gets a STEP 0: compile the rewritten hazard-hunt view first
+  - ccd0d19 Tracker: the hunt fix, what it leaves unverified, and an honest test stamp
+  - 00e4830 decisions: the three hunt defects, and why the questions moved to EditorCore
+  - 74e09f3 Hazard hunt view: render the plan instead of owning the questions
+  - 1ae2827 Tests: 20 guards on the hunt, incl. the inverted water-heater question
+  - e0ed758 Hazard hunt: move question generation into EditorCore as a pure plan
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
