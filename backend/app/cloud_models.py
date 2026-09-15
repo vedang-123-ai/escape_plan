@@ -1,0 +1,101 @@
+"""Pydantic models for the S8 cloud-sync layer: users and stored home models.
+
+Deliberately NOT in `app/models.py`. That file is the executable half of the
+HomeModel contract (`schema/homemodel.schema.json`) and is guarded by
+`schema-contract-guardian` — every model in it must stay in lockstep with the
+JSON Schema and the Swift Codable structs. These models are server-side storage
+concerns with no Swift counterpart and no place in the schema, so mixing them in
+would make the contract's own guard ambiguous about what it is guarding.
+
+`StoredHomeModel` *embeds* a `HomeModel` rather than re-describing one: the
+contract stays the single source of truth for home geometry, and this layer only
+adds ownership, identity and revision metadata around it.
+
+Ids are application-generated UUID strings rather than Mongo `ObjectId`s, mapped
+onto Mongo's `_id` by alias. That keeps these models JSON-serialisable and free
+of any driver import, so they can be validated in tests with no database and no
+bson dependency.
+"""
+
+from __future__ import annotations
+
+import re
+import uuid
+from datetime import datetime, timezone
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.models import HomeModel
+
+
+def _utc_now() -> datetime:
+    """Timezone-aware UTC. Naive datetimes compare incorrectly across a sync."""
+    return datetime.now(timezone.utc)
+
+
+def _new_id() -> str:
+    return str(uuid.uuid4())
+
+
+# A deliberately permissive check: one "@", something either side, no spaces.
+# Real address validation is a rabbit hole (RFC 5322) and the authoritative test
+# is S8.2's verification flow, not a regex. This only catches obvious junk.
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class CloudModel(BaseModel):
+    """Base for the cloud layer: reject unknown fields, populate by field name.
+
+    `populate_by_name` lets a document load whether it arrives keyed by `id`
+    (from the API) or `_id` (from Mongo), which is what makes the alias below
+    transparent to callers.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class User(CloudModel):
+    """An account owning zero or more stored home models.
+
+    `hashed_password` is Optional here and carries no hashing logic on purpose —
+    S8.1 defines the shape, S8.2 owns authentication. The field is named for the
+    hash, never the password, so there is no shape in which this model can hold
+    a plaintext credential.
+    """
+
+    id: str = Field(default_factory=_new_id, alias="_id")
+    email: str
+    hashed_password: str | None = None
+    created_at: datetime = Field(default_factory=_utc_now)
+    updated_at: datetime = Field(default_factory=_utc_now)
+
+    @field_validator("email")
+    @classmethod
+    def _normalise_email(cls, value: str) -> str:
+        """Lowercase and trim. Addresses are case-insensitive in practice, and
+        storing them un-normalised is how duplicate accounts happen."""
+        cleaned = value.strip().lower()
+        if not _EMAIL_RE.match(cleaned):
+            raise ValueError(f"not a usable email address: {value!r}")
+        return cleaned
+
+
+class StoredHomeModel(CloudModel):
+    """A `HomeModel` as persisted for one user, with sync metadata.
+
+    `revision` increments on every server-accepted write. S8.4's merge logic
+    needs a monotonic counter to detect a stale client pushing over a newer
+    server copy; wall-clock timestamps alone cannot do that safely, because two
+    devices' clocks disagree.
+    """
+
+    id: str = Field(default_factory=_new_id, alias="_id")
+    user_id: str
+    home: HomeModel
+    revision: int = Field(default=1, ge=1)
+    created_at: datetime = Field(default_factory=_utc_now)
+    updated_at: datetime = Field(default_factory=_utc_now)
+
+    def to_document(self) -> dict:
+        """Mongo-ready dict: `_id` rather than `id`, native datetimes kept."""
+        return self.model_dump(by_alias=True, mode="python")
