@@ -27,3 +27,10 @@ services:
         sync: false
       - key: MONGODB_DB_NAME
         value: escape_plan
+      # S8.2 auth. generateValue so a strong secret exists without anyone
+      # choosing one — the service refuses any secret under 32 bytes. Changing
+      # it invalidates every issued token, which is the intended panic button.
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ACCESS_TTL_MINUTES
+        value: "60"

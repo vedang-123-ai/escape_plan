@@ -78,7 +78,7 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 **S8 Cloud Sync & Authentication Arc**
 - [x] S8.1 — Backend: MongoDB integration and user schemas. **DONE 2026-09-14.** `app/database.py` (PyMongo async, NOT Motor — EOL 2026-05-14), `app/cloud_models.py` (`User`, `StoredHomeModel`), `lifespan`-owned pool, open `/health/db`. Backend **426** not-live pass (was 394; +32). **Unverified: never run against a real MongoDB server** — no server was available on this machine, so "connects to MongoDB" is proven only against a stub and against a deliberate connection failure. See `BLOCKERS.md`. **S8.2 unblocked.**
-- [ ] S8.2 — Backend: Authentication (JWT/OAuth) and endpoint securing.
+- [x] S8.2 — Backend: Authentication (JWT/OAuth) and endpoint securing. **DONE 2026-09-14.** Argon2id hashing, HS256 JWTs, `get_current_user`, `/auth/register` `/auth/login` `/auth/me`, `GET|POST /homes`. Backend **519** not-live pass (was 442; +77). **Unverified: never run against a real MongoDB**, so the unique email index is written but unproven — see `BLOCKERS.md`. **S8.3 and S8.4 unblocked.**
 - [ ] S8.3 — iOS: Auth UI (Login/Signup).
 - [ ] S8.4 — iOS: Cloud sync for HomeModels (upload/download/merge).
 

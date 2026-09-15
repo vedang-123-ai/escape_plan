@@ -23,6 +23,9 @@ Every library, framework, API, and tool used in this project — required for Co
 | uvicorn | ≥0.30 | ASGI server running the FastAPI app (local + Render) | BSD-3 |
 | httpx | ≥0.27 | FastAPI TestClient transport; HTTP client inside the anthropic SDK | BSD-3 |
 | pymongo (async API) | ≥4.13,<5.0 (4.18.1 installed) | S8.1 cloud sync: MongoDB connection lifecycle (`backend/app/database.py`) via `pymongo.AsyncMongoClient`, owned by the FastAPI `lifespan` handler. **Deliberately not Motor**, which reached end-of-life 2026-05-14 — PyMongo's native async API is MongoDB's stated replacement (GA in 4.13) | Apache-2.0 |
+| argon2-cffi | ≥23.1.0 (25.1.0 installed) | S8.2 password hashing (`backend/app/auth/passwords.py`). Argon2id — OWASP's first choice; defaults m=64MiB/t=3/p=4 exceed every OWASP minimum. **Deliberately not passlib** (no release since 2020, hard-fails against bcrypt 5.x) and not bare bcrypt (72-byte limit, now filed under legacy) | MIT |
+| PyJWT | ≥2.13.0,<3.0 (2.14.0 installed) | S8.2 access tokens (`backend/app/auth/tokens.py`), HS256. 2.13.0 is a **security floor**: CVE-2026-48522..48526 (algorithm allow-list bypass, public JWK accepted as an HMAC secret, JWKS SSRF) are fixed there. Not python-jose — patched, but 3.7 years between releases and dropped from FastAPI's docs | MIT |
+| python-multipart | ≥0.0.20 | Form parsing for `OAuth2PasswordRequestForm` on `/auth/login` (S8.2) | Apache-2.0 |
 | anthropic (Python SDK) | ≥0.60 | Grounded explanation layer (S3.1+): Claude API calls with prompt caching + tool-use structured output | MIT |
 | Render.com | free tier | Backend hosting (blueprint `render.yaml`); **live** at `https://escape-plan-backend.onrender.com` since 2026-07-16 | Render ToS |
 | Foundation (FileManager / JSONEncoder / UserDefaults) | iOS 17+ SDK | S2.4 local persistence: home documents on disk, JSON coding, anonymous device id. No third-party persistence library — the store is ~350 lines of Apple SDK | Apple SDK |
