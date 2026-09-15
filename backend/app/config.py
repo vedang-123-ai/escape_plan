@@ -34,6 +34,19 @@ class Settings(BaseModel):
     anthropic_model: str
     mongodb_uri: str | None = Field(default=None, repr=False)
     mongodb_db_name: str
+    jwt_secret: str | None = Field(default=None, repr=False)
+    jwt_access_ttl_minutes: int
+
+    @property
+    def auth_enabled(self) -> bool:
+        """Whether S8.2 auth can serve requests.
+
+        Auth needs BOTH a database to store users in and a secret to sign with.
+        Tracked separately from `cloud_sync_enabled` so a half-configured server
+        (database but no JWT secret) fails loudly at the route instead of
+        appearing to work and issuing unsigned or unverifiable tokens.
+        """
+        return self.cloud_sync_enabled and self.jwt_secret is not None
 
     @property
     def cloud_sync_enabled(self) -> bool:
@@ -62,6 +75,12 @@ def get_settings() -> Settings:
         anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5"),
         mongodb_uri=os.environ.get("MONGODB_URI") or None,
         mongodb_db_name=os.environ.get("MONGODB_DB_NAME", "escape_plan"),
+        # No default and no generated fallback, on purpose. A per-process random
+        # secret would "work" in testing and then invalidate every token on each
+        # restart and on every replica — the kind of bug that looks like a
+        # flaky login. Absent secret = auth disabled, loudly.
+        jwt_secret=os.environ.get("JWT_SECRET_KEY") or None,
+        jwt_access_ttl_minutes=int(os.environ.get("JWT_ACCESS_TTL_MINUTES", "60")),
     )
 
 
