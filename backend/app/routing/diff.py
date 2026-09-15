@@ -1,11 +1,16 @@
 import math
 from typing import Sequence, Optional
 from pydantic import BaseModel
-from app.models import HomeModel, FloorObject, Room
+from app.models import HomeModel, FloorObject, Room, EXTERIOR_ID
 from app.routing.obstructions import Obstruction
 from app.routing.egress import EgressThresholds
 from app.routing.obstructions import culprit_object_ids, tolerated_clearance_m, _suggested_move_m, COMFORT_MARGIN_M, _room_openings, code_clearance_m, opening_midpoint, _reachable, objects_intersecting, polygon_centroid
 from app.routing.graph import Point
+
+class DiffRequest(BaseModel):
+    stored_model: HomeModel
+    scan_model: HomeModel
+    target_room_id: str
 
 class DiffResult(BaseModel):
     success: bool
@@ -148,7 +153,7 @@ def compute_diff(
     polygons = {r.id: list(r.polygon) for r in target_floor.rooms}
     
     for op in _room_openings(target_floor, target_room):
-        if op.room_ids == ["exterior"]:
+        if EXTERIOR_ID in op.room_ids:
             continue
             
         required_width = thresholds.window_min_width_m if op.kind == "window" else thresholds.door_min_width_m

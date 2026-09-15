@@ -8,7 +8,7 @@ the shared bearer token.
 from __future__ import annotations
 
 import logging
-from app.routing.diff import compute_diff
+from app.routing.diff import compute_diff, DiffRequest, DiffResult
 import secrets
 from datetime import datetime, timezone
 from typing import Annotated, Any, Optional, Literal
@@ -22,23 +22,11 @@ from app.models import HomeModel, FloorObject
 from app.routing.obstructions import Obstruction
 from app.routing.egress import EgressThresholds
 
-class DiffRequest(BaseModel):
-    stored_model: HomeModel
-    scan_model: HomeModel
-    target_room_id: str
-
-class DiffResult(BaseModel):
-    success: bool
-    error: str | None = None
-    diff_objects: list[FloorObject]
-    obstructions: list[Obstruction]
-
-
 from app.ai.agent import AgentError, AnalysisResult, run_agent_analysis
 from app.ai.builder import BuilderError, BuildResult, run_builder
 from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
 from app.api_chat import router as chat_router
-from app.config import get_settings, get_thresholds
+from app.config import get_settings, get_thresholds, get_object_hazard_thresholds
 from app.convert.converter import convert_scan
 from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
@@ -402,12 +390,9 @@ def score(request: ScoreRequest) -> ScoreBreakdown:
     summary="Diff a partial scan against a stored room",
     description="Finds new objects and re-evaluates egress obstructions.",
 )
-def diff_obstructions(req: DiffRequest):
-    thresholds = EgressThresholds(window_min_area_m2=0, window_min_area_grade_m2=0, window_min_height_m=0, window_min_width_m=0, window_max_sill_m=0, door_min_width_m=0.8, door_min_height_m=2.0)
-    # Read registration tolerance from object_hazard_thresholds
-    with open("corpus/object_hazard_thresholds.json") as f:
-        import json
-        t_data = json.load(f)
-    tol = t_data["engineering_constants"]["registration_tolerance_m"]["value"]
-    
+def diff_obstructions(
+    req: DiffRequest,
+    thresholds: EgressThresholds = Depends(get_thresholds)
+) -> DiffResult:
+    tol = get_object_hazard_thresholds().engineering_constants.registration_tolerance_m.value
     return compute_diff(req.stored_model, req.scan_model, req.target_room_id, thresholds, tol)

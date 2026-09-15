@@ -1,6 +1,6 @@
 import pytest
 import math
-from app.models import HomeModel, FloorObject, Room, Floor, Opening, WallSegmentRef
+from app.models import HomeModel, FloorObject, Room, Floor, Opening, WallSegmentRef, EXTERIOR_ID
 from app.routing.obstructions import Obstruction
 from app.routing.egress import EgressThresholds
 from app.routing.diff import compute_diff, align_room, DiffResult
@@ -21,10 +21,10 @@ def make_test_home(add_box=False, box_in_corridor=False):
     op = Opening(
         id="op1", kind="door", width_m=1.0,
         wall_segment=WallSegmentRef(room_id="r1", edge_index=0, t0=0.4, t1=0.6), # door on bottom edge
-        room_ids=["r1", "exterior"], source="scan", confidence=1.0, height_m=2.0, sill_height_m=0.0
+        room_ids=["r1", "r2"], source="scan", confidence=1.0, height_m=2.0, sill_height_m=0.0
     )
-    ext_room = Room(id="exterior", name="Ext", type="other", source="scan", confidence=1.0, polygon=[(0, -5), (5, -5), (5, -1), (0, -1)])
-    floor = Floor(id="f1", level=0, name="Ground", height_m=3, rooms=[room, ext_room], openings=[op], objects=objects)
+    r2 = Room(id="r2", name="R2", type="other", source="scan", confidence=1.0, polygon=[(0, -5), (5, -5), (5, -1), (0, -1)])
+    floor = Floor(id="f1", level=0, name="Ground", height_m=3, rooms=[room, r2], openings=[op], objects=objects)
     
     return HomeModel.model_validate({
         "schema_version": "2.1",

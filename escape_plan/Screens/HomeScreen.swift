@@ -22,6 +22,10 @@ struct HomeScreen: View {
     @State private var showingBuildFromPlan = false
     @State private var showingScan = false
     @State private var targetRecheckRoomID: String? = nil
+    @State private var showingRoomPicker = false
+    @State private var pendingDiffResult: DiffResult?
+    @State private var pendingRecheckRoomID: String?
+
     @State private var openHomeID: String?
     @State private var scoreHomeID: String?
     @State private var drillHomeID: String?
@@ -77,6 +81,40 @@ struct HomeScreen: View {
                 await initialLoad() 
             }
             .onChange(of: activeHomeID) { _, _ in Task { await initialLoad() } }
+                        .confirmationDialog("Select a room to re-check", isPresented: $showingRoomPicker, titleVisibility: .visible) {
+                if let activeHome {
+                    ForEach(activeHome.floors.flatMap(\.rooms)) { room in
+                        Button(room.name) {
+                            targetRecheckRoomID = room.id
+                            showingScan = true
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+                        .sheet(item: Binding<DiffResultWrapper?>(
+                get: {
+                    if let res = pendingDiffResult { return DiffResultWrapper(result: res) }
+                    return nil
+                },
+                set: { if $0 == nil { pendingDiffResult = nil } }
+            )) { wrapper in
+                DiffReviewSheet(
+                    result: wrapper.result,
+                    onAdd: { obj in
+                        guard var home = activeHome, let roomID = pendingRecheckRoomID else { return }
+                        if let floorIdx = home.floors.firstIndex(where: { $0.rooms.contains(where: { $0.id == roomID }) }) {
+                            home.floors[floorIdx].objects.append(obj)
+                            // Use EditAction to mutate
+                            let docStore = try? HomeDocumentStore()
+                            try? docStore?.save(model: home)
+                            activeHome = home
+                            Task { await fetchScore() }
+                        }
+                    },
+                    onDismiss: { pendingDiffResult = nil; pendingRecheckRoomID = nil }
+                )
+            }
             .sheet(isPresented: $showingBuildFromPlan) {
                 BuildFromPlanView { homeID in
                     library.refresh()
@@ -215,8 +253,8 @@ struct HomeScreen: View {
                                isDone: isDone(item),
                                primary: primaryAction(for: item),
                                onPrimary: { performPrimaryAction(for: item) },
-                               secondary: item.id == "practice.drill_recent" ? ChecklistRowAction(title: "Re-check with the camera", icon: "camera.viewfinder", navigates: false) : nil,
-                               onSecondary: item.id == "practice.drill_recent" ? { detailItem = nil; targetRecheckRoomID = getPrimaryRouteCorridor(); showingScan = true } : nil)
+                               secondary: item.id == "rescan.home" ? ChecklistRowAction(title: "Re-check with the camera", icon: "camera.viewfinder", navigates: false) : nil,
+                               onSecondary: item.id == "rescan.home" ? { detailItem = nil; showingRoomPicker = true } : nil)
         }
     }
 
@@ -723,16 +761,7 @@ struct HomeScreen: View {
     // MARK: - Scoring
     
     
-    private func getPrimaryRouteCorridor() -> String? {
-        guard let activeHome else { return nil }
-        // Simple heuristic: just grab the first room that is a hall or the first room.
-        for floor in activeHome.floors {
-            if let hall = floor.rooms.first(where: { $0.type == .hall }) {
-                return hall.id
-            }
-        }
-        return activeHome.floors.first?.rooms.first?.id
-    }
+
 
     private func initialLoad() async {
         guard let activeHomeID else { return }
@@ -779,20 +808,12 @@ struct HomeScreen: View {
         isConverting = true
         defer { isConverting = false }
         do {
-            guard var activeHome = activeHome else { return }
+            guard let activeHome = activeHome else { return }
             let scanModel = try await apiClient.convertScan(at: artifacts.rawJSON, homeName: "Recheck")
             let diffRequest = DiffRequest(stored_model: activeHome, scan_model: scanModel, target_room_id: roomID)
             let result = try await apiClient.diffObstructions(diffRequest)
-            
-            // If we found any new obstructions, we want to inform the user. For now just show alert or update model?
-            // Actually, S7.8 just says "if a new object intrudes on the route corridor or an opening approach, say so."
-            // The score breakdown will re-fetch if we update the model! So we just save the new injected model.
-            // But wait, the diff endpoint returns DiffResult. We can inject the diff_objects into the activeHome.
-            if let targetFloorIdx = activeHome.floors.firstIndex(where: { $0.rooms.contains(where: { $0.id == roomID }) }) {
-                activeHome.floors[targetFloorIdx].objects.append(contentsOf: result.diff_objects)
-                try library.store.save(model: activeHome)
-                await fetchScore()
-            }
+            pendingRecheckRoomID = roomID
+            pendingDiffResult = result
         } catch {
             scanFailure = BackendFailure(error, while: .score)
         }

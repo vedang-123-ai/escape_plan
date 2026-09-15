@@ -14,8 +14,9 @@ def thresholds():
             topple_min_height_m=EngineeringConstant(value=1.2),
             topple_slenderness_ratio=EngineeringConstant(value=2.0),
             overhead_min_elevation_m=EngineeringConstant(value=0.9),
-            door_approach_radius_m=EngineeringConstant(value=0.6)
-        )
+            door_approach_radius_m=EngineeringConstant(value=0.6),
+                registration_tolerance_m=EngineeringConstant(value=0.3)
+            )
     )
 
 def _make_home(objects, openings=None):

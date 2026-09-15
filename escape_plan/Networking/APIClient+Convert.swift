@@ -55,6 +55,21 @@ private struct ConvertRequest: Encodable {
 }
 
 
+
+struct Obstruction: Codable, Equatable {
+    var kind: String
+    var room_id: String
+    var room_name: String
+    var floor_id: String
+    var opening_id: String
+    var object_ids: [String]
+    var object_categories: [String]
+    var passable_width_m: Double
+    var required_width_m: Double
+    var target_width_m: Double
+    var suggested_move_m: Double
+}
+
 struct DiffRequest: Encodable {
     let stored_model: HomeModel
     let scan_model: HomeModel
@@ -65,7 +80,8 @@ struct DiffResult: Decodable {
     let success: Bool
     let error: String?
     let diff_objects: [FloorObject]
-    }
+    let obstructions: [Obstruction]
+}
 
 extension APIClient {
     func diffObstructions(_ request: DiffRequest) async throws -> DiffResult {
