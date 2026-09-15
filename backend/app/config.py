@@ -29,6 +29,19 @@ class Settings(BaseModel):
     bearer_token: str
     anthropic_api_key: str | None
     anthropic_model: str
+    mongodb_uri: str | None
+    mongodb_db_name: str
+
+    @property
+    def cloud_sync_enabled(self) -> bool:
+        """Whether the S8 cloud layer can serve requests.
+
+        Unlike `bearer_token`, a missing `MONGODB_URI` is NOT fatal. The
+        deterministic engine, the corpus and every pre-S8 endpoint work with no
+        database at all, and the demo path depends on them — so an unconfigured
+        Mongo disables cloud sync rather than refusing to start the service.
+        """
+        return self.mongodb_uri is not None
 
 
 @lru_cache(maxsize=1)
@@ -44,6 +57,8 @@ def get_settings() -> Settings:
         bearer_token=token,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
         anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5"),
+        mongodb_uri=os.environ.get("MONGODB_URI") or None,
+        mongodb_db_name=os.environ.get("MONGODB_DB_NAME", "escape_plan"),
     )
 
 
