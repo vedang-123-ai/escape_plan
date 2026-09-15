@@ -29,7 +29,7 @@ from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
 from app.api_chat import router as chat_router
 from app.config import get_settings, get_thresholds, get_object_hazard_thresholds
 from app.convert.converter import convert_scan
-from app.database import database
+from app.database import CloudSyncDisabled, database
 from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
 from app.routing.hazard import EvacuationTimeline, compute_evacuation_timeline
@@ -127,6 +127,24 @@ def anthropic_error(_request: Request, exc: anthropic.APIError) -> JSONResponse:
     return JSONResponse(
         status_code=502,
         content={"detail": f"The AI service rejected the request: {detail}"},
+    )
+
+
+@app.exception_handler(CloudSyncDisabled)
+def cloud_sync_disabled(_request: Request, exc: CloudSyncDisabled) -> JSONResponse:
+    """503, not the bare 500 a RuntimeError would otherwise produce.
+
+    Cloud sync is optional, so "no database configured" is a deployment state, not
+    a bug. 503 tells the client the feature is unavailable rather than that the
+    request was malformed or the server broke.
+
+    Routes must raise this at the top rather than branching on `database.enabled`
+    — a branch would silently skip a write and report success.
+    """
+    logging.warning("cloud-sync route reached with no database: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Cloud sync is not configured on this server."},
     )
 
 
