@@ -9,7 +9,8 @@ final class SemanticMatcherRotTests: XCTestCase {
             extractedCenter: .zero,
             extractedLongestWall: (length: 10, normal: SIMD2<Float>(-1, 0), direction: SIMD2<Float>(0, 1)),
             extractedDoorPositions: [SIMD2<Float>(-5, 0)],
-            extractedBoundingBox: (width: 10, depth: 10)
+            extractedBoundingBox: (width: 10, depth: 10),
+            extractedPerimeter: 40
         )
         
         // HomeModel room longest wall is along X axis (1, 0)

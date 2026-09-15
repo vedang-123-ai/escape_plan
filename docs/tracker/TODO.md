@@ -78,8 +78,8 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 **S9 Semantic Relocalization Arc**
 - [x] S9.1 (Scoping) — Pivot architecture to Semantic Relocalization. Erase S8, rewrite S9 playbooks. (Done 2026-09-14)
-- [x] S9.1 (Execution) — Build `SemanticMatcher` engine.
-- [x] S9.2 — Relocalization UI & AR Setup.
+- [x] S9.1 (Execution) — Build `SemanticMatcher` engine. (Math flaws fixed 2026-09-14)
+- [x] S9.2 — Relocalization UI & AR Setup. (Done 2026-09-14)
 - [x] S9.3 — AR Route Rendering & Drill Completion. (Done 2026-09-14)
 
 **Rules**
