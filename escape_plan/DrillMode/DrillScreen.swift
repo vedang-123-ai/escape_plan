@@ -74,6 +74,7 @@ struct DrillScreen: View {
     @State private var sceneView: SCNView?
     @State private var cameraRig: OrbitCameraRig?
     @State private var session: DrillSession?
+    @State private var isARDrillActive = false
     @State private var isFlying = false
     @State private var practiced = false
 
@@ -119,6 +120,19 @@ struct DrillScreen: View {
             }
             .sheet(isPresented: $originPickerPresented) {
                 if let homeModel { originPickerSheet(homeModel) }
+            }
+            .fullScreenCover(isPresented: $isARDrillActive, onDismiss: {
+                refreshLog()
+                routePlan = nil
+                isARDrillActive = false
+            }) {
+                if let homeModel, let routePlan, let profile = lastRequestedProfile {
+                    if #available(iOS 17.0, *) {
+                        DrillRelocalizationView(homeModel: homeModel, routePlan: routePlan, profileID: profile.id)
+                    } else {
+                        Text("AR requires iOS 17")
+                    }
+                }
             }
     }
 
@@ -798,22 +812,7 @@ struct DrillScreen: View {
             return
         }
         
-        let coverObjectName = room.cover_object_id.flatMap { id in
-            homeModel.floors.flatMap(\.objects).first(where: { $0.id == id })?.category.rawValue
-        }
-        let noCoverFinding = room.findings.first(where: { $0.kind == .no_cover_in_room })?.detail
-
-        guard let drill = DrillSession(profile: profile, route: primary,
-                                       startRoomName: room.room_name,
-                                       peril: plan.peril ?? "fire",
-                                       coverObjectName: coverObjectName,
-                                       noCoverFinding: noCoverFinding) else {
-            routesNotice = "The route for \(profile.name) is too short to walk through."
-            return
-        }
-        overlay.show(rooms: [room], home: homeModel, includeSecondary: false)
-        sceneView?.setNeedsDisplay()
-        session = drill
+        isARDrillActive = true
         activeRoomID = room.room_id
         activeRoomName = room.room_name
         comparison = nil
