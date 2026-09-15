@@ -128,6 +128,21 @@ class Database:
         self._db = db
         logger.info("cloud sync enabled, database %r", settings.mongodb_db_name)
 
+        # Index creation needs a reachable server, so it must not be fatal —
+        # the layer stays usable and /health/db reports `unreachable` if it is
+        # not. But auth CORRECTNESS depends on the unique email index, so a
+        # failure here is logged at ERROR, not swallowed quietly.
+        try:
+            from app.cloud_repo import ensure_indexes
+
+            await ensure_indexes(db)
+        except Exception:
+            logger.error(
+                "could not create cloud-sync indexes — registration is NOT safe "
+                "against concurrent duplicate emails until this succeeds",
+                exc_info=True,
+            )
+
     async def close(self) -> None:
         """Release the pool. Idempotent, so shutdown paths need no guards.
 
