@@ -761,6 +761,11 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
 
 ## Process & repo hygiene
 
+- [ ] **Add a device compile to the green gate.** Everything RoomPlan is behind
+      `!targetEnvironment(simulator)`, so simulator builds and all tests skip it; `4eb4041` broke
+      the device build for five days unnoticed (fixed 2026-09-14). Next action: add
+      `xcodebuild build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` to `/verify`.
+
 - [x] **`.build-assess/` is tracked in git — 2,826 derived-data files.** Committed in `ce18f63`
       (2026-07-22) before `.build-*/` reached `.gitignore`; ignore rules never untrack. Every
       `xcodebuild … -derivedDataPath .build-assess` run since then dirties the tree with hundreds
