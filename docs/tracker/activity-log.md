@@ -1716,3 +1716,26 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 2bc82c0 Merge remote-tracking branch 'origin/main'
   - 7342237 Activity log: this session's entries (hook)
 
+## 2026-09-15T02:22:13Z · vedang-123-ai · `main` @ `da11738`
+
+**Commits this session**
+  - da11738 Activity log: hook entries
+  - f42b7b1 BLOCKERS: the S8.2 prerequisites review surfaced
+  - bc1f1a4 S8.1: MONGODB_URI had nowhere to be set on a deployed backend
+  - b24ed05 S8.1: 16 more tests, incl. three that were only asserting serialization
+  - 6c143c9 S8.1 fix: consistent /health/db body, and two S8.2 traps closed
+  - 3d9e253 S8.1 fix: a malformed MONGODB_URI no longer takes the backend down
+  - ba335d1 Note: S8.1, three judgement calls and the real-MongoDB gap
+  - 583826e S8.1 close-out: scope lock lifted in lockstep, deviations logged
+  - b2f4b5a S8.1: 32 tests — models, connection lifecycle, health endpoint
+  - e4b3931 S8.1: pin pymongo>=4.13,<5.0 and add a default-excluded mongo marker
+  - 9241c7d S8.1: lifespan owns the pool, /health/db reports connectivity
+  - a6dd228 S8.1: MongoDB connection layer on PyMongo async, not Motor
+  - 4032cc0 S8.1: 18 tests on the cloud models, no database required
+  - f38fda2 S8.1: User and StoredHomeModel, kept out of the contract file
+  - b50a86a Merge remote-tracking branch 'origin/main'
+  - d5c7a29 Activity log: hook entries
+  - 3a0b7c5 feat: Add Cloud Sync & Authentication Arc with backend and iOS components
+  - 2bc82c0 Merge remote-tracking branch 'origin/main'
+  - 7342237 Activity log: this session's entries (hook)
+
