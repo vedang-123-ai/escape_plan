@@ -10,8 +10,9 @@ from __future__ import annotations
 import logging
 from app.routing.diff import compute_diff, DiffRequest, DiffResult
 import secrets
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Annotated, Any, Optional, Literal
+from typing import Annotated, Any, AsyncIterator, Optional, Literal
 
 import anthropic
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -28,6 +29,7 @@ from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
 from app.api_chat import router as chat_router
 from app.config import get_settings, get_thresholds, get_object_hazard_thresholds
 from app.convert.converter import convert_scan
+from app.database import database
 from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
 from app.routing.hazard import EvacuationTimeline, compute_evacuation_timeline
@@ -39,6 +41,22 @@ from app.scoring.score import ScoreBreakdown, compute_score
 
 logging.basicConfig(level=logging.INFO)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Own the MongoDB pool for the process lifetime (S8.1).
+
+    `lifespan` rather than `@app.on_event`, which FastAPI documents as
+    deprecated. Connecting here — not per request — is what keeps a single
+    connection pool; `database.connect()` is a no-op when MONGODB_URI is unset,
+    so this is inert for anyone not using cloud sync.
+    """
+    await database.connect()
+    try:
+        yield
+    finally:
+        await database.close()
+
+
 app = FastAPI(
     title="Escape Plan backend",
     description=(
@@ -46,6 +64,7 @@ app = FastAPI(
         "grounded AI explanation layer. Routing is never done by AI."
     ),
     version="1.0",
+    lifespan=lifespan,
 )
 app.include_router(chat_router)
 
@@ -147,6 +166,33 @@ class HealthResponse(BaseModel):
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok", version=app.version)
+
+
+class DatabaseHealthResponse(BaseModel):
+    """`database` is one of: disabled (no MONGODB_URI), ok, unreachable."""
+
+    database: Literal["disabled", "ok", "unreachable"]
+    db_name: str | None
+
+
+@app.get("/health/db", response_model=DatabaseHealthResponse)
+async def health_db() -> DatabaseHealthResponse:
+    """Cloud-sync connectivity (S8.1).
+
+    Open, like /health, so a platform probe can reach it. It reveals only
+    whether a database is configured and reachable — never the URI, which
+    carries credentials.
+
+    Returns 200 even when the database is unreachable: the endpoint's job is to
+    report that fact, and a 5xx here would be indistinguishable from the whole
+    service being down.
+    """
+    settings = get_settings()
+    status = await database.status()
+    return DatabaseHealthResponse(
+        database=status,
+        db_name=settings.mongodb_db_name if settings.cloud_sync_enabled else None,
+    )
 
 
 @app.post(
