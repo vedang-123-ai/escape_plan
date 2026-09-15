@@ -258,8 +258,12 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       (282 lines, new), `escape_plan/Screens/DiffReviewSheet.swift` (new),
       `escape_plan/Screens/HomeScreen.swift` (modified), plus two new test files
       `SemanticMatcherTests.swift` / `SemanticMatcherRotTests.swift`. None of it has been through
-      `xcodebuild` on this machine (owner's standing simulator restriction), and the new test
-      files are not known to be wired into the `escape_planTests` target in the `.xcodeproj`.
+      `xcodebuild` on this machine (owner's standing simulator restriction). **Target membership
+      is NOT a concern** — verified 2026-09-14: the project is `objectVersion = 77` with
+      `PBXFileSystemSynchronizedRootGroup` on `escape_plan`/`escape_planTests`/`escape_planUITests`
+      and zero exception sets, so files are included by folder, not by pbxproj entry (existing
+      files like `HomeScreen.swift` have 0 references too). The new files WILL build and the new
+      tests WILL run. What is unknown is whether they compile clean and pass.
       What IS verified post-merge: backend **394** not-live pass, EditorCore **295** pass, corpus
       valid (24 sources / 9 files / 2 threshold files). Next action: compile the app target before
       trusting any S9.1 claim — this stacks on the same untested-iOS debt as S7.7's STEP 0.
