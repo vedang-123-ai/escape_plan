@@ -150,3 +150,33 @@ class TestUserDocument:
         as a driver error, where a 422 belongs."""
         with pytest.raises(ValidationError):
             User(email="a" * 250 + "@example.com")
+
+
+class TestUserPublic:
+    """The hash must have nowhere to live in a response type."""
+
+    def test_has_no_password_field_at_all(self):
+        from app.cloud_models import UserPublic
+
+        assert "hashed_password" not in UserPublic.model_fields
+        assert "password" not in UserPublic.model_fields
+
+    def test_from_user_drops_the_hash(self):
+        from app.cloud_models import UserPublic
+
+        user = User(email="a@b.com", hashed_password="$2b$12$notarealhash")
+        dumped = UserPublic.from_user(user).model_dump()
+
+        assert dumped["email"] == "a@b.com"
+        assert dumped["id"] == user.id
+        assert "notarealhash" not in str(dumped)
+
+    def test_cannot_be_constructed_with_a_hash(self):
+        """extra='forbid' means an accidental passthrough raises, not leaks."""
+        from app.cloud_models import UserPublic
+
+        with pytest.raises(ValidationError):
+            UserPublic(
+                id="u1", email="a@b.com", created_at=datetime.now(timezone.utc),
+                hashed_password="$2b$12$x",
+            )
