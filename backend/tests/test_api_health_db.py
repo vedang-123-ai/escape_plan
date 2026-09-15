@@ -45,15 +45,44 @@ def test_health_db_is_open_like_health():
         assert client.get("/health/db").status_code == 200
 
 
-def test_health_db_reports_ok_when_reachable(monkeypatch: pytest.MonkeyPatch):
-    async def fake_status():
-        return "ok"
+class StubAdmin:
+    def __init__(self, fail: bool) -> None:
+        self.fail = fail
 
+    async def command(self, name: str):
+        if self.fail:
+            raise RuntimeError("no server reachable")
+        return {"ok": 1}
+
+
+class StubClient:
+    """Fakes only the driver. connect(), status() and the endpoint all run for
+    real — unlike monkeypatching `database.status` to a literal, which proves
+    nothing beyond the endpoint copying a string into a field."""
+
+    def __init__(self, fail_ping: bool = False) -> None:
+        self.admin = StubAdmin(fail_ping)
+
+    def __getitem__(self, name: str):
+        return {"__name__": name}
+
+    async def close(self) -> None:
+        return None
+
+
+def _use_stub_driver(monkeypatch: pytest.MonkeyPatch, *, fail_ping: bool = False) -> None:
+    import app.database as database_module
+
+    monkeypatch.setattr(
+        database_module, "_default_client_factory", lambda _uri: StubClient(fail_ping)
+    )
+
+
+def test_health_db_reports_ok_when_reachable(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MONGODB_URI", "mongodb://stub:27017")
     monkeypatch.setenv("MONGODB_DB_NAME", "escape_plan_test")
     config.get_settings.cache_clear()
-    monkeypatch.setattr(database, "status", fake_status)
-    monkeypatch.setattr(database, "connect", _noop)
+    _use_stub_driver(monkeypatch)
 
     with TestClient(app) as client:
         body = client.get("/health/db").json()
@@ -62,14 +91,9 @@ def test_health_db_reports_ok_when_reachable(monkeypatch: pytest.MonkeyPatch):
 
 def test_unreachable_database_is_200_not_500(monkeypatch: pytest.MonkeyPatch):
     """A down database must not look like the service itself is broken."""
-
-    async def fake_status():
-        return "unreachable"
-
     monkeypatch.setenv("MONGODB_URI", "mongodb://unreachable:27017")
     config.get_settings.cache_clear()
-    monkeypatch.setattr(database, "status", fake_status)
-    monkeypatch.setattr(database, "connect", _noop)
+    _use_stub_driver(monkeypatch, fail_ping=True)
 
     with TestClient(app) as client:
         resp = client.get("/health/db")
@@ -79,15 +103,9 @@ def test_unreachable_database_is_200_not_500(monkeypatch: pytest.MonkeyPatch):
 
 def test_health_db_never_leaks_the_connection_string(monkeypatch: pytest.MonkeyPatch):
     """The URI carries credentials and must never reach a response body."""
-    secret_uri = "mongodb://user:sup3rsecret@cluster0.example.net/db"
-
-    async def fake_status():
-        return "ok"
-
-    monkeypatch.setenv("MONGODB_URI", secret_uri)
+    monkeypatch.setenv("MONGODB_URI", "mongodb://user:sup3rsecret@cluster0.example.net/db")
     config.get_settings.cache_clear()
-    monkeypatch.setattr(database, "status", fake_status)
-    monkeypatch.setattr(database, "connect", _noop)
+    _use_stub_driver(monkeypatch)
 
     with TestClient(app) as client:
         raw = client.get("/health/db").text
@@ -95,6 +113,31 @@ def test_health_db_never_leaks_the_connection_string(monkeypatch: pytest.MonkeyP
     assert "cluster0.example.net" not in raw
 
 
-async def _noop() -> None:
-    """Stand-in for `database.connect` so lifespan does not build a real client."""
-    return None
+def test_db_name_is_null_whenever_the_layer_is_disabled(monkeypatch: pytest.MonkeyPatch):
+    """The body must never contradict itself.
+
+    Reading `db_name` from the environment while `database` came from the live
+    client let a malformed MONGODB_URI produce {"database": "disabled",
+    "db_name": "escape_plan"} — a state the response model's own docstring says
+    cannot happen. Both fields now derive from the client.
+    """
+    monkeypatch.setenv("MONGODB_URI", "mongodb://user:p@ss@host/db")  # unescaped @
+    config.get_settings.cache_clear()
+
+    with TestClient(app) as client:  # real lifespan, real factory
+        body = client.get("/health/db").json()
+
+    assert body == {"database": "disabled", "db_name": None}
+
+
+def test_a_malformed_uri_does_not_stop_the_service(monkeypatch: pytest.MonkeyPatch):
+    """A credential typo for an unbuilt feature must not take down routing.
+
+    AsyncMongoClient validates in its constructor, so this raised out of the
+    lifespan handler and uvicorn served nothing at all — /health included.
+    """
+    monkeypatch.setenv("MONGODB_URI", "mongodb://user:p@ss@host/db")
+    config.get_settings.cache_clear()
+
+    with TestClient(app) as client:
+        assert client.get("/health").status_code == 200

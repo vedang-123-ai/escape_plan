@@ -74,12 +74,45 @@ class TestStoredHomeModel:
         assert "_id" in doc and "id" not in doc
 
     def test_document_round_trips_through_the_alias(self, bungalow):
-        """A document read back from Mongo must rebuild the same model."""
+        """A pure-pydantic round trip. Necessary but NOT sufficient — it never
+        crosses the BSON boundary, which is where timestamps actually change
+        type. See test_document_survives_a_real_bson_round_trip below."""
         original = StoredHomeModel(user_id="u1", home=HomeModel.model_validate(bungalow))
         restored = StoredHomeModel.model_validate(original.to_document())
         assert restored.id == original.id
         assert restored.user_id == original.user_id
         assert restored.home == original.home
+
+    def test_document_survives_a_real_bson_round_trip(self, bungalow):
+        """Encode and decode with the real BSON codec the driver uses.
+
+        This caught a live defect: without `tz_aware=True` on the client, dates
+        decode naive, and the loss reaches `meta.created` *inside* the embedded
+        HomeModel — so a stored home compared unequal to the one written.
+        `revision` exists so S8.4 can order copies; silently mutating them on
+        write is the same class of bug one layer down.
+
+        bson ships with pymongo, so this needs no server.
+        """
+        import bson
+
+        from app.database import _default_client_factory
+
+        # The exact codec options the production client is built with.
+        codec_options = _default_client_factory(
+            "mongodb://127.0.0.1:27017"
+        ).options.codec_options
+        assert codec_options.tz_aware is True, "the client must decode tz-aware"
+
+        original = StoredHomeModel(user_id="u1", home=HomeModel.model_validate(bungalow))
+        decoded = bson.decode(
+            bson.encode(original.to_document()), codec_options=codec_options
+        )
+        restored = StoredHomeModel.model_validate(decoded)
+
+        assert restored.created_at.tzinfo is not None
+        assert restored.home == original.home
+        assert restored.id == original.id
 
     def test_accepts_either_id_or_underscore_id(self, bungalow):
         """populate_by_name: API-shaped and Mongo-shaped input both load."""
@@ -97,3 +130,23 @@ class TestStoredHomeModel:
             user_id="u1", home=HomeModel.model_validate(bungalow)
         ).to_document()
         assert isinstance(doc["created_at"], datetime)
+
+class TestUserDocument:
+    def test_user_document_uses_mongo_id_key(self):
+        """Symmetry with StoredHomeModel: without it, the obvious
+        `insert_one(user.model_dump())` writes a field named `id` and lets Mongo
+        mint its own _id, after which every lookup by id misses."""
+        doc = User(email="a@b.com").to_document()
+        assert "_id" in doc and "id" not in doc
+
+    def test_user_document_round_trips(self):
+        original = User(email="a@b.com", hashed_password="not-a-real-hash")
+        restored = User.model_validate(original.to_document())
+        assert restored.id == original.id
+        assert restored.email == original.email
+
+    def test_email_length_is_bounded(self):
+        """Unbounded, Mongo's 1024-byte index key limit rejects it at write time
+        as a driver error, where a 422 belongs."""
+        with pytest.raises(ValidationError):
+            User(email="a" * 250 + "@example.com")
