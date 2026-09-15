@@ -21,6 +21,18 @@ USERS = "users"
 HOMES = "homes"
 
 
+class HomeNotOwned(Exception):
+    """Raised when a write targets a home id that belongs to someone else.
+
+    Found by test 2026-09-14. `replace_one({"_id": id, "user_id": me}, upsert=True)`
+    does NOT quietly do nothing when the id belongs to another user: the filter
+    misses, so Mongo attempts an INSERT, which collides on the `_id` primary key.
+    The data is safe either way, but without this the collision surfaces as an
+    unhandled driver error and a 500, when the honest answer is that the caller
+    does not own that home.
+    """
+
+
 class EmailAlreadyRegistered(Exception):
     """Raised when a registration loses the race for an email address.
 
@@ -103,11 +115,16 @@ class HomeRepository:
         overwrite another user's document by guessing an id — the ownership
         check is in the query, not only in the route.
         """
-        await self._collection.replace_one(
-            {"_id": stored.id, "user_id": stored.user_id},
-            stored.to_document(),
-            upsert=True,
-        )
+        try:
+            await self._collection.replace_one(
+                {"_id": stored.id, "user_id": stored.user_id},
+                stored.to_document(),
+                upsert=True,
+            )
+        except Exception as exc:
+            if _is_duplicate_key_error(exc):
+                raise HomeNotOwned(stored.id) from exc
+            raise
         return stored
 
     async def find_for_user(
