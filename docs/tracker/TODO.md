@@ -67,6 +67,13 @@ moved backend to 252 without refreshing this table.)_
 This is the single source of truth for open work. It replaces the old `board.md` +
 `checklist.md`, which had drifted into contradicting each other.
 
+
+**S9 Semantic Relocalization Arc**
+- [x] S9.1 (Scoping) — Pivot architecture to Semantic Relocalization. Erase S8, rewrite S9 playbooks. (Done 2026-09-14)
+- [x] S9.1 (Execution) — Build `SemanticMatcher` engine.
+- [ ] S9.2 — Relocalization UI & AR Setup.
+- [ ] S9.3 — AR Route Rendering & Drill Completion.
+
 **Rules**
 
 - Only things **not yet done** live here. Finished work is in git and in `notes/`.

@@ -145,6 +145,7 @@ class EngineeringSection(BaseModel):
     topple_slenderness_ratio: EngineeringConstant
     overhead_min_elevation_m: EngineeringConstant
     door_approach_radius_m: EngineeringConstant
+    registration_tolerance_m: EngineeringConstant
 
 class ObjectHazardThresholds(BaseModel):
     cited: CitedSection

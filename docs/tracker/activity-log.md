@@ -1520,3 +1520,37 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-11T00:57:09Z · Anish Yarrakonda · `main` @ `4eb4041`
+
+**Commits this session**
+  - 4eb4041 S7.8 and S7.9 completion
+
+## 2026-09-11T06:42:56Z · Anish Yarrakonda · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (25)**
+  - M backend/app/main.py
+  - M backend/app/routing/diff.py
+  - M backend/app/routing/object_hazards.py
+  - D backend/app/scoring/diff.py
+  - M backend/tests/test_diff.py
+  - M backend/tests/test_object_hazards.py
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Networking/APIClient+Convert.swift
+  - M escape_plan/Screens/HomeScreen.swift
+  - ?? docs/tracker/notes/2026-09-10-s7-8-exit-path-recheck.md
+  - ?? docs/tracker/notes/2026-09-10-s7-9-vision-spike.md
+  - ?? escape_plan/Screens/DiffReviewSheet.swift
+  - ?? patch_apiclient.py
+  - ?? patch_diff.py
+  - ?? patch_diff_op.py
+  - ?? patch_diff_request.py
+  - ?? patch_homescreen.py
+  - ?? patch_homescreen_rescan.py
+  - ?? patch_main.py
+  - ?? patch_object_hazards.py
+  - ?? patch_test_diff.py
+  - ?? patch_test_diff_2.py
+  - ?? patch_test_diff_3.py
+  - ?? patch_tests.py
+  - ?? patch_trackers.py
+
