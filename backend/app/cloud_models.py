@@ -43,6 +43,18 @@ def _new_id() -> str:
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
+def normalise_email(value: str) -> str:
+    """Lowercase, trim, and reject obvious junk. Shared by the storage model and
+    the register request so a single rule decides what an address is — otherwise
+    the request layer accepts something the storage layer then rejects, and the
+    mismatch surfaces as a 500 instead of a 422.
+    """
+    cleaned = value.strip().lower()
+    if not _EMAIL_RE.match(cleaned):
+        raise ValueError(f"not a usable email address: {value!r}")
+    return cleaned
+
+
 class CloudModel(BaseModel):
     """Base for the cloud layer: reject unknown fields, populate by field name.
 
@@ -88,12 +100,9 @@ class User(CloudModel):
     @field_validator("email")
     @classmethod
     def _normalise_email(cls, value: str) -> str:
-        """Lowercase and trim. Addresses are case-insensitive in practice, and
-        storing them un-normalised is how duplicate accounts happen."""
-        cleaned = value.strip().lower()
-        if not _EMAIL_RE.match(cleaned):
-            raise ValueError(f"not a usable email address: {value!r}")
-        return cleaned
+        """Addresses are case-insensitive in practice, and storing them
+        un-normalised is how duplicate accounts happen."""
+        return normalise_email(value)
 
 
 class StoredHomeModel(CloudModel):
