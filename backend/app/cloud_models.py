@@ -115,3 +115,21 @@ class StoredHomeModel(CloudModel):
     def to_document(self) -> dict:
         """Mongo-ready dict: `_id` rather than `id`, native datetimes kept."""
         return self.model_dump(by_alias=True, mode="python")
+
+
+class UserPublic(CloudModel):
+    """A `User` as it may be returned to a client.
+
+    Exists because `User` is the *storage* model and `to_document()` deliberately
+    includes `hashed_password`. Returning a `User` from an endpoint would put the
+    hash on the wire, and FastAPI's `response_model` filtering is easy to forget
+    or to bypass with a bare dict. This type simply has nowhere to put a hash.
+    """
+
+    id: str
+    email: str
+    created_at: datetime
+
+    @classmethod
+    def from_user(cls, user: User) -> "UserPublic":
+        return cls(id=user.id, email=user.email, created_at=user.created_at)
