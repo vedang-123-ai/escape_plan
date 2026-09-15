@@ -10,4 +10,12 @@ anthropic>=0.60
 # S8.1 cloud sync. PyMongo's NATIVE async API (`pymongo.AsyncMongoClient`), which
 # went GA in 4.13 — deliberately NOT Motor, which reached end-of-life 2026-05-14.
 pymongo>=4.13,<5.0
+# S8.2 auth. Argon2id via argon2-cffi — OWASP's first choice, and its defaults
+# (m=64MiB t=3 p=4) exceed every OWASP minimum. Deliberately NOT passlib, which
+# has had no release since 2020 and HARD-FAILS against bcrypt 5.x.
+argon2-cffi>=23.1.0
+# 2.13.0 is a SECURITY floor, not a preference: CVE-2026-48522..48526 (algorithm
+# allow-list bypass, public JWK accepted as HMAC secret, JWKS SSRF) land there.
+PyJWT>=2.13.0,<3.0
+python-multipart>=0.0.20  # OAuth2PasswordRequestForm parses a form body
 # dev/debug extras (graph renderings) live in requirements-dev.txt to keep deploys lean
