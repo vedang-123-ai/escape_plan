@@ -68,6 +68,14 @@ This is the single source of truth for open work. It replaces the old `board.md`
 `checklist.md`, which had drifted into contradicting each other.
 
 
+
+
+**S8 Cloud Sync & Authentication Arc**
+- [ ] S8.1 — Backend: MongoDB integration and user schemas.
+- [ ] S8.2 — Backend: Authentication (JWT/OAuth) and endpoint securing.
+- [ ] S8.3 — iOS: Auth UI (Login/Signup).
+- [ ] S8.4 — iOS: Cloud sync for HomeModels (upload/download/merge).
+
 **S9 Semantic Relocalization Arc**
 - [x] S9.1 (Scoping) — Pivot architecture to Semantic Relocalization. Erase S8, rewrite S9 playbooks. (Done 2026-09-14)
 - [x] S9.1 (Execution) — Build `SemanticMatcher` engine.
