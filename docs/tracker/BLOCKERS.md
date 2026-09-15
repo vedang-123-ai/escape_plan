@@ -303,6 +303,23 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 
 ## 4 · Flake and process — known, live, will bite during filming
 
+- [ ] **S8.2's auth layer has never met a real MongoDB either.** Merged 2026-09-14. Backend
+      **519** not-live pass, all against the in-memory fake in `tests/fake_mongo.py`. The fake
+      enforces both unique indexes and models `_id` as a primary key — which is how the
+      cross-owner write bug was found — but it is not Mongo. Unproven end to end: that a real
+      server creates `uniq_email`, that `DuplicateKeyError` surfaces the way `cloud_repo`
+      expects (it is matched **by class name**, so a driver rename would silently break the 409
+      path), and that a home round-trips through BSON under a live connection. Next action: same
+      server that clears the S8.1 line — then write the `@pytest.mark.mongo` tests, which still
+      do not exist.
+
+- [ ] **`JWT_SECRET_KEY` must be set before any deploy, and is not set anywhere yet.** Added to
+      `render.yaml` as `generateValue: true`, so Render will mint one on next blueprint apply —
+      but an existing service will NOT pick it up automatically. Until it is set, `/auth/*` and
+      `/homes` return 503 by design (`auth_enabled` requires both a database and a secret). The
+      service refuses any secret under 32 bytes. **Owner action, manual.** Note that changing it
+      later invalidates every issued token.
+
 - [ ] **S8.1's MongoDB layer has never met a real MongoDB server.** Merged 2026-09-14. The
       acceptance criterion is "backend starts successfully and connects to MongoDB"; what is
       actually proven is (a) the app boots and serves with NO database, (b) the lifecycle works
@@ -315,7 +332,15 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       longer stops the service, and `tz_aware=True` stops BSON decoding timestamps naive (which
       made a stored home compare unequal to the one written). Backend **442** not-live pass.
 
-- [ ] **S8.2 must create a unique index on `User.email` before it writes a login path.** There is
+- [x] **S8.2's unique email index is WRITTEN — but never created by a real MongoDB.**
+      `cloud_repo.ensure_indexes()` creates it, called from `Database.connect()`; failure is
+      non-fatal (it needs a reachable server) but logged at ERROR. The duplicate-email race IS
+      tested, against an in-memory fake that enforces the index. What is unproven is that a real
+      server creates it — if it silently does not, registration is back to the account-takeover
+      shape below. **Next action: with a real MongoDB, confirm `db.users.getIndexes()` shows
+      `uniq_email` and that a concurrent duplicate registration returns 409.** Original finding:
+
+- [ ] ~~S8.2 must create a unique index on `User.email` before it writes a login path.~~ There is
       no index-creation code anywhere in the backend, and email normalisation is a convention
       enforced only in pydantic. Two concurrent registrations for the same address both pass an
       application-level "is it taken?" check and both insert; `find_one({"email": ...})` then
