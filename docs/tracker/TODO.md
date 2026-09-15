@@ -806,3 +806,184 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       demo storyboards, `decisions.md` history). The mechanical lane labels are gone; these
       are sentences that need rewriting by hand, and `docs/tracker/notes/` is deliberately
       left untouched as a dated archive.
+
+---
+
+## S10 Object Detection QA Arc
+
+### S10.1 — Object Detection Testing & Bug Logging (2026-09-14)
+
+_Prereqs: S7.1–S7.7 (all done). Baseline: 9/9 automated tests green on Python 3.13.5._
+_Scope: all six rules (R1–R5 + R6). Real-world scan focus: heaters near sofas, blocked egress windows, unstrapped bookcases._
+
+**Arc status:**
+- [x] S10.1 — Object Detection Testing & Bug Logging (Done 2026-09-14). **Unblocks S10.2.**
+- [ ] S10.2 — Q&A Findings & Future Tech Decision (`docs/decisions-object-detection-future.md`).
+- [ ] Bug fixes & regression testing for confirmed engine bugs (BUG-01 through BUG-04).
+- [ ] Real-device QA pass with physical iPhone scan (owner-gated; see BLOCKERS.md for device items).
+
+---
+
+### S10.1 QA Report — Confirmed Bugs
+
+_Methodology: automated engine probes run 2026-09-14 against `routing/object_hazards.py` on the
+`main` tree (post-S7.7). Each bug entry has: rule, reproduction fixture, actual output, expected
+output, severity, and recommended fix._
+
+---
+
+#### BUG-01 · R3 `heat_clearance` fires between two heat sources (false positive)
+
+- **Rule:** R3 (`heat_clearance`)
+- **Severity:** P1 — misleading safety finding; a stove adjacent to another stove (or a fireplace
+  beside a range hood) generates a spurious NFPA clearance warning addressed at neither object.
+- **Reproduction:**
+  ```python
+  # Two heat_source objects 0.2 m apart
+  FloorObject(id="stove1", category=ObjectCategory.heat_source, center=(1,1), size_m=(0.8,0.8))
+  FloorObject(id="stove2", category=ObjectCategory.heat_source, center=(2.0,1), size_m=(0.8,0.8))
+  # → 2 hazards fired: heat_clearance on stove1 AND stove2
+  # detail: "The heat source sits 0.2 m from the heater — under the 0.9 m (3 ft) clearance..."
+  ```
+- **Actual:** `heat_clearance` fires for every `heat_source`→`heat_source` pair within 0.9 m.
+- **Expected:** R3 should only fire when a **non-heat-source** object (sofa, bed, storage unit,
+  etc.) is within the heater's clearance zone. Spec: _"Only movable objects trigger it; walls and
+  counters do not"_ — does not exclude other heat sources, leaving an unintended path open.
+- **Root cause:** [`object_hazards.py:344–352`](../../backend/app/routing/object_hazards.py#L344-L352) —
+  the inner loop iterates `for other in room_objects` with no exclusion for `ocat == "heat_source"`.
+- **Fix:** Add `if ocat == "heat_source": continue` inside the R3 inner loop before the distance check.
+- **Regression test to add:** `test_r3_no_false_positive_heat_source_vs_heat_source`
+
+---
+
+#### BUG-02 · R1 `topple` fires across room boundaries (cross-room contamination)
+
+- **Rule:** R1 (`topple`)
+- **Severity:** P1 — a wardrobe in a bedroom generates a "can reach the bed" topple warning for a
+  bed in the adjacent living room. The warning is geometrically impossible (the objects are in
+  separate rooms separated by a wall).
+- **Reproduction:**
+  ```python
+  # Two rooms: r1 (x 0–10), r2 (x 10–20)
+  FloorObject(id="wardrobe1", category=ObjectCategory.wardrobe, center=(9,5), size_m=(1,1), height_m=1.9, secured=False)
+  # center in r1
+  FloorObject(id="bed1", category=ObjectCategory.bed, center=(11,5), size_m=(2,2))
+  # center in r2 — but bounding circle (r≈1.414) reaches x=9.586, inside r1's AABB max_x=10
+  # → 1 topple hazard fires: "The wardrobe (1.9 m tall, unsecured) can reach the bed 0.5 m away"
+  ```
+- **Actual:** The engine fires `topple` with `room_id="r1"`, claiming the bed is 0.5 m away across
+  what is actually a wall.
+- **Root cause:** [`object_hazards.py:177–189`](../../backend/app/routing/object_hazards.py#L177-L189) —
+  room assignment uses a **bounding-circle + AABB** filter, not point-in-polygon. Objects whose
+  bounding circle overlaps a room's axis-aligned bounding box are assigned to that room regardless
+  of which room their center actually belongs to.
+- **Expected:** Room assignment should use **point-in-polygon** on `obj.center` against the room
+  polygon. The `point_in_poly` helper already exists in the file.
+- **Fix:** Replace the AABB filter block with:
+  ```python
+  if point_in_poly(obj.center, list(room.polygon)):
+      room_objects.append(obj)
+  ```
+- **Regression test to add:** `test_r1_no_topple_across_room_boundary`
+
+---
+
+#### BUG-03 · R5 + R1 double-fire on an unsecured water heater near a bed
+
+- **Rule:** R5 (`water_heater_unsecured`) + R1 (`topple`)
+- **Severity:** P2 — not a safety miss, but a UX/checklist defect. The user sees two separate
+  findings for the exact same water heater: one for being unstrapped (R5) and one for its topple
+  arc reaching the bed (R1). The checklist will show `hazard.water_heater_unsecured.wh1` AND
+  `hazard.topple.wh1` — two strap-it cards for one heater.
+- **Reproduction:**
+  ```python
+  FloorObject(id="wh1", category=ObjectCategory.water_heater, center=(1,1),
+              size_m=(0.5,0.5), height_m=1.9, secured=False)
+  FloorObject(id="bed1", category=ObjectCategory.bed, center=(3.2,1), size_m=(2,2))
+  # → 2 hazards: rule=topple (wh1, high) AND rule=water_heater_unsecured (wh1, high)
+  ```
+- **Actual:** Both R5 and R1 fire for `wh1`.
+- **Expected:** When R5 fires for a water heater, R1 should be suppressed for the same object —
+  R5 already covers the strap-to-studs action and is more specific.
+- **Fix (recommended):** In the R1 block, skip objects that triggered R5:
+  add `if cat == "water_heater" and not obj.secured: continue` before the topple check. Alternatively,
+  remove `water_heater` from `topple_cat` in R1 and document that R5 subsumes R1 for water heaters
+  in the spec.
+- **Regression test to add:** `test_r5_suppresses_r1_for_water_heater`
+
+---
+
+#### BUG-04 · R1 detail sentence says "doorway" for an egress window (narration bug)
+
+- **Rule:** R1 (`topple`)
+- **Severity:** P2 — user-facing copy error. When a topple band covers the approach of an egress
+  **window**, the detail sentence reads _"can reach the doorway 'win1'"_. A window is not a
+  doorway; the narration is confusing and technically wrong.
+- **Root cause:** [`object_hazards.py:288`](../../backend/app/routing/object_hazards.py#L288):
+  ```python
+  best_target_name = f"the doorway '{op.id}'"
+  ```
+  Uses `"doorway"` unconditionally for every `Opening`, ignoring `op.kind`.
+- **When it surfaces:** The engine's best-target logic picks the closest target. When a sofa or
+  bed is within the topple band, that becomes `best_target_name` and the window string is never
+  emitted. The bug is exposed only when the **only** topple-band target is an egress window —
+  e.g. a garage with an unstrapped water heater, or a hallway with a tall storage unit. Common
+  in real homes.
+- **Expected:** Detail should say `"the window 'win1'"` when `op.kind == OpeningKind.window`.
+- **Fix:**
+  ```python
+  opening_label = "window" if op.kind == OpeningKind.window else "doorway"
+  best_target_name = f"the {opening_label} '{op.id}'"
+  ```
+- **Regression test to add:** `test_r1_detail_says_window_not_doorway_for_window_opening`
+
+---
+
+### S10.1 Items Tested — Green (no bug)
+
+| # | Rule | Scenario | Result |
+|---|---|---|---|
+| T-01 | R3 | Heater at (1,1), sofa at (9,9) — 11+ m apart | ✅ No false positive |
+| T-02 | R1 | Sofa-only topple (no bed in radius) → severity=info | ✅ Correct severity |
+| T-03 | R2 | Mounted+secured shelf over bed → severity=info | ✅ Downgrade correct |
+| T-04 | R1 | Wardrobe far from room boundary, bed clearly in other room (>5 m center separation) | ✅ No cross-room fire |
+
+---
+
+### S10.1 Real-World Scan Checklist (owner-gated — physical iPhone required)
+
+These items cannot be verified from a dev machine. Run them on the next device trip:
+
+- [ ] **R1 bookcase/wardrobe scan:** Scan a room with a tall unsecured bookcase near the bed. Confirm:
+  (a) object captured with `category=storage`, `height_m` within ±10% of physical measurement;
+  (b) `check_object_hazards` returns a `topple` finding with correct `reach_m`;
+  (c) 3D dollhouse shows advisory amber ring (S7.7).
+- [ ] **R3 space heater:** Use the hazard hunt (`HazardHuntView`) to tag a portable space heater
+  within 0.5 m of a sofa. Confirm `heat_clearance` fires at severity=high with measured distance
+  and 0.9 m threshold in the detail.
+- [ ] **R3 stove/fireplace — no false positive:** Scan a kitchen. Confirm stove maps to `heat_source`.
+  Confirm no `heat_clearance` false positive fires against an adjacent appliance (BUG-01 fix required first).
+- [ ] **R4 egress window blockage:** Place a storage box in front of an egress-qualifying window.
+  Confirm `blocked_opening` fires with the window's `opening_id`, and narration says "window" not
+  "door" (BUG-04 fix required first).
+- [ ] **R5 water heater:** Tag an unsecured water heater via hazard hunt in a garage. Confirm exactly
+  ONE finding fires (`water_heater_unsecured`, high) — not two (BUG-03 fix required first).
+- [ ] **Multi-room scan — no cross-room topple:** Scan two adjacent rooms. Confirm a wardrobe in
+  bedroom does not topple-fire against a bed in the adjacent living room (BUG-02 fix required first).
+- [ ] **Scan same space twice without crash** (carry-forward from LiDAR section).
+- [ ] **Commit one real scan export** to `schema/fixtures/scans/` exercising at least R1 and R3
+  so future regression can be deterministic.
+
+---
+
+### S10.1 Engine Bugs — Summary Table
+
+| ID | Rule | Type | Real-world trigger | Priority | Status |
+|---|---|---|---|---|---|
+| BUG-01 | R3 `heat_clearance` | False positive: heat source vs. heat source | Stove + range hood, dual fireplaces | P1 | Open — fix in S10.2 |
+| BUG-02 | R1 `topple` | False positive: cross-room contamination (AABB bleed) | Any room boundary with furniture near the wall | P1 | Open — fix in S10.2 |
+| BUG-03 | R5 + R1 | Double-fire: water heater emits two checklist items | Any unstrapped water heater near a bed | P2 | Open — fix in S10.2 |
+| BUG-04 | R1 `topple` narration | Wrong label: "doorway" for egress window | Garage, hallway with window-only egress | P2 | Open — fix in S10.2 |
+
+_Fix order: BUG-01 and BUG-02 (P1) before the next real-device trip. BUG-03 and BUG-04 (P2) in
+the same S10.2 session. All four require new regression tests; add them alongside the fixes._
