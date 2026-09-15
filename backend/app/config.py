@@ -60,6 +60,30 @@ class Settings(BaseModel):
         return self.mongodb_uri is not None
 
 
+MIN_JWT_SECRET_BYTES = 32
+"""RFC 7518 §3.2: an HMAC key for SHA-256 should be at least the hash output
+size. PyJWT warns below this; we refuse, because a short signing secret is
+brute-forceable and the warning is easy to miss in a deploy log."""
+
+
+def _validated_jwt_secret(secret: str | None) -> str | None:
+    """Reject a too-short secret loudly at startup rather than signing with it.
+
+    Fails closed on a BAD secret while treating an ABSENT one as "auth off" —
+    the same split as MONGODB_URI: not configuring a feature is a choice,
+    misconfiguring it is an error.
+    """
+    if secret is None:
+        return None
+    if len(secret.encode()) < MIN_JWT_SECRET_BYTES:
+        raise RuntimeError(
+            f"JWT_SECRET_KEY is too short ({len(secret.encode())} bytes). "
+            f"Use at least {MIN_JWT_SECRET_BYTES} bytes of random data, e.g. "
+            f"`python3 -c 'import secrets; print(secrets.token_urlsafe(48))'`."
+        )
+    return secret
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Load settings once per process. `BACKEND_BEARER_TOKEN` is required so the
@@ -79,7 +103,7 @@ def get_settings() -> Settings:
         # secret would "work" in testing and then invalidate every token on each
         # restart and on every replica — the kind of bug that looks like a
         # flaky login. Absent secret = auth disabled, loudly.
-        jwt_secret=os.environ.get("JWT_SECRET_KEY") or None,
+        jwt_secret=_validated_jwt_secret(os.environ.get("JWT_SECRET_KEY") or None),
         jwt_access_ttl_minutes=int(os.environ.get("JWT_ACCESS_TTL_MINUTES", "60")),
     )
 
