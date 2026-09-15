@@ -16,11 +16,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.auth.passwords import hash_password, verify_password
 from app.auth.tokens import AuthTokenError, create_access_token, decode_access_token
-from app.cloud_models import StoredHomeModel, User, UserPublic
+from app.cloud_models import (
+    StoredHomeModel,
+    User,
+    UserPublic,
+    normalise_email,
+)
 from app.cloud_repo import (
     EmailAlreadyRegistered,
     HomeNotOwned,
@@ -56,6 +61,14 @@ class RegisterRequest(BaseModel):
     # 8 is a floor, not a policy. Argon2 has no upper limit, and NIST advises
     # against composition rules, so length is the only constraint imposed.
     password: str = Field(min_length=8, max_length=1024)
+
+    @field_validator("email")
+    @classmethod
+    def _check_email(cls, value: str) -> str:
+        """Validate HERE, not only on User. Without this the address reaches
+        User() inside the handler, where a ValidationError is an unhandled 500
+        rather than the 422 a malformed request deserves."""
+        return normalise_email(value)
 
 
 class TokenResponse(BaseModel):
