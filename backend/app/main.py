@@ -26,6 +26,7 @@ from app.routing.egress import EgressThresholds
 from app.ai.agent import AgentError, AnalysisResult, run_agent_analysis
 from app.ai.builder import BuilderError, BuildResult, run_builder
 from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
+from app.api_auth import router as cloud_router
 from app.api_chat import router as chat_router
 from app.config import get_settings, get_thresholds, get_object_hazard_thresholds
 from app.convert.converter import convert_scan
@@ -67,6 +68,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(chat_router)
+app.include_router(cloud_router)
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
