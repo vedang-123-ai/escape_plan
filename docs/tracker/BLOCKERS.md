@@ -97,6 +97,41 @@ because if it fails nothing downstream is worth tuning.
 
 ## 3 · Known defects — found by review, not yet fixed
 
+- [ ] **S9.3 renders every AR waypoint at a hardcoded 1.0 m, ignoring which floor it is on.**
+      `ARDrillView.swift:68` — `wpNode.position = SCNVector3(Float(wp.x), 1.0, Float(wp.y))`, and
+      the file's only other mention of "floor" is the comment above that line. There is no floor
+      or level term anywhere in the placement. On `twostory.json` (levels 0 and 1 — a core
+      fixture) a route from an upstairs bedroom down to an exit draws the whole path at one
+      height, so a user standing upstairs sees the ground-floor leg floating at eye level. The
+      horizontal mapping (model `y` → AR `z`) is correct; only height is wrong. Multi-floor homes
+      are in scope and stairs are modelled, so this is not an edge case. Found by review
+      2026-09-14, never seen on a device.
+
+- [ ] **A room with no doors scores a perfect 0 and outranks correctly-matched rooms.**
+      `SemanticMatcher.swift` — the door-distance branch falls through to `totalDist = 0` whenever
+      *either* side has no doors, and lower is better. So a candidate whose openings are missing
+      (a closet, or a scan that missed a doorway) always sorts above a correct room that matched
+      its doors at, say, 0.35 m. Absence of evidence is being scored as perfect evidence. The
+      2026-09-14 ambiguity fix means such a room now always returns `.ambiguous` rather than a
+      confident wrong match — but the *correct* room can be excluded from the candidate list
+      entirely, so the user is asked to disambiguate among only wrong answers. Next action: score
+      the no-evidence case as neutral-or-worst, not best, and exclude it from `best` selection.
+
+- [ ] **RoomPlan splits long walls, and `extractedLongestWall` does not account for it.**
+      Anish's own S9.1 audit raised this as MEDIUM and the S9.2 audit confirms it was deliberately
+      left unfixed ("I haven't fixed the 'Group walls by their normal vectors' issue yet"). A 10 m
+      wall broken into three segments by doors loses to an unbroken 4 m perpendicular wall,
+      producing a permanent 90° alignment error. Everything in the matcher keys off the longest
+      wall, so this failure is silent and total. Only reproducible on a real scan.
+
+- [ ] **"Verified fixes with `xcodebuild test` successfully" carries no count and no bundle.**
+      `notes/2026-09-14-S9.2-UI-Setup.md`. The claim is plausible — it was presumably run on the
+      author's machine, not this one — but this repo's own rule is that true counts come only from
+      `xcrun xcresulttool get test-results summary --path <bundle>`, never a console tail, because
+      the unit target runs under Swift Testing and prints `Executed 16 tests`. **S9.3's note makes
+      no test claim at all.** So the iOS status is: S9.1/S9.2 claimed-green-unevidenced, S9.3
+      never claimed. Next action: whoever next has a working simulator records a real count.
+
 Carried from the 2026-09-06 agent review of the orchestrator's S6.1–S6.3 and later sessions.
 These are real, reproduced or reasoned, and several would read badly to a judge.
 
