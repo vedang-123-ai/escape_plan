@@ -328,7 +328,7 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       scheduling fact, not an argument against the arc — the owner approved it 2026-09-14 — but it
       belongs on the board so the trade is made deliberately rather than by drift.
 
-- [ ] **The S9.1 merge (`0103a74`) brought in Swift that has NEVER been compiled.** Merged to
+- [ ] **The S9 Swift has never been compiled ON THIS MACHINE, and its green claim is unevidenced.** Merged to
       `main` 2026-09-14 as `33ef233`. New/changed: `escape_plan/Drill/SemanticMatcher.swift`
       (282 lines, new), `escape_plan/Screens/DiffReviewSheet.swift` (new),
       `escape_plan/Screens/HomeScreen.swift` (modified), plus two new test files
@@ -340,8 +340,16 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       files like `HomeScreen.swift` have 0 references too). The new files WILL build and the new
       tests WILL run. What is unknown is whether they compile clean and pass.
       What IS verified post-merge: backend **394** not-live pass, EditorCore **295** pass, corpus
-      valid (24 sources / 9 files / 2 threshold files). Next action: compile the app target before
-      trusting any S9.1 claim — this stacks on the same untested-iOS debt as S7.7's STEP 0.
+      valid (24 sources / 9 files / 2 threshold files).
+      **Correction (2026-09-14):** `notes/2026-09-14-S9.2-UI-Setup.md` claims "Verified fixes with
+      `xcodebuild test` successfully", so S9.1/S9.2 were probably compiled on the author's machine
+      — an earlier version of this line asserted flatly that they never had been, which overstated
+      what is known. No count and no result bundle were recorded, so it stays unverified rather
+      than green, per this repo's xcresulttool rule. S9.3's note claims no test run at all, and
+      S9.2/S9.3 added `ARDrillView.swift`, `DrillRelocalizationController.swift` and
+      `DrillRelocalizationView.swift` (481 lines) after that claim. All seven new files parse
+      clean (`swiftc -parse`), which is syntax only and not type-checking. Next action: whoever
+      has a working simulator records a real count — this stacks on S7.7's STEP 0.
 
 - [ ] **15 `patch_*.py` scratch scripts were committed to the repo root by `0103a74`.**
       `patch_apiclient.py`, `patch_diff*.py`, `patch_homescreen*.py`, `patch_main.py`,
