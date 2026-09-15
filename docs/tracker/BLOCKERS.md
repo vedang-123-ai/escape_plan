@@ -261,6 +261,31 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       written or read. Next action: run a MongoDB (Atlas free tier or local), set `MONGODB_URI`,
       confirm `/health/db` returns `ok`, then run the `mongo`-marked tests
       (`pytest -m mongo`) — which do not exist yet and should be written with that server in hand.
+      Two review findings were fixed without a server and are now covered: a malformed URI no
+      longer stops the service, and `tz_aware=True` stops BSON decoding timestamps naive (which
+      made a stored home compare unequal to the one written). Backend **442** not-live pass.
+
+- [ ] **S8.2 must create a unique index on `User.email` before it writes a login path.** There is
+      no index-creation code anywhere in the backend, and email normalisation is a convention
+      enforced only in pydantic. Two concurrent registrations for the same address both pass an
+      application-level "is it taken?" check and both insert; `find_one({"email": ...})` then
+      returns an arbitrary one of them and password reset becomes ambiguous — an account-takeover
+      shape. `Database.connect()` is the natural home. Cannot be written or verified without a
+      real server, which is why it is here and not done.
+
+- [ ] **Three S8.2 landmines, named now so they are not discovered later.** (1) `CloudSyncDisabled`
+      subclasses `RuntimeError`, so a cloud route hitting it returns a bare 500 — add an exception
+      handler mapping it to 503, and make routes fail at the top rather than branching on
+      `database.enabled`, which would silently skip writes. (2) Never return a `User` from an
+      endpoint: `to_document()` deliberately includes `hashed_password` because it is the
+      persistence path, so a public response model is needed. (3) A `User` with
+      `hashed_password=None` must never authenticate — that is an explicit acceptance criterion,
+      not an implementation detail.
+
+- [ ] **`pymongo`'s command logger writes whole documents at DEBUG.** Harmless today
+      (`logging.basicConfig(level=logging.INFO)`), but once S8.4 syncs homes, raising the root
+      level to DEBUG would write users' home layouts into the logs. Pin the pymongo logger to INFO
+      before then.
 
 - [ ] **The S8 arc now competes with the device pass for the weeks before Oct 24.** S8.2–S8.4 are
       ~19h more (auth, iOS auth UI, sync+merge) on top of S8.1. Meanwhile §2's device pass has
