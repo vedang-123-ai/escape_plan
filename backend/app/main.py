@@ -187,11 +187,13 @@ async def health_db() -> DatabaseHealthResponse:
     report that fact, and a 5xx here would be indistinguishable from the whole
     service being down.
     """
-    settings = get_settings()
     status = await database.status()
+    # Both fields come from the live client state, never from the environment.
+    # Reading `db_name` from settings let the body contradict itself — a bad
+    # MONGODB_URI reports "disabled" while settings still names a database.
     return DatabaseHealthResponse(
         database=status,
-        db_name=settings.mongodb_db_name if settings.cloud_sync_enabled else None,
+        db_name=get_settings().mongodb_db_name if database.enabled else None,
     )
 
 

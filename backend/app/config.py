@@ -12,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.routing.egress import EgressThresholds
 
@@ -26,10 +26,13 @@ CORPUS_DIR = BACKEND_DIR / "corpus"
 class Settings(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    bearer_token: str
-    anthropic_api_key: str | None
+    # repr=False on every secret: one `logger.debug("settings=%s", settings)`
+    # would otherwise print the bearer token, the API key and a MongoDB URI
+    # complete with its password.
+    bearer_token: str = Field(repr=False)
+    anthropic_api_key: str | None = Field(default=None, repr=False)
     anthropic_model: str
-    mongodb_uri: str | None
+    mongodb_uri: str | None = Field(default=None, repr=False)
     mongodb_db_name: str
 
     @property

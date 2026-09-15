@@ -64,10 +64,26 @@ class User(CloudModel):
     """
 
     id: str = Field(default_factory=_new_id, alias="_id")
-    email: str
+    # 254 is the practical maximum for an address. Unbounded, a multi-megabyte
+    # string validates here and is then rejected by Mongo's 1024-byte index key
+    # limit at write time — a driver error where a 422 belongs.
+    email: str = Field(max_length=254)
     hashed_password: str | None = None
     created_at: datetime = Field(default_factory=_utc_now)
     updated_at: datetime = Field(default_factory=_utc_now)
+
+    def to_document(self) -> dict:
+        """Mongo-ready dict: `_id` rather than `id`.
+
+        Exists so the obvious call is the correct one. `insert_one(user.model_dump())`
+        would write a field literally named `id` and let Mongo mint its own
+        ObjectId `_id`, after which every lookup by id misses.
+
+        NOTE for S8.2: this intentionally INCLUDES `hashed_password`, because it
+        is the persistence path. Do not return a `User` from an endpoint — add a
+        separate public response model, or the hash goes out over the wire.
+        """
+        return self.model_dump(by_alias=True, mode="python")
 
     @field_validator("email")
     @classmethod
