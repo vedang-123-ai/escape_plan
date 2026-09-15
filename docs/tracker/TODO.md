@@ -70,6 +70,12 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 
 
+**FIRST PRIORITY — Anish / Yuki, before anything else**
+- [ ] Run the iOS suite on a working simulator and record the real count from the result bundle
+      (not the console). Then fix the two reviewed defects in `BLOCKERS.md` §3. Full brief:
+      [`FIRST-PRIORITY.md`](FIRST-PRIORITY.md). Four bodies of Swift are unverified; the machine
+      this was last worked on cannot run the simulator.
+
 **S8 Cloud Sync & Authentication Arc**
 - [x] S8.1 — Backend: MongoDB integration and user schemas. **DONE 2026-09-14.** `app/database.py` (PyMongo async, NOT Motor — EOL 2026-05-14), `app/cloud_models.py` (`User`, `StoredHomeModel`), `lifespan`-owned pool, open `/health/db`. Backend **426** not-live pass (was 394; +32). **Unverified: never run against a real MongoDB server** — no server was available on this machine, so "connects to MongoDB" is proven only against a stub and against a deliberate connection failure. See `BLOCKERS.md`. **S8.2 unblocked.**
 - [ ] S8.2 — Backend: Authentication (JWT/OAuth) and endpoint securing.

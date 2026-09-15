@@ -8,8 +8,8 @@ what actually stops the project from shipping, ranked by what is on the critical
 
 _Last verified 2026-09-14 on `main` @ `33ef233` (the merge of `origin/main`'s S9.1 commit
 `0103a74` into the local S7.7 line). **Re-run and green this session, post-merge:** backend
-**394** pass / 13 live-deselected (via `backend/.venv` — the old "no pytest on this machine" line
-was wrong, see §4), EditorCore **295** pass, corpus valid (**24** sources, **9** files, **2**
+**442** pass / 13 live-deselected (394 at the merge, +48 from S8.1; via `backend/.venv` — the old
+"no pytest on this machine" line was wrong, see §4), EditorCore **295** pass, corpus valid (**24** sources, **9** files, **2**
 threshold files). **NOT run this session:** iOS (**615 passed, 0 failed, 8 skipped, 620 total** as
 of 2026-09-09, iPhone 17 Pro / iOS 26.5 simulator, `xcresulttool` summary from bundle
 `Test-escape_plan-2026.09.09_23-31-03--0700.xcresult`) — that number now predates BOTH
@@ -23,6 +23,21 @@ count as stale, not as a pass. `RouteRedrawAfterEditUITests` run live separately
 - One line per blocker: what it blocks · who can clear it · the concrete next action.
 - Remove an item only when you personally verified it. "The code exists" is not verification.
 - Discovered something undone? It goes here, this session. Not in a note, not in your head.
+
+---
+
+## 0 · FIRST PRIORITY — before any other work
+
+- [ ] **Compile and test the app on a working simulator, and record a real count.**
+      **Owner: Anish / Yuki.** Full brief, command and follow-ups:
+      [`FIRST-PRIORITY.md`](FIRST-PRIORITY.md). Four bodies of Swift have landed since the last
+      verified iOS run (615 passed, 2026-09-09) and none has a recorded result: S7.7's
+      `HazardHuntView` rewrite, S7.8's `DiffReviewSheet`, S9.1/S9.2 (a note claims `xcodebuild
+      test` passed but records no count and no bundle), and S9.3's `ARDrillView` (no test claim at
+      all). All seven new files pass `swiftc -parse` — syntax only, not a compile. The machine
+      this was last worked on cannot run the simulator, so it could not be checked there.
+      Surfaced at the top of every new session by the SessionStart hook; clear it by setting
+      `gate_status: closed` in `FIRST-PRIORITY.md`.
 
 ---
 
