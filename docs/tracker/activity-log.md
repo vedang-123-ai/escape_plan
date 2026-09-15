@@ -1792,3 +1792,9 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-15T05:14:38Z · vedang-123-ai · `main` @ `1cb4978`
+
+**Commits this session**
+  - 1cb4978 Activity log: hook entries
+  - 66fbc01 FIRST PRIORITY gate: the iOS suite must be run before any new work
+
