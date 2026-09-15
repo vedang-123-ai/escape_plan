@@ -85,8 +85,13 @@ no human sign-off and no PR gate.** Invariants:
   yourself, merge to `main`. Never tag a human reviewer or park a branch awaiting sign-off — that
   blocked S6.1 while three sessions waited.
 - **Scope lock, not open for relitigation:** fire + earthquake + severe weather (tornado); iOS
-  only; LiDAR scan only; no user accounts. Deliberately out: camera-only capture, Android,
-  multi-user sync, any fourth peril, **custom/trained ML models**.
+  only; LiDAR scan only. Deliberately out: camera-only capture, Android, any fourth peril,
+  **custom/trained ML models**.
+  - **"No user accounts" and "multi-user sync" were REMOVED from this lock 2026-09-14**, when the
+    owner approved the S8 Cloud Sync & Authentication arc (`docs/playbook/08-cloud-sync-intro.md`,
+    `S8-1.md`…`S8-4.md`). Accounts, a MongoDB-backed store and cross-device sync are now in scope.
+    Note this reverses a decision recorded the SAME day — an S8 Firebase-auth arc was deleted
+    2026-09-14 for violating the very lock this approval lifted. See `docs/decisions.md`.
   - Multi-peril was approved 2026-09-05 with the S6 arc; **object-hazard detection was approved
     2026-09-08 with the S7 arc** (`docs/playbook/07-object-hazard-intro.md`, `S7-1.md`…`S7-10.md`;
     rule book `docs/object-hazard-spec.md`). "Furniture detection" was on this out-list until that

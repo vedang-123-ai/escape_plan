@@ -71,7 +71,7 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 
 **S8 Cloud Sync & Authentication Arc**
-- [ ] S8.1 — Backend: MongoDB integration and user schemas.
+- [x] S8.1 — Backend: MongoDB integration and user schemas. **DONE 2026-09-14.** `app/database.py` (PyMongo async, NOT Motor — EOL 2026-05-14), `app/cloud_models.py` (`User`, `StoredHomeModel`), `lifespan`-owned pool, open `/health/db`. Backend **426** not-live pass (was 394; +32). **Unverified: never run against a real MongoDB server** — no server was available on this machine, so "connects to MongoDB" is proven only against a stub and against a deliberate connection failure. See `BLOCKERS.md`. **S8.2 unblocked.**
 - [ ] S8.2 — Backend: Authentication (JWT/OAuth) and endpoint securing.
 - [ ] S8.3 — iOS: Auth UI (Login/Signup).
 - [ ] S8.4 — iOS: Cloud sync for HomeModels (upload/download/merge).

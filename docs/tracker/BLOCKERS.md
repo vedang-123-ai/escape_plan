@@ -253,6 +253,21 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 
 ## 4 · Flake and process — known, live, will bite during filming
 
+- [ ] **S8.1's MongoDB layer has never met a real MongoDB server.** Merged 2026-09-14. The
+      acceptance criterion is "backend starts successfully and connects to MongoDB"; what is
+      actually proven is (a) the app boots and serves with NO database, (b) the lifecycle works
+      against a stub, and (c) a real `AsyncMongoClient` pointed at a dead port reports
+      `unreachable` within the 3s timeout instead of hanging or crashing. No document has ever been
+      written or read. Next action: run a MongoDB (Atlas free tier or local), set `MONGODB_URI`,
+      confirm `/health/db` returns `ok`, then run the `mongo`-marked tests
+      (`pytest -m mongo`) — which do not exist yet and should be written with that server in hand.
+
+- [ ] **The S8 arc now competes with the device pass for the weeks before Oct 24.** S8.2–S8.4 are
+      ~19h more (auth, iOS auth UI, sync+merge) on top of S8.1. Meanwhile §2's device pass has
+      never been started and gates filming, and four bodies of Swift remain uncompiled. This is a
+      scheduling fact, not an argument against the arc — the owner approved it 2026-09-14 — but it
+      belongs on the board so the trade is made deliberately rather than by drift.
+
 - [ ] **The S9.1 merge (`0103a74`) brought in Swift that has NEVER been compiled.** Merged to
       `main` 2026-09-14 as `33ef233`. New/changed: `escape_plan/Drill/SemanticMatcher.swift`
       (282 lines, new), `escape_plan/Screens/DiffReviewSheet.swift` (new),

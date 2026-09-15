@@ -22,6 +22,7 @@ Every library, framework, API, and tool used in this project — required for Co
 | FastAPI | ≥0.115 | HTTP service wrapping the routing engine + AI layer (`backend/app/main.py`) | MIT |
 | uvicorn | ≥0.30 | ASGI server running the FastAPI app (local + Render) | BSD-3 |
 | httpx | ≥0.27 | FastAPI TestClient transport; HTTP client inside the anthropic SDK | BSD-3 |
+| pymongo (async API) | ≥4.13,<5.0 (4.18.1 installed) | S8.1 cloud sync: MongoDB connection lifecycle (`backend/app/database.py`) via `pymongo.AsyncMongoClient`, owned by the FastAPI `lifespan` handler. **Deliberately not Motor**, which reached end-of-life 2026-05-14 — PyMongo's native async API is MongoDB's stated replacement (GA in 4.13) | Apache-2.0 |
 | anthropic (Python SDK) | ≥0.60 | Grounded explanation layer (S3.1+): Claude API calls with prompt caching + tool-use structured output | MIT |
 | Render.com | free tier | Backend hosting (blueprint `render.yaml`); **live** at `https://escape-plan-backend.onrender.com` since 2026-07-16 | Render ToS |
 | Foundation (FileManager / JSONEncoder / UserDefaults) | iOS 17+ SDK | S2.4 local persistence: home documents on disk, JSON coding, anonymous device id. No third-party persistence library — the store is ~350 lines of Apple SDK | Apple SDK |
