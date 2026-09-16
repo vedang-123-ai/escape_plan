@@ -88,6 +88,14 @@ backend — still red, see §3._
 
 ## 2 · Device blocks — things that require the physical iPhone 17 Pro
 
+- [ ] **Nothing has ever run below iOS 26.5, and the deployment target is now 17.0.**
+      Changed 2026-09-16 (see §3) because 26.5 was an Xcode default that would have made the
+      app installable only on the newest iOS. The lower floor is compile-verified, not
+      run-verified. Next action: during the device pass, boot ONE simulator on an older runtime
+      (17.x or 18.x) and walk the golden path — the risks are SwiftUI layout differences,
+      `@Observable` behaviour, and RoomPlan/ARKit availability, none of which a type-check sees.
+      If an older runtime is not installed, say so on this line rather than deleting it.
+
 - [ ] **S8.3's three auth SCREENS have never been rendered.** `AuthGateView`, `LoginView`,
       `SignupView` (plus `AuthSheetView` and `RootView`) type-check and nothing more. Everything
       they sit on is tested — 84 tests, `swift test --package-path tools/editorcore` — but layout,
@@ -166,13 +174,22 @@ because if it fails nothing downstream is worth tuning.
 
 ## 3 · Known defects — found by review, not yet fixed
 
-- [ ] **The root `CLAUDE.md` says "iOS 17+"; the project builds against iOS 26.5.**
-      `IPHONEOS_DEPLOYMENT_TARGET = 26.5` in all four build configurations, and
-      `.claude/rules/languages/swift.md` repeats the iOS 17 claim. Found in S8.3 while checking
-      whether a Foundation date-parsing difference between iOS 17 and 18+ mattered — it does not,
-      because iOS 17 is not a target. Harmless today, but it is exactly the kind of stale premise
-      that gets a real decision made on it. Next action: correct both files, or change the
-      deployment target if 26.5 was not deliberate (it is very high for a submission).
+- [x] ~~**The root `CLAUDE.md` says "iOS 17+"; the project builds against iOS 26.5.**~~
+      **RESOLVED 2026-09-16 — the docs were right and the project file was wrong.**
+      `IPHONEOS_DEPLOYMENT_TARGET` was `26.5` in all four configurations, which would have
+      shipped an app installable only on the newest iOS — for a submission judges may open on
+      any device, close to a disqualifying detail. Nobody on the team put it there deliberately
+      (owner confirmed); it is the value Xcode defaults a new project to.
+      **Measured rather than assumed before changing it:** the app type-checks clean against the
+      simulator SDK at **iOS 17.0** and 18.0 (exit 0, both `-DDEBUG` and release), and fails at
+      iOS 16.0 with exactly **38** `is only available in iOS 17.0 or newer` errors. So 17.0 is
+      precisely the floor — the number `CLAUDE.md` has claimed all along, for the documented
+      reason (RoomPlan's merged multi-room `CapturedStructure` API). All four configurations are
+      now `17.0`.
+      **What this does NOT mean:** the app has never been RUN below iOS 26.5. It compiles for
+      17.0; that is a different claim from working there. Anything version-sensitive at runtime —
+      SwiftUI layout, `@Observable`, RoomPlan, ARKit — is unverified on 17.x and should be spot
+      checked during the device pass. Carried as a device-pass item in §2.
 
 - [ ] **S9.3 renders every AR waypoint at a hardcoded 1.0 m, ignoring which floor it is on.**
       `ARDrillView.swift:68` — `wpNode.position = SCNVector3(Float(wp.x), 1.0, Float(wp.y))`, and

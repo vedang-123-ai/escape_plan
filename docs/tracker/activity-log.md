@@ -1981,3 +1981,13 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 20d0a27 S8.3: stubbed transport scoped to one session, not the whole process
   - 986eba4 S8.3: AuthClient for /auth/register, /auth/login and /auth/me
 
+## 2026-09-16T14:45:06Z · vedang-123-ai · `main` @ `9f41e90`
+
+**Commits this session**
+  - 9f41e90 Activity log: the S8.3 session
+
+## 2026-09-16T20:36:51Z · vedang-123-ai · `main` @ `9f41e90`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
