@@ -180,3 +180,42 @@ class TestUserPublic:
                 id="u1", email="a@b.com", created_at=datetime.now(timezone.utc),
                 hashed_password="$2b$12$x",
             )
+
+
+class TestTimestampPrecision:
+    """BSON stores datetimes as milliseconds since the epoch, so microseconds do
+    not survive a write. Generating them already truncated is what makes an
+    in-memory model compare equal to the same model read back from Mongo.
+
+    The live half of this — that a real server agrees — is in
+    test_cloud_mongo.py. These run with no database.
+    """
+
+    def test_generated_timestamps_carry_no_sub_millisecond_component(self):
+        user = User(email="a@b.com")
+        for ts in (user.created_at, user.updated_at):
+            assert ts.microsecond % 1000 == 0, (
+                f"{ts!r} has sub-millisecond precision that BSON will silently "
+                "drop, making written != read_back against a real MongoDB"
+            )
+
+    def test_stored_home_timestamps_are_truncated_too(self, bungalow):
+        stored = StoredHomeModel(user_id="u1", home=HomeModel.model_validate(bungalow))
+        assert stored.created_at.microsecond % 1000 == 0
+        assert stored.updated_at.microsecond % 1000 == 0
+
+    def test_timestamps_are_still_timezone_aware(self):
+        """Truncating must not cost the tzinfo — naive datetimes compare
+        incorrectly across a sync, which is the S8.1 `tz_aware` finding."""
+        user = User(email="a@b.com")
+        assert user.created_at.tzinfo is not None
+        assert user.created_at.utcoffset() == timezone.utc.utcoffset(None)
+
+    def test_a_round_trip_through_milliseconds_is_lossless(self):
+        """Simulates what BSON does: drop to millisecond resolution and back.
+        The model's own timestamps must be fixed points of that operation."""
+        user = User(email="a@b.com")
+        as_bson_would = user.created_at.replace(
+            microsecond=(user.created_at.microsecond // 1000) * 1000
+        )
+        assert as_bson_would == user.created_at
