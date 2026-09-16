@@ -240,6 +240,16 @@ struct SettingsScreen: View {
     private var accountSection: some View {
         if let user = authSession.state.user {
             section("Account") {
+                // Signed in, but the token could not be written to the Keychain — the session
+                // will not survive a relaunch. Shown HERE rather than on the sign-in form,
+                // because the form dismisses itself the instant sign-in succeeds: the warning's
+                // own success path would destroy its host in the same frame. Settings persists,
+                // and is where someone goes when the app "forgot" them.
+                if let warning = authSession.persistenceWarning {
+                    AuthPersistenceNote(message: warning)
+                        .padding(.horizontal, 18)
+                        .padding(.top, 14)
+                }
                 row("Signed in as") {
                     Text(user.email)
                         .font(.subheadline)

@@ -9,7 +9,6 @@ import SwiftUI
 
 struct SignupView: View {
     @Environment(AuthSession.self) private var session
-    @Environment(\.dismiss) private var dismiss
 
     @State private var email = ""
     @State private var password = ""
@@ -18,8 +17,6 @@ struct SignupView: View {
     var switchToSignIn: (() -> Void)?
 
     var body: some View {
-        @Bindable var session = session
-
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Create an account")
@@ -66,12 +63,19 @@ struct SignupView: View {
         }
         .dsPage()
         .scrollDismissesKeyboard(.interactively)
-        .onAppear { focus = .email }
+        // NOT .onAppear: on a NavigationStack push the view is not in the responder chain
+        // yet when onAppear fires, so setting @FocusState there is a silent no-op — it
+        // type-checks and simply never raises the keyboard. One runloop beat is enough.
+        .task {
+            try? await Task.sleep(for: .milliseconds(50))
+            focus = .email
+        }
         .onChange(of: email) { session.failure = nil }
         .onChange(of: password) { session.failure = nil }
-        .onChange(of: session.state) {
-            if session.state.isSignedIn { dismiss() }
-        }
+        // No dismissal here. When this is the root of AuthSheetView's NavigationStack, its
+        // `dismiss` closes the SHEET rather than popping — so dismissing from both places
+        // fires two dismissals for one state change. AuthSheetView owns closing the sheet;
+        // from the gate, RootView swaps the whole view out. One owner each.
     }
 
     private func submit() {

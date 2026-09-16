@@ -168,6 +168,9 @@ final class AuthSession {
     // MARK: - Transitions
 
     func signIn(email: String, password: String) async {
+        // Before validation, not after: otherwise a second submit during an in-flight request
+        // overwrites `failure` with a validation message that `working` will never clear.
+        guard !isWorking else { return }
         let email = AuthValidation.normalise(email: email)
         guard checkLocally(email: email, password: password) else { return }
 
@@ -189,6 +192,9 @@ final class AuthSession {
     /// the backend issues tokens only from `/auth/login`. The user object from the first call
     /// is reused, so this is two requests rather than three.
     func register(email: String, password: String) async {
+        // Before validation, not after: otherwise a second submit during an in-flight request
+        // overwrites `failure` with a validation message that `working` will never clear.
+        guard !isWorking else { return }
         let email = AuthValidation.normalise(email: email)
         guard checkLocally(email: email, password: password) else { return }
 

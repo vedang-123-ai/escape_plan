@@ -138,12 +138,15 @@ struct AuthSubmitButton: View {
                     .allowsHitTesting(false)
             }
         }
-        // One element, not two. Without this the underlying button is still its own
-        // accessibility element with an EMPTY label while working — a VoiceOver dead end on
-        // the one control the user is waiting on.
+        // One element, not two: while working the underlying button's label is empty, and
+        // leaving it exposed gives VoiceOver an unlabelled control on the one thing the user
+        // is waiting on. `children: .ignore` collapses it — but that also discards the
+        // button's activation, so the action has to be put back explicitly or a VoiceOver
+        // double-tap silently does nothing.
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(isWorking ? "\(title), in progress" : title)
         .accessibilityRespondsToUserInteraction(!isWorking)
+        .accessibilityAction { if !isWorking { action() } }
     }
 }
