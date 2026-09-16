@@ -26,26 +26,53 @@ final class AuthSessionTests: XCTestCase {
         store = InMemoryTokenStore()
         suiteName = "auth.tests.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName)!
+        liveToken = Self.mintToken()
+        expiredToken = Self.mintToken(expiresIn: -300)
     }
 
     override func tearDown() {
         AuthStubURLProtocol.reset()
         defaults.removePersistentDomain(forName: suiteName)
         defaults = nil; store = nil; suiteName = nil
+        liveToken = nil; expiredToken = nil
         super.tearDown()
     }
 
-    /// A token signed by the real backend: sub "user-abc-123", exp 1789540741.
-    private static let liveToken =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-      + "eyJzdWIiOiJ1c2VyLWFiYy0xMjMiLCJpYXQiOjE3ODk1MzcxNDEsImV4cCI6MTc4OTU0MDc0MX0."
-      + "1jeLV6so2LE7_DrvW62MJ2RmMm_QkWBUkAxzK_-HHPk"
+    // MARK: - Tokens, minted fresh
 
-    /// Same subject, already expired (exp 1789536841).
-    private static let expiredToken =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-      + "eyJzdWIiOiJ1c2VyLWFiYy0xMjMiLCJpYXQiOjE3ODk1MzcxNDEsImV4cCI6MTc4OTUzNjg0MX0."
-      + "m20FaQJiN6vYFyvT2PXRJWx-8_Ansd1ql1krHk-1ZyM"
+    /// Tokens are built at test time, NOT pasted as literals.
+    ///
+    /// A pasted token carries a fixed `exp`, and `AuthSession.restore()` checks expiry against
+    /// the real clock with no seam to inject one. The first version of this file pinned a real
+    /// backend-signed token whose `exp` was **2026-09-16T06:39:01Z** — so the suite was
+    /// scheduled to go permanently red that morning, silently, in the one file whose entire
+    /// purpose is to keep S8.3 verified. Minting relative to `Date()` removes the cliff.
+    ///
+    /// The signature is deliberately junk: `AccessToken` never verifies one (it cannot — the
+    /// secret is server-side), it only base64url-decodes the payload. The claim names and the
+    /// NumericDate encoding are the parts that must match the backend, and those are pinned
+    /// against genuinely backend-signed tokens in `AccessTokenTests`.
+    private var liveToken: String!
+    private var expiredToken: String!
+
+    private static func mintToken(sub: String = "user-abc-123",
+                                  expiresIn: TimeInterval = 3600,
+                                  now: Date = Date()) -> String {
+        func base64URL(_ data: Data) -> String {
+            data.base64EncodedString()
+                .replacingOccurrences(of: "+", with: "-")
+                .replacingOccurrences(of: "/", with: "_")
+                .replacingOccurrences(of: "=", with: "")
+        }
+        let header = base64URL(Data(#"{"alg":"HS256","typ":"JWT"}"#.utf8))
+        let claims: [String: Any] = [
+            "sub": sub,
+            "iat": Int(now.timeIntervalSince1970),
+            "exp": Int(now.addingTimeInterval(expiresIn).timeIntervalSince1970),
+        ]
+        let payload = base64URL(try! JSONSerialization.data(withJSONObject: claims))
+        return "\(header).\(payload).signature-is-never-verified-client-side"
+    }
 
     private static let userJSON = #"""
     {"id":"u-1","email":"ada@example.com","created_at":"2026-09-16T05:33:58.567000Z"}
@@ -99,7 +126,7 @@ final class AuthSessionTests: XCTestCase {
 
     func testRestoreSignsInFromTheKeychainWithoutTouchingTheNetwork() async throws {
         markNotFirstLaunch()
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
 
         // No stub installed: any request at all would fail the test by failing the restore.
@@ -107,7 +134,7 @@ final class AuthSessionTests: XCTestCase {
         session.restore()
 
         XCTAssertEqual(session.state.user?.email, "ada@example.com")
-        XCTAssertEqual(session.token?.raw, Self.liveToken)
+        XCTAssertEqual(session.token?.raw, liveToken)
         XCTAssertFalse(session.shouldPresentGate)
         XCTAssertTrue(AuthStubURLProtocol.capturedRequests.isEmpty,
                       "restore must be offline-safe — the first screen cannot wait on a server")
@@ -115,7 +142,7 @@ final class AuthSessionTests: XCTestCase {
 
     func testRestoreDiscardsAnExpiredTokenRatherThanShowingADeadSession() async throws {
         markNotFirstLaunch()
-        try store.save(Self.expiredToken)
+        try store.save(expiredToken)
         try seedCachedUser()
 
         let session = makeSession()
@@ -128,7 +155,7 @@ final class AuthSessionTests: XCTestCase {
     /// A token we cannot attribute to anyone is not something to show a signed-in screen for.
     func testRestoreWithNoCachedIdentityStartsClean() throws {
         markNotFirstLaunch()
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
 
         let session = makeSession()
         session.restore()
@@ -141,7 +168,7 @@ final class AuthSessionTests: XCTestCase {
     /// the old token is still there. Without the purge, a reinstall silently resumes a session
     /// the user may have deleted the app to get out of.
     func testFirstLaunchAfterReinstallPurgesAnInheritedToken() throws {
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
         // UserDefaults does NOT survive deletion, so the flag being absent is the signal.
         XCTAssertFalse(defaults.bool(forKey: AuthSession.hasLaunchedKey))
@@ -158,7 +185,7 @@ final class AuthSessionTests: XCTestCase {
         let first = makeSession()
         first.restore()                       // sets the flag
 
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
 
         let second = makeSession()
@@ -170,10 +197,11 @@ final class AuthSessionTests: XCTestCase {
 
     func testSignInStoresTheTokenAndTheIdentity() async {
         markNotFirstLaunch()
+        let token = liveToken!
         AuthStubURLProtocol.respond { request in
             request.url?.path == "/auth/login"
                 ? .init(statusCode: 200,
-                        body: Data(#"{"access_token":"\#(Self.liveToken)","token_type":"bearer"}"#.utf8),
+                        body: Data(#"{"access_token":"\#(token)","token_type":"bearer"}"#.utf8),
                         error: nil)
                 : .init(statusCode: 200, body: Data(Self.userJSON.utf8), error: nil)
         }
@@ -182,7 +210,7 @@ final class AuthSessionTests: XCTestCase {
         await session.signIn(email: "  ADA@Example.com ", password: "a-good-password")
 
         XCTAssertEqual(session.state.user?.email, "ada@example.com")
-        XCTAssertEqual(store.load(), Self.liveToken)
+        XCTAssertEqual(store.load(), liveToken)
         XCTAssertNil(session.failure)
         XCTAssertFalse(session.isWorking)
         XCTAssertFalse(session.shouldPresentGate)
@@ -239,10 +267,11 @@ final class AuthSessionTests: XCTestCase {
     /// thing from a failure, and worth saying rather than letting the app appear to forget.
     func testKeychainFailureStillSignsInButWarns() async {
         markNotFirstLaunch()
+        let token = liveToken!
         AuthStubURLProtocol.respond { request in
             request.url?.path == "/auth/login"
                 ? .init(statusCode: 200,
-                        body: Data(#"{"access_token":"\#(Self.liveToken)","token_type":"bearer"}"#.utf8),
+                        body: Data(#"{"access_token":"\#(token)","token_type":"bearer"}"#.utf8),
                         error: nil)
                 : .init(statusCode: 200, body: Data(Self.userJSON.utf8), error: nil)
         }
@@ -262,13 +291,14 @@ final class AuthSessionTests: XCTestCase {
     /// fetching /auth/me again.
     func testRegisterCreatesTheAccountThenLogsInWithoutCallingMe() async {
         markNotFirstLaunch()
+        let token = liveToken!
         AuthStubURLProtocol.respond { request in
             switch request.url?.path {
             case "/auth/register":
                 return .init(statusCode: 201, body: Data(Self.userJSON.utf8), error: nil)
             case "/auth/login":
                 return .init(statusCode: 200,
-                             body: Data(#"{"access_token":"\#(Self.liveToken)","token_type":"bearer"}"#.utf8),
+                             body: Data(#"{"access_token":"\#(token)","token_type":"bearer"}"#.utf8),
                              error: nil)
             default:
                 return .init(statusCode: 500, body: Data(), error: nil)
@@ -279,7 +309,7 @@ final class AuthSessionTests: XCTestCase {
         await session.register(email: "ada@example.com", password: "a-good-password")
 
         XCTAssertEqual(session.state.user?.id, "u-1")
-        XCTAssertEqual(store.load(), Self.liveToken)
+        XCTAssertEqual(store.load(), liveToken)
         XCTAssertEqual(AuthStubURLProtocol.capturedRequests.compactMap { $0.url?.path },
                        ["/auth/register", "/auth/login"])
     }
@@ -302,7 +332,7 @@ final class AuthSessionTests: XCTestCase {
     /// immediately. This is how the app finds out.
     func testRefreshSignsOutWhenTheServerRejectsTheToken() async throws {
         markNotFirstLaunch()
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
         let session = makeSession()
         session.restore()
@@ -320,7 +350,7 @@ final class AuthSessionTests: XCTestCase {
     /// tunnel is the kind of thing people never forgive an app for.
     func testRefreshKeepsTheSessionWhenTheNetworkIsDown() async throws {
         markNotFirstLaunch()
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
         let session = makeSession()
         session.restore()
@@ -329,14 +359,14 @@ final class AuthSessionTests: XCTestCase {
             AuthStubURLProtocol.fail(with: error)
             await session.refresh()
             XCTAssertTrue(session.state.isSignedIn, "signed out on \(error.code)")
-            XCTAssertEqual(store.load(), Self.liveToken)
+            XCTAssertEqual(store.load(), liveToken)
         }
     }
 
     /// A 500 is the server's problem, not a reason to throw away a valid session.
     func testRefreshKeepsTheSessionOnAServerError() async throws {
         markNotFirstLaunch()
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
         let session = makeSession()
         session.restore()
@@ -348,7 +378,7 @@ final class AuthSessionTests: XCTestCase {
 
     func testRefreshPicksUpAChangedEmail() async throws {
         markNotFirstLaunch()
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
         let session = makeSession()
         session.restore()
@@ -372,7 +402,7 @@ final class AuthSessionTests: XCTestCase {
 
     func testSignOutClearsEverything() async throws {
         markNotFirstLaunch()
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
         let session = makeSession()
         session.restore()
@@ -388,7 +418,7 @@ final class AuthSessionTests: XCTestCase {
     /// A relaunch after signing out must not resurrect the account.
     func testSignOutSurvivesARelaunch() async throws {
         markNotFirstLaunch()
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
         let session = makeSession()
         session.restore()
@@ -417,7 +447,7 @@ extension AuthSessionTests {
 
     func testConstructionAloneRestoresTheSession() throws {
         markNotFirstLaunch()
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
 
         // No restore() call. If this fails, RootView's first frame shows the wrong screen.
@@ -431,7 +461,7 @@ extension AuthSessionTests {
     /// explicitly. Doing both must not purge, sign anyone out, or double-count a write.
     func testRestoreIsIdempotent() throws {
         markNotFirstLaunch()
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
 
         let session = makeSession()
@@ -440,20 +470,20 @@ extension AuthSessionTests {
         session.restore()
 
         XCTAssertTrue(session.state.isSignedIn)
-        XCTAssertEqual(session.token?.raw, Self.liveToken)
+        XCTAssertEqual(session.token?.raw, liveToken)
         XCTAssertEqual(store.saveCount, savesAfterConstruction,
                        "restore() must not write the token back")
     }
 
     /// The first-launch purge still fires exactly once even though construction now restores.
     func testPurgeStillHappensOnceWhenConstructionRestores() throws {
-        try store.save(Self.liveToken)
+        try store.save(liveToken)
         try seedCachedUser()
 
         let session = makeSession()          // purges during init
         XCTAssertFalse(session.state.isSignedIn)
 
-        try store.save(Self.liveToken)       // a later, legitimate sign-in
+        try store.save(liveToken)       // a later, legitimate sign-in
         try seedCachedUser()
         session.restore()
         XCTAssertTrue(session.state.isSignedIn, "the purge must not fire a second time")
