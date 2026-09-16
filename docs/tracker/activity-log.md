@@ -1991,3 +1991,30 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-16T20:54:25Z · vedang-123-ai · `main` @ `53c2281`
+
+**Commits this session**
+  - 53c2281 S8.3 note: the 2026-09-16 follow-up
+  - 5d9cd95 Tracker: production smoke test of the auth contract, and who owns the device gate
+  - 621a3e9 Lower the deployment target 26.5 -> 17.0: the docs were right, the project wasn't
+
+## 2026-09-16T21:02:04Z · vedang-123-ai · `main` @ `53c2281`
+
+**Commits this session**
+  - 53c2281 S8.3 note: the 2026-09-16 follow-up
+  - 5d9cd95 Tracker: production smoke test of the auth contract, and who owns the device gate
+  - 621a3e9 Lower the deployment target 26.5 -> 17.0: the docs were right, the project wasn't
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-16T21:08:17Z · vedang-123-ai · `main` @ `53c2281`
+
+**Commits this session**
+  - 53c2281 S8.3 note: the 2026-09-16 follow-up
+  - 5d9cd95 Tracker: production smoke test of the auth contract, and who owns the device gate
+  - 621a3e9 Lower the deployment target 26.5 -> 17.0: the docs were right, the project wasn't
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
