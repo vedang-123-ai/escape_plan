@@ -62,6 +62,13 @@ final class AuthSession {
     private let store: TokenStore
     private let defaults: UserDefaults
 
+    /// Bumped whenever the user deliberately changes the session (sign out, continue without
+    /// an account). Every async path captures it before its first `await` and re-checks after,
+    /// so a request that was in flight when the user signed out cannot land afterwards and
+    /// resurrect the session. `RootView` fires `refresh()` at launch against a server that can
+    /// take most of a minute to answer, which is plenty of time to reach Settings and sign out.
+    private var generation = 0
+
     static let hasLaunchedKey = "auth.hasLaunchedBefore"
     static let cachedUserKey = "auth.cachedUser"
     static let gateDismissedKey = "auth.gate.dismissed"
@@ -94,17 +101,32 @@ final class AuthSession {
     func restore() {
         purgeKeychainOnFirstLaunch()
 
-        guard let raw = store.load() else { return signedOutState() }
+        // A nil read is NOT proof there is no token, so it must not delete one.
+        //
+        // `KeychainTokenStore.load()` returns nil for any non-success status, and the item is
+        // stored `AfterFirstUnlock` — so a launch before the first unlock (iOS does launch apps
+        // in the background after a reboot) yields `errSecInteractionNotAllowed` and reads as
+        // nil. Deleting here would sign the user out permanently because of a transient
+        // condition, with nothing to retry. Being unable to READ a token and being signed out
+        // look the same on screen; they must not look the same to the store.
+        guard let raw = store.load() else { return clearSessionState() }
 
         let token = AccessToken(raw: raw)
-        // Locally-known-expired: don't show an account that the next request will lose.
-        guard !token.isExpired() else { return signedOutState() }
-        // A token we cannot attribute to anyone is not something to show a signed-in screen
-        // for; start clean rather than invent an account.
-        guard let user = cachedUser() else { return signedOutState() }
+        // Known-expired is the one case where discarding is right: the token is useless and
+        // keeping it only risks showing an account the next request will lose.
+        guard !token.isExpired() else { return discardStoredSession() }
+        // A token we cannot attribute to anyone. Don't claim a session — but don't delete
+        // either, for the same reason as above: the identity cache may be unreadable
+        // transiently, and the next sign-in overwrites the token anyway.
+        guard let user = cachedUser() else { return clearSessionState() }
 
         self.token = token
         state = .signedIn(user)
+        // Having a session IS an answer to the gate's question, even though this install never
+        // showed it (the token came from a previous launch). Without this, signing out later
+        // would eject the user to a full-screen welcome screen they have never seen and did
+        // not ask for — `shouldPresentGate` drives a root-level view swap.
+        setGateDismissed(true)
     }
 
     /// On iOS a Keychain item OUTLIVES the app that wrote it — delete the app, reinstall it,
@@ -124,13 +146,19 @@ final class AuthSession {
     /// immediately rather than when its token expires — this is how the app notices.
     func refresh() async {
         guard state.isSignedIn, let token else { return }
+        let generation = self.generation
         do {
             let user = try await client.me(token: token)
+            // The guard above ran BEFORE the suspension. Re-check, or a reply that arrives
+            // after the user signed out writes the session straight back — leaving the app
+            // showing an account with no token behind it.
+            guard generation == self.generation, state.isSignedIn else { return }
             cache(user)
             state = .signedIn(user)
         } catch let failure as AuthFailure where failure.kind == .invalidCredentials {
             // The server refused the token: revoked, expired, or the account was deleted.
-            signOut()
+            guard generation == self.generation else { return }
+            endSession()
         } catch {
             // Offline, timed out, server trouble. Keep the session — signing someone out
             // because their train went into a tunnel loses their place for no reason.
@@ -144,9 +172,13 @@ final class AuthSession {
         guard checkLocally(email: email, password: password) else { return }
 
         await working {
+            let generation = self.generation
             let token = try await self.client.login(email: email, password: password)
             // login returns only a token; /auth/me is how we learn who it belongs to.
             let user = try await self.client.me(token: token)
+            // Two suspensions have happened. If the user signed out or cancelled during them,
+            // adopting now would sign them into a session they walked away from.
+            guard generation == self.generation else { return }
             self.adopt(token: token, user: user)
         }
     }
@@ -161,25 +193,47 @@ final class AuthSession {
         guard checkLocally(email: email, password: password) else { return }
 
         await working {
+            let generation = self.generation
             let user = try await self.client.register(email: email, password: password)
-            let token = try await self.client.login(email: email, password: password)
-            self.adopt(token: token, user: user)
+            do {
+                let token = try await self.client.login(email: email, password: password)
+                guard generation == self.generation else { return }
+                self.adopt(token: token, user: user)
+            } catch {
+                // The account EXISTS now — register returned 201 — but the follow-up login
+                // failed, which a cold-starting Render instance makes entirely plausible.
+                // Without saying so, the user retries, gets "that email already has an
+                // account", and reasonably concludes the app is broken.
+                throw AuthFailure(localProblem:
+                    "Your account was created, but signing in straight afterwards didn't work. "
+                  + "Try signing in with the email and password you just chose.")
+            }
         }
     }
 
     func signOut() {
-        try? store.delete()
-        defaults.removeObject(forKey: Self.cachedUserKey)
-        token = nil
-        state = .signedOut
+        generation += 1
+        endSession()
+    }
+
+    /// Sign out without bumping the generation — for callers that have already done so.
+    ///
+    /// Deliberately does NOT re-arm the gate. `shouldPresentGate` drives a root-level switch
+    /// between `AuthGateView` and `ContentView`, so re-arming it would destroy the whole
+    /// `ContentView` subtree — tab selection, navigation stacks, any in-progress edit — and
+    /// drop the user on a full-screen welcome screen they did not ask for. Bad enough from the
+    /// Sign out button in Settings; unacceptable from `refresh()`, which can call this on a
+    /// 401 seconds after launch with no interaction at all. The app is usable signed out, and
+    /// Settings offers `AuthSheetView` to sign back in.
+    private func endSession() {
+        discardStoredSession()
         failure = nil
         persistenceWarning = nil
-        // Offer the gate again — signing out is a request to be asked.
-        setGateDismissed(false)
     }
 
     /// "Continue without an account". Remembered, so the gate does not nag on every launch.
     func continueWithoutAccount() {
+        generation += 1
         failure = nil
         setGateDismissed(true)
     }
@@ -228,11 +282,18 @@ final class AuthSession {
         }
     }
 
-    private func signedOutState() {
-        try? store.delete()
-        defaults.removeObject(forKey: Self.cachedUserKey)
+    /// Forget the session in memory only. Nothing on disk is touched.
+    private func clearSessionState() {
         token = nil
         state = .signedOut
+    }
+
+    /// Forget the session AND erase what is stored. Only for a token we know is useless
+    /// (expired) or that the user explicitly asked us to drop.
+    private func discardStoredSession() {
+        try? store.delete()
+        defaults.removeObject(forKey: Self.cachedUserKey)
+        clearSessionState()
     }
 
     private func setGateDismissed(_ dismissed: Bool) {

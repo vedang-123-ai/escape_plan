@@ -113,13 +113,33 @@ final class AuthSessionTests: XCTestCase {
         XCTAssertFalse(relaunched.shouldPresentGate, "the choice did not survive a relaunch")
     }
 
-    /// Signing out is a request to be asked again.
-    func testSigningOutBringsTheGateBack() async {
+    /// Signing out must NOT bring the gate back.
+    ///
+    /// `shouldPresentGate` drives a root-level switch between `AuthGateView` and
+    /// `ContentView`, so re-arming it destroys the entire ContentView subtree — tab selection,
+    /// navigation stacks, any in-progress edit — and drops the user on a full-screen welcome
+    /// screen they did not ask for. They asked to sign out, not to leave the app.
+    func testSigningOutDoesNotEjectTheUserToTheGate() async {
         markNotFirstLaunch()
         let session = makeSession()
         session.continueWithoutAccount()
         session.signOut()
-        XCTAssertTrue(session.shouldPresentGate)
+        XCTAssertFalse(session.shouldPresentGate)
+    }
+
+    /// The same, reached the way it actually happens: sign in through the gate, then sign out
+    /// from Settings. Signing in dismisses the gate, and signing out must leave it dismissed.
+    func testSigningOutAfterSigningInLeavesTheUserInTheApp() async throws {
+        markNotFirstLaunch()
+        try store.save(liveToken)
+        try seedCachedUser()
+        let session = makeSession()
+        XCTAssertTrue(session.state.isSignedIn)
+
+        session.signOut()
+
+        XCTAssertFalse(session.state.isSignedIn)
+        XCTAssertFalse(session.shouldPresentGate, "signing out must not eject to the gate")
     }
 
     // MARK: - Restore
@@ -152,10 +172,45 @@ final class AuthSessionTests: XCTestCase {
         XCTAssertNil(store.load(), "an expired token should not be left lying in the Keychain")
     }
 
-    /// A token we cannot attribute to anyone is not something to show a signed-in screen for.
-    func testRestoreWithNoCachedIdentityStartsClean() throws {
+    /// A token we cannot attribute to anyone: don't claim a session, but don't destroy the
+    /// token either — the identity cache may be missing for a transient reason, and the next
+    /// sign-in overwrites it anyway.
+    func testRestoreWithNoCachedIdentityDoesNotClaimASessionOrDeleteTheToken() throws {
         markNotFirstLaunch()
         try store.save(liveToken)
+
+        let session = makeSession()
+        session.restore()
+
+        XCTAssertFalse(session.state.isSignedIn)
+        XCTAssertEqual(store.load(), liveToken, "restore() must not delete a token it cannot attribute")
+    }
+
+    /// **A transient Keychain read failure must never sign the user out permanently.**
+    ///
+    /// The item is stored `AfterFirstUnlock`, so a background launch before the device's first
+    /// unlock (iOS does this after a reboot) yields `errSecInteractionNotAllowed`, which
+    /// `KeychainTokenStore.load()` reports as nil — identical to "no token". If restore()
+    /// deleted on that, the user would be signed out forever because their phone rebooted in
+    /// their pocket, with no error and nothing to retry.
+    func testUnreadableKeychainDoesNotDestroyTheToken() {
+        markNotFirstLaunch()
+        let unreadable = UnreadableTokenStore(token: liveToken)
+
+        let session = makeSession(store: unreadable)
+        session.restore()
+
+        XCTAssertFalse(session.state.isSignedIn, "cannot claim a session it could not read")
+        XCTAssertEqual(unreadable.deleteCount, 0, "a failed READ must not trigger a delete")
+        XCTAssertEqual(unreadable.storedToken, liveToken, "the token must survive to be read later")
+    }
+
+    /// The one case where deleting IS right: the token is locally known to be expired, so it
+    /// is useless and keeping it only risks showing an account the next request will lose.
+    func testKnownExpiredTokenIsDiscarded() throws {
+        markNotFirstLaunch()
+        try store.save(expiredToken)
+        try seedCachedUser()
 
         let session = makeSession()
         session.restore()
@@ -487,5 +542,84 @@ extension AuthSessionTests {
         try seedCachedUser()
         session.restore()
         XCTAssertTrue(session.state.isSignedIn, "the purge must not fire a second time")
+    }
+}
+
+// MARK: - In-flight requests must not outlive the user's decision
+
+/// Every async path captures `generation` before its first await and re-checks after. These
+/// pin the races that a stubbed, instantly-answering transport hides: in the real app
+/// `RootView` fires `refresh()` at launch against a Render instance that can take most of a
+/// minute, which is ample time to reach Settings and tap Sign out.
+extension AuthSessionTests {
+
+    func testRefreshCannotResurrectASessionTheUserSignedOutOf() async throws {
+        markNotFirstLaunch()
+        try store.save(liveToken)
+        try seedCachedUser()
+        let session = makeSession()
+        XCTAssertTrue(session.state.isSignedIn)
+
+        // Hold /auth/me open, so the sign-out lands while the request is still in flight.
+        // This is the real shape: RootView fires refresh() at launch against a Render instance
+        // that can take most of a minute, and Settings' Sign out is reachable throughout.
+        AuthStubURLProtocol.respond { [userJSON = Self.userJSON] _ in
+            Thread.sleep(forTimeInterval: 0.3)
+            return .init(statusCode: 200, body: Data(userJSON.utf8), error: nil)
+        }
+
+        async let refreshing: Void = session.refresh()
+        try await Task.sleep(for: .milliseconds(80))
+        session.signOut()
+        await refreshing
+
+        XCTAssertFalse(session.state.isSignedIn,
+                       "a reply that landed after sign-out wrote the session back")
+        XCTAssertNil(session.token)
+        XCTAssertNil(store.load())
+    }
+
+    func testSignInCannotCompleteAfterTheUserSignedOut() async throws {
+        markNotFirstLaunch()
+        let token = liveToken!
+        AuthStubURLProtocol.respond { request in
+            Thread.sleep(forTimeInterval: 0.2)
+            return request.url?.path == "/auth/login"
+                ? .init(statusCode: 200,
+                        body: Data(#"{"access_token":"\#(token)","token_type":"bearer"}"#.utf8),
+                        error: nil)
+                : .init(statusCode: 200, body: Data(Self.userJSON.utf8), error: nil)
+        }
+        let session = makeSession()
+
+        async let signingIn: Void = session.signIn(email: "ada@example.com",
+                                                   password: "a-good-password")
+        try await Task.sleep(for: .milliseconds(80))
+        session.signOut()
+        await signingIn
+
+        XCTAssertFalse(session.state.isSignedIn)
+        XCTAssertNil(store.load(), "a token was adopted for a session the user abandoned")
+    }
+
+    /// register() succeeds (201) but the follow-up login fails — very plausible against a
+    /// cold-starting Render instance. Without a distinct message the user retries, gets
+    /// "that email already has an account" for an account they just made, and concludes the
+    /// app is broken.
+    func testAccountCreatedButLoginFailedSaysSo() async {
+        markNotFirstLaunch()
+        AuthStubURLProtocol.respond { request in
+            request.url?.path == "/auth/register"
+                ? .init(statusCode: 201, body: Data(Self.userJSON.utf8), error: nil)
+                : .init(statusCode: 0, body: Data(), error: URLError(.timedOut))
+        }
+
+        let session = makeSession()
+        await session.register(email: "ada@example.com", password: "a-good-password")
+
+        XCTAssertFalse(session.state.isSignedIn)
+        let message = try? XCTUnwrap(session.failure?.message)
+        XCTAssertTrue(message?.contains("account was created") == true,
+                      "got: \(session.failure?.message ?? "nil")")
     }
 }

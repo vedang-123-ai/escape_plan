@@ -22,7 +22,9 @@ protocol TokenStore: AnyObject {
     func delete() throws
 }
 
-/// Test double, and the fallback when the Keychain is unavailable.
+/// Test double. NOT a production fallback — `escape_planApp` always constructs a
+/// `KeychainTokenStore`, and silently degrading a credential store to one that forgets
+/// everything on quit would be worse than failing loudly.
 final class InMemoryTokenStore: TokenStore {
     private var token: String?
 
@@ -53,4 +55,24 @@ final class FailingTokenStore: TokenStore {
     func load() -> String? { nil }
     func save(_ token: String) throws { throw Unavailable() }
     func delete() throws { throw Unavailable() }
+}
+
+/// Holds a token but cannot read it back — the `errSecInteractionNotAllowed` shape.
+///
+/// A real Keychain item stored `AfterFirstUnlock` is unreadable during a background launch
+/// before the device's first unlock, and `KeychainTokenStore.load()` reports that as nil, the
+/// same as "no token". This double exists so the difference between "absent" and "unreadable"
+/// is something the session is tested against: a transient read failure must never delete.
+final class UnreadableTokenStore: TokenStore {
+    private(set) var storedToken: String?
+    private(set) var deleteCount = 0
+
+    init(token: String?) { storedToken = token }
+
+    func load() -> String? { nil }
+    func save(_ token: String) throws { storedToken = token }
+    func delete() throws {
+        deleteCount += 1
+        storedToken = nil
+    }
 }
