@@ -6,20 +6,34 @@ what actually stops the project from shipping, ranked by what is on the critical
 
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
-_Last verified 2026-09-15 on `main` @ `bc46baa` (the S8 live-verification pass, merged and
-pushed; the deployed Render service is running this build). **Re-run
-and green this session:** backend **526** pass / **34** deselected — 13 live + **21 mongo**, the
-new `test_cloud_mongo.py` (was 519 pass / 13 deselected; +7 fake-backed regression tests). The
-mongo suite is separately **22 pass against live Atlas** via `pytest -m mongo` with `MONGODB_URI`
-set; it is excluded from the default gate, which stays infrastructure-free. EditorCore **295**
-pass, corpus valid (**24** sources, **9** files, **2** threshold files). **NOT run this session:**
-iOS (**615 passed, 0 failed, 8 skipped, 620 total** as
-of 2026-09-09, iPhone 17 Pro / iOS 26.5 simulator, `xcresulttool` summary from bundle
-`Test-escape_plan-2026.09.09_23-31-03--0700.xcresult`) — that number now predates BOTH
-`HazardHuntView.swift` and the entire S9.1 Swift surface (`SemanticMatcher.swift`,
-`DiffReviewSheet.swift`, `HomeScreen.swift`), none of which has been compiled since. Treat the iOS
-count as stale, not as a pass. `RouteRedrawAfterEditUITests` run live separately with
-`TEST_RUNNER_ROUTE_REDRAW=1` against a local backend — still red, see §3._
+_Last verified 2026-09-15 on `s8-3-ios-auth-ui` (the S8.3 iOS auth session). **Re-run and green
+this session:** EditorCore **379** pass (was 295; **+84**, all of them S8.3's auth layer — the
+whole client, token store, session state machine, error mapping and validation are Foundation-only
+and symlinked into `tools/editorcore`, so they execute on a machine with no simulator). Backend
+**526** pass / 1 skipped / 13 deselected, unchanged — S8.3 touched no Python. Corpus valid (**24**
+sources, **9** files, **2** threshold files).
+
+**NEW this session — the whole iOS app type-checks.** `swiftc -typecheck` over all 149 files in
+`escape_plan/` against the iOS 26.5 simulator SDK: **exit 0, 0 errors, 24 warnings, all
+pre-existing and none in new code.** Command:
+
+```bash
+find escape_plan -name '*.swift' > /tmp/srcs.txt
+xcrun swiftc -typecheck -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+  -target arm64-apple-ios26.5-simulator -swift-version 5 @/tmp/srcs.txt
+```
+
+**Read that claim narrowly.** It is strictly more than the `swiftc -parse` the FIRST-PRIORITY
+brief rightly dismisses — it resolves every type, member and protocol conformance across the
+module, so the four previously-uncompiled bodies of Swift do now type-check. It is **not** a
+build (no SIL, no IRGen, no linking, no resource compilation) and it is **not** a test run. It
+does not close §0; it narrows what §0 still has to find.
+
+**NOT run this session:** `xcodebuild test` — this machine cannot. The iOS count remains **615
+passed, 0 failed, 8 skipped** as of 2026-09-09 (`Test-escape_plan-2026.09.09_23-31-03--0700.xcresult`),
+which now predates five bodies of Swift including S8.3's. Treat it as stale, not as a pass.
+`RouteRedrawAfterEditUITests` run live separately with `TEST_RUNNER_ROUTE_REDRAW=1` against a local
+backend — still red, see §3._
 
 
 **Rules**
@@ -42,6 +56,14 @@ count as stale, not as a pass. `RouteRedrawAfterEditUITests` run live separately
       Surfaced at the top of every new session by the SessionStart hook; clear it by setting
       `gate_status: closed` in `FIRST-PRIORITY.md`.
 
+      **Narrowed 2026-09-15 (S8.3), not cleared.** All 149 app files now `swiftc -typecheck`
+      clean against the iOS 26.5 simulator SDK (exit 0, 0 errors) — see the header stamp for the
+      command. So "do these seven files even compile?" is answered for the type system:
+      `ARDrillView`, `SemanticMatcher`, `DrillRelocalizationController/View`, `HazardHuntView`
+      and `DiffReviewSheet` all resolve. What is STILL unanswered and still needs a simulator:
+      whether the app links and launches, whether the 620-test suite passes, and the two §3
+      defects below. **Do not set `gate_status: closed` on the strength of a type-check.**
+
 ---
 
 ## 1 · Ship blockers — only the owner can clear these
@@ -62,6 +84,27 @@ count as stale, not as a pass. `RouteRedrawAfterEditUITests` run live separately
 ---
 
 ## 2 · Device blocks — things that require the physical iPhone 17 Pro
+
+- [ ] **S8.3's three auth SCREENS have never been rendered.** `AuthGateView`, `LoginView`,
+      `SignupView` (plus `AuthSheetView` and `RootView`) type-check and nothing more. Everything
+      they sit on is tested — 84 tests, `swift test --package-path tools/editorcore` — but layout,
+      keyboard behaviour, the Password AutoFill prompts (`.username`/`.password`/`.newPassword`)
+      and the gate→app transition are unobserved. Next action: run them on the simulator and walk
+      register → sign out → sign in → relaunch.
+
+- [ ] **`KeychainTokenStore` has never touched a real Keychain.** A macOS unit-test bundle has no
+      keychain-access entitlement, so it cannot be exercised in the SwiftPM package.
+      `escape_planTests/KeychainTokenStoreTests.swift` is written and ready — it runs the SAME
+      `assertTokenStoreContract` the in-memory double passes — but has never executed. Until it
+      does, "the token persists across app restarts" (an S8.3 acceptance criterion) is **argued,
+      not verified**. Next action: run that test class on the simulator, then kill and relaunch
+      the app while signed in.
+
+- [ ] **The 8 UI tests now pass `-auth.gate.dismissed YES` and nobody has confirmed it works.**
+      The flag is the same UserDefaults-override trick the suite already uses for
+      `-onboarding.completed`, so it *should* land, but if `AuthSession` reads it at the wrong
+      moment every one of those tests opens on the gate and fails hunting for a tab bar. Next
+      action: the FIRST-PRIORITY run answers this for free — check the count did not drop.
 
 - [ ] **S7.7 Device Pass: Real Scan Verification.** Real-scan objects (furniture, doors, windows) must be confirmed to accurately capture and map to schema `v2.1` via physical RoomPlan scan. Owner must run on device.
 - [ ] **S7.7 Device Pass: Camera feel and Frame-time metrics.** The updated SceneKit renderer and object rendering frame-times must hit 60fps on physical silicon. Owner must run on device and record the frame-time number in `field-test-lidar.md`.
@@ -114,6 +157,14 @@ because if it fails nothing downstream is worth tuning.
 ---
 
 ## 3 · Known defects — found by review, not yet fixed
+
+- [ ] **The root `CLAUDE.md` says "iOS 17+"; the project builds against iOS 26.5.**
+      `IPHONEOS_DEPLOYMENT_TARGET = 26.5` in all four build configurations, and
+      `.claude/rules/languages/swift.md` repeats the iOS 17 claim. Found in S8.3 while checking
+      whether a Foundation date-parsing difference between iOS 17 and 18+ mattered — it does not,
+      because iOS 17 is not a target. Harmless today, but it is exactly the kind of stale premise
+      that gets a real decision made on it. Next action: correct both files, or change the
+      deployment target if 26.5 was not deliberate (it is very high for a submission).
 
 - [ ] **S9.3 renders every AR waypoint at a hardcoded 1.0 m, ignoring which floor it is on.**
       `ARDrillView.swift:68` — `wpNode.position = SCNVector3(Float(wp.x), 1.0, Float(wp.y))`, and
