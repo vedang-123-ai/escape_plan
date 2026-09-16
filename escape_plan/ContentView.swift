@@ -65,4 +65,6 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environment(APIClient())
+        .environment(AuthSession(client: AuthClient(baseURL: APIClient.deployedDefaultBaseURL),
+                                 store: InMemoryTokenStore()))
 }

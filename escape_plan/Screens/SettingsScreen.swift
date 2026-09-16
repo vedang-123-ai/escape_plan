@@ -442,4 +442,6 @@ private struct HowRoutesAreComputedSheet: View {
 #Preview {
     SettingsScreen()
         .environment(APIClient())
+        .environment(AuthSession(client: AuthClient(baseURL: APIClient.deployedDefaultBaseURL),
+                                 store: InMemoryTokenStore()))
 }
