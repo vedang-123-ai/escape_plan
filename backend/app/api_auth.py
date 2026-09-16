@@ -179,6 +179,7 @@ async def sync_home(request: HomeSyncRequest, user: CurrentUser) -> StoredHomeMo
     """
     repo = _homes()
     revision = 1
+    created_at = None
     if request.home_id is not None:
         existing = await repo.find_for_user(request.home_id, user.id)
         if existing is None:
@@ -186,9 +187,15 @@ async def sync_home(request: HomeSyncRequest, user: CurrentUser) -> StoredHomeMo
             # someone else would leak the existence of other users' homes.
             raise HTTPException(status_code=404, detail="No such home.")
         revision = existing.revision + 1
+        # Carry the ORIGINAL creation time forward. `upsert` does a full
+        # `replace_one`, so a freshly defaulted `created_at` would silently
+        # overwrite it on every update and the field would just mean "last
+        # written" — indistinguishable from `updated_at`. Found 2026-09-15.
+        created_at = existing.created_at
 
     stored = StoredHomeModel(
         **({"id": request.home_id} if request.home_id else {}),
+        **({"created_at": created_at} if created_at else {}),
         user_id=user.id,
         home=request.home,
         revision=revision,
