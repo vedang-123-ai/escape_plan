@@ -138,6 +138,12 @@ struct AuthSubmitButton: View {
                     .allowsHitTesting(false)
             }
         }
+        // One element, not two. Without this the underlying button is still its own
+        // accessibility element with an EMPTY label while working — a VoiceOver dead end on
+        // the one control the user is waiting on.
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
         .accessibilityLabel(isWorking ? "\(title), in progress" : title)
+        .accessibilityRespondsToUserInteraction(!isWorking)
     }
 }
