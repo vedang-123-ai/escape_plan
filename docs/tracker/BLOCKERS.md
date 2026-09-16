@@ -6,11 +6,13 @@ what actually stops the project from shipping, ranked by what is on the critical
 
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
-_Last verified 2026-09-14 on `main` @ `33ef233` (the merge of `origin/main`'s S9.1 commit
-`0103a74` into the local S7.7 line). **Re-run and green this session, post-merge:** backend
-**442** pass / 13 live-deselected (394 at the merge, +48 from S8.1; via `backend/.venv` — the old
-"no pytest on this machine" line was wrong, see §4), EditorCore **295** pass, corpus valid (**24** sources, **9** files, **2**
-threshold files). **NOT run this session:** iOS (**615 passed, 0 failed, 8 skipped, 620 total** as
+_Last verified 2026-09-15 (S8 live-verification pass, uncommitted at time of writing). **Re-run
+and green this session:** backend **526** pass / **34** deselected — 13 live + **21 mongo**, the
+new `test_cloud_mongo.py` (was 519 pass / 13 deselected; +7 fake-backed regression tests). The
+mongo suite is separately **22 pass against live Atlas** via `pytest -m mongo` with `MONGODB_URI`
+set; it is excluded from the default gate, which stays infrastructure-free. EditorCore **295**
+pass, corpus valid (**24** sources, **9** files, **2** threshold files). **NOT run this session:**
+iOS (**615 passed, 0 failed, 8 skipped, 620 total** as
 of 2026-09-09, iPhone 17 Pro / iOS 26.5 simulator, `xcresulttool` summary from bundle
 `Test-escape_plan-2026.09.09_23-31-03--0700.xcresult`) — that number now predates BOTH
 `HazardHuntView.swift` and the entire S9.1 Swift surface (`SemanticMatcher.swift`,
@@ -303,42 +305,68 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 
 ## 4 · Flake and process — known, live, will bite during filming
 
-- [ ] **S8.2's auth layer has never met a real MongoDB either.** Merged 2026-09-14. Backend
-      **519** not-live pass, all against the in-memory fake in `tests/fake_mongo.py`. The fake
-      enforces both unique indexes and models `_id` as a primary key — which is how the
-      cross-owner write bug was found — but it is not Mongo. Unproven end to end: that a real
-      server creates `uniq_email`, that `DuplicateKeyError` surfaces the way `cloud_repo`
-      expects (it is matched **by class name**, so a driver rename would silently break the 409
-      path), and that a home round-trips through BSON under a live connection. Next action: same
-      server that clears the S8.1 line — then write the `@pytest.mark.mongo` tests, which still
-      do not exist.
+- [x] ~~**S8.2's auth layer has never met a real MongoDB either.**~~ **MET ONE 2026-09-15.**
+      Against a live Atlas M0 (`escape-plan.6bak6dr.mongodb.net`, db `escape_plan`), walked by
+      hand: register → **201**, duplicate register → **409** (so `DuplicateKeyError` IS matched
+      correctly by class name against the real driver), login → token, `/auth/me` → `UserPublic`
+      with no hash on the wire, wrong password → **401**. A `bungalow.json` fixture (schema 2.1,
+      1 floor / 4 rooms / 7 openings) round-tripped through BSON and compared **semantically
+      identical**. Test user and home deleted afterwards; collections left at 0 documents.
+      **Still open — see the new line below: no `@pytest.mark.mongo` test exists, so none of
+      this is re-checked by the gate.**
 
-- [ ] **`JWT_SECRET_KEY` must be set before any deploy, and is not set anywhere yet.** Added to
-      `render.yaml` as `generateValue: true`, so Render will mint one on next blueprint apply —
-      but an existing service will NOT pick it up automatically. Until it is set, `/auth/*` and
-      `/homes` return 503 by design (`auth_enabled` requires both a database and a secret). The
-      service refuses any secret under 32 bytes. **Owner action, manual.** Note that changing it
-      later invalidates every issued token.
+- [x] ~~**The `@pytest.mark.mongo` tests still do not exist.**~~ **WRITTEN 2026-09-15.**
+      `backend/tests/test_cloud_mongo.py` — **22 tests, all passing against live Atlas**
+      (`pytest -m mongo` with `MONGODB_URI` set; skips cleanly without it, and is deselected from
+      the default gate, which stays infrastructure-free at 526 pass / 34 deselected). Covers the
+      gap the in-memory fake cannot reach: index creation on a real server, `DuplicateKeyError`
+      matched by class name against the real driver, a **genuinely concurrent** 10-way
+      registration race (the earlier duplicate check was sequential, which passes even with no
+      index at all), BSON timestamp and float fidelity, cross-owner write rejection, and the
+      document shape actually written to Mongo. Every test runs against a throwaway per-run
+      database that is dropped afterwards, so it can never touch real data.
+      Both findings this line used to carry are now **fixed**, not just encoded — see
+      `decisions.md` (2026-09-15): timestamps are truncated at generation, and `/homes` returns
+      `id` rather than `_id`. Two further defects were found and fixed in the same pass:
+      `created_at` was being overwritten on every update, and an unreachable database returned
+      500 instead of 503.
 
-- [ ] **S8.1's MongoDB layer has never met a real MongoDB server.** Merged 2026-09-14. The
-      acceptance criterion is "backend starts successfully and connects to MongoDB"; what is
-      actually proven is (a) the app boots and serves with NO database, (b) the lifecycle works
-      against a stub, and (c) a real `AsyncMongoClient` pointed at a dead port reports
-      `unreachable` within the 3s timeout instead of hanging or crashing. No document has ever been
-      written or read. Next action: run a MongoDB (Atlas free tier or local), set `MONGODB_URI`,
-      confirm `/health/db` returns `ok`, then run the `mongo`-marked tests
-      (`pytest -m mongo`) — which do not exist yet and should be written with that server in hand.
-      Two review findings were fixed without a server and are now covered: a malformed URI no
-      longer stops the service, and `tz_aware=True` stops BSON decoding timestamps naive (which
-      made a stored home compare unequal to the one written). Backend **442** not-live pass.
+- [x] ~~**Atlas is not allow-listing Render's egress IPs.**~~ **CLEARED 2026-09-15** by the owner
+      (`0.0.0.0/0` added to the Atlas IP access list — Render's free tier has no static egress
+      IPs, so there is nothing narrower to allow-list; the database user's password is
+      consequently the only protection and must stay long and random).
+      **The DEPLOYED backend is now end-to-end working**, verified against
+      `https://escape-plan-backend.onrender.com`: `/health/db` → `{"database":"ok"}`, register →
+      201, duplicate → 409, login → token, `/auth/me` → no hash, wrong password → 401. Test
+      account deleted; `escape_plan` back to 0 users / 0 homes.
+      **S8.3 and S8.4 are now unblocked against the real backend** — this was the last thing
+      standing between the S8 backend arc and the iOS half of it.
+
+- [x] ~~**`JWT_SECRET_KEY` is set LOCALLY but not on Render.**~~ **SET BY THE OWNER 2026-09-15**,
+      along with `MONGODB_URI`. Both are now present on the deployed service; the owner replaced
+      the secret Render had generated at blueprint apply, which invalidates every previously
+      issued token — harmless here, because no account existed yet. A 64-byte secret also lives
+      in the gitignored root `.env` for local work. Note the deployed service still cannot
+      actually reach the database — that is the Atlas allow-list line above, not this one.
+
+- [x] ~~**S8.1's MongoDB layer has never met a real MongoDB server.**~~ **CLEARED 2026-09-15.**
+      An Atlas M0 free-tier cluster now exists; `MONGODB_URI` is in the gitignored root `.env`.
+      `/health/db` returns `{"database":"ok","db_name":"escape_plan"}` — the S8.1 acceptance
+      criterion ("backend starts successfully and connects to MongoDB"), met for the first time.
+      Documents have now been written and read. Verified personally, not inferred from code.
+      **`MONGODB_URI` is still NOT set on Render** — this clears the local half only.
 
 - [x] **S8.2's unique email index is WRITTEN — but never created by a real MongoDB.**
       `cloud_repo.ensure_indexes()` creates it, called from `Database.connect()`; failure is
       non-fatal (it needs a reachable server) but logged at ERROR. The duplicate-email race IS
       tested, against an in-memory fake that enforces the index. What is unproven is that a real
       server creates it — if it silently does not, registration is back to the account-takeover
-      shape below. **Next action: with a real MongoDB, confirm `db.users.getIndexes()` shows
-      `uniq_email` and that a concurrent duplicate registration returns 409.** Original finding:
+      shape below. ~~**Next action: with a real MongoDB, confirm `db.users.getIndexes()` shows
+      `uniq_email` and that a concurrent duplicate registration returns 409.**~~ **CONFIRMED
+      2026-09-15 on live Atlas:** `users` carries `uniq_email` on `email` with `unique=True`, and
+      `homes` carries `by_user` on `user_id` — both created by `ensure_indexes()` on connect, by a
+      real server. Duplicate registration returns 409. The account-takeover shape is closed in
+      fact, not just in code. Original finding:
 
 - [ ] ~~S8.2 must create a unique index on `User.email` before it writes a login path.~~ There is
       no index-creation code anywhere in the backend, and email normalisation is a convention
@@ -348,7 +376,16 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       shape. `Database.connect()` is the natural home. Cannot be written or verified without a
       real server, which is why it is here and not done.
 
-- [ ] **Three S8.2 landmines, named now so they are not discovered later.** (1) `CloudSyncDisabled`
+- [x] ~~**Three S8.2 landmines, named now so they are not discovered later.**~~ **ALL THREE
+      HANDLED — verified in code 2026-09-15.** This line was written as guidance *before* S8.2
+      and was never ticked afterwards, so it sat on the board as an open defect for a day while
+      the code already addressed it. (1) `@app.exception_handler(CloudSyncDisabled)` at
+      `backend/app/main.py:135` maps it to 503, and `_users()`/`_homes()` fail at the top through
+      `database.db` rather than branching on `database.enabled`. (2) `UserPublic`
+      (`backend/app/cloud_models.py:129`) is the response model and has nowhere to put a hash;
+      `/auth/me` returns it — confirmed live, no hash on the wire. (3) `verify_password`
+      (`backend/app/auth/passwords.py:42`) returns `False` on a `None` hash before reaching the
+      hasher. Original text: (1) `CloudSyncDisabled`
       subclasses `RuntimeError`, so a cloud route hitting it returns a bare 500 — add an exception
       handler mapping it to 503, and make routes fail at the top rather than branching on
       `database.enabled`, which would silently skip writes. (2) Never return a `User` from an
