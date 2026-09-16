@@ -147,3 +147,13 @@ struct AuthFailure: Error, Equatable {
         return generic
     }
 }
+
+extension AuthFailure {
+    /// A problem found before the request was sent (see `AuthValidation`). Shares the
+    /// `.rejectedInput` kind with a server-side 422 because it is the same situation from the
+    /// user's point of view — the difference is only how quickly we noticed.
+    init(localProblem message: String) {
+        self.init(kind: .rejectedInput, message: message,
+                  isRetryable: false, symbol: "exclamationmark.bubble")
+    }
+}
