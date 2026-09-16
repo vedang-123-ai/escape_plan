@@ -12,6 +12,7 @@ Every library, framework, API, and tool used in this project — required for Co
 | ARKit (via RoomPlan) | iOS 17+ | World tracking underneath RoomPlan; kept alive across rooms (`stop(pauseARSession: false)`) so multi-room scans share one world origin (S1.4) | Apple SDK |
 | simd (Apple) | — | `simd_float4x4` surface transforms, flattened column-major for the scan export contract (S1.4) | Apple SDK |
 | Observation (Apple) | iOS 17+ | `@Observable` state: APIClient (S0.3) and the scan state machine (`RoomCaptureController`, S1.4) | Apple SDK |
+| Security / Keychain Services (Apple framework) | iOS SDK (built-in) | Storing the per-user access token (`escape_plan/Auth/KeychainTokenStore.swift`, S8.3): `kSecClassGenericPassword`, `AfterFirstUnlock`, non-synchronizable. The first Keychain use in the project — the shared backend bearer token stays in UserDefaults, which is appropriate for a value that ships in the build but not for a credential that authenticates one person's account. No third-party keychain wrapper was added | Apple SDK |
 | Claude Code | — | AI pair-programming assistant; all code reviewed and understood by the team | Anthropic ToS |
 | git / GitHub | — | Version control, private repo `vedang-123-ai/escape_plan` | — |
 | Python 3 | 3.11+ | Backend: models, validation, routing engine | PSF |
