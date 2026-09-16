@@ -7,15 +7,17 @@ what actually stops the project from shipping, ranked by what is on the critical
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
 _Last verified 2026-09-15 on `s8-3-ios-auth-ui` (the S8.3 iOS auth session). **Re-run and green
-this session:** EditorCore **379** pass (was 295; **+84**, all of them S8.3's auth layer — the
+this session:** EditorCore **388** pass (was 295; **+93**, all of them S8.3's auth layer — the
 whole client, token store, session state machine, error mapping and validation are Foundation-only
 and symlinked into `tools/editorcore`, so they execute on a machine with no simulator). Backend
 **526** pass / 1 skipped / 13 deselected, unchanged — S8.3 touched no Python. Corpus valid (**24**
 sources, **9** files, **2** threshold files).
 
-**NEW this session — the whole iOS app type-checks.** `swiftc -typecheck` over all 149 files in
-`escape_plan/` against the iOS 26.5 simulator SDK: **exit 0, 0 errors, 24 warnings, all
-pre-existing and none in new code.** Command:
+**NEW this session — the whole iOS app type-checks.** `swiftc -typecheck` over all **150** files in
+`escape_plan/` against the iOS 26.5 simulator SDK, in **both** configurations (`-DDEBUG` and
+release): **exit 0, 0 errors** each. Warnings are all pre-existing and none are in new code.
+Running both matters — the release-only run never type-checks `SettingsScreen`'s `#if DEBUG`
+Developer section, and the DEBUG-only run misses code excluded from it. Command:
 
 ```bash
 find escape_plan -name '*.swift' > /tmp/srcs.txt
@@ -31,7 +33,8 @@ does not close §0; it narrows what §0 still has to find.
 
 **NOT run this session:** `xcodebuild test` — this machine cannot. The iOS count remains **615
 passed, 0 failed, 8 skipped** as of 2026-09-09 (`Test-escape_plan-2026.09.09_23-31-03--0700.xcresult`),
-which now predates five bodies of Swift including S8.3's. Treat it as stale, not as a pass.
+which now predates five bodies of Swift including S8.3's. **S8.3 is NOT ticked in TODO.md** —
+all three of its acceptance criteria need a simulator. Treat it as stale, not as a pass.
 `RouteRedrawAfterEditUITests` run live separately with `TEST_RUNNER_ROUTE_REDRAW=1` against a local
 backend — still red, see §3._
 
@@ -97,7 +100,12 @@ backend — still red, see §3._
       `escape_planTests/KeychainTokenStoreTests.swift` is written and ready — it runs the SAME
       `assertTokenStoreContract` the in-memory double passes — but has never executed. Until it
       does, "the token persists across app restarts" (an S8.3 acceptance criterion) is **argued,
-      not verified**. Next action: run that test class on the simulator, then kill and relaunch
+      not verified**. Be precise about why the existing tests do not cover it: the "relaunch"
+      tests (`testSignOutSurvivesARelaunch`, `testSecondLaunchDoesNotPurge`,
+      `testConstructionAloneRestoresTheSession`) construct a second `AuthSession` over the **same
+      in-process `InMemoryTokenStore` object**. They prove the state machine re-reads its store.
+      **Nothing crosses a process boundary**, so they say nothing at all about persistence — and
+      the one component that could persist anything is the one that has never run. Next action: run that test class on the simulator, then kill and relaunch
       the app while signed in.
 
 - [ ] **The 8 UI tests now pass `-auth.gate.dismissed YES` and nobody has confirmed it works.**
