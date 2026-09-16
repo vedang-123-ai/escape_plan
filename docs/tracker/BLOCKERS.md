@@ -6,7 +6,8 @@ what actually stops the project from shipping, ranked by what is on the critical
 
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
-_Last verified 2026-09-15 (S8 live-verification pass, uncommitted at time of writing). **Re-run
+_Last verified 2026-09-15 on `main` @ `bc46baa` (the S8 live-verification pass, merged and
+pushed; the deployed Render service is running this build). **Re-run
 and green this session:** backend **526** pass / **34** deselected — 13 live + **21 mongo**, the
 new `test_cloud_mongo.py` (was 519 pass / 13 deselected; +7 fake-backed regression tests). The
 mongo suite is separately **22 pass against live Atlas** via `pytest -m mongo` with `MONGODB_URI`
@@ -399,11 +400,15 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       level to DEBUG would write users' home layouts into the logs. Pin the pymongo logger to INFO
       before then.
 
-- [ ] **The S8 arc now competes with the device pass for the weeks before Oct 24.** S8.2–S8.4 are
-      ~19h more (auth, iOS auth UI, sync+merge) on top of S8.1. Meanwhile §2's device pass has
-      never been started and gates filming, and four bodies of Swift remain uncompiled. This is a
-      scheduling fact, not an argument against the arc — the owner approved it 2026-09-14 — but it
-      belongs on the board so the trade is made deliberately rather than by drift.
+- [ ] **The S8 arc now competes with the device pass for the weeks before Oct 24.** **Updated
+      2026-09-15:** the backend half is finished and verified end-to-end (S8.1 + S8.2, deployed
+      and working), so what remains is **S8.3–S8.4 only — ~13h, and both are iOS**. That sharpens
+      rather than softens the trade: the remaining S8 work now queues behind the *same* gate as
+      §2's device pass and `FIRST-PRIORITY.md`, competing for the one scarce resource, which is
+      time on a working simulator and a physical iPhone. §2's device pass still gates filming and
+      has never been started; four bodies of Swift remain uncompiled. A scheduling fact, not an
+      argument against the arc — the owner approved it 2026-09-14 — but it belongs on the board so
+      the trade is made deliberately rather than by drift.
 
 - [ ] **The S9 Swift has never been compiled ON THIS MACHINE, and its green claim is unevidenced.** Merged to
       `main` 2026-09-14 as `33ef233`. New/changed: `escape_plan/Drill/SemanticMatcher.swift`

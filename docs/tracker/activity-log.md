@@ -1877,3 +1877,18 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - ?? backend/tests/test_cloud_mongo.py
   - ?? docs/tracker/notes/2026-09-15-mongodb-live-verification.md
 
+## 2026-09-16T02:29:14Z · vedang-123-ai · `main` @ `bc46baa`
+
+**Commits this session**
+  - bc46baa tracker: the S8 backend arc is verified end-to-end, deployed included
+  - 58aa016 tools-used: record MongoDB Atlas as an external service
+  - fc48067 decisions: the five judgement calls from the live-verification pass
+  - 9caca10 docs: backend/CLAUDE.md no longer says the DB has never met a real server
+  - 295b0bc S8: the first @pytest.mark.mongo suite — 22 tests against a real server
+  - f888776 S8: 503, not 500, when the database is configured but unreachable
+  - d1ab370 S8: pin the /homes wire contract in tests
+  - 08c29f7 S8: return `id` rather than Mongo's `_id` from /homes
+  - af389d0 S8: preserve created_at across a home update
+  - a574bee S8: test that generated timestamps carry no sub-millisecond component
+  - d8554f7 S8: generate cloud timestamps at millisecond precision
+
