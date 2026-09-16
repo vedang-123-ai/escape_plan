@@ -2018,3 +2018,26 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-16T21:34:52Z · vedang-123-ai · `main` @ `aeb125d`
+
+**Commits this session**
+  - aeb125d Docs: typecheck-ios.sh in the gate, and the older-runtime check is blocked
+  - 9b0fd1c scripts/typecheck-ios.sh: compile-check all three iOS targets without a simulator
+  - 53c2281 S8.3 note: the 2026-09-16 follow-up
+  - 5d9cd95 Tracker: production smoke test of the auth contract, and who owns the device gate
+  - 621a3e9 Lower the deployment target 26.5 -> 17.0: the docs were right, the project wasn't
+
+## 2026-09-16T21:47:19Z · vedang-123-ai · `main` @ `aeb125d`
+
+**Commits this session**
+  - aeb125d Docs: typecheck-ios.sh in the gate, and the older-runtime check is blocked
+  - 9b0fd1c scripts/typecheck-ios.sh: compile-check all three iOS targets without a simulator
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-16T23:38:12Z · vedang-123-ai · `main` @ `aeb125d`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
