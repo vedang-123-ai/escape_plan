@@ -2041,3 +2041,9 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-16T23:45:05Z · vedang-123-ai · `main` @ `c371a84`
+
+**Commits this session**
+  - c371a84 Activity log: S8.4 handoff prep
+  - 5eaa2e2 S8-4.md: STEP 0 carrying S8.3's leftovers
+
