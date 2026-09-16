@@ -1951,3 +1951,33 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-16T06:30:53Z · vedang-123-ai · `main` @ `72d409c`
+
+**Commits this session**
+  - 72d409c Merge S8.3 — iOS auth UI
+  - 3d3bdef S8.3 tracker: un-tick S8.3, correct the counts, log the review reversals
+  - 630b530 S8.3 fix: five UI defects from review, incl. a dead error path
+  - 0e7263a S8.3 fix: actor-isolate AuthClient, keep test doubles out of release
+  - 4306d7b S8.3 fix: three session defects found by review
+  - e9ec738 S8.3 fix: mint test tokens at runtime — the suite was 26 minutes from red
+  - dec5221 S8.3: make the working submit button one labelled accessibility element
+  - bd3e264 S8.3 fix: restore the session at construction, not from RootView's .task
+  - e334b24 S8.3: session note
+  - b7f945e S8.3 tracker: S8.3 done, and three new device-gated unknowns
+  - 3aab9db S8.3 docs: seven decisions, including one the session reversed
+  - d0cf724 S8.3 docs: correct DeviceIdentity's scope lock, document Auth/
+  - cda55b6 S8.3: give the two previews the AuthSession they now need
+  - 8d99c26 S8.3: keep the 8 UI-test launches past the account gate
+  - 9b60eb6 S8.3: Account section in Settings, and one place the base URL changes
+  - 0c7f7bc S8.3: a sign-in sheet for people who changed their mind
+  - dc31ba9 S8.3: root switches between the gate and the app
+  - 4cf919c S8.3: the auth gate, with a real way past it
+  - 208c4c8 S8.3: Login and Signup screens, over shared form components
+  - e2f90fe S8.3: 23 tests over the session state machine
+  - 77ec3c2 S8.3: AuthSession — restore, sign in, register, refresh, sign out
+  - e1698a9 S8.3: prove the client email rule agrees with the backend's, address by address
+  - 6d4198c S8.3: validate credentials client-side with the server's own rule
+  - 9d68ec1 S8.3: 14 tests over the /auth wire contract, runnable without a simulator
+  - 20d0a27 S8.3: stubbed transport scoped to one session, not the whole process
+  - 986eba4 S8.3: AuthClient for /auth/register, /auth/login and /auth/me
+
