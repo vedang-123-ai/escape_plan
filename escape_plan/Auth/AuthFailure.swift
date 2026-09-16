@@ -37,6 +37,8 @@ struct AuthFailure: Error, Equatable {
         case rejectedInput
         /// 503 — cloud sync is not configured on this deployment.
         case cloudSyncUnavailable
+        /// The request was cancelled by us, not refused by anyone.
+        case serverBusy
         /// Anything else.
         case server(statusCode: Int)
     }
@@ -59,6 +61,13 @@ struct AuthFailure: Error, Equatable {
                           message: "The server took too long to answer. It may be waking up "
                                  + "after being idle — try again in a moment.",
                           isRetryable: true, symbol: "clock.arrow.circlepath")
+                return
+            case .cancelled:
+                // The caller went away (view dismissed, task cancelled). Not the user's
+                // problem and not worth a scary sentence about the server address.
+                self.init(kind: .serverBusy,
+                          message: "That was cancelled.",
+                          isRetryable: true, symbol: "arrow.clockwise")
                 return
             case .notConnectedToInternet, .networkConnectionLost,
                  .cannotConnectToHost, .dataNotAllowed, .cannotFindHost:

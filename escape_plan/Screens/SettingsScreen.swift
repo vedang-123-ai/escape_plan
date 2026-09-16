@@ -439,9 +439,14 @@ private struct HowRoutesAreComputedSheet: View {
     }
 }
 
+// Previews only — `InMemoryTokenStore` is DEBUG-only, and a preview must never
+// touch the real Keychain or the standard UserDefaults.
+#if DEBUG
 #Preview {
     SettingsScreen()
         .environment(APIClient())
         .environment(AuthSession(client: AuthClient(baseURL: APIClient.deployedDefaultBaseURL),
-                                 store: InMemoryTokenStore()))
+                                 store: InMemoryTokenStore(),
+                                 defaults: UserDefaults(suiteName: "preview.\(UUID().uuidString)")!))
 }
+#endif

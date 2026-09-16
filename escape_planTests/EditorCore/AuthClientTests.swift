@@ -13,6 +13,7 @@ import XCTest
 @testable import escape_plan
 #endif
 
+@MainActor
 final class AuthClientTests: XCTestCase {
 
     private var client: AuthClient!
@@ -183,7 +184,7 @@ final class AuthClientTests: XCTestCase {
     /// status code or a URLError itself.
     private func assertFails(kind: AuthFailure.Kind,
                              file: StaticString = #filePath, line: UInt = #line,
-                             _ operation: @escaping () async throws -> Void) async {
+                             _ operation: @escaping @MainActor () async throws -> Void) async {
         do {
             try await operation()
             XCTFail("expected \(kind)", file: file, line: line)

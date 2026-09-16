@@ -22,6 +22,10 @@ protocol TokenStore: AnyObject {
     func delete() throws
 }
 
+#if DEBUG
+// The three doubles below are test-only and must not ship in a release binary. Previews are
+// DEBUG-only too, and SwiftPM test builds are debug, so nothing that uses them is excluded.
+
 /// Test double. NOT a production fallback — `escape_planApp` always constructs a
 /// `KeychainTokenStore`, and silently degrading a credential store to one that forgets
 /// everything on quit would be worse than failing loudly.
@@ -76,3 +80,5 @@ final class UnreadableTokenStore: TokenStore {
         storedToken = nil
     }
 }
+
+#endif

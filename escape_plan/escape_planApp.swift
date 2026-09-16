@@ -8,6 +8,10 @@
 import SwiftUI
 
 @main
+// @MainActor because the default value of `authSession` below constructs a @MainActor type in
+// this struct's otherwise-nonisolated init. Correct at runtime either way (App.main() is on the
+// main thread) and accepted in Swift 5 mode, but an error under Swift 6.
+@MainActor
 struct escape_planApp: App {
     @State private var apiClient = APIClient()
 

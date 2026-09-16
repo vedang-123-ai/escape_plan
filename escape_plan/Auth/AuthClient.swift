@@ -21,6 +21,15 @@
 
 import Foundation
 
+/// `@MainActor` because `baseURL` is mutable and written from the main actor (Settings'
+/// `setBaseURL`, via `AuthSession.baseURL`). Without isolation the `async` methods here are
+/// `nonisolated` and run on the global concurrent executor, so they would read `baseURL` off
+/// the main actor while Settings writes it — a torn read of a refcounted struct, not a benign
+/// race. It only type-checks today because the SwiftPM package pins Swift 5 language mode.
+///
+/// Costs nothing: the actual network work happens inside `URLSession`, and `await
+/// session.data(for:)` suspends rather than blocking the main actor.
+@MainActor
 final class AuthClient {
 
     /// Kept in step with `APIClient.baseURL` by whoever owns both — the auth layer is pure
@@ -42,7 +51,9 @@ final class AuthClient {
     /// `waitsForConnectivity` stays false on purpose: with it on, a request made with no
     /// network sits silently until the timeout instead of failing immediately with
     /// `.notConnectedToInternet`, and the user watches a spinner for 90 seconds.
-    static func makeSession() -> URLSession {
+    /// `nonisolated` so it can be a default argument to `init` — it touches no isolated state,
+    /// it only configures a URLSession.
+    nonisolated static func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 90
         configuration.timeoutIntervalForResource = 120
