@@ -407,3 +407,55 @@ final class AuthSessionTests: XCTestCase {
         defaults.set(try JSONEncoder.authCache.encode(user), forKey: AuthSession.cachedUserKey)
     }
 }
+
+// MARK: - Restoring at construction
+
+/// `AuthSession` restores in its initialiser so the first frame a view renders is already the
+/// right one — restoring from `.task` runs after that frame, and a signed-in user would watch
+/// the gate cross-fade away on every launch. These pin the two properties that makes rely on.
+extension AuthSessionTests {
+
+    func testConstructionAloneRestoresTheSession() throws {
+        markNotFirstLaunch()
+        try store.save(Self.liveToken)
+        try seedCachedUser()
+
+        // No restore() call. If this fails, RootView's first frame shows the wrong screen.
+        let session = makeSession()
+
+        XCTAssertTrue(session.state.isSignedIn)
+        XCTAssertFalse(session.shouldPresentGate)
+    }
+
+    /// Construction restores, and the tests (and any caller) may still call restore()
+    /// explicitly. Doing both must not purge, sign anyone out, or double-count a write.
+    func testRestoreIsIdempotent() throws {
+        markNotFirstLaunch()
+        try store.save(Self.liveToken)
+        try seedCachedUser()
+
+        let session = makeSession()
+        let savesAfterConstruction = store.saveCount
+        session.restore()
+        session.restore()
+
+        XCTAssertTrue(session.state.isSignedIn)
+        XCTAssertEqual(session.token?.raw, Self.liveToken)
+        XCTAssertEqual(store.saveCount, savesAfterConstruction,
+                       "restore() must not write the token back")
+    }
+
+    /// The first-launch purge still fires exactly once even though construction now restores.
+    func testPurgeStillHappensOnceWhenConstructionRestores() throws {
+        try store.save(Self.liveToken)
+        try seedCachedUser()
+
+        let session = makeSession()          // purges during init
+        XCTAssertFalse(session.state.isSignedIn)
+
+        try store.save(Self.liveToken)       // a later, legitimate sign-in
+        try seedCachedUser()
+        session.restore()
+        XCTAssertTrue(session.state.isSignedIn, "the purge must not fire a second time")
+    }
+}

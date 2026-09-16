@@ -27,12 +27,14 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: session.shouldPresentGate)
         .task {
-            // Local and synchronous: decides who is signed in from the Keychain alone, so the
-            // first frame never waits on a server that may be cold-starting.
-            session.restore()
-            // Then confirm with the server, which is also how the app finds out an account was
-            // deleted. Failing this is harmless — refresh() keeps the session on any error
-            // short of an outright 401.
+            // No `restore()` here on purpose — AuthSession does it in its initialiser, so this
+            // view's FIRST frame is already the right one. Restoring from `.task` would run
+            // after that frame, and a signed-in user would watch the gate cross-fade away on
+            // every launch.
+            //
+            // What is left is the server confirmation, which is also how the app finds out an
+            // account was deleted. Failing is harmless: refresh() keeps the session on any
+            // error short of an outright 401.
             await session.refresh()
         }
     }

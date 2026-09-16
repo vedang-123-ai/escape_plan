@@ -71,6 +71,19 @@ final class AuthSession {
         self.store = store
         self.defaults = defaults
         self.hasDismissedGate = defaults.bool(forKey: Self.gateDismissedKey)
+
+        // Restore HERE, not from the first view's .task.
+        //
+        // `.task` runs after the first frame, so restoring there means a signed-in user sees
+        // the auth gate for a frame and then watches it cross-fade away on every single
+        // launch. Restoring during construction means `shouldPresentGate` is already correct
+        // the first time any view reads it. It is safe to do in an initialiser precisely
+        // because `restore()` is synchronous, local and offline — it reads the Keychain and
+        // UserDefaults and nothing else.
+        //
+        // Calling `restore()` again afterwards is harmless (the first-launch purge is flagged,
+        // and the rest is a pure re-read), which is what lets the tests drive it explicitly.
+        restore()
     }
 
     // MARK: - Launch
