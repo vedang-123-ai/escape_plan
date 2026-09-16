@@ -29,8 +29,25 @@ from app.models import HomeModel
 
 
 def _utc_now() -> datetime:
-    """Timezone-aware UTC. Naive datetimes compare incorrectly across a sync."""
-    return datetime.now(timezone.utc)
+    """Timezone-aware UTC, truncated to milliseconds.
+
+    Naive datetimes compare incorrectly across a sync — hence `timezone.utc`.
+
+    The truncation is the less obvious half. **BSON stores datetimes as
+    milliseconds since the epoch**, so microseconds do not survive a write: a
+    user created at `…744441Z` reads back `…744000Z` (observed against a live
+    Atlas cluster, 2026-09-15). Generating them already truncated makes an
+    in-memory model compare equal to the same model read back from Mongo.
+    Without it, `written == read_back` passes against the in-memory fake and
+    fails against a real server — the same class of bug as the `tz_aware` fix in
+    S8.1, and exactly the kind S8.4's merge would trip over while comparing a
+    local copy against a fetched one.
+
+    Sub-millisecond precision carries no meaning here: these timestamps order
+    syncs between devices whose clocks disagree by far more than a microsecond.
+    """
+    now = datetime.now(timezone.utc)
+    return now.replace(microsecond=(now.microsecond // 1000) * 1000)
 
 
 def _new_id() -> str:
