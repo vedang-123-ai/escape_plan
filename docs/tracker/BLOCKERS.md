@@ -88,6 +88,32 @@ backend — still red, see §3._
 
 ## 2 · Device blocks — things that require the physical iPhone 17 Pro
 
+- [x] ~~**The auth wire contract has only ever met a stub.**~~ **MET PRODUCTION 2026-09-16.**
+      Walked by hand against the DEPLOYED backend (`escape-plan-backend.onrender.com`, live
+      Atlas), sending the exact bytes `FormURLEncoding.body()` emits: register → **201**,
+      duplicate → **409**, form-encoded login → **200** + JWT, `/auth/me` → `UserPublic` with
+      **no hash on the wire**, wrong password → **401**, no token → **401**, `GET /homes` → `[]`,
+      `POST /homes` → **201** returning `id` (not `_id`, so S8.2's fix holds on the deployed
+      service, which S8.4 depends on).
+      Two results worth keeping. **The `+`-in-password trap is real and the encoder defeats it:**
+      the password `Escape+Plan test 2026` logs in when `+` is sent as `%2B` and returns **401**
+      when it is not — so `URLComponents.query` would have silently broken login for any user
+      with a `+` in their password. And **cold start measured at 42 s**, which is why
+      `AuthClient` uses a 90 s timeout and a distinct "waking up" message rather than "offline".
+      The returned `bungalow.json` (schema 2.1) decodes in Swift and compares **equal** to the
+      fixture-loaded `HomeModel`.
+      **This does NOT close acceptance criterion 1.** It proves the contract, not the app — no
+      iOS binary has been built or launched. Test account and home were created and are pending
+      deletion by the owner (see the session note).
+
+- [ ] **S8.4 note: a home that has been through the server differs from the local one BY BYTES,
+      though not by value.** pydantic serialises absent optionals as explicit `null` and fills
+      `objects: []`, so the JSON that comes back has 21 keys the sent JSON did not — measured
+      2026-09-16 on `bungalow.json`. Swift decodes it to an **equal** `HomeModel`, so the model
+      layer is fine, but any S8.4 dirty-check or merge that compares **encoded JSON** rather
+      than decoded models will see every synced home as permanently modified. Compare models,
+      or compare `revision`.
+
 - [ ] **Nothing has ever run below iOS 26.5, and the deployment target is now 17.0.**
       Changed 2026-09-16 (see §3) because 26.5 was an Xcode default that would have made the
       app installable only on the newest iOS. The lower floor is compile-verified, not

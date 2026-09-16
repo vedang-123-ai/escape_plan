@@ -58,6 +58,18 @@ A red run is ~1-in-3 environmental flake — re-run once before believing it.
 3. Only then start new work. The S7.7 **device pass** (`BLOCKERS.md` §2) is the largest
    remaining body of work and gates filming; it has never been started.
 
+## Who can do this — confirmed 2026-09-16
+
+**Not the repo owner (P3).** Their machine cannot run the simulator; this was re-confirmed
+2026-09-16 when they were asked directly ("cant run it rn so leave it as a task for the
+others"). So this gate is genuinely blocked on **Anish / Yuki**, not merely unassigned, and it
+will not clear itself by another backend-side session going well.
+
+Everything that CAN be checked without a simulator has now been: the whole app type-checks
+clean against the iOS 26.5 SDK in both configurations and at the new iOS 17.0 floor, the
+Foundation-only layers carry 388 executing tests, and the auth wire contract has been verified
+against the deployed backend. What remains genuinely needs a device or a simulator.
+
 ## To clear this gate
 
 Change `gate_status:` above to `closed`. That is the intended way — deleting this file
