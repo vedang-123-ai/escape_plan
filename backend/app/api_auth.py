@@ -162,14 +162,32 @@ async def me(user: CurrentUser) -> UserPublic:
     return UserPublic.from_user(user)
 
 
-@router.get("/homes", response_model=list[StoredHomeModel])
+# `response_model_by_alias=False` on both /homes routes, deliberately.
+# `StoredHomeModel.id` is aliased to `_id` so `to_document()` writes Mongo's
+# primary key — a STORAGE concern. FastAPI serialises response models by alias
+# by default, which leaked that alias onto the wire: `POST /homes` used to
+# return `{"_id": ...}`. Two reasons that is wrong. It contradicts `/auth/me`,
+# which returns `UserPublic` with a plain `id`; and it would force S8.4's Swift
+# `Codable` into a `CodingKeys` mapping for a field that should map straight
+# through (and give up free `Identifiable` conformance) to accommodate a
+# database detail the client has no business knowing. `populate_by_name=True`
+# means an inbound `id` still validates, so nothing is lost on the read side.
+# Found against a live Atlas cluster, 2026-09-15.
+@router.get(
+    "/homes", response_model=list[StoredHomeModel], response_model_by_alias=False
+)
 async def list_homes(user: CurrentUser) -> list[StoredHomeModel]:
     """Every home belonging to the authenticated user. The user id comes from
     the verified token, never from a query parameter."""
     return await _homes().list_for_user(user.id)
 
 
-@router.post("/homes", response_model=StoredHomeModel, status_code=201)
+@router.post(
+    "/homes",
+    response_model=StoredHomeModel,
+    status_code=201,
+    response_model_by_alias=False,
+)
 async def sync_home(request: HomeSyncRequest, user: CurrentUser) -> StoredHomeModel:
     """Create or update one home for the authenticated user.
 
