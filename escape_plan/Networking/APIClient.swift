@@ -40,15 +40,22 @@ final class APIClient {
         didSet { defaults.set(bearerToken, forKey: Self.bearerTokenDefaultsKey) }
     }
 
+    /// The configured base URL without having to build an `APIClient` for it.
+    ///
+    /// Exists for S8.3: `AuthSession` is created at the app entry point and needs the same
+    /// address, but the auth layer is pure Foundation (symlinked into the EditorCore package
+    /// so it can be tested without a simulator) and cannot import anything from here.
+    static func currentBaseURL(defaults: UserDefaults = .standard) -> URL {
+        guard let stored = defaults.string(forKey: baseURLDefaultsKey),
+              let url = URL(string: stored)
+        else { return deployedDefaultBaseURL }
+        return url
+    }
+
     init(defaults: UserDefaults = .standard, session: URLSession = .shared) {
         self.defaults = defaults
         self.session = session
-        if let stored = defaults.string(forKey: Self.baseURLDefaultsKey),
-           let url = URL(string: stored) {
-            baseURL = url
-        } else {
-            baseURL = Self.deployedDefaultBaseURL
-        }
+        baseURL = Self.currentBaseURL(defaults: defaults)
         bearerToken = defaults.string(forKey: Self.bearerTokenDefaultsKey)
             ?? Self.bundledBearerToken()
             ?? ""

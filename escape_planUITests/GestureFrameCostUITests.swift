@@ -30,6 +30,7 @@ final class GestureFrameCostUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-onboarding.completed", "YES",
+            "-auth.gate.dismissed", "YES",
             "-editor.gestureInstrumentation", "YES",
         ]
         app.launch()

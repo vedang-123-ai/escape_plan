@@ -2,13 +2,29 @@
 //  escape_plan
 //
 //  S0.3: replaced the stock Core Data template wholesale. Persistence is local JSON documents
-//  via FileManager (S2.4), not Core Data — this entry point just owns the shared APIClient.
+//  via FileManager (S2.4), not Core Data — this entry point owns the shared APIClient, and
+//  since S8.3 the AuthSession too.
 
 import SwiftUI
 
 @main
+// @MainActor because the default value of `authSession` below constructs a @MainActor type in
+// this struct's otherwise-nonisolated init. Correct at runtime either way (App.main() is on the
+// main thread) and accepted in Swift 5 mode, but an error under Swift 6.
+@MainActor
 struct escape_planApp: App {
     @State private var apiClient = APIClient()
+
+    /// The signed-in account, or the absence of one. Built here rather than in a view so the
+    /// Keychain is read once per launch instead of once per view rebuild.
+    ///
+    /// It takes the same base URL the APIClient starts with; Settings keeps the two in step
+    /// when that changes. The auth layer is pure Foundation by design (it is symlinked into
+    /// the EditorCore package so it can be tested without a simulator) and so cannot reach
+    /// into Networking/ to read it for itself.
+    @State private var authSession = AuthSession(
+        client: AuthClient(baseURL: APIClient.currentBaseURL()),
+        store: KeychainTokenStore())
 
     init() {
 #if DEBUG
@@ -35,8 +51,9 @@ struct escape_planApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
                 .environment(apiClient)
+                .environment(authSession)
         }
     }
 }

@@ -1905,3 +1905,49 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - f25c9a9 docs: record the two deploy steps that cost this session an hour
   - 6f8b6f3 tracker: correct two lines that went stale at the moment of the push
 
+## 2026-09-16T05:12:58Z · vedang-123-ai · `main` @ `219abf6`
+
+**Commits this session**
+  - 219abf6 tracker
+  - 4f524c4 Activity log: hook entries from the S8 live-verification session
+  - f25c9a9 docs: record the two deploy steps that cost this session an hour
+  - 6f8b6f3 tracker: correct two lines that went stale at the moment of the push
+
+## 2026-09-16T06:11:13Z · vedang-123-ai · `s8-3-ios-auth-ui` @ `dec5221`
+
+**Commits this session**
+  - dec5221 S8.3: make the working submit button one labelled accessibility element
+  - bd3e264 S8.3 fix: restore the session at construction, not from RootView's .task
+  - e334b24 S8.3: session note
+  - b7f945e S8.3 tracker: S8.3 done, and three new device-gated unknowns
+  - 3aab9db S8.3 docs: seven decisions, including one the session reversed
+  - d0cf724 S8.3 docs: correct DeviceIdentity's scope lock, document Auth/
+  - cda55b6 S8.3: give the two previews the AuthSession they now need
+  - 8d99c26 S8.3: keep the 8 UI-test launches past the account gate
+  - 9b60eb6 S8.3: Account section in Settings, and one place the base URL changes
+  - 0c7f7bc S8.3: a sign-in sheet for people who changed their mind
+  - dc31ba9 S8.3: root switches between the gate and the app
+  - 4cf919c S8.3: the auth gate, with a real way past it
+  - 208c4c8 S8.3: Login and Signup screens, over shared form components
+  - e2f90fe S8.3: 23 tests over the session state machine
+  - 77ec3c2 S8.3: AuthSession — restore, sign in, register, refresh, sign out
+  - e1698a9 S8.3: prove the client email rule agrees with the backend's, address by address
+  - 6d4198c S8.3: validate credentials client-side with the server's own rule
+  - 9d68ec1 S8.3: 14 tests over the /auth wire contract, runnable without a simulator
+  - 20d0a27 S8.3: stubbed transport scoped to one session, not the whole process
+  - 986eba4 S8.3: AuthClient for /auth/register, /auth/login and /auth/me
+  - e9aa2ea S8.3: one store contract, pointed at the double here and the Keychain on device
+  - a75372e S8.3: store the JWT in the Keychain
+  - 98cf749 S8.3: TokenStore protocol, so the session is testable without a Keychain
+  - b1ce1c4 S8.3: AuthFailure tests use error bodies captured from the real backend
+  - 3acb28d S8.3: AuthFailure — auth's own vocabulary for the same status codes
+  - ace8110 S8.3: AccessToken tests use tokens signed by our own backend
+  - b6f5e44 S8.3: read exp/sub from the JWT locally, for UX only
+  - c50b0e7 S8.3: pin the login body against the parser the backend actually uses
+  - e5ece25 S8.3: hand-rolled form encoding for /auth/login
+  - a1410b5 S8.3: pin both created_at shapes the backend actually emits
+  - 1a82019 S8.3: auth wire shapes, symlinked into EditorCore so they can be tested
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+

@@ -45,6 +45,7 @@ final class ManualBuildRecordingUITests: XCTestCase {
         app = XCUIApplication()
         app.launchArguments = [
             "-onboarding.completed", "YES",
+            "-auth.gate.dismissed", "YES",
             "-APIClient.baseURL", baseURL,
             "-APIClient.bearerToken", token,
             "-editor.topDownCamera", "YES",

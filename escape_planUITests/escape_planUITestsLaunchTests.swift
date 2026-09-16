@@ -20,6 +20,12 @@ final class escape_planUITestsLaunchTests: XCTestCase {
     @MainActor
     func testLaunch() throws {
         let app = XCUIApplication()
+        // Without these the "Launch Screen" attachment silently becomes a screenshot of the
+        // S8.3 auth gate rather than the app — a changed artifact nobody would think to check.
+        app.launchArguments = [
+            "-onboarding.completed", "YES",
+            "-auth.gate.dismissed", "YES",
+        ]
         app.launch()
 
         // Insert steps here to perform after app launch but before taking a screenshot,
