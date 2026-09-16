@@ -150,6 +150,51 @@ def cloud_sync_disabled(_request: Request, exc: CloudSyncDisabled) -> JSONRespon
     )
 
 
+# `CloudSyncDisabled` covers "no database CONFIGURED". It does not cover "database
+# configured but UNREACHABLE" — a different state with the same right answer.
+# Found 2026-09-15 against the deployed service: `MONGODB_URI` was set but Atlas
+# was not allow-listing Render's IPs, so `/health/db` reported "unreachable" while
+# `POST /auth/register` returned a bare **500 Internal Server Error** with no body.
+# That is the worst possible answer for S8.3/S8.4: the iOS client cannot tell a
+# transient outage it should retry from a malformed request it must not.
+#
+# `ConnectionFailure` is the precise seam. It is the base of
+# ServerSelectionTimeoutError, NetworkTimeout, AutoReconnect and
+# WaitQueueTimeoutError, and is NOT a base of OperationFailure — so a genuine bug
+# in one of our queries still surfaces as a 500 rather than being dressed up as a
+# transient blip. The import is guarded to preserve the property `database.py`
+# relies on: the app must still import when the driver is absent.
+try:  # pragma: no cover - exercised by whether the handler below registers
+    from pymongo.errors import ConnectionFailure as _ConnectionFailure
+except ImportError:  # pragma: no cover - driver-absent deployments
+    _ConnectionFailure = None
+
+if _ConnectionFailure is not None:
+
+    @app.exception_handler(_ConnectionFailure)
+    def cloud_sync_unreachable(
+        _request: Request, exc: Exception
+    ) -> JSONResponse:
+        """503 with a retryable message when the database cannot be reached.
+
+        Mirrors the Anthropic handler's split above: 503 means "the same request
+        may work shortly", which is exactly true of a network partition, an Atlas
+        IP allow-list that has not caught up, or a paused free-tier cluster.
+        """
+        logging.error(
+            "cloud-sync route could not reach the database (%s): %s",
+            exc.__class__.__name__,
+            exc,
+            exc_info=True,
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "Cloud sync is temporarily unavailable. Please try again."
+            },
+        )
+
+
 def require_token(
     credentials: Annotated[
         Optional[HTTPAuthorizationCredentials], Depends(_bearer_scheme)
