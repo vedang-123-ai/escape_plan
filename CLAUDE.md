@@ -109,8 +109,15 @@ swift test --package-path tools/editorcore                # EditorCore — fast,
 xcodebuild test -project escape_plan.xcodeproj -scheme escape_plan \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -derivedDataPath .build-merge CODE_SIGNING_ALLOWED=NO   # add -only-testing:escape_planTests to iterate
+scripts/typecheck-ios.sh                                  # all 3 iOS targets, NO simulator needed
 python3 scripts/demo-preflight.py                         # before any device build or filming
 ```
+
+**With no simulator, `scripts/typecheck-ios.sh` is the strongest check available to you.** It
+resolves every type, member and conformance across all three targets (app in both build
+configurations, unit tests, UI tests) — far more than `swiftc -parse`, which is syntax only and
+proves nothing. It does NOT build, link or run anything, so it narrows the `xcodebuild` run and
+never replaces it. Do not report a green run of it as a passing test suite.
 
 ## Ending a session that changed a file
 

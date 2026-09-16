@@ -59,6 +59,13 @@ backend — still red, see §3._
       Surfaced at the top of every new session by the SessionStart hook; clear it by setting
       `gate_status: closed` in `FIRST-PRIORITY.md`.
 
+      **Narrowed further 2026-09-16:** the two TEST targets now type-check too —
+      `escape_planTests` (64 files) and `escape_planUITests` (9) both clean against the app's
+      testable module, so `@testable import escape_plan` resolves and all 729 unit-test methods
+      and 14 UI-test methods reference real symbols. That removes the likeliest reason the
+      `xcodebuild` run would die in its first minute on a machine that is hard to get time on.
+      Reproduce with `scripts/typecheck-ios.sh`.
+
       **Narrowed 2026-09-15 (S8.3), not cleared.** All 149 app files now `swiftc -typecheck`
       clean against the iOS 26.5 simulator SDK (exit 0, 0 errors) — see the header stamp for the
       command. So "do these seven files even compile?" is answered for the type system:
@@ -117,10 +124,19 @@ backend — still red, see §3._
 - [ ] **Nothing has ever run below iOS 26.5, and the deployment target is now 17.0.**
       Changed 2026-09-16 (see §3) because 26.5 was an Xcode default that would have made the
       app installable only on the newest iOS. The lower floor is compile-verified, not
-      run-verified. Next action: during the device pass, boot ONE simulator on an older runtime
-      (17.x or 18.x) and walk the golden path — the risks are SwiftUI layout differences,
-      `@Observable` behaviour, and RoomPlan/ARKit availability, none of which a type-check sees.
-      If an older runtime is not installed, say so on this line rather than deleting it.
+      run-verified. **The owner CANNOT check this: only the iOS 26.5 runtime is installed and
+      there is not enough disk space for the ~7 GB older-runtime download** (confirmed
+      2026-09-16). It needs whoever has room, or a physical device still on 17.x/18.x — most
+      phones auto-update, so that may not exist either.
+      **Mitigated as far as a compiler can:** all three targets — app (150 files, both
+      configurations), `escape_planTests` (64), `escape_planUITests` (9) — type-check clean
+      against iOS **17.0**, so nothing anywhere references an API newer than the floor. What a
+      type-check cannot see is runtime behaviour: SwiftUI layout, `@Observable`, RoomPlan/ARKit
+      availability at launch.
+      **Judgement, stated so it can be overruled:** 17.0 is still right. The failure it avoids
+      (a judge cannot install the app at all) is certain and total; the one it risks (a layout
+      quirk on an old iOS) is possible and partial. Next action: `scripts/typecheck-ios.sh 18.0`
+      occasionally as cheap insurance, and a spot check if anyone ever has the space.
 
 - [ ] **S8.3's three auth SCREENS have never been rendered.** `AuthGateView`, `LoginView`,
       `SignupView` (plus `AuthSheetView` and `RootView`) type-check and nothing more. Everything
