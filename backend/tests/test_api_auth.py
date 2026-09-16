@@ -178,7 +178,7 @@ class TestHomeSync:
         headers = auth_header(client)
         home_id = client.post(
             "/homes", json={"home": bungalow}, headers=headers
-        ).json()["_id"]
+        ).json()["id"]
 
         updated = client.post(
             "/homes", json={"home": bungalow, "home_id": home_id}, headers=headers
@@ -211,7 +211,7 @@ class TestHomeSync:
         register(client)
         home_id = client.post(
             "/homes", json={"home": bungalow}, headers=auth_header(client)
-        ).json()["_id"]
+        ).json()["id"]
 
         register(client, email="other@example.com")
         other = {
@@ -241,3 +241,64 @@ class TestMe:
 
     def test_me_without_a_token_is_401(self, client):
         assert client.get("/auth/me").status_code == 401
+
+
+class TestWireContract:
+    """The shape the S8.4 Swift client will decode. Regression tests for two
+    defects found against a live Atlas cluster on 2026-09-15."""
+
+    def test_a_stored_home_is_returned_with_id_not_underscore_id(
+        self, client, bungalow
+    ):
+        """`_id` is Mongo's primary key, not part of the public API.
+
+        `StoredHomeModel.id` is aliased to `_id` for `to_document()`, and
+        FastAPI serialises response models by alias by default — so this used to
+        put a storage detail on the wire, contradicting `/auth/me` (which
+        returns a plain `id`) and forcing a `CodingKeys` mapping on the Swift
+        side for no reason.
+        """
+        register(client)
+        headers = auth_header(client)
+
+        created = client.post("/homes", json={"home": bungalow}, headers=headers)
+        assert created.status_code == 201
+        assert "id" in created.json()
+        assert "_id" not in created.json()
+
+        listed = client.get("/homes", headers=headers).json()
+        assert "id" in listed[0]
+        assert "_id" not in listed[0]
+
+    def test_an_id_from_a_response_can_be_sent_straight_back(self, client, bungalow):
+        """The round-trip the client actually performs: read `id`, send it as
+        `home_id`. Guards against fixing the response shape while leaving the
+        request side unable to consume it."""
+        register(client)
+        headers = auth_header(client)
+        home_id = client.post(
+            "/homes", json={"home": bungalow}, headers=headers
+        ).json()["id"]
+
+        updated = client.post(
+            "/homes", json={"home": bungalow, "home_id": home_id}, headers=headers
+        )
+        assert updated.status_code == 201
+        assert updated.json()["id"] == home_id
+        assert updated.json()["revision"] == 2
+
+    def test_created_at_survives_an_update(self, client, bungalow):
+        """`upsert` is a full `replace_one`, so a freshly defaulted `created_at`
+        would overwrite the original on every write and the field would mean
+        nothing beyond `updated_at`."""
+        register(client)
+        headers = auth_header(client)
+        created = client.post("/homes", json={"home": bungalow}, headers=headers).json()
+
+        updated = client.post(
+            "/homes",
+            json={"home": bungalow, "home_id": created["id"]},
+            headers=headers,
+        ).json()
+
+        assert updated["created_at"] == created["created_at"]
