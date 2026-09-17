@@ -2068,3 +2068,29 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-17T02:16:47Z · vedang-123-ai · `main` @ `8c61466`
+
+**Commits this session**
+  - 8c61466 Merge S8.4 — iOS cloud sync
+  - 34edc82 decisions.md: the S8.4 review, and why a stamped timestamp is not evidence
+  - b109d98 Tracker: the S8.4 review round, and the scope question it surfaced
+  - 26ffc41 S8.4: cover HomeDocumentSyncRepository, which had no tests at all
+  - 0454e5f S8.4: six defects from review — the worst destroyed a home on every device
+  - a737e35 BLOCKERS: name the sync trigger as a decision, not a gap
+  - ee317b1 escape_plan/CLAUDE.md: Sync/ and its two easy-to-break rules
+  - b54bee3 tools-used: S8.4 added no dependencies
+  - a0dd865 S8.4 tracker: the device gap, the counts, and the four rulings
+  - db8d8ea S8.4: build AuthSession as a local, not via _authSession.wrappedValue
+
+## 2026-09-17T02:32:33Z · vedang-123-ai · `main` @ `8c61466`
+
+**Commits this session**
+  - 8c61466 Merge S8.4 — iOS cloud sync
+  - 34edc82 decisions.md: the S8.4 review, and why a stamped timestamp is not evidence
+  - b109d98 Tracker: the S8.4 review round, and the scope question it surfaced
+  - 26ffc41 S8.4: cover HomeDocumentSyncRepository, which had no tests at all
+  - 0454e5f S8.4: six defects from review — the worst destroyed a home on every device
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+

@@ -42,6 +42,21 @@ from app.scoring.score import ScoreBreakdown, compute_score
 
 logging.basicConfig(level=logging.INFO)
 
+# Pin pymongo's command logger to INFO, whatever the root level is.
+#
+# pymongo logs every command it issues — including the full document — at DEBUG. Since S8.4
+# that means users' home layouts: floor polygons, room names, `meta.address_optional` and the
+# household composition, written into the process log on every sync. Raising the root logger to
+# DEBUG is a thing people do while chasing an unrelated bug, and on a hosted service those logs
+# are retained and readable by anyone with dashboard access.
+#
+# So the protection cannot be "we happen to run at INFO" — it has to survive someone turning
+# the root level up. `propagate` is left alone: these loggers still reach the root handler, they
+# just will not emit below INFO. Anyone who genuinely needs wire-level pymongo output can set
+# this logger explicitly, which is a deliberate act rather than a side effect.
+for _pymongo_logger in ("pymongo", "pymongo.command", "pymongo.connection", "pymongo.serverSelection"):
+    logging.getLogger(_pymongo_logger).setLevel(logging.INFO)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Own the MongoDB pool for the process lifetime (S8.1).
