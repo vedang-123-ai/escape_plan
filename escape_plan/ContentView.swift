@@ -71,5 +71,6 @@ struct ContentView: View {
         .environment(AuthSession(client: AuthClient(baseURL: APIClient.deployedDefaultBaseURL),
                                  store: InMemoryTokenStore(),
                                  defaults: UserDefaults(suiteName: "preview.\(UUID().uuidString)")!))
+        .previewSyncEnvironment()
 }
 #endif

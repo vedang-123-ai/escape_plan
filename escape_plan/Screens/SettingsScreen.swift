@@ -14,6 +14,7 @@ import SwiftUI
 struct SettingsScreen: View {
     @Environment(APIClient.self) private var apiClient
     @Environment(AuthSession.self) private var authSession
+    @Environment(SyncManager.self) private var syncManager
 
     private enum HealthState: Equatable {
         case unknown
@@ -378,6 +379,10 @@ struct SettingsScreen: View {
     private func setBaseURL(_ url: URL) {
         apiClient.baseURL = url
         authSession.baseURL = url
+        // The sync client holds its own copy for the same reason AuthClient does: Sync/ is
+        // pure Foundation and cannot reach into Networking/ to read it. All three move together
+        // or a changed server address silently applies to some requests and not others.
+        syncManager.baseURL = url
     }
 
     private func refreshFields() {
@@ -458,5 +463,6 @@ private struct HowRoutesAreComputedSheet: View {
         .environment(AuthSession(client: AuthClient(baseURL: APIClient.deployedDefaultBaseURL),
                                  store: InMemoryTokenStore(),
                                  defaults: UserDefaults(suiteName: "preview.\(UUID().uuidString)")!))
+        .previewSyncEnvironment()
 }
 #endif

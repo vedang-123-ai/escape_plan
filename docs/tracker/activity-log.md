@@ -2041,3 +2041,30 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-16T23:45:05Z · vedang-123-ai · `main` @ `c371a84`
+
+**Commits this session**
+  - c371a84 Activity log: S8.4 handoff prep
+  - 5eaa2e2 S8-4.md: STEP 0 carrying S8.3's leftovers
+
+## 2026-09-17T01:44:30Z · vedang-123-ai · `s8-4-ios-cloud-sync` @ `a737e35`
+
+**Commits this session**
+  - a737e35 BLOCKERS: name the sync trigger as a decision, not a gap
+  - ee317b1 escape_plan/CLAUDE.md: Sync/ and its two easy-to-break rules
+  - b54bee3 tools-used: S8.4 added no dependencies
+  - a0dd865 S8.4 tracker: the device gap, the counts, and the four rulings
+  - db8d8ea S8.4: build AuthSession as a local, not via _authSession.wrappedValue
+
+## 2026-09-17T01:48:44Z · vedang-123-ai · `s8-4-ios-cloud-sync` @ `a737e35`
+
+**Commits this session**
+  - a737e35 BLOCKERS: name the sync trigger as a decision, not a gap
+  - ee317b1 escape_plan/CLAUDE.md: Sync/ and its two easy-to-break rules
+  - b54bee3 tools-used: S8.4 added no dependencies
+  - a0dd865 S8.4 tracker: the device gap, the counts, and the four rulings
+  - db8d8ea S8.4: build AuthSession as a local, not via _authSession.wrappedValue
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+

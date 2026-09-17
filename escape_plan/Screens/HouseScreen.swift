@@ -39,6 +39,11 @@ struct HouseScreen: View {
     @Environment(APIClient.self) private var apiClient
     @Environment(\.dismiss) private var dismiss
 
+    /// App-scoped, so sync knows which home is open regardless of which of the three entry
+    /// points opened it. `HomeLibrary.editor` cannot answer this — the House tab's own
+    /// initialiser passes `library: nil`, and Beta and Home each own a different library.
+    @Environment(HomeDocumentSyncRepository.self) private var syncRepository
+
     @State private var session: EditorSession?
     @State private var loadError: String?
     @State private var saveError: String?
@@ -2213,6 +2218,10 @@ struct HouseScreen: View {
             }
             session = newSession
             library?.editor = newSession
+            // Tell sync before the first autosave: a pull that landed between here and the
+            // next frame would otherwise write the server's copy over the file this editor is
+            // about to save into.
+            syncRepository.openHomeID = newStore.model.home_id
             // A brand-new home has nothing on disk yet — write it immediately so it shows up
             // in the home list without waiting for the first edit.
             if homeID == nil {
@@ -2243,6 +2252,12 @@ struct HouseScreen: View {
     private func unregisterFromLibrary() {
         if let library, library.editor === session {
             library.editor = nil
+        }
+        // Clear the sync guard only if it still names OUR home. Two editors can exist across
+        // a tab switch, and clearing unconditionally would unlock a home the other one has
+        // open.
+        if syncRepository.openHomeID == session?.store.model.home_id {
+            syncRepository.openHomeID = nil
         }
     }
 
