@@ -44,6 +44,10 @@ struct SyncOutcome: Equatable, Sendable {
     var unchanged: Int = 0
     /// Homes on the server that this device deleted, and therefore did not download again.
     var skipped: Int = 0
+    /// Homes on this device that belong to a different account, and so were neither uploaded
+    /// into the signed-in one nor overwritten by it. Counted separately because it is the one
+    /// skip the user may be surprised by and should be told about.
+    var skippedOtherAccount: Int = 0
     var conflicts: [HomeSyncConflict] = []
     var failures: [HomeSyncFailure] = []
 
@@ -243,7 +247,11 @@ final class SyncManager {
             outcome.unchanged += 1
 
         case .skip:
-            outcome.skipped += 1
+            if action.reason == .ownedByAnotherAccount {
+                outcome.skippedOtherAccount += 1
+            } else {
+                outcome.skipped += 1
+            }
 
         case .createRemote:
             guard let home = localByID[action.localHomeID] else { return }

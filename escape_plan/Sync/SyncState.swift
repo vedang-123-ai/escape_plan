@@ -31,17 +31,31 @@ struct HomeSyncRecord: Codable, Equatable, Sendable {
     let lastSyncedAt: Date
 }
 
+/// One home's deletion, remembered so the server cannot undo it.
+struct HomeDeletion: Codable, Equatable, Sendable {
+    let deletedAt: Date
+    /// The account that owned the home when it was deleted, if any.
+    ///
+    /// Carried so a deletion suppresses only the account it happened in. The three starter
+    /// homes keep FIXED `home_id`s, so without this, user A deleting the bundled Bungalow on a
+    /// shared device would stop user B from ever receiving *their own* Bungalow from *their*
+    /// account — one person's deletion silently editing another person's library.
+    let ownerUserID: String?
+}
+
 /// Every `HomeSyncRecord` this device holds, keyed by schema `home_id`, plus the tombstones
-/// for homes deleted here, plus whose account the whole file describes.
+/// for homes deleted here, plus who owns what.
 ///
 /// Versioned from the start. This file is read by a future build that may have changed its
 /// shape, and an unreadable sidecar must degrade to "nothing has ever synced" — which costs
 /// one redundant upload per home — rather than to a crash or to silent data loss.
 struct SyncState: Codable, Equatable, Sendable {
-    /// Bumped to 2 when `userID` and `deletedHomeIDs` were added (2026-09-16). A version-1
-    /// sidecar has neither, and reading one as though it did would apply user A's records to
-    /// user B's account — so the version guard in `FileSyncStateStore.load` discards it.
-    static let currentVersion = 2
+    /// 2 added `userID` and tombstones; 3 (2026-09-16) added `homeOwners` and gave each
+    /// tombstone an owner. An older sidecar cannot answer "whose home is this?", and guessing
+    /// would either leak one account's homes into another's or refuse to back up a first-time
+    /// user's entire library — so the version guard in `FileSyncStateStore.load` discards it
+    /// and the device re-syncs from scratch.
+    static let currentVersion = 3
 
     var version: Int
 
@@ -56,26 +70,35 @@ struct SyncState: Codable, Equatable, Sendable {
 
     var records: [String: HomeSyncRecord]
 
-    /// Homes deleted on this device, and when. The backend has no delete endpoint, so the
-    /// server keeps serving a deleted home forever; without a tombstone the next sync
+    /// Homes deleted on this device, keyed by `home_id`. The backend has no delete endpoint,
+    /// so the server keeps serving a deleted home forever; without a tombstone the next sync
     /// downloads it again and it reappears in the library. The app already learned this
     /// lesson locally — `FixtureSeeder.starterSeedDefaultsKey` exists so "a home the user
     /// deleted on purpose is never resurrected on the next launch". Sync must honour the same
     /// rule.
-    var deletedHomeIDs: [String: Date]
+    var deletions: [String: HomeDeletion]
+
+    /// Which account claimed each home, keyed by `home_id`. **Survives an account switch** —
+    /// unlike `records`, which are server ids that mean nothing to a different account.
+    ///
+    /// This is the whole answer to "do local homes belong to whoever signs in?". See
+    /// `ownership(of:)`.
+    var homeOwners: [String: String]
 
     init(version: Int = SyncState.currentVersion,
          userID: String? = nil,
          records: [String: HomeSyncRecord] = [:],
-         deletedHomeIDs: [String: Date] = [:]) {
+         deletions: [String: HomeDeletion] = [:],
+         homeOwners: [String: String] = [:]) {
         self.version = version
         self.userID = userID
         self.records = records
-        self.deletedHomeIDs = deletedHomeIDs
+        self.deletions = deletions
+        self.homeOwners = homeOwners
     }
 
     private enum CodingKeys: String, CodingKey {
-        case version, userID, records, deletedHomeIDs
+        case version, userID, records, deletions, homeOwners
     }
 
     /// Absent collections decode as empty rather than failing the whole file — the same
@@ -90,7 +113,8 @@ struct SyncState: Codable, Equatable, Sendable {
         version = try container.decode(Int.self, forKey: .version)
         userID = try container.decodeIfPresent(String.self, forKey: .userID)
         records = try container.decodeIfPresent([String: HomeSyncRecord].self, forKey: .records) ?? [:]
-        deletedHomeIDs = try container.decodeIfPresent([String: Date].self, forKey: .deletedHomeIDs) ?? [:]
+        deletions = try container.decodeIfPresent([String: HomeDeletion].self, forKey: .deletions) ?? [:]
+        homeOwners = try container.decodeIfPresent([String: String].self, forKey: .homeOwners) ?? [:]
     }
 
     static let empty = SyncState()
@@ -99,42 +123,98 @@ struct SyncState: Codable, Equatable, Sendable {
 
     mutating func remember(_ record: HomeSyncRecord) {
         records[record.localHomeID] = record
+        // A home that just synced belongs to whoever synced it.
+        if let userID { homeOwners[record.localHomeID] = userID }
         // Re-syncing a home means it is back; a stale tombstone would suppress it forever.
-        deletedHomeIDs.removeValue(forKey: record.localHomeID)
+        deletions.removeValue(forKey: record.localHomeID)
     }
 
     mutating func forget(localHomeID: String) {
         records.removeValue(forKey: localHomeID)
     }
 
+    // MARK: - Ownership
+
+    /// Who a home belongs to, from this device's point of view.
+    enum Ownership: Equatable, Sendable {
+        /// No account has ever synced it. The signing-in account may adopt it.
+        case unclaimed
+        /// It belongs to the account currently signed in.
+        case mine
+        /// It belongs to a DIFFERENT account that has used this device.
+        case anotherAccount(userID: String)
+    }
+
+    /// ─── THE RULE: first account to sign in adopts the device's homes; a second one never
+    /// does. ───────────────────────────────────────────────────────────────────────────────
+    ///
+    /// The app is local-first, so homes exist before any account does, and the common case by
+    /// far is one person who used the app offline and then signed up — for them "sign in to
+    /// back up your homes" has to mean exactly that, or the feature does nothing. So an
+    /// unclaimed home is adopted.
+    ///
+    /// The case that must NOT be served the same way is a shared device: a family phone, a
+    /// demo iPad, a handed-down handset. There, uploading the previous user's homes into the
+    /// new user's account would copy someone's home layout, `meta.address_optional` and
+    /// household composition into a stranger's cloud account permanently, with no prompt and
+    /// nothing to undo it. Ownership is recorded the moment a home first syncs, survives the
+    /// account switch, and a home owned by someone else is left strictly alone — not pushed,
+    /// not pulled, not overwritten.
+    ///
+    /// The deliberate gap: a home owned by another account stays VISIBLE on this device. The
+    /// boundary for that is the phone's own lock screen, not sync, and deleting a previous
+    /// user's homes on sign-in would be a far worse failure than showing them.
+    func ownership(of localHomeID: String) -> Ownership {
+        guard let owner = homeOwners[localHomeID] else { return .unclaimed }
+        return owner == userID ? .mine : .anotherAccount(userID: owner)
+    }
+
     // MARK: - Tombstones
 
+    /// Whether a deletion recorded here should suppress a home the server is still serving.
+    ///
+    /// Scoped to the account it happened in. A deletion with no owner was made before anyone
+    /// signed in, so the home was never in any account and the tombstone is harmless whoever
+    /// is looking.
     func isDeletedLocally(_ localHomeID: String) -> Bool {
-        deletedHomeIDs[localHomeID] != nil
+        guard let deletion = deletions[localHomeID] else { return false }
+        return deletion.ownerUserID == nil || deletion.ownerUserID == userID
     }
 
     /// Records a deletion. Also drops the sync record: the home is gone from this device, so
     /// "what this device last synced" no longer describes anything.
     mutating func markDeleted(localHomeID: String, at date: Date) {
-        deletedHomeIDs[localHomeID] = date
+        // Capture the owner into the tombstone, then release the claim. A home that is gone
+        // from this device is not owned by anyone ON this device any more, and leaving the
+        // claim behind would make a later account's OWN copy of that id read as "somebody
+        // else's home" and be skipped forever — the starter homes share fixed ids, so that is
+        // reachable, not theoretical. The tombstone keeps the owner so the deletion still
+        // applies to the account it happened in, and only that one.
+        deletions[localHomeID] = HomeDeletion(deletedAt: date,
+                                              ownerUserID: homeOwners[localHomeID])
+        homeOwners.removeValue(forKey: localHomeID)
         records.removeValue(forKey: localHomeID)
     }
 
     /// The home is on disk again (re-imported, or a stale tombstone from a race), so the
     /// tombstone is wrong and must not keep suppressing it.
     mutating func clearTombstone(localHomeID: String) {
-        deletedHomeIDs.removeValue(forKey: localHomeID)
+        deletions.removeValue(forKey: localHomeID)
     }
 
-    /// A copy scoped to one account, keeping the records only if they already belong to it.
+    /// A copy scoped to one account.
     ///
-    /// This is the whole user-scoping rule in one place: same account, keep everything;
-    /// different account (or an unknown one either side), start clean. Starting clean costs
-    /// one redundant upload per home and is the only answer that cannot act on another
-    /// account's record ids.
+    /// `records` are server ids and mean nothing to a different account, so they go. Ownership
+    /// and tombstones are facts about THIS DEVICE rather than about one login, so they stay —
+    /// dropping them is what would let a second account adopt the first one's homes, and let
+    /// the server undo a deletion simply because someone else signed in.
     func scoped(to userID: String?) -> SyncState {
-        guard self.userID == userID else { return SyncState(userID: userID) }
-        return self
+        guard self.userID != userID else { return self }
+        return SyncState(version: version,
+                         userID: userID,
+                         records: [:],
+                         deletions: deletions,
+                         homeOwners: homeOwners)
     }
 }
 

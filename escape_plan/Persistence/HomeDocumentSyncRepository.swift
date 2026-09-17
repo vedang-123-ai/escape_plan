@@ -137,6 +137,8 @@ final class HomeDocumentSyncRepository: SyncHomeRepository, HomeDeletionObservin
     /// home is already gone from disk. The cost is that it may reappear once.
     func homeWasDeletedLocally(homeID: String) {
         var state = stateStore.load()
+        // `markDeleted` reads the home's owner out of the state itself, so the tombstone is
+        // scoped to the account the home belonged to rather than suppressing it for everyone.
         state.markDeleted(localHomeID: homeID, at: Date())
         try? stateStore.save(state)
     }

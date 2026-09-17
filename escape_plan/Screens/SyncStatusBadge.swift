@@ -103,6 +103,7 @@ struct SyncStatusBadge: View {
         case .syncing: return "Syncing…"
         case .synced(_, let outcome):
             if !outcome.conflicts.isEmpty { return "Synced — one version won" }
+            if outcome.skippedOtherAccount > 0 && outcome.isClean { return "Synced yours" }
             return outcome.isClean ? "Synced" : "Partly synced"
         case .failed: return "Sync problem"
         }
@@ -130,6 +131,15 @@ struct SyncStatusBadge: View {
                 return "\(count) \(noun) edited on another device too, so that version is now "
                      + "the main one. What was on this device is kept alongside it, named "
                      + "\"(this device)\"."
+            }
+            // Homes left behind because they belong to someone else who used this phone. Said
+            // plainly: the alternative is a user who thinks everything is backed up and finds
+            // out otherwise when they replace the device.
+            if outcome.skippedOtherAccount > 0 && outcome.failures.isEmpty {
+                let count = outcome.skippedOtherAccount
+                let noun = count == 1 ? "home" : "homes"
+                return "\(count) \(noun) on this device belong to a different account, so "
+                     + "they weren't added to yours. They're still here and still work."
             }
             if !outcome.failures.isEmpty {
                 let count = outcome.failures.count

@@ -54,8 +54,8 @@ struct SyncAction: Equatable, Sendable {
         /// Nothing to do. Still returned rather than omitted, so the plan accounts for every
         /// home and a test can tell "decided nothing was needed" from "never considered it".
         case upToDate
-        /// Deliberately left alone. Today that means one thing: the home was deleted on this
-        /// device and the server, which has no delete endpoint, is still serving it.
+        /// Deliberately left alone — the home was deleted on this device, or it belongs to a
+        /// different account. See `SyncAction.Reason`.
         case skip
     }
 
@@ -76,8 +76,12 @@ struct SyncAction: Equatable, Sendable {
         /// This device remembered a server record that is gone. Re-create it.
         case staleRecordRemoteGone
         /// The server still has a home this device deleted. Not downloaded again — see
-        /// `SyncState.deletedHomeIDs`.
+        /// `SyncState.deletions`.
         case deletedOnThisDevice
+        /// The home belongs to a different account that has used this device. Never uploaded
+        /// into the signed-in account, and never overwritten by it — see
+        /// `SyncState.ownership(of:)`.
+        case ownedByAnotherAccount
         case unchanged
     }
 
@@ -140,6 +144,18 @@ enum SyncReconciler {
             // and reconcile the home normally.
             let deletedHere = state.isDeletedLocally(homeID)
             if localHome != nil && deletedHere { staleTombstoneHomeIDs.append(homeID) }
+
+            // A home claimed by a DIFFERENT account is left strictly alone: not pushed into
+            // the signed-in account, not overwritten by it. Checked before anything else,
+            // because every branch below would otherwise do one or the other. See
+            // `SyncState.ownership(of:)` for why the first account to sign in adopts a
+            // device's homes and a second one never does.
+            if case .anotherAccount = state.ownership(of: homeID) {
+                actions.append(SyncAction(localHomeID: homeID,
+                                          operation: .skip,
+                                          reason: .ownedByAnotherAccount))
+                continue
+            }
 
             switch (localHome, remoteHome) {
 

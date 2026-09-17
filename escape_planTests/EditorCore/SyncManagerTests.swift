@@ -582,3 +582,218 @@ final class SyncManagerRegressionTests: XCTestCase {
         XCTAssertNotNil(stateStore.load().record(for: "home-b"))
     }
 }
+
+// MARK: - Whose homes are these? (the scope question, ruled 2026-09-16)
+
+/// The rule: **the first account to sign in adopts the device's homes; a second one never
+/// does.** Both halves matter, and testing only one would let the other regress silently —
+/// break adoption and "sign in to back up your homes" quietly does nothing; break the second
+/// and one person's home layout, address and household land in a stranger's cloud account.
+@MainActor
+final class SyncHomeOwnershipTests: XCTestCase {
+
+    private var backend: FakeCloudBackend!
+    private var repository: InMemoryHomeRepository!
+    private var stateStore: InMemorySyncStateStore!
+    private var token: AccessToken?
+    private var base: HomeModel!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        AuthStubURLProtocol.reset()
+        backend = FakeCloudBackend()
+        backend.install()
+        repository = InMemoryHomeRepository()
+        stateStore = InMemorySyncStateStore()
+        base = try Fixtures.load("bungalow")
+    }
+
+    override func tearDown() {
+        AuthStubURLProtocol.reset()
+        backend = nil
+        repository = nil
+        stateStore = nil
+        super.tearDown()
+    }
+
+    private func makeManager() -> SyncManager {
+        SyncManager(
+            client: CloudHomesClient(baseURL: URL(string: "https://backend.example.com")!,
+                                     session: AuthStubURLProtocol.makeSession()),
+            repository: repository,
+            stateStore: stateStore,
+            tokenProvider: { [weak self] in self?.token },
+            now: { Date(timeIntervalSince1970: 1_800_000) })
+    }
+
+    private func outcome(_ status: SyncManager.Status,
+                         file: StaticString = #filePath, line: UInt = #line) throws -> SyncOutcome {
+        guard case .synced(_, let outcome) = status else {
+            XCTFail("expected a completed sync, got \(status)", file: file, line: line)
+            throw XCTSkip("not a completed sync")
+        }
+        return outcome
+    }
+
+    // MARK: - Adoption must work
+
+    /// The common case by a wide margin: someone uses the app offline for a while, then signs
+    /// up. Their existing homes MUST reach their account, or the feature does nothing at all
+    /// for the person most likely to use it.
+    func testTheFirstAccountToSignInAdoptsTheDevicesHomes() async throws {
+        repository = InMemoryHomeRepository([base.renamedCopy(homeID: "home-a"),
+                                             base.renamedCopy(homeID: "home-b")])
+        token = makeTestToken(subject: "alice")
+        let manager = makeManager()
+
+        await manager.sync()
+
+        XCTAssertEqual(try outcome(manager.status).pushed, 2)
+        XCTAssertEqual(try outcome(manager.status).skippedOtherAccount, 0)
+        XCTAssertNotNil(backend.record(withLocalHomeID: "home-a"))
+        XCTAssertNotNil(backend.record(withLocalHomeID: "home-b"))
+    }
+
+    func testSyncingRecordsWhoOwnsEachHome() async throws {
+        repository = InMemoryHomeRepository([base])
+        token = makeTestToken(subject: "alice")
+        await makeManager().sync()
+
+        XCTAssertEqual(stateStore.load().ownership(of: base.home_id), .mine)
+        XCTAssertEqual(stateStore.load().homeOwners[base.home_id], "alice")
+    }
+
+    /// Ownership must survive the account switch, or the rule has nothing to consult.
+    func testOwnershipOutlivesAnAccountSwitch() async throws {
+        repository = InMemoryHomeRepository([base])
+        token = makeTestToken(subject: "alice")
+        await makeManager().sync()
+
+        token = makeTestToken(subject: "bob")
+        XCTAssertEqual(stateStore.load().scoped(to: "bob").ownership(of: base.home_id),
+                       .anotherAccount(userID: "alice"))
+    }
+
+    // MARK: - A second account must not adopt them
+
+    func testASecondAccountDoesNotUploadTheFirstUsersHomes() async throws {
+        repository = InMemoryHomeRepository([base])
+        token = makeTestToken(subject: "alice")
+        await makeManager().sync()
+        let aliceRecordCount = backend.storedHomes.count
+        XCTAssertEqual(aliceRecordCount, 1)
+
+        // Bob signs in on the same device.
+        token = makeTestToken(subject: "bob")
+        let manager = makeManager()
+        await manager.sync()
+
+        XCTAssertEqual(backend.storedHomes.count, aliceRecordCount,
+                       "Alice's home must not be copied into Bob's account")
+        XCTAssertNil(backend.storedHomes.first { $0.userID == "bob" },
+                     "Bob's account must still be empty")
+        XCTAssertEqual(try outcome(manager.status).skippedOtherAccount, 1)
+        XCTAssertEqual(try outcome(manager.status).pushed, 0)
+    }
+
+    /// And Bob's own homes must still sync — the rule is about ONE home's ownership, not a
+    /// blanket refusal to sync once a second account appears.
+    func testASecondAccountStillSyncsItsOwnHomes() async throws {
+        repository = InMemoryHomeRepository([base.renamedCopy(homeID: "home-alice")])
+        token = makeTestToken(subject: "alice")
+        await makeManager().sync()
+
+        token = makeTestToken(subject: "bob")
+        try repository.writePulledHome(base.renamedCopy(homeID: "home-bob", name: "Bob's place"))
+        let manager = makeManager()
+        await manager.sync()
+
+        XCTAssertEqual(try outcome(manager.status).pushed, 1)
+        XCTAssertEqual(try outcome(manager.status).skippedOtherAccount, 1)
+        XCTAssertEqual(backend.record(withLocalHomeID: "home-bob")?.userID, "bob")
+        XCTAssertNil(backend.storedHomes.first { $0.home.home_id == "home-alice" && $0.userID == "bob" })
+    }
+
+    /// Nor may the second account's server copy overwrite the first user's local file. Skipped
+    /// means skipped in both directions.
+    func testASecondAccountDoesNotOverwriteTheFirstUsersLocalHome() async throws {
+        repository = InMemoryHomeRepository([base])
+        token = makeTestToken(subject: "alice")
+        await makeManager().sync()
+
+        // Bob's account happens to hold a home with the same id — which is not exotic: the
+        // three bundled starter homes keep FIXED home_ids on every install.
+        var bobsVersion = base!
+        bobsVersion.name = "Bob's Bungalow"
+        backend.seed(bobsVersion, revision: 9, userID: "bob")
+
+        token = makeTestToken(subject: "bob")
+        let manager = makeManager()
+        await manager.sync()
+
+        XCTAssertTrue(repository.writes.isEmpty,
+                      "Alice's local home must not be replaced by Bob's server copy")
+        XCTAssertEqual(try outcome(manager.status).skippedOtherAccount, 1)
+    }
+
+    /// A home nobody has ever synced is unclaimed, even on a device that has seen two accounts.
+    func testAHomeCreatedAfterTheSwitchIsAdoptedByTheCurrentAccount() async throws {
+        repository = InMemoryHomeRepository([base])
+        token = makeTestToken(subject: "alice")
+        await makeManager().sync()
+
+        token = makeTestToken(subject: "bob")
+        try repository.writePulledHome(base.renamedCopy(homeID: "brand-new"))
+        await makeManager().sync()
+
+        XCTAssertEqual(stateStore.load().homeOwners["brand-new"], "bob")
+        XCTAssertEqual(backend.record(withLocalHomeID: "brand-new")?.userID, "bob")
+    }
+
+    // MARK: - Deletions are scoped the same way
+
+    /// One user's deletion must not edit another user's library. The starter homes share fixed
+    /// ids, so this is reachable rather than theoretical.
+    func testOneUsersDeletionDoesNotSuppressAnothersHome() async throws {
+        repository = InMemoryHomeRepository([base])
+        token = makeTestToken(subject: "alice")
+        await makeManager().sync()
+
+        // Alice deletes it.
+        var state = stateStore.load()
+        state.markDeleted(localHomeID: base.home_id, at: Date())
+        try stateStore.save(state)
+        repository = InMemoryHomeRepository()
+
+        // Bob's account has a home at the same id, and must receive it.
+        var bobsVersion = base!
+        bobsVersion.name = "Bob's Bungalow"
+        backend.seed(bobsVersion, revision: 2, userID: "bob")
+        token = makeTestToken(subject: "bob")
+        let manager = makeManager()
+
+        await manager.sync()
+
+        XCTAssertEqual(try outcome(manager.status).pulled, 1,
+                       "Alice's deletion must not reach into Bob's library")
+        XCTAssertEqual(repository.writes.first?.name, "Bob's Bungalow")
+    }
+
+    /// And it must still suppress it for Alice herself.
+    func testTheDeletingUsersOwnTombstoneStillHolds() async throws {
+        repository = InMemoryHomeRepository([base])
+        token = makeTestToken(subject: "alice")
+        await makeManager().sync()
+
+        var state = stateStore.load()
+        state.markDeleted(localHomeID: base.home_id, at: Date())
+        try stateStore.save(state)
+        repository = InMemoryHomeRepository()
+
+        let manager = makeManager()
+        await manager.sync()
+
+        XCTAssertTrue(repository.writes.isEmpty, "Alice deleted it; it must stay deleted for her")
+        XCTAssertEqual(try outcome(manager.status).skipped, 1)
+    }
+}

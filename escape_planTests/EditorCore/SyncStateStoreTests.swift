@@ -126,7 +126,7 @@ final class SyncStateStoreTests: XCTestCase {
         try Data(json.utf8).write(to: fileURL)
         let loaded = FileSyncStateStore(url: fileURL).load()
         XCTAssertEqual(loaded.record(for: "home-1")?.syncedRevision, 4)
-        XCTAssertTrue(loaded.deletedHomeIDs.isEmpty, "an absent collection must decode as empty")
+        XCTAssertTrue(loaded.deletions.isEmpty, "an absent collection must decode as empty")
     }
 
     func testSavingCreatesTheDirectoryIfItIsMissing() throws {
