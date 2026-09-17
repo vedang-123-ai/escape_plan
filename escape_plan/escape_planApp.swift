@@ -22,9 +22,7 @@ struct escape_planApp: App {
     /// when that changes. The auth layer is pure Foundation by design (it is symlinked into
     /// the EditorCore package so it can be tested without a simulator) and so cannot reach
     /// into Networking/ to read it for itself.
-    @State private var authSession = AuthSession(
-        client: AuthClient(baseURL: APIClient.currentBaseURL()),
-        store: KeychainTokenStore())
+    @State private var authSession: AuthSession
 
     /// The bridge between the home documents on disk and the signed-in account's copies
     /// (S8.4). Built here, alongside the AuthSession it reads its token from, so there is
@@ -62,9 +60,13 @@ struct escape_planApp: App {
         let repository = HomeDocumentSyncRepository(store: try! HomeDocumentStore())
         _syncRepository = State(wrappedValue: repository)
 
-        // The session object is already constructed — stored-property defaults run before an
-        // initialiser body — so the token closure captures the same instance the views get.
-        let session = _authSession.wrappedValue
+        // Constructed as a local and handed to BOTH the State wrapper and the sync manager, so
+        // the token closure holds the same instance the views get. Deliberately not read back
+        // out of `_authSession.wrappedValue`: reading a State's value before the property
+        // wrapper is installed on a view is not a supported access.
+        let session = AuthSession(client: AuthClient(baseURL: APIClient.currentBaseURL()),
+                                  store: KeychainTokenStore())
+        _authSession = State(wrappedValue: session)
         _syncManager = State(wrappedValue: SyncManager(
             client: CloudHomesClient(baseURL: APIClient.currentBaseURL()),
             repository: repository,
