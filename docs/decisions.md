@@ -1704,3 +1704,62 @@ is neither "wrong password" nor "open Settings".
 **What this session did NOT do, stated so the tracker cannot drift:** no iOS binary was built or
 launched, the sync badge has never been rendered, and "pulls down homes created on other
 devices" needs two phones. S8.4 is **not ticked**. See `BLOCKERS.md` §2.
+
+## 2026-09-16 — S8.4 review: five tests that passed because the double couldn't fail
+
+The S8.4 branch was reviewed before merge and six defects came back, every one of them a path
+that lost or resurrected a user's home. They are recorded together because they share a cause
+worth naming, and because the fix for the first one changes a file that has nothing to do with
+sync.
+
+**The cause: the test double could not reproduce the hazard.** `SyncManagerTests` runs against
+`InMemoryHomeRepository`, whose `writePulledHome` is one line — `homes[home.home_id] = home`.
+The hazard it is supposed to guard against lives in `HomeDocumentStore.save(model:)`, which
+defaults to `now: Date()` and rewrites `meta.modified`. A dictionary assignment cannot re-stamp
+a date, so the ping-pong test passed no matter what the real adapter did. Same shape for the
+session-expiry test, whose `onSessionExpired` double incremented a counter and changed no state,
+while the production closure signs the user out and thereby erases the very status the test was
+asserting on. **A double that cannot exhibit the failure is not a test of the failure**, and
+both of these read as thorough coverage right up until someone traced the production wiring.
+`escape_planTests/HomeDocumentSyncRepositoryTests.swift` now covers the real adapter against a
+real `HomeDocumentStore`; it needs a simulator and has never run.
+
+**The worst defect was in `FixtureSeeder`, not in `Sync/`.** `seedStarterHomes` wrote the three
+bundled homes with the default `save(model:)`, stamping `meta.modified` with the install time —
+and those three keep **fixed `home_id`s** so that re-running the seeder overwrites rather than
+piling up copies. Harmless for two years of this project; fatal the moment S8.4 landed. Edit the
+Bungalow for a month on device A and sync; install on device B; B seeds a pristine fixture under
+the same id carrying today's date; with no sidecar the conflict falls to last-write-wins, the
+factory home wins, it is pushed over a month of real work, and device A pulls it back down over
+its own copy. The home is gone from both devices and the server, on the most ordinary sequence
+of events there is.
+
+Fixed by seeding verbatim — `try store.save(model: model, now: model.meta.modified)`. That is
+the principled fix rather than a patch on the tiebreak: the fixtures' own `2026-07-10` stamp is
+genuinely when their content last changed, so it makes `meta.modified` mean what the tiebreak
+already assumes it means. **The general lesson is worth keeping: a timestamp that is stamped
+rather than carried is not evidence of anything, and S8.4 made every `meta.modified` in the app
+load-bearing.** Anything that writes one should now be read with that in mind.
+
+**The other five, briefly.** The sidecar was not scoped to an account, so a second user on one
+device inherited the first user's server record ids — now keyed on `AccessToken.subject`, with a
+mismatch starting clean. The "never overwrite an open editor" guard resolved through
+`HomeLibrary.editor`, but the editor has three entry points with three different libraries and
+the House tab's own initialiser passes `library: nil`, so two of three paths bypassed it
+entirely; `openHomeID` is now app-scoped on the repository and set by `HouseScreen` itself.
+`.failed(.sessionExpired)` was unreachable on screen because the sign-out it triggers made
+`RootView` re-enter and overwrite it with `.signedOut`; a sticky `needsReauthentication` flag
+carries the explanation across. A lost conflict destroyed the local copy silently under a green
+checkmark — the reconciler computed `.conflictRemoteWins` and the manager never read it; the
+losing copy is now kept as "<name> (this device)" and the badge says so. And a deleted home came
+back on the next sync, because the backend has no delete endpoint — tombstones live in the
+sidecar now. The app had already learned that last one locally:
+`FixtureSeeder.starterSeedDefaultsKey` exists precisely so "a home the user deleted on purpose
+is never resurrected on the next launch", and sync reintroduced the same bug one layer up.
+
+**Ruled and NOT fixed, because it is a product decision.** The app is local-first, so a home
+document belongs to the device rather than to an account. It follows that when any user signs
+in, every home on that device is pushed into their account — including homes a previous user of
+the same device created, address and household included. Scoping the sidecar closes the
+stale-record half; the question "do local homes belong to whoever signs in?" is the owner's to
+answer, and it is on `BLOCKERS.md` §2 rather than settled here.
