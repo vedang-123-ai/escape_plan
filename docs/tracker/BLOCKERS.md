@@ -84,11 +84,20 @@ backend — still red, see §3._
       Next action: top up the account. Nothing else is closer to the critical path for filming
       anything that shows the assistant.
 
-- [ ] **Bearer token missing on the build machine.** `escape_plan/BackendConfig.local.json` does
-      not exist, so a fresh install reaches the deployed backend and gets **401 on everything**.
-      The app is not broken, it is unauthenticated. Next action (owner, manual — the file is
-      gitignored and `.env` is read-guarded): create it as `{"bearer_token": "<shared token>"}`,
-      then re-run `python3 scripts/demo-preflight.py` and confirm exit 0.
+- [ ] **The shared bearer token in `.env` does NOT match the one on the deployed backend.**
+      **Narrowed 2026-09-16, and the remaining half is the owner's.** The file half is done:
+      `escape_plan/BackendConfig.local.json` now exists, created from `BACKEND_BEARER_TOKEN` in
+      the gitignored root `.env` (15 chars), and preflight reports `PASS app bearer token`.
+      **But `/routes` still returns 401** — `deployed schema` and `/health` both PASS, so the
+      backend is healthy and current (schema 2.1, 15 routes); it is specifically the token that
+      is wrong. Either `.env` is stale or Render's `BACKEND_BEARER_TOKEN` was rotated.
+      **Only the owner can settle it** (it needs the Render dashboard): make the two match, in
+      whichever direction is correct, then re-run preflight. Until then a fresh install gets
+      **401 on every deterministic endpoint** — `/routes`, `/score`, `/convert`, `/evacuate` —
+      which is the entire demo path. This is the single closest thing to the critical path for
+      filming.
+
+      **Run preflight with `backend/.venv/bin/python`, not `python3`** — see §4.
 
 ---
 
@@ -663,7 +672,22 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       unit target runs under Swift Testing. True counts come only from
       `xcrun xcresulttool get test-results summary --path <bundle>`. Next action: when someone
       touches the `/verify` skill, have it read the result bundle.
-- [x] **Plain `python3` now works and the machine's trust store validates.** `demo-preflight.py` CAN reach the backend because the preflight script uses a working request mechanism, and one-off HTTP checks used `certifi` (note: `validate.py` itself remains stdlib-only).
+- [ ] **CORRECTION 2026-09-16: plain `python3` does NOT validate TLS on this machine.** This
+      line previously claimed the opposite, marked done. Measured today: `python3
+      scripts/demo-preflight.py` fails `/health`, `deployed schema` AND `/routes` with
+      `CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate` — the system Python
+      3.9 has no usable trust store. The SAME script under `backend/.venv/bin/python` (3.13.9,
+      which has `certifi`) reaches the backend fine and passes `/health` and the schema check.
+      So the earlier claim was true of the venv interpreter and false of the one the command
+      line actually names, and anyone following the documented `python3 scripts/demo-preflight.py`
+      would read three TLS errors as "the backend is down" minutes before filming.
+      **Always `backend/.venv/bin/python scripts/demo-preflight.py`.** Next action: either fix
+      the system trust store (`Install Certificates.command`) or change the documented command
+      everywhere it appears — `CLAUDE.md`, `FIRST-PRIORITY.md` and §5 all still say `python3`.
+      Note `backend/corpus/validate.py` is unaffected and must stay stdlib-only.
+
+      **Also worth knowing:** preflight exits **0 even when it reports NOT READY TO FILM**, so
+      "confirm exit 0" is not a usable gate. Read the summary line.
 - [x] **`/health` reports `v1.0` and that is meaningless** — it is a hardcoded FastAPI `app.version`
       (`backend/app/main.py:145`), not a deploy or schema signal. It read as "stale backend" on
       2026-09-07 and cost a diagnosis. Verified 2026-09-10: already resolved, not by this

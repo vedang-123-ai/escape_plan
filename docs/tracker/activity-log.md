@@ -2101,3 +2101,9 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 60393b9 Fix two §3 defects: AR waypoint height, and doorless rooms scoring perfect
   - 26a5718 Pin pymongo's logger to INFO: since S8.4 its DEBUG output is users' homes
 
+## 2026-09-17T04:39:08Z · vedang-123-ai · `main` @ `e4a094e`
+
+**Commits this session**
+  - e4a094e BLOCKERS: a closed S8.2 item was carrying an open checkbox
+  - 81aabd8 Tracker: close two §3 defects and the pymongo line, with what is still unverified
+
