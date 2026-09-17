@@ -2118,3 +2118,25 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M backend/tests/test_profiles.py
 
+## 2026-09-17T07:16:49Z · vedang-123-ai · `main` @ `b85c62c`
+
+**Commits this session**
+  - b85c62c Tracker and decisions: close four board items, and the scope ruling
+  - 5298e3d Sync on editor close and on returning to the foreground
+  - fb57831 Port SchemaV2ContractTests — and they immediately found a real divergence
+  - 5fb2c25 Port the contract tests stranded on my-s6-1-and-policy, and resync the app's fixtures
+  - 72bf34e Seed the fixtures once: last_scanned, the sensory tags, pet, and a second household
+  - 7ac4e98 Routing: a wall-mounted object no longer erodes walkable floor
+  - 85c1194 /verify: read the result bundle, use the venv, and stop claiming a simulator
+  - 5531427 Delete 13 one-shot patch_*.py scratch scripts from the repo root
+
+## 2026-09-17T14:39:36Z · vedang-123-ai · `main` @ `b85c62c`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-17T14:47:52Z · vedang-123-ai · `main` @ `b85c62c`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
