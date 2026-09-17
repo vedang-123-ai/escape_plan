@@ -7,16 +7,18 @@ what actually stops the project from shipping, ranked by what is on the critical
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
 _Last verified 2026-09-16 on `s8-4-ios-cloud-sync` (the S8.4 iOS cloud-sync session). **Re-run and
-green this session:** EditorCore **487** pass (was 388; **+99** — S8.4's sync layer plus
-`SemanticMatcher`, newly symlinked into the package and so tested here for the first time —
+green this session:** EditorCore **515** pass (was 388; **+127** — S8.4's sync layer, plus
+`SemanticMatcher` and `WallGrouping` newly symlinked into the package and so tested here for
+the first time, plus the ported `SchemaV2ContractTests` —
 the client, the reconciler, the fingerprint, the sidecar and the manager are Foundation-only and
 symlinked into `tools/editorcore`, so they execute on a machine with no simulator). Backend
-**529** pass / 1 skipped / 13 deselected (was 526; **+3**, the pymongo log-privacy guard —
-S8.4 itself touched no Python). Corpus valid
+**556** pass / 1 skipped / 13 deselected (was 526; **+30** — the pymongo log-privacy guard,
+the mounted-object routing guard, the fixture-coverage guards, and 13 contract tests ported off
+`my-s6-1-and-policy`). Corpus valid
 (**24** sources, **9** files, **2** threshold files), unchanged.
 
 `scripts/typecheck-ios.sh` green on all four targets against **iOS 17.0**: the app at **161**
-files in both `-DDEBUG` and release, `escape_planTests` at **71**, `escape_planUITests` at **9**.
+files in both `-DDEBUG` and release, `escape_planTests` at **73**, `escape_planUITests` at **9**.
 
 **Read that claim narrowly.** It resolves every type, member and protocol conformance across the
 module, so the new Swift does type-check. It is **not** a build (no SIL, no IRGen, no linking, no
@@ -170,17 +172,14 @@ backend — still red, see §3._
       against overwriting an open editor). Until it runs, those two guarantees are argued from
       code, not verified. Folded into `FIRST-PRIORITY.md` step 3.
 
-- [ ] **Sync fires at launch, on sign-in, and on a badge tap — an EDIT does not trigger one.**
-      Deliberate for now, and recorded so it is a decision rather than a gap someone finds
-      during filming. There are exactly three call sites (`RootView.task`,
-      `RootView.onChange(of: session.state)`, `SyncStatusBadge`), so a home edited and left alone
-      reaches the server on the next launch or the next deliberate tap, not immediately. There is
-      also no sync on returning from background. Hooking sync to the editor's autosave is the
-      obvious next step and was left out on purpose: autosave fires on a debounce during active
-      editing, and a push per debounce would mint a server revision every few seconds and burn
-      Render's free tier on a home nobody has finished changing. Next action: decide the trigger
-      deliberately — most likely on editor CLOSE plus a foreground observer — rather than wiring
-      it to autosave because autosave was there.
+- [x] ~~**Sync fires at launch, on sign-in, and on a badge tap — an EDIT does not trigger one.**~~
+      **DECIDED AND WIRED 2026-09-16**, as the line predicted: editor CLOSE plus a foreground
+      observer, deliberately not autosave. The close sync is gated on something actually having
+      been committed, so a plain tab switch does not fire a `GET` at a service measured at a
+      42 s cold start; the foreground sync is on `scenePhase` becoming `.active`, because iOS
+      keeps an app suspended for days and a user who never fully quits would otherwise sync once
+      at install and never again. **Unverified like everything else in the UI layer** — neither
+      trigger has been observed firing on a device.
 
 - [ ] **S8.4's other two criteria are simulator-gated, like S8.3's.** "`HomeModel` changes are
       successfully pushed to `/homes`" has only ever run against `AuthStubURLProtocol`; no iOS
@@ -337,12 +336,20 @@ because if it fails nothing downstream is worth tuning.
       correct room that matched its doors at 0.35 m — absence of evidence scored as perfect
       evidence, which pushed the right room out of the candidate list entirely.
 
-- [ ] **RoomPlan splits long walls, and `extractedLongestWall` does not account for it.**
-      Anish's own S9.1 audit raised this as MEDIUM and the S9.2 audit confirms it was deliberately
-      left unfixed ("I haven't fixed the 'Group walls by their normal vectors' issue yet"). A 10 m
-      wall broken into three segments by doors loses to an unbroken 4 m perpendicular wall,
-      producing a permanent 90° alignment error. Everything in the matcher keys off the longest
-      wall, so this failure is silent and total. Only reproducible on a real scan.
+- [x] ~~**RoomPlan splits long walls, and `extractedLongestWall` does not account for it.**~~
+      **FIXED AND TESTED 2026-09-16.** Segments now merge when parallel **and collinear** —
+      parallel alone would fuse the two long sides of a corridor into one wall — and the merged
+      length is the span along the wall's own direction, so the doorway gaps count toward it.
+      The merging lives in a new `WallGrouping` over plain values, deliberately **outside** the
+      `#if canImport(RoomPlan)` block: logic written against `CapturedRoom` cannot run on a
+      machine with no simulator, which is how this survived two audits that both identified it
+      correctly. **11 tests**, including the old longest-raw-segment rule written out as an
+      executable statement of the defect, and a tolerance test for the few-degrees wobble a real
+      scan produces. Original finding: a 10 m wall broken into three segments by doors lost to
+      an unbroken 4 m perpendicular wall, producing a permanent 90° alignment error that
+      everything downstream keys off.
+      **Still only fully provable on a real scan** — the tolerances (10°, 0.25 m) are reasoned,
+      not measured against RoomPlan output. Carried into the §2 device pass.
 
 - [ ] **"Verified fixes with `xcodebuild test` successfully" carries no count and no bundle.**
       `notes/2026-09-14-S9.2-UI-Setup.md`. The claim is plausible — it was presumably run on the
@@ -391,13 +398,19 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       obligation, and S7.4 is not done until it is discharged.** Verified 2026-09-09:
       `test_bookcase_and_water_heater_use_specific_hazards_without_generic_duplicates` proves
       both specific `hazard.*` items exist and no generic `mitigation.secure.*` duplicate exists.
-- [ ] **Routing is elevation-blind — latent, but mechanically real.** Nothing under
-      `backend/app/routing/` reads `elevation_m` or `mounted`; `build_room_grid` rasterizes any
-      footprint it is handed, so a wall-mounted TV erodes walkable floor (proved: moving
-      `o_u_tv_over_bed` mid-room drops free cells 5476 → 5296). It does not bite today only
-      because the seeded TV overlaps the bed, which the fixture already blocks — meaning the
-      fixture hides it. Next action: when the router learns about elevation, add the mid-room
-      mounted case to the fixtures so the guard is real.
+- [x] ~~**Routing is elevation-blind — latent, but mechanically real.**~~ **FIXED AND TESTED
+      2026-09-16.** `build_room_grid` now skips objects that do not obstruct the floor, and
+      `obstructs_floor` decides that on **`mounted`**, not `elevation_m`: `mounted` is the
+      schema's "how is this installed" and means the thing is not standing on the floor,
+      whereas a box raised on a table is still something you cannot walk through. Four tests,
+      including the unmounted twin of the same object so the guard cannot pass vacuously, and a
+      sweep asserting every other fixture object still obstructs.
+      **What it deliberately does not model** — how far a mounted object protrudes — is
+      documented at the helper and errs in the safe direction for egress. Original finding:
+      moving `o_u_tv_over_bed` mid-room dropped free cells 5476 → 5296; it did not bite only
+      because the seeded TV overlaps the bed, so the fixture hid it.
+      **Note the first version of the test passed for the wrong reason:** it placed the object
+      at the polygon centroid, which falls OUTSIDE a `jagged` room, so it blocked nothing.
 - [x] **The no-golden-churn guard lost its multi-floor coverage.** `test_obstacles.py`'s
       object-free fixture list is now derived rather than hardcoded (good), but seeding
       `twostory` means the derived set is exactly `['bungalow.json']` — the only multi-floor,
@@ -493,16 +506,34 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       for a real bookcase, or an `appliance` for a real water heater, is unknown. Folded into
       the §2 device pass via S7.7's STEP 0 — walk the hunt in a real scanned room.
 
-- [ ] **19 contract tests exist only on the `my-s6-1-and-policy` branch**, not on `main`: the
-      safety-point/household/tenure/equipment invariants, the bundled-fixture drift guard,
-      `test_safety_points_are_not_obstacles`, the two sensory-tag routing-neutrality tests, and
-      all 8 of `SchemaV2ContractTests.swift`. Most port cleanly. Next action: port the
-      seeding-independent ones.
-- [ ] **Fixtures are thinly seeded.** Only `twostory` has a household, **no** fixture has
-      `meta.last_scanned`, and **no** profile carries `hearing_impaired`/`vision_impaired` — two
-      schema-2.0 additions with zero fixture coverage. The `my-s6-1-and-policy` branch seeded both
-      sides of every branch and was deliberately not merged. Next action: decide the seeding once
-      and do it in one pass.
+- [x] ~~**19 contract tests exist only on the `my-s6-1-and-policy` branch**, not on `main`.~~
+      **PORTED 2026-09-16 — and two of them found real defects the moment they landed.**
+      13 backend invariants + 3 routing-neutrality/safety-point tests + all 8 of
+      `SchemaV2ContractTests.swift`.
+      **`test_the_apps_bundled_fixtures_match_the_contracts`** caught `escape_plan/Fixtures/`
+      (byte-identical copies bundled into the iOS app, because it cannot reach outside its
+      bundle) having silently desynced from `schema/fixtures/` — drift created hours earlier by
+      this same session's fixture seeding, which nothing on `main` could see. Both re-copied,
+      and the guard was confirmed to fail on a deliberately corrupted copy before being trusted.
+      **`SchemaV2ContractTests`** caught `EditorValidation`'s global id pass claiming floors,
+      rooms, openings, objects, stairs and profiles but **not safety points** — so the editor
+      accepted a home pydantic rejects with a 422, and the user found out at save time from an
+      error that does not name the offending id. Now checked client-side like every other kind.
+      **Deliberately NOT ported:** the branch's assertions about which fixture carries which
+      household and scan date. That seeding was superseded the same day (see the line below),
+      and porting both would have put two contradictory claims in one suite.
+- [x] ~~**Fixtures are thinly seeded.**~~ **SEEDED IN ONE PASS 2026-09-16**, as the line asked.
+      `apartment` is now the scanned, owner-occupied, hearing-impaired side and gains Biscuit
+      the cat; `jagged` is scanned and gains `vision_impaired`; `bungalow` and `twostory` stay
+      unscanned, and `bungalow` stays household-less and profile-less as the plain baseline —
+      **a field present everywhere is as untested as one present nowhere**, which is how
+      `meta.last_scanned` ended up with an iOS rescan prompt no fixture could trigger.
+      No declared equipment anywhere: both the empty and the `smoke_alarm` cases are already
+      covered by unit tests that build a `Household` directly, and declaring an alarm would
+      raise the score of the fixture whose whole job is to be the deliberately-bad one.
+      `backend/tests/test_fixture_coverage.py` pins all of it, and **immediately found a third
+      gap this line never mentioned**: the `pet` tag, which drives a checklist item and its own
+      gait in the evacuation animation, appeared in no fixture at all.
 
 ---
 

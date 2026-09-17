@@ -1802,3 +1802,72 @@ stacking the dollhouse uses, rather than a second formula. Two formulas for wher
 would eventually disagree and the AR view and the 3D view would draw the same route at two
 different heights. It is fixed in code and verified by nothing — ARKit in a
 `UIViewRepresentable`, untestable on any machine here — and is carried as a device-pass item.
+
+---
+
+## 2026-09-16 — Whose homes are these, and four defects the fixtures were hiding
+
+### The scope question, ruled: first account adopts, second never does
+
+The app is local-first, so homes exist before any account. That makes "do local homes belong to
+whoever signs in?" a real question with two failure modes pointing opposite ways. Answer "no" and
+the overwhelmingly common case breaks: someone uses the app offline for weeks, signs up, and
+"sign in to back up your homes" backs up nothing. Answer "yes" unconditionally and a shared
+device — a family phone, a demo iPad, a handed-down handset — copies the previous user's home
+layout, `meta.address_optional` and household composition into a stranger's cloud account
+permanently, with no prompt and nothing to undo it.
+
+**The rule is per-home, not per-device.** `SyncState.homeOwners` records which account claimed
+each home the first time it synced, and survives an account switch because it is a fact about the
+device rather than about one login. Unclaimed → the signing-in account adopts it. Claimed by
+someone else → skipped in **both** directions, never pushed and never overwritten, and the badge
+says so rather than reporting a clean sync.
+
+Deletions are scoped the same way, carrying the owner in the tombstone. That is not fussiness:
+the three starter homes keep **fixed `home_id`s**, so without it one user deleting the bundled
+Bungalow would stop a second user from ever receiving *their own* Bungalow from *their* account.
+Deleting also releases the claim — a home gone from the device is owned by nobody on it, and a
+lingering claim would make a later account's own copy of that id read as somebody else's forever.
+
+**The deliberate gap:** a home owned by another account stays *visible* on the device. The
+boundary for that is the phone's lock screen, not sync. Deleting a previous user's homes on
+sign-in would be a far worse failure than showing them.
+
+### Four defects, and what they have in common
+
+`build_room_grid` blocked any footprint handed to it, so a TV bolted to the wall 1.35 m up took
+walkable floor away. `extractedLongestWall` took the longest raw wall *segment*, and RoomPlan
+splits a wall at every doorway, so a 10 m wall in three pieces lost to an unbroken 4 m
+perpendicular one — a permanent 90° alignment error. `EditorValidation` claimed every entity id
+except safety points, so the editor accepted homes pydantic rejects with a 422. And
+`escape_plan/Fixtures/` — byte-identical copies bundled into the iOS app — had drifted from
+`schema/fixtures/`.
+
+**Every one of them was invisible because the test bed could not express the failing case.** The
+mounted TV overlaps a bed, which is blocked anyway. No fixture carried `meta.last_scanned`, or
+`hearing_impaired`, or `vision_impaired`, or — nobody had noticed — `pet`. The wall-merging lived
+inside `#if canImport(RoomPlan)`, where no machine without a simulator can reach it. The bundled
+copies were guarded by nothing at all.
+
+So the fixes were as much about reach as about logic: `WallGrouping` and `SemanticMatcher` moved
+*out* of the RoomPlan-only region and into `tools/editorcore`, the fixtures were seeded once to
+cover **both sides** of every optional branch, and `test_fixture_coverage.py` now fails if that
+coverage drains away again. The seeding rule worth keeping is that **a field present in every
+fixture is as untested as one present in none** — `meta.last_scanned` had an iOS rescan prompt no
+fixture could trigger, and the never-scanned path needs a fixture just as much as the scanned one.
+
+Two of the ported contract tests found defects within minutes of landing, having sat unmerged on
+`my-s6-1-and-policy` for ten days. That is the argument against parking a branch: the tests were
+written *with* the behaviour they guard, and the behaviour shipped without them.
+
+### Also decided
+
+`obstructs_floor` keys on **`mounted`**, not `elevation_m` — mounted is the schema's "how is this
+installed", while a box raised on a table is still something you cannot walk through. How far a
+mounted object protrudes is not modelled, documented at the helper, and errs toward offering a
+path a shoulder brushes rather than one that does not exist.
+
+Sync now fires on **editor close** (gated on an actual commit) and on **returning to the
+foreground**, deliberately not on autosave — autosave debounces during active editing, so a push
+per autosave would mint a server revision every few seconds for a home nobody has finished
+changing, on a free tier measured at a 42 s cold start.
