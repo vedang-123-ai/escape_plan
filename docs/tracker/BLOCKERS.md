@@ -7,14 +7,14 @@ what actually stops the project from shipping, ranked by what is on the critical
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
 _Last verified 2026-09-16 on `s8-4-ios-cloud-sync` (the S8.4 iOS cloud-sync session). **Re-run and
-green this session:** EditorCore **457** pass (was 388; **+69**, all of them S8.4's sync layer —
+green this session:** EditorCore **478** pass (was 388; **+90**, all of them S8.4's sync layer —
 the client, the reconciler, the fingerprint, the sidecar and the manager are Foundation-only and
 symlinked into `tools/editorcore`, so they execute on a machine with no simulator). Backend
 **526** pass / 1 skipped / 13 deselected, unchanged — S8.4 touched no Python. Corpus valid
 (**24** sources, **9** files, **2** threshold files), unchanged.
 
 `scripts/typecheck-ios.sh` green on all four targets against **iOS 17.0**: the app at **161**
-files in both `-DDEBUG` and release, `escape_planTests` at **70**, `escape_planUITests` at **9**.
+files in both `-DDEBUG` and release, `escape_planTests` at **71**, `escape_planUITests` at **9**.
 
 **Read that claim narrowly.** It resolves every type, member and protocol conformance across the
 module, so the new Swift does type-check. It is **not** a build (no SIL, no IRGen, no linking, no
@@ -135,6 +135,29 @@ backend — still red, see §3._
       A, sync, sync on B, confirm it arrives with the same `home_id` and the same
       `meta.modified`. Then edit it on both while offline and sync both, to exercise the
       last-write-wins tiebreak against real clocks.
+
+- [ ] **UNRESOLVED SCOPE QUESTION: do local homes belong to whoever signs in?** The app is
+      local-first, so a home document on the device belongs to the device, not to an account.
+      The consequence, surfaced by the S8.4 review: when any user signs in, **every** home on
+      that device is pushed into **their** account — including homes a previous user of the
+      same device created, `meta.address_optional` and `household` included. S8.4 fixed the
+      stale-record half of this (the sidecar is now scoped by `AccessToken.subject`, so user B
+      cannot act on user A's server record ids), but not the question itself, which is a
+      product decision rather than a bug: answering "no, they don't" means deciding what
+      happens to those homes instead. Shared devices are plausible for this app's audience
+      (a family phone, a demo iPad). **Owner's call.** Next action: decide, then either leave
+      it as documented behaviour or gate the first push behind an explicit "add these homes to
+      your account?" prompt.
+
+- [ ] **Two test classes have never executed on any platform, and both cover things nothing
+      else does.** `escape_planTests/KeychainTokenStoreTests.swift` (S8.3 — token persistence)
+      and `escape_planTests/HomeDocumentSyncRepositoryTests.swift` (S8.4, 14 tests). The second
+      is not optional coverage: `Persistence/` is not symlinked into `tools/editorcore`, so the
+      package's `InMemoryHomeRepository` — whose `writePulledHome` is a single dictionary
+      assignment — **cannot reproduce** either hazard the real adapter defuses (the
+      `meta.modified` re-stamping that makes two devices trade a home forever, and the guard
+      against overwriting an open editor). Until it runs, those two guarantees are argued from
+      code, not verified. Folded into `FIRST-PRIORITY.md` step 3.
 
 - [ ] **Sync fires at launch, on sign-in, and on a badge tap — an EDIT does not trigger one.**
       Deliberate for now, and recorded so it is a decision rather than a gap someone finds
