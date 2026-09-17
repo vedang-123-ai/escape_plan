@@ -7,10 +7,12 @@ what actually stops the project from shipping, ranked by what is on the critical
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
 _Last verified 2026-09-16 on `s8-4-ios-cloud-sync` (the S8.4 iOS cloud-sync session). **Re-run and
-green this session:** EditorCore **478** pass (was 388; **+90**, all of them S8.4's sync layer —
+green this session:** EditorCore **487** pass (was 388; **+99** — S8.4's sync layer plus
+`SemanticMatcher`, newly symlinked into the package and so tested here for the first time —
 the client, the reconciler, the fingerprint, the sidecar and the manager are Foundation-only and
 symlinked into `tools/editorcore`, so they execute on a machine with no simulator). Backend
-**526** pass / 1 skipped / 13 deselected, unchanged — S8.4 touched no Python. Corpus valid
+**529** pass / 1 skipped / 13 deselected (was 526; **+3**, the pymongo log-privacy guard —
+S8.4 itself touched no Python). Corpus valid
 (**24** sources, **9** files, **2** threshold files), unchanged.
 
 `scripts/typecheck-ios.sh` green on all four targets against **iOS 17.0**: the app at **161**
@@ -293,25 +295,38 @@ because if it fails nothing downstream is worth tuning.
       SwiftUI layout, `@Observable`, RoomPlan, ARKit — is unverified on 17.x and should be spot
       checked during the device pass. Carried as a device-pass item in §2.
 
-- [ ] **S9.3 renders every AR waypoint at a hardcoded 1.0 m, ignoring which floor it is on.**
-      `ARDrillView.swift:68` — `wpNode.position = SCNVector3(Float(wp.x), 1.0, Float(wp.y))`, and
-      the file's only other mention of "floor" is the comment above that line. There is no floor
-      or level term anywhere in the placement. On `twostory.json` (levels 0 and 1 — a core
-      fixture) a route from an upstairs bedroom down to an exit draws the whole path at one
-      height, so a user standing upstairs sees the ground-floor leg floating at eye level. The
-      horizontal mapping (model `y` → AR `z`) is correct; only height is wrong. Multi-floor homes
-      are in scope and stairs are modelled, so this is not an edge case. Found by review
-      2026-09-14, never seen on a device.
+- [x] ~~**S9.3 renders every AR waypoint at a hardcoded 1.0 m, ignoring which floor it is on.**~~
+      **FIXED IN CODE 2026-09-16 — still never seen on a device.** Height now comes from
+      `DollhouseGeometry.floorBaseHeights(of:)` keyed by the waypoint's own `floor_id`, plus a
+      1.0 m hover. That helper is the SAME stacking the dollhouse uses to place its floors,
+      reused rather than reimplemented, so the AR view and the 3D view cannot disagree about
+      where a floor sits. An unknown `floor_id` falls back to 0 rather than dropping the
+      waypoint — a marker in the wrong place beats a hole in the path the user is following.
+      **Not verified:** this is ARKit inside a `UIViewRepresentable` and there is no test for
+      it on any machine — it type-checks and nothing more. Confirm on the device pass by
+      standing upstairs in a `twostory` drill and checking the ground-floor leg is below you
+      rather than at eye level. Original finding: `wpNode.position = SCNVector3(Float(wp.x),
+      1.0, Float(wp.y))` had no floor or level term anywhere in the placement, so a route from
+      an upstairs bedroom to an exit drew the whole path at one height.
 
-- [ ] **A room with no doors scores a perfect 0 and outranks correctly-matched rooms.**
-      `SemanticMatcher.swift` — the door-distance branch falls through to `totalDist = 0` whenever
-      *either* side has no doors, and lower is better. So a candidate whose openings are missing
-      (a closet, or a scan that missed a doorway) always sorts above a correct room that matched
-      its doors at, say, 0.35 m. Absence of evidence is being scored as perfect evidence. The
-      2026-09-14 ambiguity fix means such a room now always returns `.ambiguous` rather than a
-      confident wrong match — but the *correct* room can be excluded from the candidate list
-      entirely, so the user is asked to disambiguate among only wrong answers. Next action: score
-      the no-evidence case as neutral-or-worst, not best, and exclude it from `best` selection.
+- [x] ~~**A room with no doors scores a perfect 0 and outranks correctly-matched rooms.**~~
+      **FIXED AND TESTED 2026-09-16.** Candidates whose score came from actually matched doors
+      are the only ones ranked; a no-evidence candidate carries a 0 meaning "nothing to
+      compare", not "a perfect fit", and is kept out of `best` selection.
+      **Deliberately NOT changed:** when NOTHING has door evidence the matcher still returns
+      `.ambiguous` rather than guessing — a 180° rotation cannot be resolved without doors.
+      The existing `testNoDoorAmbiguity` caught an attempt to widen the fix to `.noMatch`,
+      which is the second time this session a pre-existing test earned its keep.
+      **This one IS verified on this machine**, unlike almost everything else in §3:
+      `SemanticMatcher.swift` is now symlinked into `tools/editorcore` (its RoomPlan half was
+      already `#if canImport(RoomPlan)`-guarded, so it compiles as pure Foundation + simd on
+      macOS), and its tests moved to `escape_planTests/EditorCore/`. Nine tests run under
+      `swift test` — three of them new, and the regression test was confirmed to FAIL against
+      the old ranking before the fix landed, so it is not vacuous. Original finding: the
+      door-distance branch fell through to `totalDist = 0` whenever *either* side had no doors,
+      and lower is better, so a candidate whose openings were missing always sorted above a
+      correct room that matched its doors at 0.35 m — absence of evidence scored as perfect
+      evidence, which pushed the right room out of the candidate list entirely.
 
 - [ ] **RoomPlan splits long walls, and `extractedLongestWall` does not account for it.**
       Anish's own S9.1 audit raised this as MEDIUM and the S9.2 audit confirms it was deliberately
@@ -573,12 +588,18 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       `hashed_password=None` must never authenticate — that is an explicit acceptance criterion,
       not an implementation detail.
 
-- [ ] **`pymongo`'s command logger writes whole documents at DEBUG — and as of 2026-09-16 those
-      documents are users' homes.** Still harmless at the configured level
-      (`logging.basicConfig(level=logging.INFO)`), but this line was written as "before S8.4
-      syncs homes" and **S8.4 has now landed**, so the hypothetical is real: raising the root
-      level to DEBUG for any reason would write users' home layouts into the logs. Pin the
-      pymongo logger to INFO. This is now a ship blocker for the backend, not a note.
+- [x] ~~**`pymongo`'s command logger writes whole documents at DEBUG.**~~ **FIXED AND TESTED
+      2026-09-16.** `backend/app/main.py` pins `pymongo`, `pymongo.command`,
+      `pymongo.connection` and `pymongo.serverSelection` to INFO explicitly, so the protection
+      survives someone raising the ROOT logger to DEBUG while chasing an unrelated bug — which
+      is the scenario that matters, since "we happen to run at INFO" is a coincidence rather
+      than a safeguard. `backend/tests/test_logging_privacy.py` (3 tests) sets the root logger
+      to DEBUG and asserts pymongo still will not emit at that level, that INFO and above still
+      flow, and that the app's own loggers are left debuggable. Backend **529** pass, up from
+      526. Original finding: pymongo logs every command with the full document at DEBUG, and
+      since S8.4 those documents are users' home layouts — floor polygons, room names,
+      `meta.address_optional`, household composition — which on a hosted service are retained
+      and readable by anyone with dashboard access.
 
 - [ ] **The S8 arc now competes with the device pass for the weeks before Oct 24.** **Updated
       2026-09-15:** the backend half is finished and verified end-to-end (S8.1 + S8.2, deployed

@@ -1763,3 +1763,42 @@ in, every home on that device is pushed into their account — including homes a
 the same device created, address and household included. Scoping the sidecar closes the
 stale-record half; the question "do local homes belong to whoever signs in?" is the owner's to
 answer, and it is on `BLOCKERS.md` §2 rather than settled here.
+
+## 2026-09-16 — Two §3 defects fixed, and one file moved into the reach of `swift test`
+
+Housekeeping after S8.4, but two of the three carry a rule worth keeping.
+
+**`pymongo`'s logger is pinned to INFO explicitly, not left to the root level.** It logs every
+command with the full document at DEBUG, and since S8.4 those documents are users' homes —
+floor polygons, room names, `meta.address_optional`, household composition. The tempting fix is
+"we already call `basicConfig(level=logging.INFO)`", and that is not a safeguard, it is a
+coincidence: raising the root logger while chasing an unrelated bug is an ordinary thing to do,
+and on a hosted service the output is retained and readable by anyone with dashboard access. So
+the four pymongo loggers are set to INFO by name, and `test_logging_privacy.py` sets the ROOT
+logger to DEBUG and asserts they still refuse to emit there. **A privacy control has to survive
+the action it is protecting against, or it is a comment.**
+
+**`SemanticMatcher` moved into `tools/editorcore`, and that is the more useful half of this.**
+Its RoomPlan-dependent code was already behind `#if canImport(RoomPlan)`, so everything above
+that guard is Foundation + simd and compiles fine as a macOS package target — it had simply
+never been symlinked. One file-level symlink (the first; `Auth/`, `Sync/`, `Core/` and `Models/`
+are directory symlinks) plus moving its two test files into `escape_planTests/EditorCore/`, and
+nine tests that had never run on this machine now run in under a second. **Worth checking other
+files for the same property:** the bar is not "is it UI-free", it is "is everything non-Foundation
+already behind a `canImport` guard", and `SemanticMatcher` cleared it by accident.
+
+**The no-door scoring fix was deliberately narrowed, by a test.** The defect was that a
+candidate room with no doors scored `totalDist = 0` — lower is better — and therefore outranked
+a room that matched its doors at 0.35 m. The first version of the fix also changed the
+no-evidence-anywhere case from `.ambiguous` to `.noMatch`, reasoning that the caller responds to
+`.noMatch` by continuing the scan. `testNoDoorAmbiguity`, written by the 2026-09-14 ambiguity
+fix, failed immediately: a 180° rotation genuinely cannot be resolved without doors, and
+"I can't tell" is the intended answer there. The fix now changes only the ranking. Recorded
+because it is the second time in this session a pre-existing test stopped a widening, and
+because the S8.4 review found the opposite failure five times over — tests that could not fail.
+
+**`ARDrillView`'s waypoint height** now comes from `DollhouseGeometry.floorBaseHeights`, the same
+stacking the dollhouse uses, rather than a second formula. Two formulas for where a floor sits
+would eventually disagree and the AR view and the 3D view would draw the same route at two
+different heights. It is fixed in code and verified by nothing — ARKit in a
+`UIViewRepresentable`, untestable on any machine here — and is carried as a device-pass item.

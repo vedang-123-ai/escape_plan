@@ -55,12 +55,16 @@ A red run is ~1-in-3 environmental flake — re-run once before believing it.
 1. Record the real count in `BLOCKERS.md`'s header stamp, replacing the stale 2026-09-09
    line. If it is red, put the failures in `BLOCKERS.md` §3 — do not fix and move on
    silently.
-2. **Fix the two defects already found by review** (`BLOCKERS.md` §3, both found
-   2026-09-14, neither seen on a device):
-   - `ARDrillView.swift:68` pins every AR waypoint to `1.0` height with no floor term, so
-     a `twostory.json` route draws both levels at one height.
-   - `SemanticMatcher` scores a room with no doors as a perfect `0`, so it outranks
-     correctly-matched rooms and can push the right room out of the candidate list.
+2. ~~**Fix the two defects already found by review.**~~ **BOTH FIXED 2026-09-16** — but only
+   one of them is verified, and the difference matters for what you do with the simulator:
+   - `SemanticMatcher`'s no-door scoring is **fixed and tested**. The file is now symlinked
+     into `tools/editorcore`, so its 9 tests run under `swift test` with no simulator at all.
+     Nothing to check here beyond the suite staying green.
+   - `ARDrillView`'s waypoint height is **fixed in code and verified by nothing.** It now
+     reads `DollhouseGeometry.floorBaseHeights` keyed by each waypoint's `floor_id`, but it is
+     ARKit inside a `UIViewRepresentable` and there is no test for it on any machine. **Check
+     it by hand:** start a `twostory` drill from an upstairs bedroom and confirm the
+     ground-floor leg of the route is below you rather than floating at eye level.
 3. **Confirm the two never-executed test classes actually pass**, and say so with a count.
    Both are written, both run the same contracts their in-memory counterparts already pass, and
    neither has ever been executed anywhere:
