@@ -13,6 +13,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(AuthSession.self) private var session
     @Environment(SyncManager.self) private var sync
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -47,6 +48,13 @@ struct RootView: View {
         // it is the moment to go and get them. `syncIfSignedIn` is a no-op on the way out, so
         // signing out does not fire a doomed request.
         .onChange(of: session.state) { _, _ in
+            Task { await sync.syncIfSignedIn() }
+        }
+        // Coming back to the app is when another device's edits are most likely to be
+        // waiting. Launch alone is not enough — iOS keeps an app suspended for days, so a
+        // user who never fully quits would otherwise sync once and then never again.
+        .onChange(of: scenePhase) { previous, phase in
+            guard phase == .active, previous != .active else { return }
             Task { await sync.syncIfSignedIn() }
         }
     }
