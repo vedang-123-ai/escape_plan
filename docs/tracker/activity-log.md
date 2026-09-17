@@ -2094,3 +2094,10 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-17T03:55:27Z · vedang-123-ai · `main` @ `81aabd8`
+
+**Commits this session**
+  - 81aabd8 Tracker: close two §3 defects and the pymongo line, with what is still unverified
+  - 60393b9 Fix two §3 defects: AR waypoint height, and doorless rooms scoring perfect
+  - 26a5718 Pin pymongo's logger to INFO: since S8.4 its DEBUG output is users' homes
+

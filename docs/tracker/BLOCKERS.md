@@ -562,7 +562,11 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       real server. Duplicate registration returns 409. The account-takeover shape is closed in
       fact, not just in code. Original finding:
 
-- [ ] ~~S8.2 must create a unique index on `User.email` before it writes a login path.~~ There is
+      > **Original finding (2026-09-14), kept for the reasoning — NOT an open item.** It carried
+      > an unchecked `- [ ]` box until 2026-09-16, so every scan of this board counted a
+      > resolved defect as open. Preserved text follows.
+      >
+      > ~~S8.2 must create a unique index on `User.email` before it writes a login path.~~ There is
       no index-creation code anywhere in the backend, and email normalisation is a convention
       enforced only in pydantic. Two concurrent registrations for the same address both pass an
       application-level "is it taken?" check and both insert; `find_one({"email": ...})` then
