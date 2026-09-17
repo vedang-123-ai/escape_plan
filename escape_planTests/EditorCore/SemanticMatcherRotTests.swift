@@ -1,6 +1,10 @@
 import XCTest
 import simd
+#if SWIFT_PACKAGE
+@testable import EditorCore
+#else
 @testable import escape_plan
+#endif
 
 final class SemanticMatcherRotTests: XCTestCase {
     func test90DegreeRotation() {

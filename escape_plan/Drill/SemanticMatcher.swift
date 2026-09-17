@@ -129,6 +129,16 @@ struct SemanticMatcher {
             let roomId: String
             let transform: simd_float4x4
             let score: Float
+            /// Whether `score` was computed from actual matched doors.
+            ///
+            /// This flag is the whole fix for a defect found by review 2026-09-14: the
+            /// door-distance branch fell through to `totalDist = 0` whenever EITHER side had no
+            /// doors, and lower is better — so a candidate with no doors at all (a closet, or a
+            /// scan that missed a doorway) scored a perfect 0 and outranked a correct room that
+            /// matched its doors at, say, 0.35 m. **Absence of evidence was being scored as
+            /// perfect evidence.** A score with no evidence behind it is not comparable to one
+            /// with, so it is kept out of the ranking rather than given a different number.
+            let hasDoorEvidence: Bool
         }
         
         var evaluated: [EvaluatedCandidate] = []
@@ -163,21 +173,37 @@ struct SemanticMatcher {
                         totalDist += minDist
                     }
                     totalDist /= Float(liveRoom.extractedDoorPositions.count)
-                } else {
-                    totalDist = 0
                 }
-                
-                evaluated.append(EvaluatedCandidate(roomId: candidate.roomId, transform: transform, score: totalDist))
+
+                let hasDoorEvidence = !liveRoom.extractedDoorPositions.isEmpty
+                    && !candidate.doorPositions.isEmpty
+                evaluated.append(EvaluatedCandidate(roomId: candidate.roomId,
+                                                    transform: transform,
+                                                    score: totalDist,
+                                                    hasDoorEvidence: hasDoorEvidence))
             }
         }
         
-        evaluated.sort { $0.score < $1.score }
-        
-        let best = evaluated[0]
+        // Only candidates whose score came from matched doors are ranked. Mixing in the
+        // no-evidence ones was the defect: they carry a 0 that means "nothing to compare",
+        // not "a perfect fit", and it sorted them straight to the top.
+        let comparable = evaluated.filter(\.hasDoorEvidence)
+
+        // If NOTHING has door evidence, fall back to the whole set — every score is 0, so they
+        // all tie, and the ambiguity check below turns that into `.ambiguous`. That is the
+        // behaviour the 2026-09-14 ambiguity fix deliberately established (a 180° rotation
+        // cannot be resolved without doors, so the honest answer is "I can't tell"), and
+        // `testNoDoorAmbiguity` pins it. This fix narrows that one: it stops a no-evidence
+        // candidate from OUTRANKING a door-matched one. It does not change what happens when
+        // there is no evidence anywhere.
+        let ranked = comparable.isEmpty ? evaluated : comparable
+
+        let sorted = ranked.sorted { $0.score < $1.score }
+        let best = sorted[0]
         var ambiguousIds = Set<String>()
         var roomEvaluationCounts: [String: Int] = [:]
         
-        for e in evaluated {
+        for e in sorted {
             if abs(e.score - best.score) < 0.2 { // less than 20cm difference
                 roomEvaluationCounts[e.roomId, default: 0] += 1
                 ambiguousIds.insert(e.roomId)
