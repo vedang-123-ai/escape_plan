@@ -36,6 +36,10 @@ struct SyncFailure: Error, Equatable {
         case cloudSyncUnavailable
         /// A 2xx whose body could not be decoded.
         case unreadableResponse
+        /// The server's copy could not be written to this device — today, because the home is
+        /// open in the editor. Not a server problem at all, and the only case where the right
+        /// answer is to do nothing and try again later.
+        case localWriteBlocked
         case server(statusCode: Int)
     }
 
@@ -117,6 +121,15 @@ struct SyncFailure: Error, Equatable {
                       isRetryable: true, symbol: "exclamationmark.icloud")
         }
     }
+
+    /// A home the server is ahead on, which this device cannot safely overwrite right now.
+    /// Writing the file under an open editor would discard whatever the user is in the middle
+    /// of doing — a far worse outcome than a home that syncs a minute later.
+    static let editorHasTheHomeOpen = SyncFailure(
+        kind: .localWriteBlocked,
+        message: "This home is open for editing, so the version from your other device is "
+               + "waiting. It'll sync once you close the editor.",
+        isRetryable: true, symbol: "pencil.slash")
 
     static let unreadableResponse = SyncFailure(
         kind: .unreadableResponse,
