@@ -647,13 +647,15 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       clean (`swiftc -parse`), which is syntax only and not type-checking. Next action: whoever
       has a working simulator records a real count — this stacks on S7.7's STEP 0.
 
-- [ ] **15 `patch_*.py` scratch scripts were committed to the repo root by `0103a74`.**
-      `patch_apiclient.py`, `patch_diff*.py`, `patch_homescreen*.py`, `patch_main.py`,
-      `patch_object_hazards.py`, `patch_test*.py`, `patch_tests.py`, `patch_trackers.py`. They are
-      one-shot string-replacement scripts used to author that commit, not project code, and they
-      are dead weight in a repo whose originality story gets read by judges. Left in place during
-      the merge deliberately — deleting another author's files is not a merge resolution. Next
-      action: confirm with the author, then `git rm` them.
+- [x] ~~**15 `patch_*.py` scratch scripts were committed to the repo root by `0103a74`.**~~
+      **DELETED 2026-09-16 on the owner's explicit instruction.** There were **13**, not 15 —
+      the original count was wrong. Verified before removing: each is a handful of lines that
+      opens a source file, does `str.replace`, and writes it back (the edits are long since
+      applied), and nothing in the repo references any of them except this board and the
+      activity log. Backend still **529** pass afterwards. They were dead weight in a repo whose
+      originality story gets read by judges. Left in place at merge time deliberately, because
+      deleting another author's files is not a merge resolution — the owner has now made that
+      call.
 
 - [x] **`backend/.venv` EXISTS and the backend suite runs here.** The 2026-09-10 claim that no
       interpreter on this machine has `pytest` was wrong — it was tested from the repo root, where
