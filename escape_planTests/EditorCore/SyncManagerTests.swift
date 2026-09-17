@@ -353,3 +353,232 @@ final class SyncManagerTests: XCTestCase {
     }
 
 }
+
+// MARK: - Regressions found by review, 2026-09-16
+
+/// One test per defect the S8.4 review found at the manager level. Kept separate from the
+/// suite above so the reason each exists stays legible.
+@MainActor
+final class SyncManagerRegressionTests: XCTestCase {
+
+    private var backend: FakeCloudBackend!
+    private var repository: InMemoryHomeRepository!
+    private var stateStore: InMemorySyncStateStore!
+    private var token: AccessToken?
+    private var sessionExpiredCount = 0
+    private var base: HomeModel!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        AuthStubURLProtocol.reset()
+        backend = FakeCloudBackend()
+        backend.install()
+        repository = InMemoryHomeRepository()
+        stateStore = InMemorySyncStateStore()
+        token = makeTestToken(subject: "alice")
+        sessionExpiredCount = 0
+        base = try Fixtures.load("bungalow")
+    }
+
+    override func tearDown() {
+        AuthStubURLProtocol.reset()
+        backend = nil
+        repository = nil
+        stateStore = nil
+        super.tearDown()
+    }
+
+    private func makeManager() -> SyncManager {
+        SyncManager(
+            client: CloudHomesClient(baseURL: URL(string: "https://backend.example.com")!,
+                                     session: AuthStubURLProtocol.makeSession()),
+            repository: repository,
+            stateStore: stateStore,
+            tokenProvider: { [weak self] in self?.token },
+            onSessionExpired: { [weak self] in
+                self?.sessionExpiredCount += 1
+                // What the app actually does — and the reason the old test passed vacuously:
+                // signing out removes the token, so the NEXT status write is `.signedOut` and
+                // `.failed(.sessionExpired)` never reaches the screen.
+                self?.token = nil
+            },
+            now: { Date(timeIntervalSince1970: 1_800_000) })
+    }
+
+    private func outcome(_ status: SyncManager.Status,
+                         file: StaticString = #filePath, line: UInt = #line) throws -> SyncOutcome {
+        guard case .synced(_, let outcome) = status else {
+            XCTFail("expected a completed sync, got \(status)", file: file, line: line)
+            throw XCTSkip("not a completed sync")
+        }
+        return outcome
+    }
+
+    // MARK: - "Sign in again" must survive the sign-out it causes
+
+    /// The old test asserted only that `onSessionExpired` fired, with a double that changed no
+    /// state — so it passed while the production wiring made the message unreachable. Here the
+    /// double does what the app does (drops the token), and the sticky flag is what keeps the
+    /// explanation on screen.
+    func testTheSessionExpiredMessageSurvivesTheSignOutItTriggers() async throws {
+        repository = InMemoryHomeRepository([base])
+        let manager = makeManager()
+        backend.failNextPost = 401
+
+        await manager.sync()
+        XCTAssertEqual(sessionExpiredCount, 1)
+        XCTAssertTrue(manager.needsReauthentication)
+
+        // RootView observes `session.state` and re-enters. With no token this writes
+        // `.signedOut` over `.failed(.sessionExpired)` — which is exactly why the flag is
+        // separate from the status.
+        await manager.syncIfSignedIn()
+        XCTAssertEqual(manager.status, .signedOut)
+        XCTAssertTrue(manager.needsReauthentication,
+                      "the user must still be told WHY they were signed out")
+    }
+
+    func testSigningBackInAndSyncingClearsTheReauthenticationFlag() async throws {
+        repository = InMemoryHomeRepository([base])
+        let manager = makeManager()
+        backend.failNextPost = 401
+        await manager.sync()
+        XCTAssertTrue(manager.needsReauthentication)
+
+        token = makeTestToken(subject: "alice")
+        await manager.sync()
+        XCTAssertFalse(manager.needsReauthentication)
+        XCTAssertTrue(try outcome(manager.status).isClean)
+    }
+
+    /// A 401 on the LIST, before any per-home work, must behave the same way.
+    func testA401OnTheListAlsoAsksForReauthentication() async {
+        backend.failEveryRequest = 401
+        let manager = makeManager()
+        await manager.sync()
+        XCTAssertTrue(manager.needsReauthentication)
+        XCTAssertEqual(sessionExpiredCount, 1)
+    }
+
+    // MARK: - A losing conflict is set aside, not destroyed
+
+    func testTheLocalCopyIsKeptWhenTheOtherDeviceWinsAConflict() async throws {
+        var mine = base!
+        mine.name = "Mine"
+        mine.meta.modified = Date(timeIntervalSince1970: 1_000_000)
+        var theirs = base!
+        theirs.name = "Theirs"
+        theirs.meta.modified = Date(timeIntervalSince1970: 2_000_000)
+
+        repository = InMemoryHomeRepository([mine])
+        let recordID = backend.seed(theirs, revision: 8, userID: "alice")
+        var state = SyncState(userID: "alice")
+        state.remember(HomeSyncRecord(localHomeID: base.home_id, remoteID: recordID,
+                                      syncedRevision: 2,
+                                      syncedFingerprint: HomeFingerprint.of(base),
+                                      lastSyncedAt: Date(timeIntervalSince1970: 1_000)))
+        stateStore = InMemorySyncStateStore(state)
+
+        let manager = makeManager()
+        await manager.sync()
+
+        let result = try outcome(manager.status)
+        XCTAssertEqual(result.pulled, 1)
+        XCTAssertEqual(result.conflicts.count, 1, "the user must be told their edit was replaced")
+        XCTAssertEqual(result.conflicts.first?.localHomeID, base.home_id)
+        XCTAssertFalse(result.isClean, "a silently replaced home is not a clean sync")
+
+        XCTAssertEqual(repository.preserved.count, 1)
+        XCTAssertEqual(repository.preserved.first?.name, "Mine (this device)")
+        XCTAssertNotEqual(repository.preserved.first?.home_id, base.home_id,
+                          "the copy must have its own id or it is not a copy")
+        XCTAssertEqual(repository.writes.last?.name, "Theirs")
+    }
+
+    /// An ordinary pull must NOT leave a copy behind, or the library fills with duplicates.
+    func testAnOrdinaryPullLeavesNoCopyBehind() async throws {
+        let theirs = base.renamedCopy(homeID: "home-theirs", name: "Theirs")
+        backend.seed(theirs, userID: "alice")
+        let manager = makeManager()
+
+        await manager.sync()
+
+        XCTAssertEqual(try outcome(manager.status).pulled, 1)
+        XCTAssertTrue(repository.preserved.isEmpty)
+        XCTAssertTrue(try outcome(manager.status).conflicts.isEmpty)
+    }
+
+    // MARK: - The sidecar belongs to one account
+
+    func testASecondUserOnTheSameDeviceDoesNotInheritTheFirstUsersRecords() async throws {
+        repository = InMemoryHomeRepository([base])
+
+        // Alice syncs.
+        var manager = makeManager()
+        await manager.sync()
+        XCTAssertEqual(stateStore.load().userID, "alice")
+        let aliceRecordID = try XCTUnwrap(stateStore.load().record(for: base.home_id)?.remoteID)
+
+        // Bob signs in on the same device. The sidecar still holds Alice's record.
+        token = makeTestToken(subject: "bob")
+        manager = makeManager()
+        await manager.sync()
+
+        let afterBob = stateStore.load()
+        XCTAssertEqual(afterBob.userID, "bob")
+        XCTAssertNotEqual(afterBob.record(for: base.home_id)?.remoteID, aliceRecordID,
+                          "Bob must not keep pointing at a record in Alice's account")
+    }
+
+    // MARK: - A deleted home stays deleted
+
+    func testADeletedHomeIsNotDownloadedAgain() async throws {
+        let deleted = base.renamedCopy(homeID: "home-deleted")
+        backend.seed(deleted, userID: "alice")
+        var state = SyncState(userID: "alice")
+        state.markDeleted(localHomeID: "home-deleted", at: Date())
+        stateStore = InMemorySyncStateStore(state)
+
+        let manager = makeManager()
+        await manager.sync()
+
+        XCTAssertTrue(repository.writes.isEmpty, "a deliberately deleted home must not come back")
+        XCTAssertEqual(try outcome(manager.status).skipped, 1)
+        XCTAssertEqual(try outcome(manager.status).pulled, 0)
+    }
+
+    // MARK: - A request made during a sync is served, not dropped
+
+    /// Render's free tier has been measured at a 42 s cold start. A user who finishes an edit
+    /// and taps the badge during a launch sync must not have that request silently discarded —
+    /// their edit would not go up and the badge would report success anyway.
+    func testASyncRequestedWhileOneIsRunningIsServedAfterwards() async throws {
+        repository = InMemoryHomeRepository([base])
+        let manager = makeManager()
+
+        async let first: Void = manager.sync()
+        async let second: Void = manager.sync()
+        _ = await (first, second)
+
+        // Still exactly one record — the re-entry must not duplicate anything...
+        XCTAssertEqual(backend.storedHomes.count, 1)
+        // ...and the second run really happened: two GETs, not one.
+        XCTAssertGreaterThanOrEqual(backend.requestCount, 3)
+        XCTAssertTrue(try outcome(manager.status).isClean)
+    }
+
+    // MARK: - Progress is not lost when a run is cut short
+
+    func testTheSidecarIsWrittenAfterEachHomeNotOnlyAtTheEnd() async throws {
+        repository = InMemoryHomeRepository([base.renamedCopy(homeID: "home-a"),
+                                             base.renamedCopy(homeID: "home-b")])
+        let manager = makeManager()
+        await manager.sync()
+
+        // Three writes at least: one per home, plus the run's own. The point is that a run
+        // killed after the first home still leaves that home's record behind.
+        XCTAssertGreaterThanOrEqual(stateStore.saveCount, 2)
+        XCTAssertNotNil(stateStore.load().record(for: "home-a"))
+        XCTAssertNotNil(stateStore.load().record(for: "home-b"))
+    }
+}

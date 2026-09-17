@@ -30,7 +30,9 @@ extension HomeDocumentSyncRepository {
             .appendingPathComponent("preview-homes-\(UUID().uuidString)", isDirectory: true)
         // `try!` is confined to DEBUG preview code: a temporary directory that cannot be
         // created means the preview host is broken, and there is nothing useful to fall back to.
-        return HomeDocumentSyncRepository(store: try! HomeDocumentStore(directory: scratch))
+        return HomeDocumentSyncRepository(
+            store: try! HomeDocumentStore(directory: scratch),
+            stateStore: InMemorySyncStateStore())
     }
 }
 

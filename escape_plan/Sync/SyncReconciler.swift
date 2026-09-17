@@ -54,6 +54,9 @@ struct SyncAction: Equatable, Sendable {
         /// Nothing to do. Still returned rather than omitted, so the plan accounts for every
         /// home and a test can tell "decided nothing was needed" from "never considered it".
         case upToDate
+        /// Deliberately left alone. Today that means one thing: the home was deleted on this
+        /// device and the server, which has no delete endpoint, is still serving it.
+        case skip
     }
 
     /// Why, in enough detail to explain a surprising sync in a bug report — and, for the two
@@ -72,7 +75,18 @@ struct SyncAction: Equatable, Sendable {
         case neverSyncedOnThisDevice
         /// This device remembered a server record that is gone. Re-create it.
         case staleRecordRemoteGone
+        /// The server still has a home this device deleted. Not downloaded again — see
+        /// `SyncState.deletedHomeIDs`.
+        case deletedOnThisDevice
         case unchanged
+    }
+
+    /// Whether applying this action overwrites the local document with the server's copy
+    /// while this device also had changes of its own. The caller keeps a copy before
+    /// proceeding, so a losing edit is set aside rather than destroyed.
+    var overwritesLocalEdits: Bool {
+        guard case .pullRemote = operation else { return false }
+        return reason == .conflictRemoteWins || reason == .neverSyncedOnThisDevice
     }
 
     let localHomeID: String
@@ -83,11 +97,19 @@ struct SyncAction: Equatable, Sendable {
 struct SyncPlan: Equatable, Sendable {
     let actions: [SyncAction]
 
-    var hasWork: Bool { actions.contains { $0.operation != .upToDate } }
+    var hasWork: Bool {
+        actions.contains { $0.operation != .upToDate && $0.operation != .skip }
+    }
 
-    /// Records this device holds for homes the server no longer has. `SyncManager` drops them
-    /// so the next sync does not try to update a record that is not there.
-    let staleRecordIDs: [String]
+    /// Homes whose sync record points at a server copy that is gone. Named for what it holds —
+    /// schema `home_id`s, the key `SyncState.records` is stored under, NOT server record ids.
+    /// `SyncManager` drops them so the next sync does not try to update a record that is not
+    /// there.
+    let staleRecordHomeIDs: [String]
+
+    /// Tombstones that no longer describe anything, because the home is on disk again.
+    /// `SyncManager` clears them so a re-imported home is not suppressed forever.
+    let staleTombstoneHomeIDs: [String]
 }
 
 enum SyncReconciler {
@@ -105,12 +127,19 @@ enum SyncReconciler {
         let remoteByID = collapseDuplicates(remote)
 
         var actions: [SyncAction] = []
-        var staleRecordIDs: [String] = []
+        var staleRecordHomeIDs: [String] = []
+        var staleTombstoneHomeIDs: [String] = []
 
         for homeID in Set(localByID.keys).union(remoteByID.keys).sorted() {
             let localHome = localByID[homeID]
             let remoteHome = remoteByID[homeID]
             let record = state.record(for: homeID)
+
+            // A home on disk contradicts its own tombstone — it was re-imported, or the
+            // tombstone lost a race with a pull. The file is the truth; drop the tombstone
+            // and reconcile the home normally.
+            let deletedHere = state.isDeletedLocally(homeID)
+            if localHome != nil && deletedHere { staleTombstoneHomeIDs.append(homeID) }
 
             switch (localHome, remoteHome) {
 
@@ -120,13 +149,23 @@ enum SyncReconciler {
                 // delete endpoint, so the second case means the record is stale, not that the
                 // user deleted the home elsewhere. Re-create either way; the alternative
                 // (deleting the local home) would destroy data on the strength of a guess.
-                if record != nil { staleRecordIDs.append(localHome.homeID) }
+                if record != nil { staleRecordHomeIDs.append(localHome.homeID) }
                 actions.append(SyncAction(
                     localHomeID: homeID,
                     operation: .createRemote,
                     reason: record == nil ? .newLocalHome : .staleRecordRemoteGone))
 
             case let (.none, .some(remoteHome)):
+                // Deleted here, and the server still has it because there is no delete
+                // endpoint. Downloading it again would undo a deliberate deletion — the exact
+                // resurrection `FixtureSeeder.starterSeedDefaultsKey` exists to prevent
+                // locally. Skip it, and keep skipping it.
+                guard !deletedHere else {
+                    actions.append(SyncAction(localHomeID: homeID,
+                                              operation: .skip,
+                                              reason: .deletedOnThisDevice))
+                    continue
+                }
                 // On the server only — this is a home created on ANOTHER DEVICE, which is the
                 // whole point of the feature.
                 actions.append(SyncAction(
@@ -142,7 +181,9 @@ enum SyncReconciler {
             }
         }
 
-        return SyncPlan(actions: actions, staleRecordIDs: staleRecordIDs.sorted())
+        return SyncPlan(actions: actions,
+                        staleRecordHomeIDs: staleRecordHomeIDs.sorted(),
+                        staleTombstoneHomeIDs: staleTombstoneHomeIDs.sorted())
     }
 
     // MARK: - The matched case

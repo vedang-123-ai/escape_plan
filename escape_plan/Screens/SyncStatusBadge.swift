@@ -24,8 +24,11 @@ struct SyncStatusBadge: View {
     var body: some View {
         Button {
             Haptics.press()
-            isShowingDetail.toggle()
-            Task { await sync.syncIfSignedIn() }
+            // Dismissing the detail must not fire another sync — a second tap is the user
+            // closing a popover, not asking for anything.
+            let opening = !isShowingDetail
+            isShowingDetail = opening
+            if opening { Task { await sync.syncIfSignedIn() } }
         } label: {
             Image(systemName: symbol)
                 .symbolRenderingMode(.hierarchical)
@@ -66,6 +69,9 @@ struct SyncStatusBadge: View {
     private var isSyncing: Bool { sync.status == .syncing }
 
     private var symbol: String {
+        // Checked before the status, because signing out is exactly what a rejected token
+        // causes — so `.signedOut` would otherwise hide the reason for it.
+        if sync.needsReauthentication { return "person.crop.circle.badge.exclamationmark" }
         switch sync.status {
         case .signedOut: return "icloud.slash"
         case .idle: return "icloud"
@@ -78,6 +84,7 @@ struct SyncStatusBadge: View {
     }
 
     private var tint: Color {
+        if sync.needsReauthentication { return Theme.warning }
         switch sync.status {
         case .signedOut, .idle, .syncing: return Theme.supporting
         case .synced(_, let outcome): return outcome.isClean ? Theme.accentText : Theme.caution
@@ -89,17 +96,23 @@ struct SyncStatusBadge: View {
     }
 
     private var headline: String {
+        if sync.needsReauthentication { return "Sign in again" }
         switch sync.status {
         case .signedOut: return "Not syncing"
         case .idle: return "Ready to sync"
         case .syncing: return "Syncing…"
         case .synced(_, let outcome):
+            if !outcome.conflicts.isEmpty { return "Synced — one version won" }
             return outcome.isClean ? "Synced" : "Partly synced"
         case .failed: return "Sync problem"
         }
     }
 
     private var sentence: String? {
+        if sync.needsReauthentication {
+            return "Your session expired, so you've been signed out. Your homes are still on "
+                 + "this device — sign in again to keep them syncing."
+        }
         switch sync.status {
         case .signedOut:
             return "Your homes are saved on this device. Sign in to keep them on your account "
@@ -109,7 +122,16 @@ struct SyncStatusBadge: View {
         case .syncing:
             return nil
         case .synced(let at, let outcome):
-            if !outcome.isClean {
+            // Conflicts first: a replaced home is the thing the user most needs to hear
+            // about, and it is the one that looks like success if nobody says otherwise.
+            if !outcome.conflicts.isEmpty {
+                let count = outcome.conflicts.count
+                let noun = count == 1 ? "home was" : "homes were"
+                return "\(count) \(noun) edited on another device too, so that version is now "
+                     + "the main one. What was on this device is kept alongside it, named "
+                     + "\"(this device)\"."
+            }
+            if !outcome.failures.isEmpty {
                 let count = outcome.failures.count
                 let noun = count == 1 ? "home" : "homes"
                 // Name the specific reason when every failure shares one — "1 home didn't

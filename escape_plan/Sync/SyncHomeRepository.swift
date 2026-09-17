@@ -30,6 +30,16 @@ protocol SyncHomeRepository: AnyObject {
     /// would then push it straight back, the server would increment its revision, and the two
     /// devices would trade the same home forever without a single edit between them.
     func writePulledHome(_ home: HomeModel) throws
+
+    /// Keep a copy of the local home under a NEW `home_id` before the server's version is
+    /// written over it, and return that id.
+    ///
+    /// Only called when a pull would overwrite edits this device also has — a genuine
+    /// two-sided conflict, or a home present on both sides with no record of a sync. Last
+    /// write wins is a rule for deciding which copy is CANONICAL, not a licence to destroy
+    /// the other one: the losing side is somebody's real work, the tiebreak is two devices'
+    /// wall clocks, and the badge would otherwise report "Synced" over a silent loss.
+    func preserveLocalCopy(of home: HomeModel, named name: String) throws -> String
 }
 
 #if DEBUG
@@ -37,6 +47,7 @@ protocol SyncHomeRepository: AnyObject {
 final class InMemoryHomeRepository: SyncHomeRepository {
     private(set) var homes: [String: HomeModel]
     private(set) var writes: [HomeModel] = []
+    private(set) var preserved: [HomeModel] = []
 
     /// Set to make `loadAllHomes()` throw, so the manager's "could not read the library"
     /// path is tested rather than assumed.
@@ -54,6 +65,16 @@ final class InMemoryHomeRepository: SyncHomeRepository {
     func writePulledHome(_ home: HomeModel) throws {
         homes[home.home_id] = home
         writes.append(home)
+    }
+
+    func preserveLocalCopy(of home: HomeModel, named name: String) throws -> String {
+        let id = "preserved-\(home.home_id)"
+        var copy = home
+        copy.home_id = id
+        copy.name = name
+        homes[id] = copy
+        preserved.append(copy)
+        return id
     }
 }
 #endif

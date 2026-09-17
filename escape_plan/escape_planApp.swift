@@ -57,7 +57,14 @@ struct escape_planApp: App {
         // directory is unreachable, in which case the app has no persistence at all and the
         // Home tab would crash a moment later regardless. This adds no failure mode that was
         // not already there.
-        let repository = HomeDocumentSyncRepository(store: try! HomeDocumentStore())
+        let homeStore = try! HomeDocumentStore()
+        // One sidecar, shared: the repository writes deletion tombstones into it and the
+        // manager reads and writes sync records. Two instances over the same file would
+        // last-write-wins each other's updates.
+        let syncStateStore = FileSyncStateStore(
+            url: homeStore.directory.deletingLastPathComponent()
+                .appendingPathComponent(FileSyncStateStore.filename))
+        let repository = HomeDocumentSyncRepository(store: homeStore, stateStore: syncStateStore)
         _syncRepository = State(wrappedValue: repository)
 
         // Constructed as a local and handed to BOTH the State wrapper and the sync manager, so
@@ -72,10 +79,12 @@ struct escape_planApp: App {
             repository: repository,
             // A sidecar beside the home documents, NOT a field on HomeModel: tracking a synced
             // revision inside the schema would be a `schema_version` bump, and sync progress is
-            // a fact about this device rather than a property of the home.
-            stateStore: (try? FileSyncStateStore()) ?? FileSyncStateStore(
-                url: FileManager.default.temporaryDirectory
-                    .appendingPathComponent(FileSyncStateStore.filename)),
+            // a fact about this device rather than a property of the home. Its URL is derived
+            // from the home store's own directory rather than re-resolving Documents with a
+            // fallback — an earlier version fell back to the temporary directory, which the
+            // system may purge, so the sidecar would vanish and every launch would read
+            // "nothing has ever synced".
+            stateStore: syncStateStore,
             tokenProvider: { session.token },
             // A 401 means the JWT is dead. Signing out locally is what puts the user in front
             // of a sign-in form instead of watching sync fail silently every launch.

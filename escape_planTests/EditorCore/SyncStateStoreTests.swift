@@ -113,6 +113,10 @@ final class SyncStateStoreTests: XCTestCase {
 
     /// The same document at the CURRENT version must load — otherwise the test above would
     /// pass for the wrong reason (a decode failure rather than the version guard).
+    ///
+    /// Note what this payload does NOT have: `deletedHomeIDs`. A sidecar written before a
+    /// field existed must not take the whole file down with it, which would silently degrade
+    /// to "this device has never synced anything".
     func testTheSameSidecarAtTheCurrentVersionDoesLoad() throws {
         let json = """
         {"version":\(SyncState.currentVersion),"records":{"home-1":{"localHomeID":"home-1",\
@@ -120,7 +124,9 @@ final class SyncStateStoreTests: XCTestCase {
         "lastSyncedAt":"2026-09-16T05:33:58Z"}}}
         """
         try Data(json.utf8).write(to: fileURL)
-        XCTAssertEqual(FileSyncStateStore(url: fileURL).load().record(for: "home-1")?.syncedRevision, 4)
+        let loaded = FileSyncStateStore(url: fileURL).load()
+        XCTAssertEqual(loaded.record(for: "home-1")?.syncedRevision, 4)
+        XCTAssertTrue(loaded.deletedHomeIDs.isEmpty, "an absent collection must decode as empty")
     }
 
     func testSavingCreatesTheDirectoryIfItIsMissing() throws {

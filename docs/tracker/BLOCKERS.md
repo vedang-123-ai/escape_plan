@@ -50,9 +50,11 @@ backend — still red, see §3._
       Surfaced at the top of every new session by the SessionStart hook; clear it by setting
       `gate_status: closed` in `FIRST-PRIORITY.md`.
 
-      **Widened 2026-09-16 (S8.4):** make that FIVE bodies of Swift — S8.4's sync layer and its
-      UI badge landed the same day, so the run has one more thing to check and one more reason
-      to happen. See §2.
+      **Widened 2026-09-16 (S8.4): the "four bodies of Swift" above is now SIX** — the list
+      predates S8.3's auth screens and S8.4's sync badge, both of which landed since and neither
+      of which has been built or run either. `FIRST-PRIORITY.md`'s table has been updated to
+      match; this paragraph and the header stamp both say six. The run has two more things to
+      check and two more reasons to happen. See §2.
 
       **Narrowed further 2026-09-16:** the two TEST targets type-check too — `escape_planTests`
       (**70** files as of S8.4) and `escape_planUITests` (9) both clean against the app's

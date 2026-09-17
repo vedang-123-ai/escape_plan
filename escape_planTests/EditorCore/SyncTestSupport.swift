@@ -25,6 +25,11 @@ final class FakeCloudBackend: @unchecked Sendable {
 
     struct Record {
         var id: String
+        /// Which account owns it. The real backend takes this from the verified token and
+        /// never from the request body — `list_for_user(user.id)` / `find_for_user(id, user.id)`
+        /// in `backend/app/cloud_repo.py`. Modelled here because a single-tenant fake makes
+        /// cross-account tests pass for the wrong reason.
+        var userID: String
         var home: HomeModel
         var revision: Int
         var createdAt: Date
@@ -72,11 +77,12 @@ final class FakeCloudBackend: @unchecked Sendable {
     @discardableResult
     func seed(_ home: HomeModel,
               revision: Int = 1,
+              userID: String = "u-1",
               updatedAt: Date = Date(timeIntervalSince1970: 1_000_000)) -> String {
         lock.lock(); defer { lock.unlock() }
         let id = "srv-\(nextID)"
         nextID += 1
-        records[id] = Record(id: id, home: home, revision: revision,
+        records[id] = Record(id: id, userID: userID, home: home, revision: revision,
                              createdAt: updatedAt, updatedAt: updatedAt)
         return id
     }
@@ -112,6 +118,14 @@ final class FakeCloudBackend: @unchecked Sendable {
 
     // MARK: - Routing
 
+    /// The `sub` claim of the presented bearer token — the real backend's `get_current_user`
+    /// resolves the same claim and re-reads the user on every request.
+    private func subject(of request: URLRequest) -> String? {
+        guard let header = request.value(forHTTPHeaderField: "Authorization"),
+              header.hasPrefix("Bearer ") else { return nil }
+        return AccessToken(raw: String(header.dropFirst("Bearer ".count))).subject
+    }
+
     private func handle(_ request: URLRequest) -> AuthStubURLProtocol.Exchange {
         lock.lock()
         _requestCount += 1
@@ -133,19 +147,25 @@ final class FakeCloudBackend: @unchecked Sendable {
         guard request.url?.path == "/homes" else {
             return json(status: 404, #"{"detail":"no such route"}"#)
         }
+        // No usable token is a 401, exactly as `_UNAUTHORIZED` in `api_auth.py`.
+        guard let userID = subject(of: request) else {
+            return json(status: 401, #"{"detail":"Could not validate credentials"}"#)
+        }
         switch request.httpMethod {
-        case "GET": return list()
-        case "POST": return upsert(AuthStubURLProtocol.capturedBody(request))
+        case "GET": return list(for: userID)
+        case "POST": return upsert(AuthStubURLProtocol.capturedBody(request), userID: userID)
         default: return json(status: 405, #"{"detail":"method not allowed"}"#)
         }
     }
 
-    private func list() -> AuthStubURLProtocol.Exchange {
-        let body = storedHomes.map(encoded).joined(separator: ",")
+    /// Only this user's homes. The user id comes from the token, never from a parameter —
+    /// there is no way for a client to ask for anyone else's.
+    private func list(for userID: String) -> AuthStubURLProtocol.Exchange {
+        let body = storedHomes.filter { $0.userID == userID }.map(encoded).joined(separator: ",")
         return json(status: 200, "[\(body)]")
     }
 
-    private func upsert(_ body: Data) -> AuthStubURLProtocol.Exchange {
+    private func upsert(_ body: Data, userID: String) -> AuthStubURLProtocol.Exchange {
         struct Request: Decodable { let home: HomeModel; let home_id: String? }
         guard let decoded = try? HomeModel.decoder.decode(Request.self, from: body) else {
             return json(status: 422, #"{"detail":"unprocessable"}"#)
@@ -154,9 +174,10 @@ final class FakeCloudBackend: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         let now = Date()
         if let requestedID = decoded.home_id {
-            guard var existing = records[requestedID] else {
-                // 404, not a create — confirming an id exists but belongs to someone else
-                // would leak the existence of other users' homes.
+            // The ownership check is part of the lookup, and a record belonging to someone
+            // else answers identically to one that does not exist — confirming the difference
+            // would leak the existence of other users' homes.
+            guard var existing = records[requestedID], existing.userID == userID else {
                 return json(status: 404, #"{"detail":"No such home."}"#)
             }
             existing.home = decoded.home
@@ -168,7 +189,8 @@ final class FakeCloudBackend: @unchecked Sendable {
 
         let id = "srv-\(nextID)"
         nextID += 1
-        let created = Record(id: id, home: decoded.home, revision: 1, createdAt: now, updatedAt: now)
+        let created = Record(id: id, userID: userID, home: decoded.home, revision: 1,
+                             createdAt: now, updatedAt: now)
         records[id] = created
         return json(status: 201, encoded(created))
     }
@@ -182,7 +204,7 @@ final class FakeCloudBackend: @unchecked Sendable {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         return """
-        {"id":"\(record.id)","user_id":"u-1","home":\(home),"revision":\(record.revision),\
+        {"id":"\(record.id)","user_id":"\(record.userID)","home":\(home),"revision":\(record.revision),\
         "created_at":"\(formatter.string(from: record.createdAt))",\
         "updated_at":"\(formatter.string(from: record.updatedAt))"}
         """

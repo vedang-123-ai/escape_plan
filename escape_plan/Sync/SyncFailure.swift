@@ -36,9 +36,9 @@ struct SyncFailure: Error, Equatable {
         case cloudSyncUnavailable
         /// A 2xx whose body could not be decoded.
         case unreadableResponse
-        /// The server's copy could not be written to this device — today, because the home is
-        /// open in the editor. Not a server problem at all, and the only case where the right
-        /// answer is to do nothing and try again later.
+        /// The server's copy could not be written to this device — the home is open in the
+        /// editor, or the local file exists but could not be read. Not a server problem at
+        /// all, and the case where the right answer is to do nothing and try again later.
         case localWriteBlocked
         case server(statusCode: Int)
     }
@@ -130,6 +130,15 @@ struct SyncFailure: Error, Equatable {
         message: "This home is open for editing, so the version from your other device is "
                + "waiting. It'll sync once you close the editor.",
         isRetryable: true, symbol: "pencil.slash")
+
+    /// The local document exists but did not decode, so there is no safe way to tell whether
+    /// the server's copy is newer than it. Overwriting it would destroy a file that a future
+    /// migration may well be able to read.
+    static let localCopyUnreadable = SyncFailure(
+        kind: .localWriteBlocked,
+        message: "A home saved on this device couldn't be read, so it wasn't replaced with the "
+               + "version from your account. Nothing was lost.",
+        isRetryable: false, symbol: "exclamationmark.triangle")
 
     static let unreadableResponse = SyncFailure(
         kind: .unreadableResponse,

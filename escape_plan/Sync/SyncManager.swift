@@ -26,14 +26,30 @@ struct HomeSyncFailure: Equatable, Sendable {
     let failure: SyncFailure
 }
 
+/// A home whose local copy lost a conflict, and where the losing copy was put.
+///
+/// Surfaced rather than swallowed: the user edited the same home in two places, one of those
+/// edits is no longer the canonical copy, and a badge that just said "Synced" over that would
+/// be reporting a silent loss as a success.
+struct HomeSyncConflict: Equatable, Sendable {
+    let localHomeID: String
+    /// The `home_id` of the set-aside copy of what this device had.
+    let preservedAs: String
+}
+
 /// What a completed run did.
 struct SyncOutcome: Equatable, Sendable {
     var pushed: Int = 0
     var pulled: Int = 0
     var unchanged: Int = 0
+    /// Homes on the server that this device deleted, and therefore did not download again.
+    var skipped: Int = 0
+    var conflicts: [HomeSyncConflict] = []
     var failures: [HomeSyncFailure] = []
 
-    var isClean: Bool { failures.isEmpty }
+    /// Nothing went wrong AND nothing was quietly replaced. A conflict is not a failure, but
+    /// it is not a clean run either — somebody needs to know their other device won.
+    var isClean: Bool { failures.isEmpty && conflicts.isEmpty }
     var changed: Int { pushed + pulled }
 }
 
@@ -55,6 +71,15 @@ final class SyncManager {
 
     private(set) var status: Status = .signedOut
 
+    /// Set when the server rejected the token, and NOT cleared by the sign-out that follows.
+    ///
+    /// Without stickiness this state is unreachable on screen: `onSessionExpired` signs the
+    /// user out, `RootView` observes `session.state` and re-enters `syncIfSignedIn()`, which
+    /// finds no token and overwrites `.failed(.sessionExpired)` with `.signedOut` — so the
+    /// user is silently signed out mid-session with no explanation. The badge reads this flag
+    /// and says so. Cleared by the next successful sync.
+    private(set) var needsReauthentication = false
+
     private let client: CloudHomesClient
     private let repository: SyncHomeRepository
     private let stateStore: SyncStateStore
@@ -64,6 +89,13 @@ final class SyncManager {
 
     /// Guards against concurrent runs — see property 3 in the header.
     private var isSyncing = false
+
+    /// A sync was asked for while one was already running. Render's free tier has been
+    /// measured at a 42 s cold start, which is plenty of time for a user to finish an edit
+    /// and tap the badge; dropping that request silently means their edit does not go up and
+    /// the badge reports success anyway. Re-enters exactly once so a stuck server cannot
+    /// produce an unbounded loop.
+    private var wasAskedAgainWhileRunning = false
 
     init(client: CloudHomesClient,
          repository: SyncHomeRepository,
@@ -104,13 +136,17 @@ final class SyncManager {
     /// Reconcile this device with the server. Safe to call at any time; concurrent calls
     /// after the first return immediately rather than queueing.
     func sync() async {
-        guard !isSyncing else { return }
+        guard !isSyncing else {
+            wasAskedAgainWhileRunning = true
+            return
+        }
         guard let token = tokenProvider() else {
             status = .signedOut
             return
         }
 
         isSyncing = true
+        wasAskedAgainWhileRunning = false
         defer { isSyncing = false }
         status = .syncing
 
@@ -130,14 +166,24 @@ final class SyncManager {
         do {
             remote = try await client.list(token: token)
         } catch let failure as SyncFailure {
+            if failure.requiresReauthentication {
+                needsReauthentication = true
+                onSessionExpired()
+            }
             return fail(with: failure)
         } catch {
             return fail(with: SyncFailure(transport: error))
         }
 
-        var state = stateStore.load()
+        // Scope the sidecar to the signed-in account BEFORE reading a single record. A
+        // second user on the same device must never inherit the first user's record ids —
+        // those point at server records in someone else's account, and acting on one either
+        // uploads into the wrong account or reports a home as "already synced, revision 5"
+        // that this user has never seen. `AccessToken.subject` is the `sub` claim.
+        var state = stateStore.load().scoped(to: token.subject)
         let plan = SyncReconciler.plan(local: local, remote: remote, state: state)
-        for staleID in plan.staleRecordIDs { state.forget(localHomeID: staleID) }
+        for homeID in plan.staleRecordHomeIDs { state.forget(localHomeID: homeID) }
+        for homeID in plan.staleTombstoneHomeIDs { state.clearTombstone(localHomeID: homeID) }
 
         let localByID = Dictionary(local.map { ($0.homeID, $0) }, uniquingKeysWith: { first, _ in first })
         // Keyed by the SERVER's record id, which is what a `.pullRemote` action names.
@@ -153,6 +199,7 @@ final class SyncManager {
                 // collecting the same 401 once per home.
                 if failure.requiresReauthentication {
                     persist(state)
+                    needsReauthentication = true
                     onSessionExpired()
                     return fail(with: failure)
                 }
@@ -163,10 +210,23 @@ final class SyncManager {
                     HomeSyncFailure(localHomeID: action.localHomeID,
                                     failure: SyncFailure(transport: error)))
             }
+            // Persisted per action, not once at the end: a twelve-home first sync killed at
+            // home ten would otherwise lose all ten records and redo the whole thing next
+            // launch — and a home with no record is routed through the conflict tiebreak
+            // rather than a clean comparison, which is where the sharp edges are. The write
+            // is atomic and cheap.
+            persist(state)
         }
 
-        persist(state)
+        needsReauthentication = false
         status = .synced(at: now(), outcome: outcome)
+
+        // Someone asked again while this was in flight. Serve that request once.
+        if wasAskedAgainWhileRunning {
+            wasAskedAgainWhileRunning = false
+            isSyncing = false
+            await sync()
+        }
     }
 
     // MARK: - One action
@@ -181,6 +241,9 @@ final class SyncManager {
 
         case .upToDate:
             outcome.unchanged += 1
+
+        case .skip:
+            outcome.skipped += 1
 
         case .createRemote:
             guard let home = localByID[action.localHomeID] else { return }
@@ -210,6 +273,17 @@ final class SyncManager {
             // turn a 12-home first sync into 13 round trips against a service that can take
             // most of a minute to wake up.
             guard let stored = remoteByRecordID[remoteID] else { return }
+
+            // A pull that overwrites edits this device also has sets the local copy aside
+            // first. Last-write-wins decides which copy is CANONICAL; it is not a licence to
+            // destroy the other one, least of all on a tiebreak between two devices' clocks.
+            if action.overwritesLocalEdits, let local = localByID[action.localHomeID] {
+                let preservedID = try repository.preserveLocalCopy(
+                    of: local.model, named: "\(local.model.name) (this device)")
+                outcome.conflicts.append(HomeSyncConflict(localHomeID: action.localHomeID,
+                                                          preservedAs: preservedID))
+            }
+
             try repository.writePulledHome(stored.home)
             // The fingerprint describes what is now ON DISK, which is the server's copy.
             remember(stored, fingerprintOf: stored.home, in: &state)

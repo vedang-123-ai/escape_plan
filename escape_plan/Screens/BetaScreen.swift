@@ -14,6 +14,10 @@ import SwiftUI
 
 struct BetaScreen: View {
     @Environment(APIClient.self) private var apiClient
+    /// This tab has its own `HomeLibrary` AND a delete affordance, so it must register as the
+    /// deletion observer too — otherwise a home deleted here is downloaded straight back on
+    /// the next sync (the backend has no delete endpoint).
+    @Environment(HomeDocumentSyncRepository.self) private var syncRepository
 
     @StateObject private var library: HomeLibrary
     @State private var openHomeID: String?
@@ -48,6 +52,7 @@ struct BetaScreen: View {
                 content
             }
             .navigationTitle("Beta")
+            .task { library.deletionObserver = syncRepository }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {

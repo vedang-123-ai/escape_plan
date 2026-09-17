@@ -46,13 +46,23 @@ final class HomeFingerprintTests: XCTestCase {
     /// this, `testAServerRoundTripDoesNotLookLikeAnEdit` would pass trivially if someone
     /// replaced the payload with a copy of the fixture.
     func testTheServerShapeGenuinelyDiffersFromTheFixtureBytes() throws {
-        let fixtureBytes = try Fixtures.data("bungalow")
         let stored = try HomeModel.decoder.decode(
             StoredHome.self, from: Data(Self.serverShapedBungalow.utf8))
-        let serverHomeBytes = try XCTUnwrap(
-            Self.serverShapedBungalow.data(using: .utf8))
 
-        XCTAssertNotEqual(fixtureBytes, serverHomeBytes)
+        // Compare the `home` SUB-OBJECT against the fixture, not the whole `StoredHome`
+        // envelope against it — the envelope differs by construction (it has `id`, `user_id`
+        // and `revision` around the home), so asserting on it could never fail and would prove
+        // nothing about the thing this file is actually about.
+        let envelope = try XCTUnwrap(
+            try JSONSerialization.jsonObject(
+                with: Data(Self.serverShapedBungalow.utf8)) as? [String: Any])
+        let serverHome = try XCTUnwrap(envelope["home"] as? [String: Any])
+        let fixtureHome = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: try Fixtures.data("bungalow")) as? [String: Any])
+
+        XCTAssertNotEqual(serverHome.count, fixtureHome.count,
+                          "the server's home must have MORE keys than the fixture, or there is "
+                        + "no byte difference for the fingerprint to see past")
         // And specifically: the explicit nulls and the filled-in `objects` array are present.
         XCTAssertTrue(Self.serverShapedBungalow.contains(#""confidence":null"#),
                       "the captured payload has lost the explicit nulls this test is about")
