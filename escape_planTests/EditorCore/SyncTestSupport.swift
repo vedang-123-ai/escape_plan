@@ -35,6 +35,7 @@ final class FakeCloudBackend: @unchecked Sendable {
     private var records: [String: Record] = [:]
     private var nextID = 1
     private var _failNextRequest: Int?
+    private var _failNextPost: Int?
     private var _failEveryRequest: Int?
     private var _requestCount = 0
     private var _authorizationHeaders: [String?] = []
@@ -44,6 +45,13 @@ final class FakeCloudBackend: @unchecked Sendable {
     var failNextRequest: Int? {
         get { lock.lock(); defer { lock.unlock() }; return _failNextRequest }
         set { lock.lock(); defer { lock.unlock() }; _failNextRequest = newValue }
+    }
+
+    /// Fail the next POST with this status, then clear. Unlike `failNextRequest` this lets
+    /// the `GET /homes` through, so a test can fail ONE push inside an otherwise healthy plan.
+    var failNextPost: Int? {
+        get { lock.lock(); defer { lock.unlock() }; return _failNextPost }
+        set { lock.lock(); defer { lock.unlock() }; _failNextPost = newValue }
     }
 
     /// Fail EVERY request with this status — the dead-session case.
@@ -111,10 +119,16 @@ final class FakeCloudBackend: @unchecked Sendable {
         let forcedEvery = _failEveryRequest
         let forcedOnce = _failNextRequest
         if forcedOnce != nil { _failNextRequest = nil }
+        var forcedPost: Int?
+        if request.httpMethod == "POST", let status = _failNextPost {
+            forcedPost = status
+            _failNextPost = nil
+        }
         lock.unlock()
 
         if let status = forcedEvery { return json(status: status, #"{"detail":"forced"}"#) }
         if let status = forcedOnce { return json(status: status, #"{"detail":"forced"}"#) }
+        if let status = forcedPost { return json(status: status, #"{"detail":"forced"}"#) }
 
         guard request.url?.path == "/homes" else {
             return json(status: 404, #"{"detail":"no such route"}"#)
