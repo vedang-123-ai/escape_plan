@@ -3,6 +3,8 @@ import SwiftUI
 
 struct HomeScreen: View {
     @Environment(APIClient.self) private var apiClient
+    @Environment(SyncManager.self) private var sync
+    @Environment(HomeDocumentSyncRepository.self) private var syncRepository
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @StateObject private var library: HomeLibrary
@@ -73,12 +75,28 @@ struct HomeScreen: View {
                         Label("Menu", systemImage: "ellipsis.circle")
                     }
                 }
+                ToolbarItem(placement: .topBarLeading) {
+                    SyncStatusBadge()
+                }
             }
             .task { 
+                // Sync writes pulled homes through this screen's library, and reads its
+                // `editor` to know which home is open so it never overwrites one mid-edit.
+                // Attached here because HomeScreen owns the library instance.
+                syncRepository.library = library
+
                 if activeHomeID == nil {
                     activeHomeID = library.homes.first?.id
                 }
                 await initialLoad() 
+            }
+            .onChange(of: sync.status) { _, status in
+                // A home that arrived from another device is on disk but not in this screen's
+                // list until something re-reads the directory. `writePulledHome` refreshes the
+                // library it holds; this covers the case where sync ran before the attach above.
+                guard case .synced(_, let outcome) = status, outcome.pulled > 0 else { return }
+                library.refresh()
+                if activeHomeID == nil { activeHomeID = library.homes.first?.id }
             }
             .onChange(of: activeHomeID) { _, _ in Task { await initialLoad() } }
                         .confirmationDialog("Select a room to re-check", isPresented: $showingRoomPicker, titleVisibility: .visible) {

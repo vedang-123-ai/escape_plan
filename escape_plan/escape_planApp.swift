@@ -26,6 +26,12 @@ struct escape_planApp: App {
         client: AuthClient(baseURL: APIClient.currentBaseURL()),
         store: KeychainTokenStore())
 
+    /// The bridge between the home documents on disk and the signed-in account's copies
+    /// (S8.4). Built here, alongside the AuthSession it reads its token from, so there is
+    /// exactly one of each per launch.
+    @State private var syncRepository: HomeDocumentSyncRepository
+    @State private var syncManager: SyncManager
+
     init() {
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-TEST_SEED_DEMO_HOME") {
@@ -47,6 +53,31 @@ struct escape_planApp: App {
             // the library simply starts empty, exactly as it did before.
             print("Starter-home seeding skipped: \(error)")
         }
+
+        // `try!` matches the existing convention for this call (`HomeScreen.init` and
+        // `BetaScreen.init` both do it): `HomeDocumentStore()` fails only when the Documents
+        // directory is unreachable, in which case the app has no persistence at all and the
+        // Home tab would crash a moment later regardless. This adds no failure mode that was
+        // not already there.
+        let repository = HomeDocumentSyncRepository(store: try! HomeDocumentStore())
+        _syncRepository = State(wrappedValue: repository)
+
+        // The session object is already constructed — stored-property defaults run before an
+        // initialiser body — so the token closure captures the same instance the views get.
+        let session = _authSession.wrappedValue
+        _syncManager = State(wrappedValue: SyncManager(
+            client: CloudHomesClient(baseURL: APIClient.currentBaseURL()),
+            repository: repository,
+            // A sidecar beside the home documents, NOT a field on HomeModel: tracking a synced
+            // revision inside the schema would be a `schema_version` bump, and sync progress is
+            // a fact about this device rather than a property of the home.
+            stateStore: (try? FileSyncStateStore()) ?? FileSyncStateStore(
+                url: FileManager.default.temporaryDirectory
+                    .appendingPathComponent(FileSyncStateStore.filename)),
+            tokenProvider: { session.token },
+            // A 401 means the JWT is dead. Signing out locally is what puts the user in front
+            // of a sign-in form instead of watching sync fail silently every launch.
+            onSessionExpired: { session.signOut() }))
     }
 
     var body: some Scene {
@@ -54,6 +85,8 @@ struct escape_planApp: App {
             RootView()
                 .environment(apiClient)
                 .environment(authSession)
+                .environment(syncManager)
+                .environment(syncRepository)
         }
     }
 }

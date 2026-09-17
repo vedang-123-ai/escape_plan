@@ -12,6 +12,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AuthSession.self) private var session
+    @Environment(SyncManager.self) private var sync
 
     var body: some View {
         Group {
@@ -36,6 +37,17 @@ struct RootView: View {
             // account was deleted. Failing is harmless: refresh() keeps the session on any
             // error short of an outright 401.
             await session.refresh()
+
+            // Then sync, once the server has confirmed who is signed in — a sync fired before
+            // `refresh()` would attach a token the server may have already rejected. Signed
+            // out, this does nothing at all and never touches the network.
+            await sync.syncIfSignedIn()
+        }
+        // Signing in (or registering) is the moment the account's homes become reachable, so
+        // it is the moment to go and get them. `syncIfSignedIn` is a no-op on the way out, so
+        // signing out does not fire a doomed request.
+        .onChange(of: session.state) { _, _ in
+            Task { await sync.syncIfSignedIn() }
         }
     }
 }
@@ -49,5 +61,6 @@ struct RootView: View {
                                  store: InMemoryTokenStore(),
                                  defaults: UserDefaults(suiteName: "preview.\(UUID().uuidString)")!))
         .environment(APIClient())
+        .previewSyncEnvironment()
 }
 #endif
