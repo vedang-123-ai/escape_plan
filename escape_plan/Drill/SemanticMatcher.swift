@@ -18,6 +18,118 @@ protocol LiveRoomExtractable {
     var extractedBoundingBox: (width: Float, depth: Float) { get }
 }
 
+/// One wall segment, as the matcher needs it and independent of RoomPlan.
+///
+/// This type exists so the wall-merging below can be TESTED. `CapturedRoom` is iOS-only, so
+/// anything written against it directly cannot run on a machine with no simulator — which is
+/// how the defect this fixes survived two audits that both correctly identified it.
+struct WallSegmentSample: Equatable, Sendable {
+    /// Midpoint, in the scan's horizontal plane.
+    var center: SIMD2<Float>
+    /// Unit vector along the wall.
+    var direction: SIMD2<Float>
+    var length: Float
+
+    init(center: SIMD2<Float>, direction: SIMD2<Float>, length: Float) {
+        self.center = center
+        self.direction = direction
+        self.length = length
+    }
+}
+
+/// Merges wall segments that are really one wall, then reports the longest.
+///
+/// ─── WHY MERGING IS NECESSARY ─────────────────────────────────────────────────────────────
+/// **RoomPlan splits a wall wherever a door or an opening interrupts it.** A 10 m living-room
+/// wall broken by two doorways arrives as three ~3 m segments. Taking the longest SEGMENT then
+/// picks an unbroken 4 m perpendicular wall instead, and since the matcher aligns the scan to
+/// the model by that wall's direction, the result is a permanent **90° rotation error** —
+/// silent, total, and only reproducible on a real scan. Raised as MEDIUM by the S9.1 audit,
+/// confirmed still-unfixed by the S9.2 audit, fixed 2026-09-16.
+///
+/// Segments are grouped when they are parallel AND collinear — same line, not merely the same
+/// bearing, or the two long sides of a corridor would merge into one. The merged length is the
+/// SPAN of the group along its own direction, so the doorway gaps are included: the wall is
+/// 10 m long whether or not you can walk through parts of it.
+enum WallGrouping {
+
+    /// `cos 10°`. RoomPlan's wall normals wobble by a few degrees on a real scan, so exact
+    /// parallelism finds nothing; 10° is loose enough to absorb that and tight enough that two
+    /// genuinely different walls never merge (the next interesting angle in a home is 45°).
+    static let parallelTolerance: Float = 0.985
+
+    /// Metres. Two segments of one wall can be offset by the wall's own thickness plus scan
+    /// noise; 0.25 m covers that without reaching the far side of any real room.
+    static let collinearTolerance: Float = 0.25
+
+    /// The longest wall, with its segments merged. `nil` when there is nothing usable.
+    static func longestWall(from segments: [WallSegmentSample])
+        -> (length: Float, normal: SIMD2<Float>, direction: SIMD2<Float>)? {
+
+        var groups: [[WallSegmentSample]] = []
+
+        for segment in segments where segment.length > 0 && segment.direction != .zero {
+            let direction = canonicalDirection(segment.direction)
+            var placed = false
+
+            for index in groups.indices {
+                let reference = canonicalDirection(groups[index][0].direction)
+                // `abs` because a wall scanned from the other side points the opposite way and
+                // is still the same wall.
+                guard abs(dot(direction, reference)) >= parallelTolerance else { continue }
+
+                // Parallel is not enough: the two long sides of a corridor are parallel and
+                // are emphatically not one wall. Require the same LINE, measured as the
+                // perpendicular offset between the segments' centres.
+                let normal = SIMD2<Float>(-reference.y, reference.x)
+                let offset = abs(dot(segment.center - groups[index][0].center, normal))
+                guard offset <= collinearTolerance else { continue }
+
+                groups[index].append(segment)
+                placed = true
+                break
+            }
+            if !placed { groups.append([segment]) }
+        }
+
+        var best: (length: Float, normal: SIMD2<Float>, direction: SIMD2<Float>)?
+        for group in groups {
+            // Take the direction from the group's longest member: it is the best-estimated of
+            // them, and using it keeps the merged direction stable as shorter noisy stubs join.
+            guard let longest = group.max(by: { $0.length < $1.length }) else { continue }
+            let direction = canonicalDirection(longest.direction)
+
+            // The span along the wall's own direction — endpoints projected onto it, so the
+            // doorway gaps between segments count toward the length.
+            var minProjection = Float.greatestFiniteMagnitude
+            var maxProjection = -Float.greatestFiniteMagnitude
+            for segment in group {
+                let half = segment.direction * (segment.length / 2)
+                for endpoint in [segment.center + half, segment.center - half] {
+                    let projection = dot(endpoint, direction)
+                    minProjection = min(minProjection, projection)
+                    maxProjection = max(maxProjection, projection)
+                }
+            }
+            let span = maxProjection - minProjection
+            guard span > (best?.length ?? 0) else { continue }
+            best = (length: span,
+                    normal: SIMD2<Float>(-direction.y, direction.x),
+                    direction: direction)
+        }
+        return best
+    }
+
+    /// Points a direction into a consistent half-plane, so a wall and the same wall scanned
+    /// from the other side group together. `match()` already tries both the computed rotation
+    /// and that rotation plus 180°, so collapsing the sign here costs nothing downstream.
+    static func canonicalDirection(_ direction: SIMD2<Float>) -> SIMD2<Float> {
+        let unit = normalize(direction)
+        if unit.x < 0 || (unit.x == 0 && unit.y < 0) { return -unit }
+        return unit
+    }
+}
+
 struct SemanticMatcher {
     init() {}
     
@@ -260,14 +372,15 @@ extension CapturedRoom: LiveRoomExtractable {
         return SIMD2<Float>((minX + maxX) / 2.0, (minZ + maxZ) / 2.0)
     }
     
+    /// Segments merged first — RoomPlan splits a wall at every doorway, and taking the longest
+    /// raw segment picks the wrong wall and rotates the whole scan 90°. See `WallGrouping`.
     var extractedLongestWall: (length: Float, normal: SIMD2<Float>, direction: SIMD2<Float>)? {
-        guard let longest = walls.max(by: { $0.dimensions.x < $1.dimensions.x }) else { return nil }
-        
-        let dir = SIMD2<Float>(longest.transform.columns.0.x, longest.transform.columns.0.z)
-        let norm = SIMD2<Float>(longest.transform.columns.2.x, longest.transform.columns.2.z)
-        let length = longest.dimensions.x
-        
-        return (length: length, normal: normalize(norm), direction: normalize(dir))
+        WallGrouping.longestWall(from: walls.map { wall in
+            WallSegmentSample(
+                center: SIMD2<Float>(wall.transform.columns.3.x, wall.transform.columns.3.z),
+                direction: SIMD2<Float>(wall.transform.columns.0.x, wall.transform.columns.0.z),
+                length: wall.dimensions.x)
+        })
     }
     
     var extractedDoorPositions: [SIMD2<Float>] {
