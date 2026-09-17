@@ -75,3 +75,17 @@ one a judge is most likely to assume was bought in or handed to a model.
 ## Content sources (grounding corpus, not code dependencies)
 
 Full index with URLs and retrieval dates: `backend/corpus/sources.json`. Orgs: NFPA (escape planning, smoke-alarm fire statistics, disability evacuation guide), USFA/FEMA (smoke alarms, escape plans, disability fire safety), American Red Cross (escape plan steps, two-minute campaign, planning fact sheet, tornado safety), ICC (2021 IRC §R310/§R311 egress requirements), USGS (earthquake preparedness), NOAA/NWS (tornado safety). All corpus content is paraphrased with per-claim citations.
+
+### iOS cloud sync (2026-09-16, S8.4)
+
+**No new dependencies.** Recorded explicitly because "syncs across devices" is the kind of
+feature a judge would reasonably assume was bought in — a sync SDK, a CRDT library, a
+backend-as-a-service.
+
+| Capability | Where it comes from | Note |
+|---|---|---|
+| `GET`/`POST /homes` client | `escape_plan/Sync/CloudHomesClient.swift` — `URLSession` | Same injected-session shape as `AuthClient`, which is what makes the wire contract testable with no simulator |
+| Conflict resolution | `escape_plan/Sync/SyncReconciler.swift` — a pure function, ~90 lines | Server-owned `revision` decides who is ahead; `meta.modified` breaks a genuine two-sided conflict, tie to the server. No CRDT, no operational transform, no sync framework |
+| Change detection | `escape_plan/Sync/HomeFingerprint.swift` — FNV-1a over a canonical re-encoding | ~15 lines. Non-cryptographic on purpose (a change detector, not a security primitive), which also keeps the directory free of a CryptoKit import so it still compiles as a Foundation-only package |
+| Sync-state persistence | `escape_plan/Sync/SyncState.swift` — `Codable` + `FileManager`, atomic writes | A versioned sidecar file. No database on the client |
+| The fake `/homes` backend the tests run against | `escape_planTests/EditorCore/SyncTestSupport.swift` — `URLProtocol` | Our own ~150-line stand-in implementing the two routes as `api_auth.py` defines them, so the real client is exercised rather than a protocol double. No HTTP-mocking library |
