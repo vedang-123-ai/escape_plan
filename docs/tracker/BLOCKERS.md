@@ -6,35 +6,26 @@ what actually stops the project from shipping, ranked by what is on the critical
 
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
-_Last verified 2026-09-15 on `s8-3-ios-auth-ui` (the S8.3 iOS auth session). **Re-run and green
-this session:** EditorCore **388** pass (was 295; **+93**, all of them S8.3's auth layer — the
-whole client, token store, session state machine, error mapping and validation are Foundation-only
-and symlinked into `tools/editorcore`, so they execute on a machine with no simulator). Backend
-**526** pass / 1 skipped / 13 deselected, unchanged — S8.3 touched no Python. Corpus valid (**24**
-sources, **9** files, **2** threshold files).
+_Last verified 2026-09-16 on `s8-4-ios-cloud-sync` (the S8.4 iOS cloud-sync session). **Re-run and
+green this session:** EditorCore **457** pass (was 388; **+69**, all of them S8.4's sync layer —
+the client, the reconciler, the fingerprint, the sidecar and the manager are Foundation-only and
+symlinked into `tools/editorcore`, so they execute on a machine with no simulator). Backend
+**526** pass / 1 skipped / 13 deselected, unchanged — S8.4 touched no Python. Corpus valid
+(**24** sources, **9** files, **2** threshold files), unchanged.
 
-**NEW this session — the whole iOS app type-checks.** `swiftc -typecheck` over all **150** files in
-`escape_plan/` against the iOS 26.5 simulator SDK, in **both** configurations (`-DDEBUG` and
-release): **exit 0, 0 errors** each. Warnings are all pre-existing and none are in new code.
-Running both matters — the release-only run never type-checks `SettingsScreen`'s `#if DEBUG`
-Developer section, and the DEBUG-only run misses code excluded from it. Command:
+`scripts/typecheck-ios.sh` green on all four targets against **iOS 17.0**: the app at **161**
+files in both `-DDEBUG` and release, `escape_planTests` at **70**, `escape_planUITests` at **9**.
 
-```bash
-find escape_plan -name '*.swift' > /tmp/srcs.txt
-xcrun swiftc -typecheck -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
-  -target arm64-apple-ios26.5-simulator -swift-version 5 @/tmp/srcs.txt
-```
-
-**Read that claim narrowly.** It is strictly more than the `swiftc -parse` the FIRST-PRIORITY
-brief rightly dismisses — it resolves every type, member and protocol conformance across the
-module, so the four previously-uncompiled bodies of Swift do now type-check. It is **not** a
-build (no SIL, no IRGen, no linking, no resource compilation) and it is **not** a test run. It
-does not close §0; it narrows what §0 still has to find.
+**Read that claim narrowly.** It resolves every type, member and protocol conformance across the
+module, so the new Swift does type-check. It is **not** a build (no SIL, no IRGen, no linking, no
+resource compilation) and it is **not** a test run. It does not close §0; it narrows what §0
+still has to find.
 
 **NOT run this session:** `xcodebuild test` — this machine cannot. The iOS count remains **615
 passed, 0 failed, 8 skipped** as of 2026-09-09 (`Test-escape_plan-2026.09.09_23-31-03--0700.xcresult`),
-which now predates five bodies of Swift including S8.3's. **S8.3 is NOT ticked in TODO.md** —
-all three of its acceptance criteria need a simulator. Treat it as stale, not as a pass.
+which now predates six bodies of Swift including S8.3's and S8.4's. **Neither S8.3 nor S8.4 is
+ticked in TODO.md** — their acceptance criteria need a simulator, and one of S8.4's needs two
+devices. Treat the 615 as stale, not as a pass.
 `RouteRedrawAfterEditUITests` run live separately with `TEST_RUNNER_ROUTE_REDRAW=1` against a local
 backend — still red, see §3._
 
@@ -59,11 +50,15 @@ backend — still red, see §3._
       Surfaced at the top of every new session by the SessionStart hook; clear it by setting
       `gate_status: closed` in `FIRST-PRIORITY.md`.
 
-      **Narrowed further 2026-09-16:** the two TEST targets now type-check too —
-      `escape_planTests` (64 files) and `escape_planUITests` (9) both clean against the app's
-      testable module, so `@testable import escape_plan` resolves and all 729 unit-test methods
-      and 14 UI-test methods reference real symbols. That removes the likeliest reason the
-      `xcodebuild` run would die in its first minute on a machine that is hard to get time on.
+      **Widened 2026-09-16 (S8.4):** make that FIVE bodies of Swift — S8.4's sync layer and its
+      UI badge landed the same day, so the run has one more thing to check and one more reason
+      to happen. See §2.
+
+      **Narrowed further 2026-09-16:** the two TEST targets type-check too — `escape_planTests`
+      (**70** files as of S8.4) and `escape_planUITests` (9) both clean against the app's
+      testable module, so `@testable import escape_plan` resolves and every unit-test and
+      UI-test method references real symbols. That removes the likeliest reason the `xcodebuild`
+      run would die in its first minute on a machine that is hard to get time on.
       Reproduce with `scripts/typecheck-ios.sh`.
 
       **Narrowed 2026-09-15 (S8.3), not cleared.** All 149 app files now `swiftc -typecheck`
@@ -113,13 +108,41 @@ backend — still red, see §3._
       iOS binary has been built or launched. Test account and home were created and are pending
       deletion by the owner (see the session note).
 
-- [ ] **S8.4 note: a home that has been through the server differs from the local one BY BYTES,
-      though not by value.** pydantic serialises absent optionals as explicit `null` and fills
-      `objects: []`, so the JSON that comes back has 21 keys the sent JSON did not — measured
-      2026-09-16 on `bungalow.json`. Swift decodes it to an **equal** `HomeModel`, so the model
-      layer is fine, but any S8.4 dirty-check or merge that compares **encoded JSON** rather
-      than decoded models will see every synced home as permanently modified. Compare models,
-      or compare `revision`.
+- [x] ~~**S8.4 note: a home that has been through the server differs from the local one BY BYTES,
+      though not by value.**~~ **HANDLED 2026-09-16 in S8.4.** The dirty check is
+      `HomeFingerprint`, which canonically re-encodes the **decoded** `HomeModel` and digests
+      that, so a byte-different-but-equal copy fingerprints identically and never reads as an
+      edit. `HomeFingerprintTests.testAServerRoundTripDoesNotLookLikeAnEdit` pins it against the
+      REAL bytes `model_dump_json()` emits for `bungalow.json` — not a hand-written
+      approximation — and a companion test asserts those bytes genuinely differ from the fixture
+      so the first one cannot pass vacuously. Original finding: pydantic serialises absent
+      optionals as explicit `null` and fills `objects: []`, so the JSON that comes back has 21
+      keys the sent JSON did not; any dirty-check comparing encoded JSON would have marked every
+      synced home permanently modified.
+
+- [ ] **S8.4's acceptance criterion 2 CANNOT be met on this machine: "App pulls down homes
+      created on other devices" needs two physical devices.** There is one. What the rule
+      reduces to is tested — `SyncManagerTests.testAHomeCreatedOnAnotherDeviceIsWrittenToThisOne`
+      drives the real `CloudHomesClient` against a fake `/homes` backend and asserts the home
+      lands verbatim, under the same `home_id`, with `meta.modified` intact — and
+      `testAPulledHomeIsNotImmediatelyPushedBack` proves it does not bounce straight back. **A
+      test is not a second phone.** What remains unknown is everything between the two: whether
+      device B's `GET /homes` actually returns device A's record from live Atlas, whether the
+      schema `home_id` really survives both round trips, and whether two real devices converge
+      rather than fighting. Next action: sign the same account in on two phones, create a home on
+      A, sync, sync on B, confirm it arrives with the same `home_id` and the same
+      `meta.modified`. Then edit it on both while offline and sync both, to exercise the
+      last-write-wins tiebreak against real clocks.
+
+- [ ] **S8.4's other two criteria are simulator-gated, like S8.3's.** "`HomeModel` changes are
+      successfully pushed to `/homes`" has only ever run against `AuthStubURLProtocol`; no iOS
+      binary has been built or launched, so the app has never sent a real request to the deployed
+      backend. (The wire contract itself WAS walked by hand on 2026-09-16 — see the closed item
+      at the top of this section — which proves the contract, not the app.) "Sync state correctly
+      reflects in the UI" rests on `SyncStatusBadge`, which **has never been rendered**: its
+      layout, its popover, the `.symbolEffect(.pulse)` spinner and its VoiceOver value are all
+      unobserved. Next action: run the app, sign in, and walk sync → edit → sync while watching
+      the badge.
 
 - [ ] **Nothing has ever run below iOS 26.5, and the deployment target is now 17.0.**
       Changed 2026-09-16 (see §3) because 26.5 was an Xcode default that would have made the
@@ -513,10 +536,12 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       `hashed_password=None` must never authenticate — that is an explicit acceptance criterion,
       not an implementation detail.
 
-- [ ] **`pymongo`'s command logger writes whole documents at DEBUG.** Harmless today
-      (`logging.basicConfig(level=logging.INFO)`), but once S8.4 syncs homes, raising the root
-      level to DEBUG would write users' home layouts into the logs. Pin the pymongo logger to INFO
-      before then.
+- [ ] **`pymongo`'s command logger writes whole documents at DEBUG — and as of 2026-09-16 those
+      documents are users' homes.** Still harmless at the configured level
+      (`logging.basicConfig(level=logging.INFO)`), but this line was written as "before S8.4
+      syncs homes" and **S8.4 has now landed**, so the hypothetical is real: raising the root
+      level to DEBUG for any reason would write users' home layouts into the logs. Pin the
+      pymongo logger to INFO. This is now a ship blocker for the backend, not a note.
 
 - [ ] **The S8 arc now competes with the device pass for the weeks before Oct 24.** **Updated
       2026-09-15:** the backend half is finished and verified end-to-end (S8.1 + S8.2, deployed

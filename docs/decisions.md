@@ -1639,3 +1639,68 @@ kitchens. Scope discipline: no new colour (the hint uses `DS.supporting`), no ne
 **Not done here:** the placement improvement helps only where the scan found an anchor. The
 general fix is the same one the S7.9 NO-GO leaves open — better identification of scanned
 objects — and it stays open.
+
+---
+
+## 2026-09-16 — S8.4: sync compares VALUES, and the JWT stays on `/homes`
+
+Four rulings from the iOS cloud-sync session, each one a place the obvious implementation is
+wrong in a way that would not show up until it was in a user's hands.
+
+**1. The dirty check is a fingerprint of the DECODED model, never of bytes.**
+A home that has been through the server differs from the local one by bytes but not by value:
+pydantic serialises absent optionals as explicit `null` and fills `objects: []` (measured
+2026-09-16, 21 extra keys on `bungalow.json`). `HomeFingerprint` therefore canonically
+re-encodes the decoded `HomeModel` — sorted keys, ISO-8601 dates — and digests that. Two models
+that are `==` always fingerprint identically, which is exactly the property a dirty check needs
+and exactly what a hash of the stored JSON would not give. A byte comparison would have marked
+every synced home permanently modified and re-uploaded the user's whole library on every sync.
+`HomeFingerprintTests` pins it against the real bytes `model_dump_json()` emits, so a change in
+pydantic's serialisation surfaces there rather than as mystery traffic.
+
+It is FNV-1a, not SHA-256: this is a change detector, nothing trusts it against an adversary,
+and a non-cryptographic digest avoids a CryptoKit import in a directory that must stay pure
+Foundation.
+
+**2. The per-user JWT is attached to `/homes` only — the playbook's "all requests" is wrong.**
+`S8-4.md` WHAT-TO-ADD #1 says to attach the bearer token to every request. The deterministic
+endpoints (`/routes`, `/score`, `/convert`, `/evacuate`, `/chat`) are guarded by the *shared*
+`BACKEND_BEARER_TOKEN` — "this build may talk to this server" — while the cloud endpoints use a
+*per-user* JWT — "this request is this user". `backend/app/api_auth.py` deliberately does not
+layer them. Mixing them would work today and break silently the moment that stops being true.
+Enforced structurally rather than by convention: `CloudHomesClient` is the only code that
+attaches a JWT and it can only construct `/homes` URLs. `APIClient` is untouched.
+
+**3. Conflicts are settled by `revision` first, `meta.modified` only as the tiebreak, and a tie
+goes to the server.**
+`revision` is a monotonic counter the server owns, so it is the only trustworthy answer to "is
+the server ahead of what I last saw?" — two devices' clocks disagree by far more than the
+interval between edits. But it cannot settle a genuine conflict (edited here *and* there),
+because by construction both sides are ahead; only there does last-write-wins on `meta.modified`
+apply. An exact tie resolves to the server on every device, deliberately: if each device
+preferred its own copy, two devices would trade the same home back and forth forever,
+incrementing the revision on every exchange and never converging.
+
+**4. Sync state lives in a sidecar file, not on `HomeModel`.**
+`<Documents>/sync-state.json`, versioned, holding one record per home (remote id, synced
+revision, synced fingerprint, timestamp). Adding `last_synced_revision` to the schema would have
+been a `schema_version` bump with matching pydantic and Swift changes and a
+`schema-contract-guardian` run — and it would have been wrong regardless: sync progress is a
+fact about *this device*, two devices legitimately disagree about it, and a device-local fact
+stored inside a synced document is overwritten by the very sync it describes. Nothing under
+`schema/`, `backend/app/models.py` or `escape_plan/Models/` changed in this session.
+
+**Also ruled here.** A pulled home is written with `now: home.meta.modified` so it lands
+verbatim — the default stamp would make it look newer than the server's copy and push it
+straight back, which is an infinite loop between two devices with nobody editing anything.
+Duplicate server records for one `home_id` (two devices both creating before either syncs; the
+backend has no uniqueness constraint on a field inside the document) collapse client-side to
+highest revision, then latest `updated_at`, then lowest record id — deterministic so every
+device picks the same winner. A pull never overwrites the home open in the editor. And
+`SyncFailure` is a third error type beside `BackendFailure` and `AuthFailure` for the reason
+`AuthFailure` is the second one: a 401 here means "your session expired, re-authenticate", which
+is neither "wrong password" nor "open Settings".
+
+**What this session did NOT do, stated so the tracker cannot drift:** no iOS binary was built or
+launched, the sync badge has never been rendered, and "pulls down homes created on other
+devices" needs two phones. S8.4 is **not ticked**. See `BLOCKERS.md` §2.
