@@ -2107,3 +2107,14 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - e4a094e BLOCKERS: a closed S8.2 item was carrying an open checkbox
   - 81aabd8 Tracker: close two §3 defects and the pymongo line, with what is still unverified
 
+## 2026-09-17T07:01:24Z · vedang-123-ai · `main` @ `72bf34e`
+
+**Commits this session**
+  - 72bf34e Seed the fixtures once: last_scanned, the sensory tags, pet, and a second household
+  - 7ac4e98 Routing: a wall-mounted object no longer erodes walkable floor
+  - 85c1194 /verify: read the result bundle, use the venv, and stop claiming a simulator
+  - 5531427 Delete 13 one-shot patch_*.py scratch scripts from the repo root
+
+**Uncommitted working-tree changes (1)**
+  - M backend/tests/test_profiles.py
+
