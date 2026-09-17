@@ -134,6 +134,18 @@ backend — still red, see §3._
       `meta.modified`. Then edit it on both while offline and sync both, to exercise the
       last-write-wins tiebreak against real clocks.
 
+- [ ] **Sync fires at launch, on sign-in, and on a badge tap — an EDIT does not trigger one.**
+      Deliberate for now, and recorded so it is a decision rather than a gap someone finds
+      during filming. There are exactly three call sites (`RootView.task`,
+      `RootView.onChange(of: session.state)`, `SyncStatusBadge`), so a home edited and left alone
+      reaches the server on the next launch or the next deliberate tap, not immediately. There is
+      also no sync on returning from background. Hooking sync to the editor's autosave is the
+      obvious next step and was left out on purpose: autosave fires on a debounce during active
+      editing, and a push per debounce would mint a server revision every few seconds and burn
+      Render's free tier on a home nobody has finished changing. Next action: decide the trigger
+      deliberately — most likely on editor CLOSE plus a foreground observer — rather than wiring
+      it to autosave because autosave was there.
+
 - [ ] **S8.4's other two criteria are simulator-gated, like S8.3's.** "`HomeModel` changes are
       successfully pushed to `/homes`" has only ever run against `AuthStubURLProtocol`; no iOS
       binary has been built or launched, so the app has never sent a real request to the deployed
