@@ -261,7 +261,8 @@ final class PersistenceTests: XCTestCase {
 
     func testMigrationUpgradesAOneOhDocumentToCurrentAndItDecodes() throws {
         // The real upgrade path: every pre-revamp home on disk is a 1.0 document.
-        // 1.0 → 1.1 only re-stamps the version (floor.objects defaults to []).
+        // It now chains 1.0 → 1.1 → 2.0; both steps only re-stamp the version, because
+        // every field either half added is optional with a decoder-side default.
         let old = try XCTUnwrap(
             PersistenceFixtures.document("bungalow").body.setting("schema_version", to: .string("1.0"))
         )
@@ -271,6 +272,15 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(model.schema_version, SchemaMigrator.currentVersion)
         XCTAssertTrue(model.floors.allSatisfy { $0.objects.isEmpty },
                       "a migrated 1.0 document has no objects yet")
+    }
+
+    func testTheTwoCurrentVersionConstantsAgree() {
+        // ModelSupport.currentSchemaVersion (what the editor stamps on new homes) and
+        // SchemaMigrator.currentVersion (what the loader will accept) are separate literals
+        // that must be bumped together. If they drift, EditorValidation rejects every home
+        // the migrator just successfully upgraded — a total editor outage. Only the migrator's
+        // half was pinned to the schema before S6.1.
+        XCTAssertEqual(HomeModel.currentSchemaVersion, SchemaMigrator.currentVersion)
     }
 
     func testCurrentVersionMatchesTheSchemaContract() throws {

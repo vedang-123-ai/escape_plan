@@ -2145,4 +2145,20 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Commits this session**
   - fadd4a9 S11 baseline: reframe the playbook around prevention and readiness, refresh the Claude config
   - 21ade24 Merge remote-tracking branch 'origin/main' into s11-0-baseline
+## 2026-09-05T23:39:18Z · vedang-123-ai · `main` @ `2e1e4ef`
+
+**Commits this session**
+  - 2e1e4ef Activity log (hook appends)
+  - 5e06aee Tracker: pivot approved; script + handoff are the two open consequences
+  - f26f82f Scope: multi-peril approved — fire, earthquake, severe weather
+  - f3c455f Tracker: S6 merge integration + prompt audit, and the two things left open
+  - 869afb9 CLAUDE.md: name the scope-lock contradiction instead of leaving it silent
+  - ef0f03f Playbook S6: fix references that would break a paste-ready session
+
+## 2026-09-06T02:32:56Z · vedang-123-ai · `s6-1-schema-2-0` @ `ec75a2c`
+
+**Commits this session**
+  - ec75a2c Tracker: S6.1 gate numbers — backend 339, EditorCore 270, iOS 589/0/8
+  - c03d96c S6.1 close-out: mappings doc, decisions, tracker, session note
+  - 6c98641 Tests for every 2.0 invariant, plus the guard that would have caught today's drift
 

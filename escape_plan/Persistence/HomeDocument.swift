@@ -33,12 +33,14 @@ struct HomeDocument: Equatable, Sendable {
         try self.init(data: encoder.encode(model))
     }
 
-    /// Decodes the document into a Codable HomeModel (ISO-8601 dates, matching the schema
-    /// and every committed fixture).
+    /// Decodes the document into a Codable HomeModel.
+    ///
+    /// Uses `HomeModel.decoder` rather than a locally-built one. This is the path that runs
+    /// when a home is loaded from disk or imported from a share sheet, so it must accept
+    /// exactly what the model layer accepts — it previously built its own `.iso8601` decoder
+    /// and could have diverged silently.
     func decode<Model: Decodable>(as type: Model.Type) throws -> Model {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(type, from: serialized())
+        try HomeModel.decoder.decode(type, from: serialized())
     }
 
     /// Canonical on-disk / export bytes: pretty-printed, key-sorted, stable.
@@ -72,7 +74,7 @@ struct HomeDocument: Equatable, Sendable {
     /// `meta.modified` — ISO-8601 per the schema.
     var modified: Date? {
         guard let raw = body["meta"]?["modified"]?.stringValue else { return nil }
-        return ISO8601DateFormatter.homeModel.date(from: raw)
+        return ISO8601DateFormatter.parseHomeModelDate(raw)
     }
 
     /// Returns a copy with `home_id`, `name` and `meta.modified` replaced.
@@ -109,9 +111,10 @@ struct HomeSummary: Identifiable, Equatable, Sendable {
 
 extension ISO8601DateFormatter {
     /// The schema's `date-time` format (e.g. `2026-07-10T12:00:00Z`).
-    static let homeModel: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
+    ///
+    /// Parsing goes through `parseHomeModelDate`, which also accepts fractional seconds —
+    /// a whole-seconds-only formatter here meant an unparseable `meta.modified` returned nil
+    /// and the home sorted to `.distantPast` at the bottom of the library, with no error
+    /// anyone would ever see.
+    static let homeModel: ISO8601DateFormatter = homeModelWhole
 }

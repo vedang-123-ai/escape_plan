@@ -173,14 +173,17 @@ final class HomeModelCodableTests: XCTestCase {
             dict["stairs"] = dict["stairs"] ?? []
             dict["profiles"] = dict["profiles"] ?? []
         }
-        // A floor: openings and (v1.1) objects both default to [].
+        // A floor: openings and (v1.1) objects both default to [], as does (v2.0)
+        // safety_points.
         if dict["level"] != nil, dict["rooms"] != nil {
             dict["openings"] = dict["openings"] ?? []
             dict["objects"] = dict["objects"] ?? []
+            dict["safety_points"] = dict["safety_points"] ?? []
         }
-        // An object: rotation_deg defaults to 0.
+        // An object: rotation_deg defaults to 0 and (v2.0) secured to false.
         if dict["category"] != nil, dict["size_m"] != nil {
             dict["rotation_deg"] = dict["rotation_deg"] ?? 0
+            dict["secured"] = dict["secured"] ?? false
         }
         if dict["viable"] != nil {
             dict["reasons"] = dict["reasons"] ?? []
@@ -189,6 +192,20 @@ final class HomeModelCodableTests: XCTestCase {
         // treats absent and null identically (default: null).
         if dict["created"] != nil, dict["address_optional"] is NSNull {
             dict["address_optional"] = nil
+        }
+        // Same for (v2.0) last_scanned: absent and null are the same "never scanned".
+        if dict["created"] != nil, dict["last_scanned"] is NSNull {
+            dict["last_scanned"] = nil
+        }
+        // A household: existing_equipment defaults to [], and the mirror omits a nil tenure
+        // rather than writing an explicit null. No fixture exercises either today, so this
+        // arm exists so the first one that does is not a spurious failure.
+        if dict["floors"] != nil, dict["household"] is NSNull {
+            dict["household"] = nil
+        }
+        if dict["tenure"] != nil || dict["existing_equipment"] != nil {
+            dict["existing_equipment"] = dict["existing_equipment"] ?? []
+            if dict["tenure"] is NSNull { dict["tenure"] = nil }
         }
 
         for (k, v) in dict {

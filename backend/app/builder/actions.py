@@ -23,7 +23,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from app.models import EXTERIOR_ID, HomeModel
+from app.models import EXTERIOR_ID, SCHEMA_VERSION, HomeModel
 
 AI_CONFIDENCE = 0.5
 EPS = 1e-6
@@ -111,7 +111,7 @@ def opening_span(center_t: float, width_m: float, edge_length: float) -> tuple[f
 
 def new_draft(name: str, home_id: str, now_iso: str) -> dict[str, Any]:
     return {
-        "schema_version": "1.1",
+        "schema_version": SCHEMA_VERSION,
         "home_id": home_id,
         "name": name,
         "floors": [],
