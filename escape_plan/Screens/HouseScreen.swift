@@ -39,6 +39,20 @@ struct HouseScreen: View {
     @Environment(APIClient.self) private var apiClient
     @Environment(\.dismiss) private var dismiss
 
+    /// App-scoped, so sync knows which home is open regardless of which of the three entry
+    /// points opened it. `HomeLibrary.editor` cannot answer this — the House tab's own
+    /// initialiser passes `library: nil`, and Beta and Home each own a different library.
+    @Environment(HomeDocumentSyncRepository.self) private var syncRepository
+
+    @Environment(SyncManager.self) private var sync
+
+    /// Whether the user actually changed the home since this screen appeared.
+    ///
+    /// Gates the sync on close. Without it, every tab switch away from the House tab would
+    /// fire a `GET /homes` at a free-tier service measured at a 42 s cold start, for a home
+    /// nobody touched.
+    @State private var didCommitSinceAppear = false
+
     @State private var session: EditorSession?
     @State private var loadError: String?
     @State private var saveError: String?
@@ -233,6 +247,20 @@ struct HouseScreen: View {
             evacuateTask?.cancel()
             playback.pause()
             unregisterFromLibrary()
+
+            // Closing the editor is the moment to push. Deliberately NOT hooked to autosave:
+            // that fires on a debounce DURING editing, so a push per autosave would mint a
+            // server revision every few seconds for a home nobody has finished changing, and
+            // burn a free-tier service doing it. Closing is the first moment the user is
+            // plausibly done.
+            //
+            // `unregisterFromLibrary()` runs first on purpose — it clears the open-home guard,
+            // so this sync is allowed to write a pulled copy of the home just released rather
+            // than skipping it as "open in the editor".
+            if didCommitSinceAppear {
+                didCommitSinceAppear = false
+                Task { await sync.syncIfSignedIn() }
+            }
         }
         .sheet(isPresented: $addStairsSheetPresented) {
             if let session {
@@ -2210,9 +2238,14 @@ struct HouseScreen: View {
                 newSession.undoStack.recordCommit(_commit)
                 autosave(newStore, documentStore: documentStore)
                 invalidateRoutes()
+                didCommitSinceAppear = true
             }
             session = newSession
             library?.editor = newSession
+            // Tell sync before the first autosave: a pull that landed between here and the
+            // next frame would otherwise write the server's copy over the file this editor is
+            // about to save into.
+            syncRepository.openHomeID = newStore.model.home_id
             // A brand-new home has nothing on disk yet — write it immediately so it shows up
             // in the home list without waiting for the first edit.
             if homeID == nil {
@@ -2243,6 +2276,12 @@ struct HouseScreen: View {
     private func unregisterFromLibrary() {
         if let library, library.editor === session {
             library.editor = nil
+        }
+        // Clear the sync guard only if it still names OUR home. Two editors can exist across
+        // a tab switch, and clearing unconditionally would unlock a home the other one has
+        // open.
+        if syncRepository.openHomeID == session?.store.model.home_id {
+            syncRepository.openHomeID = nil
         }
     }
 

@@ -29,6 +29,21 @@ scratch files.
 - `Capture/` — RoomPlan LiDAR capture + raw JSON/USDZ exporter matching the converter contract.
 - `Networking/` — `APIClient` (base URL + bearer token, `/health`) plus sibling extensions:
   `APIClient+Routes`, `+Chat`, `+Score`. Keep new endpoints as new extension files.
+- `Auth/` — S8.3 accounts: `AuthClient` (`/auth/register` `/auth/login` `/auth/me`),
+  `AuthSession` (the state machine — restore, sign in, register, refresh, sign out),
+  `KeychainTokenStore`, `AuthFailure`, `AuthValidation`, `FormURLEncoding`. **Pure Foundation,
+  no SwiftUI or UIKit** — the directory is symlinked into `tools/editorcore` as
+  `Sources/EditorCore/Auth`, so `swift test` covers it on a machine with no simulator. Adding a
+  SwiftUI import here silently removes that coverage. Screens live in `Screens/Auth/`.
+- `Sync/` — S8.4 cloud sync: `CloudHomesClient` (`GET`/`POST /homes`), `SyncReconciler` (the
+  pure function deciding each home's direction), `SyncManager` (the observable run + status),
+  `HomeFingerprint`, `SyncState` (the sidecar), `SyncFailure`. **Pure Foundation, no SwiftUI or
+  UIKit** — symlinked into `tools/editorcore` as `Sources/EditorCore/Sync`, exactly like
+  `Auth/`, so `swift test` covers it with no simulator. Two rules that are easy to break:
+  the per-user JWT goes on `/homes` and nowhere else (the deterministic endpoints are on the
+  shared-bearer axis), and the dirty check fingerprints the **decoded model**, never bytes — a
+  server round trip differs by bytes but not by value. App-side adapter is
+  `Persistence/HomeDocumentSyncRepository.swift`; the badge is `Screens/SyncStatusBadge.swift`.
 - `Screens/` — the tab shell + per-home sub-screens.
 
 ## Screen → session ownership (non-obvious after the five-lane merge)
@@ -41,6 +56,8 @@ scratch files.
 | `ScoreScreen` | S3.5 | preparedness score; backend does all the math |
 | `ProfilesScreen` / `ProfileEditorView` | S3.4 | per-home family profiles CRUD |
 | `SettingsScreen` | S0.3 | app-global config |
+| `SyncStatusBadge` | S8.4 | the cloud glyph in the Home tab's toolbar. Tapping syncs and shows the detail popover. Sync is never a wall — it is a badge and a sentence, never a modal |
+| `AuthGateView` / `LoginView` / `SignupView` | S8.3 | accounts. The gate is SOFT — "Continue without an account" is a real button, and the app is fully usable without one. `RootView` chooses gate vs `ContentView`; `AuthSheetView` is the same flow from Settings |
 
 ## Hard rules (from rules/languages/swift.md — don't relearn them the hard way)
 

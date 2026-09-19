@@ -95,6 +95,34 @@ def object_contains(obj: FloorObject, p: Point) -> bool:
     return abs(local_x) <= w / 2 and abs(local_y) <= d / 2
 
 
+def obstructs_floor(obj: FloorObject) -> bool:
+    """Whether an object takes floor away from someone walking past it.
+
+    **A `mounted` object does not.** `mounted` is the schema's answer to "how is
+    this installed" (v2.1, S7.1) — a wall-mounted TV, a ceiling fixture, a
+    floating shelf — as opposed to `secured`, which answers "is it strapped
+    down". Something hanging on a wall is not standing on the floor, so the floor
+    beneath it is walkable and routing must not erode it.
+
+    Without this the rasterizer blocks any footprint it is handed, whatever its
+    elevation: moving `jagged.json`'s `o_u_tv_over_bed` into the middle of the
+    room drops that room's free cells **5476 → 5296**, purely because a television
+    is bolted to the wall 1.35 m up. The fixture hides it today only because the
+    TV overlaps the bed, which is blocked anyway — so the bug was real, latent,
+    and invisible to every test.
+
+    **What this deliberately does NOT model:** how far a mounted object protrudes.
+    A deep wall cabinet at chest height is treated as not obstructing, the same as
+    a flat TV. Modelling that needs a body-envelope check the engine has no
+    concept of, and the error is small and in the safe direction for egress —
+    routing may offer a path a shoulder brushes, never one that does not exist.
+    `elevation_m` is intentionally unused here for the same reason: a floor-
+    standing object always has `elevation_m == 0`, and a raised one that is not
+    mounted (a box on a table) is still something you cannot walk through.
+    """
+    return not obj.mounted
+
+
 def objects_intersecting(polygon: Polygon, objects: list[FloorObject]) -> list[FloorObject]:
     """Objects whose bounding circle overlaps the room's bounding box — a cheap,
     conservative filter (false positives cost only rasterization time)."""
@@ -133,7 +161,7 @@ def build_room_grid(
             center = (min_x + (c + 0.5) * CELL_M, min_y + (r + 0.5) * CELL_M)
             if not point_in_polygon(poly, center):
                 continue
-            if any(object_contains(o, center) for o in objects):
+            if any(object_contains(o, center) for o in objects if obstructs_floor(o)):
                 continue
             open_cells[r * cols + c] = True
 

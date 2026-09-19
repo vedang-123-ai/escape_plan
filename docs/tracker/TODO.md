@@ -70,11 +70,28 @@ This is the single source of truth for open work. It replaces the old `board.md`
 
 
 
+**FIRST PRIORITY — Anish / Yuki, before anything else**
+- [ ] Run the iOS suite on a working simulator and record the real count from the result bundle
+      (not the console). Then fix the two reviewed defects in `BLOCKERS.md` §3. Full brief:
+      [`FIRST-PRIORITY.md`](FIRST-PRIORITY.md). Four bodies of Swift are unverified; the machine
+      this was last worked on cannot run the simulator.
+
 **S8 Cloud Sync & Authentication Arc**
-- [ ] S8.1 — Backend: MongoDB integration and user schemas.
-- [ ] S8.2 — Backend: Authentication (JWT/OAuth) and endpoint securing.
-- [ ] S8.3 — iOS: Auth UI (Login/Signup).
-- [ ] S8.4 — iOS: Cloud sync for HomeModels (upload/download/merge).
+- [x] S8.1 — Backend: MongoDB integration and user schemas. **DONE 2026-09-14.** `app/database.py` (PyMongo async, NOT Motor — EOL 2026-05-14), `app/cloud_models.py` (`User`, `StoredHomeModel`), `lifespan`-owned pool, open `/health/db`. Backend **426** not-live pass (was 394; +32). ~~**Unverified: never run against a real MongoDB server**~~ — **VERIFIED 2026-09-15** against a live Atlas M0: `/health/db` returns `{"database":"ok","db_name":"escape_plan"}`, documents written and read. `MONGODB_URI` lives in the gitignored root `.env` and is **still unset on Render**. See `BLOCKERS.md`. **S8.2 unblocked.**
+- [x] S8.2 — Backend: Authentication (JWT/OAuth) and endpoint securing. **DONE 2026-09-14.** Argon2id hashing, HS256 JWTs, `get_current_user`, `/auth/register` `/auth/login` `/auth/me`, `GET|POST /homes`. Backend **519** not-live pass (was 442; +77). ~~**Unverified: never run against a real MongoDB**, so the unique email index is written but unproven~~ — **VERIFIED 2026-09-15** on live Atlas: `uniq_email` exists with `unique=True`, register→201 / duplicate→409 / login→token / `/auth/me`→no hash / wrong password→401, and a schema-2.1 home round-tripped through BSON semantically identical. **`backend/tests/test_cloud_mongo.py` now re-checks all of it: 22 tests, `pytest -m mongo`, green against live Atlas 2026-09-15** (deselected from the default gate). Four defects found and fixed in that pass — BSON ms-truncation, `_id` on the wire, `created_at` overwritten on update, and 500-instead-of-503 when the database is unreachable. See `decisions.md`. **S8.3 and S8.4 unblocked.**
+- [ ] S8.3 — iOS: Auth UI (Login/Signup). **Code complete 2026-09-15; acceptance is device-gated, so NOT ticked.** `escape_plan/Auth/` (`AuthClient`, `AuthSession`, `KeychainTokenStore`, `AuthFailure`, `AuthValidation`, `FormURLEncoding`) is pure Foundation and symlinked into `tools/editorcore`, so it is tested rather than merely written: EditorCore **388** pass, up from 295 (**+93**). Screens in `Screens/Auth/` plus `RootView`; Settings gained an Account section. The **gate is soft** — "Continue without an account" is a first-class button (see `decisions.md`). Whole app `swiftc -typecheck`s clean against the iOS 26.5 SDK in **both** the DEBUG and release configurations.
+      **Why this stays unticked:** all three acceptance criteria need a simulator. "Register and log in **from the iOS app**" has only ever run against a stubbed transport; no app binary has been built or launched. "Token persists across app restarts" rests entirely on `KeychainTokenStore`, which **has never executed on any platform** — the relaunch tests construct a second `AuthSession` over the same in-process store, which proves the state machine re-reads it and nothing about persistence. Error messages are mapped and tested but never rendered. See `BLOCKERS.md` §2. Tick this only after the device pass. **S8.4 is unblocked** regardless (`AuthSession.token` is what it attaches).
+- [ ] S8.4 — iOS: Cloud sync for HomeModels (upload/download/merge). **Code complete 2026-09-16; acceptance is device-gated, so NOT ticked.** `escape_plan/Sync/` (`CloudHomesClient`, `SyncReconciler`, `SyncManager`, `HomeFingerprint`, `SyncState`, `SyncFailure`) is pure Foundation and symlinked into `tools/editorcore`, so it is tested rather than merely written: EditorCore **478** pass, up from 388 (**+90**). App side is `Persistence/HomeDocumentSyncRepository.swift` plus a `SyncStatusBadge` in the Home tab; wired in `escape_planApp`, `RootView`, `HomeScreen`, `SettingsScreen`. All four iOS targets `swiftc -typecheck` clean against **iOS 17.0** (`scripts/typecheck-ios.sh`). Backend **526** pass and corpus valid, both unchanged — S8.4 touched no Python and no schema.
+      **Decisions (see `decisions.md` 2026-09-16):** the JWT is attached to `/homes` ONLY, not to every request as WHAT-TO-ADD #1 says — the deterministic endpoints are on the shared-bearer axis. The dirty check fingerprints the **decoded model**, never bytes, because a server round trip differs by bytes and not by value. Conflicts use `revision` first and `meta.modified` only as a tiebreak, with an exact tie going to the server so two devices converge. Sync state is a **sidecar** (`<Documents>/sync-state.json`), not a schema field, so there is no `schema_version` bump and no `schema-contract-guardian` run owed.
+      **Reviewed before merge** (`swift-scenekit-reviewer` + `session-auditor`): **six data-loss
+      or data-resurrection defects found, all fixed with a regression test each** — the factory
+      starter home overwriting a month of the user's edits on every device (fixed home_ids plus
+      an install-time `meta.modified`), an unscoped sidecar leaking one account's record ids to
+      the next user, an editor-open guard bypassed by two of three entry points, an unreachable
+      "session expired" message, a silently destroyed losing conflict, and deleted homes coming
+      back. Five of the six passed review-free because the in-memory test double could not
+      reproduce the hazard. See the session note.
+      **Why this stays unticked:** "changes are pushed to `/homes`" and "sync state reflects in the UI" have only ever run against a stubbed transport and a type-checker — no iOS binary has been built or launched, and `SyncStatusBadge` has never been rendered. **"App pulls down homes created on other devices" needs two physical devices** and cannot be satisfied on this machine at all; what the rule reduces to is tested, but a test is not a second phone. See `BLOCKERS.md` §2. Tick this only after the device pass.
 
 **S9 Semantic Relocalization Arc**
 - [x] S9.1 (Scoping) — Pivot architecture to Semantic Relocalization. Erase S8, rewrite S9 playbooks. (Done 2026-09-14)
@@ -760,6 +777,11 @@ item is closed by S4.4 Lane B: `APIClient` now defaults to the deployed Render U
       the app description + "what we learned" answers. (S5.3)
 
 ## Process & repo hygiene
+
+- [ ] **Add a device compile to the green gate.** Everything RoomPlan is behind
+      `!targetEnvironment(simulator)`, so simulator builds and all tests skip it; `4eb4041` broke
+      the device build for five days unnoticed (fixed 2026-09-14). Next action: add
+      `xcodebuild build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` to `/verify`.
 
 - [x] **`.build-assess/` is tracked in git — 2,826 derived-data files.** Committed in `ce18f63`
       (2026-07-22) before `.build-*/` reached `.gitignore`; ignore rules never untrack. Every

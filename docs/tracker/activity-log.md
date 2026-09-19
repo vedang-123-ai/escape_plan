@@ -1525,6 +1525,77 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Commits this session**
   - 4eb4041 S7.8 and S7.9 completion
 
+## 2026-09-11T01:10:29Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Commits this session**
+  - 4eb4041 S7.8 and S7.9 completion
+
+## 2026-09-11T01:29:42Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T01:31:41Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T01:33:39Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T01:40:42Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T02:58:31Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T03:19:00Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T03:35:53Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T03:51:26Z · vedang-123-ai · `main` @ `4eb4041`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T04:59:04Z · vedang-123-ai · `main` @ `ccd0d19`
+
+**Commits this session**
+  - ccd0d19 Tracker: the hunt fix, what it leaves unverified, and an honest test stamp
+  - 00e4830 decisions: the three hunt defects, and why the questions moved to EditorCore
+  - 74e09f3 Hazard hunt view: render the plan instead of owning the questions
+  - 1ae2827 Tests: 20 guards on the hunt, incl. the inverted water-heater question
+  - e0ed758 Hazard hunt: move question generation into EditorCore as a pure plan
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-11T05:00:26Z · vedang-123-ai · `main` @ `6768621`
+
+**Commits this session**
+  - 6768621 BLOCKERS: point both hunt lines at S7.7's STEP 0
+  - c88c150 S7.7 gets a STEP 0: compile the rewritten hazard-hunt view first
+  - ccd0d19 Tracker: the hunt fix, what it leaves unverified, and an honest test stamp
+  - 00e4830 decisions: the three hunt defects, and why the questions moved to EditorCore
+  - 74e09f3 Hazard hunt view: render the plan instead of owning the questions
+  - 1ae2827 Tests: 20 guards on the hunt, incl. the inverted water-heater question
+  - e0ed758 Hazard hunt: move question generation into EditorCore as a pure plan
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
 ## 2026-09-11T06:42:56Z · Anish Yarrakonda · `main` @ `4eb4041`
 
 **Uncommitted working-tree changes (25)**
@@ -1553,4 +1624,519 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - ?? patch_test_diff_3.py
   - ?? patch_tests.py
   - ?? patch_trackers.py
+
+## 2026-09-15T00:09:12Z · vedang-123-ai · `main` @ `327ca0b`
+
+**Commits this session**
+  - 327ca0b Note: the S9.1 merge, what it left unverified, and two corrections
+  - 0a7c45f BLOCKERS: post-merge truth — venv exists, S9.1 Swift never compiled
+  - 3e11609 decisions: drop the blank line that split the table at S9.1
+  - 33ef233 Merge remote-tracking branch 'origin/main'
+  - 813fa50 update
+  - 0103a74 feat: Implement Semantic Relocalization Engine and UI Enhancements
+
+## 2026-09-15T01:23:07Z · vedang-123-ai · `main` @ `327ca0b`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-15T01:25:12Z · vedang-123-ai · `main` @ `3dc1422`
+
+**Commits this session**
+  - 3dc1422 BLOCKERS: correct the S9.1 target-membership doubt
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-15T01:27:26Z · vedang-123-ai · `main` @ `3dc1422`
+
+**Commits this session**
+  - 3dc1422 BLOCKERS: correct the S9.1 target-membership doubt
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-15T01:39:13Z · vedang-123-ai · `main` @ `3dc1422`
+
+**Commits this session**
+  - 3dc1422 BLOCKERS: correct the S9.1 target-membership doubt
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-15T01:41:38Z · vedang-123-ai · `main` @ `2bc82c0`
+
+**Commits this session**
+  - 2bc82c0 Merge remote-tracking branch 'origin/main'
+  - 7342237 Activity log: this session's entries (hook)
+  - bffb16c feat: Implement AR Drill functionality and UI enhancements for S9.2 and S9.3
+  - 3dc1422 BLOCKERS: correct the S9.1 target-membership doubt
+
+## 2026-09-15T01:52:18Z · vedang-123-ai · `main` @ `2bc82c0`
+
+**Commits this session**
+  - 2bc82c0 Merge remote-tracking branch 'origin/main'
+  - 7342237 Activity log: this session's entries (hook)
+  - bffb16c feat: Implement AR Drill functionality and UI enhancements for S9.2 and S9.3
+  - 3dc1422 BLOCKERS: correct the S9.1 target-membership doubt
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-15T01:55:06Z · vedang-123-ai · `main` @ `b50a86a`
+
+**Commits this session**
+  - b50a86a Merge remote-tracking branch 'origin/main'
+  - d5c7a29 Activity log: hook entries
+  - 3a0b7c5 feat: Add Cloud Sync & Authentication Arc with backend and iOS components
+  - 2bc82c0 Merge remote-tracking branch 'origin/main'
+  - 7342237 Activity log: this session's entries (hook)
+  - bffb16c feat: Implement AR Drill functionality and UI enhancements for S9.2 and S9.3
+  - 3dc1422 BLOCKERS: correct the S9.1 target-membership doubt
+
+## 2026-09-15T02:17:36Z · vedang-123-ai · `main` @ `f42b7b1`
+
+**Commits this session**
+  - f42b7b1 BLOCKERS: the S8.2 prerequisites review surfaced
+  - bc1f1a4 S8.1: MONGODB_URI had nowhere to be set on a deployed backend
+  - b24ed05 S8.1: 16 more tests, incl. three that were only asserting serialization
+  - 6c143c9 S8.1 fix: consistent /health/db body, and two S8.2 traps closed
+  - 3d9e253 S8.1 fix: a malformed MONGODB_URI no longer takes the backend down
+  - ba335d1 Note: S8.1, three judgement calls and the real-MongoDB gap
+  - 583826e S8.1 close-out: scope lock lifted in lockstep, deviations logged
+  - b2f4b5a S8.1: 32 tests — models, connection lifecycle, health endpoint
+  - e4b3931 S8.1: pin pymongo>=4.13,<5.0 and add a default-excluded mongo marker
+  - 9241c7d S8.1: lifespan owns the pool, /health/db reports connectivity
+  - a6dd228 S8.1: MongoDB connection layer on PyMongo async, not Motor
+  - 4032cc0 S8.1: 18 tests on the cloud models, no database required
+  - f38fda2 S8.1: User and StoredHomeModel, kept out of the contract file
+  - b50a86a Merge remote-tracking branch 'origin/main'
+  - d5c7a29 Activity log: hook entries
+  - 3a0b7c5 feat: Add Cloud Sync & Authentication Arc with backend and iOS components
+  - 2bc82c0 Merge remote-tracking branch 'origin/main'
+  - 7342237 Activity log: this session's entries (hook)
+
+## 2026-09-15T02:22:13Z · vedang-123-ai · `main` @ `da11738`
+
+**Commits this session**
+  - da11738 Activity log: hook entries
+  - f42b7b1 BLOCKERS: the S8.2 prerequisites review surfaced
+  - bc1f1a4 S8.1: MONGODB_URI had nowhere to be set on a deployed backend
+  - b24ed05 S8.1: 16 more tests, incl. three that were only asserting serialization
+  - 6c143c9 S8.1 fix: consistent /health/db body, and two S8.2 traps closed
+  - 3d9e253 S8.1 fix: a malformed MONGODB_URI no longer takes the backend down
+  - ba335d1 Note: S8.1, three judgement calls and the real-MongoDB gap
+  - 583826e S8.1 close-out: scope lock lifted in lockstep, deviations logged
+  - b2f4b5a S8.1: 32 tests — models, connection lifecycle, health endpoint
+  - e4b3931 S8.1: pin pymongo>=4.13,<5.0 and add a default-excluded mongo marker
+  - 9241c7d S8.1: lifespan owns the pool, /health/db reports connectivity
+  - a6dd228 S8.1: MongoDB connection layer on PyMongo async, not Motor
+  - 4032cc0 S8.1: 18 tests on the cloud models, no database required
+  - f38fda2 S8.1: User and StoredHomeModel, kept out of the contract file
+  - b50a86a Merge remote-tracking branch 'origin/main'
+  - d5c7a29 Activity log: hook entries
+  - 3a0b7c5 feat: Add Cloud Sync & Authentication Arc with backend and iOS components
+  - 2bc82c0 Merge remote-tracking branch 'origin/main'
+  - 7342237 Activity log: this session's entries (hook)
+
+## 2026-09-15T02:29:26Z · vedang-123-ai · `main` @ `ec83e42`
+
+**Commits this session**
+  - ec83e42 Activity log: hook entries
+  - 9e59288 Note: what the S9 review verified, and what it could not
+  - 93c9c80 README: the scope section was stale in four places
+  - 765374c BLOCKERS: correct the 'never compiled' claim about S9
+  - e6cb6f5 BLOCKERS: four findings from reviewing the pulled S9 code
+  - da11738 Activity log: hook entries
+  - f42b7b1 BLOCKERS: the S8.2 prerequisites review surfaced
+  - bc1f1a4 S8.1: MONGODB_URI had nowhere to be set on a deployed backend
+  - b24ed05 S8.1: 16 more tests, incl. three that were only asserting serialization
+  - 6c143c9 S8.1 fix: consistent /health/db body, and two S8.2 traps closed
+  - 3d9e253 S8.1 fix: a malformed MONGODB_URI no longer takes the backend down
+  - ba335d1 Note: S8.1, three judgement calls and the real-MongoDB gap
+  - 583826e S8.1 close-out: scope lock lifted in lockstep, deviations logged
+  - b2f4b5a S8.1: 32 tests — models, connection lifecycle, health endpoint
+  - e4b3931 S8.1: pin pymongo>=4.13,<5.0 and add a default-excluded mongo marker
+  - 9241c7d S8.1: lifespan owns the pool, /health/db reports connectivity
+  - a6dd228 S8.1: MongoDB connection layer on PyMongo async, not Motor
+  - 4032cc0 S8.1: 18 tests on the cloud models, no database required
+  - f38fda2 S8.1: User and StoredHomeModel, kept out of the contract file
+  - b50a86a Merge remote-tracking branch 'origin/main'
+  - d5c7a29 Activity log: hook entries
+
+## 2026-09-15T02:30:34Z · vedang-123-ai · `main` @ `ec83e42`
+
+**Commits this session**
+  - ec83e42 Activity log: hook entries
+  - 9e59288 Note: what the S9 review verified, and what it could not
+  - 93c9c80 README: the scope section was stale in four places
+  - 765374c BLOCKERS: correct the 'never compiled' claim about S9
+  - e6cb6f5 BLOCKERS: four findings from reviewing the pulled S9 code
+  - da11738 Activity log: hook entries
+  - f42b7b1 BLOCKERS: the S8.2 prerequisites review surfaced
+  - bc1f1a4 S8.1: MONGODB_URI had nowhere to be set on a deployed backend
+  - b24ed05 S8.1: 16 more tests, incl. three that were only asserting serialization
+  - 6c143c9 S8.1 fix: consistent /health/db body, and two S8.2 traps closed
+  - 3d9e253 S8.1 fix: a malformed MONGODB_URI no longer takes the backend down
+  - ba335d1 Note: S8.1, three judgement calls and the real-MongoDB gap
+  - 583826e S8.1 close-out: scope lock lifted in lockstep, deviations logged
+  - b2f4b5a S8.1: 32 tests — models, connection lifecycle, health endpoint
+  - e4b3931 S8.1: pin pymongo>=4.13,<5.0 and add a default-excluded mongo marker
+  - 9241c7d S8.1: lifespan owns the pool, /health/db reports connectivity
+  - a6dd228 S8.1: MongoDB connection layer on PyMongo async, not Motor
+  - 4032cc0 S8.1: 18 tests on the cloud models, no database required
+  - f38fda2 S8.1: User and StoredHomeModel, kept out of the contract file
+  - b50a86a Merge remote-tracking branch 'origin/main'
+  - d5c7a29 Activity log: hook entries
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-15T05:14:38Z · vedang-123-ai · `main` @ `1cb4978`
+
+**Commits this session**
+  - 1cb4978 Activity log: hook entries
+  - 66fbc01 FIRST PRIORITY gate: the iOS suite must be run before any new work
+
+## 2026-09-15T14:16:08Z · vedang-123-ai · `main` @ `a7a9bd0`
+
+**Commits this session**
+  - a7a9bd0 Activity log: hook entries
+
+## 2026-09-16T01:59:17Z · vedang-123-ai · `main` @ `945f1d4`
+
+**Uncommitted working-tree changes (3)**
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/TODO.md
+  - ?? docs/tracker/notes/2026-09-15-mongodb-live-verification.md
+
+## 2026-09-16T02:14:23Z · vedang-123-ai · `main` @ `945f1d4`
+
+**Uncommitted working-tree changes (12)**
+  - M backend/CLAUDE.md
+  - M backend/app/api_auth.py
+  - M backend/app/cloud_models.py
+  - M backend/app/main.py
+  - M backend/tests/test_api_auth.py
+  - M backend/tests/test_cloud_models.py
+  - M docs/decisions.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - ?? backend/tests/test_cloud_mongo.py
+  - ?? docs/tracker/notes/2026-09-15-mongodb-live-verification.md
+
+## 2026-09-16T02:16:47Z · vedang-123-ai · `main` @ `945f1d4`
+
+**Uncommitted working-tree changes (13)**
+  - M backend/CLAUDE.md
+  - M backend/app/api_auth.py
+  - M backend/app/cloud_models.py
+  - M backend/app/main.py
+  - M backend/tests/test_api_auth.py
+  - M backend/tests/test_cloud_models.py
+  - M docs/decisions.md
+  - M docs/tools-used.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - ?? backend/tests/test_cloud_mongo.py
+  - ?? docs/tracker/notes/2026-09-15-mongodb-live-verification.md
+
+## 2026-09-16T02:18:12Z · vedang-123-ai · `main` @ `945f1d4`
+
+**Uncommitted working-tree changes (13)**
+  - M backend/CLAUDE.md
+  - M backend/app/api_auth.py
+  - M backend/app/cloud_models.py
+  - M backend/app/main.py
+  - M backend/tests/test_api_auth.py
+  - M backend/tests/test_cloud_models.py
+  - M docs/decisions.md
+  - M docs/tools-used.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - ?? backend/tests/test_cloud_mongo.py
+  - ?? docs/tracker/notes/2026-09-15-mongodb-live-verification.md
+
+## 2026-09-16T02:23:05Z · vedang-123-ai · `main` @ `945f1d4`
+
+**Uncommitted working-tree changes (13)**
+  - M backend/CLAUDE.md
+  - M backend/app/api_auth.py
+  - M backend/app/cloud_models.py
+  - M backend/app/main.py
+  - M backend/tests/test_api_auth.py
+  - M backend/tests/test_cloud_models.py
+  - M docs/decisions.md
+  - M docs/tools-used.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/TODO.md
+  - M docs/tracker/activity-log.md
+  - ?? backend/tests/test_cloud_mongo.py
+  - ?? docs/tracker/notes/2026-09-15-mongodb-live-verification.md
+
+## 2026-09-16T02:29:14Z · vedang-123-ai · `main` @ `bc46baa`
+
+**Commits this session**
+  - bc46baa tracker: the S8 backend arc is verified end-to-end, deployed included
+  - 58aa016 tools-used: record MongoDB Atlas as an external service
+  - fc48067 decisions: the five judgement calls from the live-verification pass
+  - 9caca10 docs: backend/CLAUDE.md no longer says the DB has never met a real server
+  - 295b0bc S8: the first @pytest.mark.mongo suite — 22 tests against a real server
+  - f888776 S8: 503, not 500, when the database is configured but unreachable
+  - d1ab370 S8: pin the /homes wire contract in tests
+  - 08c29f7 S8: return `id` rather than Mongo's `_id` from /homes
+  - af389d0 S8: preserve created_at across a home update
+  - a574bee S8: test that generated timestamps carry no sub-millisecond component
+  - d8554f7 S8: generate cloud timestamps at millisecond precision
+
+## 2026-09-16T04:55:07Z · vedang-123-ai · `main` @ `f25c9a9`
+
+**Commits this session**
+  - f25c9a9 docs: record the two deploy steps that cost this session an hour
+  - 6f8b6f3 tracker: correct two lines that went stale at the moment of the push
+
+## 2026-09-16T05:10:58Z · vedang-123-ai · `main` @ `4f524c4`
+
+**Commits this session**
+  - 4f524c4 Activity log: hook entries from the S8 live-verification session
+  - f25c9a9 docs: record the two deploy steps that cost this session an hour
+  - 6f8b6f3 tracker: correct two lines that went stale at the moment of the push
+
+## 2026-09-16T05:12:58Z · vedang-123-ai · `main` @ `219abf6`
+
+**Commits this session**
+  - 219abf6 tracker
+  - 4f524c4 Activity log: hook entries from the S8 live-verification session
+  - f25c9a9 docs: record the two deploy steps that cost this session an hour
+  - 6f8b6f3 tracker: correct two lines that went stale at the moment of the push
+
+## 2026-09-16T06:11:13Z · vedang-123-ai · `s8-3-ios-auth-ui` @ `dec5221`
+
+**Commits this session**
+  - dec5221 S8.3: make the working submit button one labelled accessibility element
+  - bd3e264 S8.3 fix: restore the session at construction, not from RootView's .task
+  - e334b24 S8.3: session note
+  - b7f945e S8.3 tracker: S8.3 done, and three new device-gated unknowns
+  - 3aab9db S8.3 docs: seven decisions, including one the session reversed
+  - d0cf724 S8.3 docs: correct DeviceIdentity's scope lock, document Auth/
+  - cda55b6 S8.3: give the two previews the AuthSession they now need
+  - 8d99c26 S8.3: keep the 8 UI-test launches past the account gate
+  - 9b60eb6 S8.3: Account section in Settings, and one place the base URL changes
+  - 0c7f7bc S8.3: a sign-in sheet for people who changed their mind
+  - dc31ba9 S8.3: root switches between the gate and the app
+  - 4cf919c S8.3: the auth gate, with a real way past it
+  - 208c4c8 S8.3: Login and Signup screens, over shared form components
+  - e2f90fe S8.3: 23 tests over the session state machine
+  - 77ec3c2 S8.3: AuthSession — restore, sign in, register, refresh, sign out
+  - e1698a9 S8.3: prove the client email rule agrees with the backend's, address by address
+  - 6d4198c S8.3: validate credentials client-side with the server's own rule
+  - 9d68ec1 S8.3: 14 tests over the /auth wire contract, runnable without a simulator
+  - 20d0a27 S8.3: stubbed transport scoped to one session, not the whole process
+  - 986eba4 S8.3: AuthClient for /auth/register, /auth/login and /auth/me
+  - e9aa2ea S8.3: one store contract, pointed at the double here and the Keychain on device
+  - a75372e S8.3: store the JWT in the Keychain
+  - 98cf749 S8.3: TokenStore protocol, so the session is testable without a Keychain
+  - b1ce1c4 S8.3: AuthFailure tests use error bodies captured from the real backend
+  - 3acb28d S8.3: AuthFailure — auth's own vocabulary for the same status codes
+  - ace8110 S8.3: AccessToken tests use tokens signed by our own backend
+  - b6f5e44 S8.3: read exp/sub from the JWT locally, for UX only
+  - c50b0e7 S8.3: pin the login body against the parser the backend actually uses
+  - e5ece25 S8.3: hand-rolled form encoding for /auth/login
+  - a1410b5 S8.3: pin both created_at shapes the backend actually emits
+  - 1a82019 S8.3: auth wire shapes, symlinked into EditorCore so they can be tested
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-16T06:30:53Z · vedang-123-ai · `main` @ `72d409c`
+
+**Commits this session**
+  - 72d409c Merge S8.3 — iOS auth UI
+  - 3d3bdef S8.3 tracker: un-tick S8.3, correct the counts, log the review reversals
+  - 630b530 S8.3 fix: five UI defects from review, incl. a dead error path
+  - 0e7263a S8.3 fix: actor-isolate AuthClient, keep test doubles out of release
+  - 4306d7b S8.3 fix: three session defects found by review
+  - e9ec738 S8.3 fix: mint test tokens at runtime — the suite was 26 minutes from red
+  - dec5221 S8.3: make the working submit button one labelled accessibility element
+  - bd3e264 S8.3 fix: restore the session at construction, not from RootView's .task
+  - e334b24 S8.3: session note
+  - b7f945e S8.3 tracker: S8.3 done, and three new device-gated unknowns
+  - 3aab9db S8.3 docs: seven decisions, including one the session reversed
+  - d0cf724 S8.3 docs: correct DeviceIdentity's scope lock, document Auth/
+  - cda55b6 S8.3: give the two previews the AuthSession they now need
+  - 8d99c26 S8.3: keep the 8 UI-test launches past the account gate
+  - 9b60eb6 S8.3: Account section in Settings, and one place the base URL changes
+  - 0c7f7bc S8.3: a sign-in sheet for people who changed their mind
+  - dc31ba9 S8.3: root switches between the gate and the app
+  - 4cf919c S8.3: the auth gate, with a real way past it
+  - 208c4c8 S8.3: Login and Signup screens, over shared form components
+  - e2f90fe S8.3: 23 tests over the session state machine
+  - 77ec3c2 S8.3: AuthSession — restore, sign in, register, refresh, sign out
+  - e1698a9 S8.3: prove the client email rule agrees with the backend's, address by address
+  - 6d4198c S8.3: validate credentials client-side with the server's own rule
+  - 9d68ec1 S8.3: 14 tests over the /auth wire contract, runnable without a simulator
+  - 20d0a27 S8.3: stubbed transport scoped to one session, not the whole process
+  - 986eba4 S8.3: AuthClient for /auth/register, /auth/login and /auth/me
+
+## 2026-09-16T14:45:06Z · vedang-123-ai · `main` @ `9f41e90`
+
+**Commits this session**
+  - 9f41e90 Activity log: the S8.3 session
+
+## 2026-09-16T20:36:51Z · vedang-123-ai · `main` @ `9f41e90`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-16T20:54:25Z · vedang-123-ai · `main` @ `53c2281`
+
+**Commits this session**
+  - 53c2281 S8.3 note: the 2026-09-16 follow-up
+  - 5d9cd95 Tracker: production smoke test of the auth contract, and who owns the device gate
+  - 621a3e9 Lower the deployment target 26.5 -> 17.0: the docs were right, the project wasn't
+
+## 2026-09-16T21:02:04Z · vedang-123-ai · `main` @ `53c2281`
+
+**Commits this session**
+  - 53c2281 S8.3 note: the 2026-09-16 follow-up
+  - 5d9cd95 Tracker: production smoke test of the auth contract, and who owns the device gate
+  - 621a3e9 Lower the deployment target 26.5 -> 17.0: the docs were right, the project wasn't
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-16T21:08:17Z · vedang-123-ai · `main` @ `53c2281`
+
+**Commits this session**
+  - 53c2281 S8.3 note: the 2026-09-16 follow-up
+  - 5d9cd95 Tracker: production smoke test of the auth contract, and who owns the device gate
+  - 621a3e9 Lower the deployment target 26.5 -> 17.0: the docs were right, the project wasn't
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-16T21:34:52Z · vedang-123-ai · `main` @ `aeb125d`
+
+**Commits this session**
+  - aeb125d Docs: typecheck-ios.sh in the gate, and the older-runtime check is blocked
+  - 9b0fd1c scripts/typecheck-ios.sh: compile-check all three iOS targets without a simulator
+  - 53c2281 S8.3 note: the 2026-09-16 follow-up
+  - 5d9cd95 Tracker: production smoke test of the auth contract, and who owns the device gate
+  - 621a3e9 Lower the deployment target 26.5 -> 17.0: the docs were right, the project wasn't
+
+## 2026-09-16T21:47:19Z · vedang-123-ai · `main` @ `aeb125d`
+
+**Commits this session**
+  - aeb125d Docs: typecheck-ios.sh in the gate, and the older-runtime check is blocked
+  - 9b0fd1c scripts/typecheck-ios.sh: compile-check all three iOS targets without a simulator
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-16T23:38:12Z · vedang-123-ai · `main` @ `aeb125d`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-16T23:45:05Z · vedang-123-ai · `main` @ `c371a84`
+
+**Commits this session**
+  - c371a84 Activity log: S8.4 handoff prep
+  - 5eaa2e2 S8-4.md: STEP 0 carrying S8.3's leftovers
+
+## 2026-09-17T01:44:30Z · vedang-123-ai · `s8-4-ios-cloud-sync` @ `a737e35`
+
+**Commits this session**
+  - a737e35 BLOCKERS: name the sync trigger as a decision, not a gap
+  - ee317b1 escape_plan/CLAUDE.md: Sync/ and its two easy-to-break rules
+  - b54bee3 tools-used: S8.4 added no dependencies
+  - a0dd865 S8.4 tracker: the device gap, the counts, and the four rulings
+  - db8d8ea S8.4: build AuthSession as a local, not via _authSession.wrappedValue
+
+## 2026-09-17T01:48:44Z · vedang-123-ai · `s8-4-ios-cloud-sync` @ `a737e35`
+
+**Commits this session**
+  - a737e35 BLOCKERS: name the sync trigger as a decision, not a gap
+  - ee317b1 escape_plan/CLAUDE.md: Sync/ and its two easy-to-break rules
+  - b54bee3 tools-used: S8.4 added no dependencies
+  - a0dd865 S8.4 tracker: the device gap, the counts, and the four rulings
+  - db8d8ea S8.4: build AuthSession as a local, not via _authSession.wrappedValue
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-17T02:16:47Z · vedang-123-ai · `main` @ `8c61466`
+
+**Commits this session**
+  - 8c61466 Merge S8.4 — iOS cloud sync
+  - 34edc82 decisions.md: the S8.4 review, and why a stamped timestamp is not evidence
+  - b109d98 Tracker: the S8.4 review round, and the scope question it surfaced
+  - 26ffc41 S8.4: cover HomeDocumentSyncRepository, which had no tests at all
+  - 0454e5f S8.4: six defects from review — the worst destroyed a home on every device
+  - a737e35 BLOCKERS: name the sync trigger as a decision, not a gap
+  - ee317b1 escape_plan/CLAUDE.md: Sync/ and its two easy-to-break rules
+  - b54bee3 tools-used: S8.4 added no dependencies
+  - a0dd865 S8.4 tracker: the device gap, the counts, and the four rulings
+  - db8d8ea S8.4: build AuthSession as a local, not via _authSession.wrappedValue
+
+## 2026-09-17T02:32:33Z · vedang-123-ai · `main` @ `8c61466`
+
+**Commits this session**
+  - 8c61466 Merge S8.4 — iOS cloud sync
+  - 34edc82 decisions.md: the S8.4 review, and why a stamped timestamp is not evidence
+  - b109d98 Tracker: the S8.4 review round, and the scope question it surfaced
+  - 26ffc41 S8.4: cover HomeDocumentSyncRepository, which had no tests at all
+  - 0454e5f S8.4: six defects from review — the worst destroyed a home on every device
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-17T03:55:27Z · vedang-123-ai · `main` @ `81aabd8`
+
+**Commits this session**
+  - 81aabd8 Tracker: close two §3 defects and the pymongo line, with what is still unverified
+  - 60393b9 Fix two §3 defects: AR waypoint height, and doorless rooms scoring perfect
+  - 26a5718 Pin pymongo's logger to INFO: since S8.4 its DEBUG output is users' homes
+
+## 2026-09-17T04:39:08Z · vedang-123-ai · `main` @ `e4a094e`
+
+**Commits this session**
+  - e4a094e BLOCKERS: a closed S8.2 item was carrying an open checkbox
+  - 81aabd8 Tracker: close two §3 defects and the pymongo line, with what is still unverified
+
+## 2026-09-17T07:01:24Z · vedang-123-ai · `main` @ `72bf34e`
+
+**Commits this session**
+  - 72bf34e Seed the fixtures once: last_scanned, the sensory tags, pet, and a second household
+  - 7ac4e98 Routing: a wall-mounted object no longer erodes walkable floor
+  - 85c1194 /verify: read the result bundle, use the venv, and stop claiming a simulator
+  - 5531427 Delete 13 one-shot patch_*.py scratch scripts from the repo root
+
+**Uncommitted working-tree changes (1)**
+  - M backend/tests/test_profiles.py
+
+## 2026-09-17T07:16:49Z · vedang-123-ai · `main` @ `b85c62c`
+
+**Commits this session**
+  - b85c62c Tracker and decisions: close four board items, and the scope ruling
+  - 5298e3d Sync on editor close and on returning to the foreground
+  - fb57831 Port SchemaV2ContractTests — and they immediately found a real divergence
+  - 5fb2c25 Port the contract tests stranded on my-s6-1-and-policy, and resync the app's fixtures
+  - 72bf34e Seed the fixtures once: last_scanned, the sensory tags, pet, and a second household
+  - 7ac4e98 Routing: a wall-mounted object no longer erodes walkable floor
+  - 85c1194 /verify: read the result bundle, use the venv, and stop claiming a simulator
+  - 5531427 Delete 13 one-shot patch_*.py scratch scripts from the repo root
+
+## 2026-09-17T14:39:36Z · vedang-123-ai · `main` @ `b85c62c`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-17T14:47:52Z · vedang-123-ai · `main` @ `b85c62c`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
 

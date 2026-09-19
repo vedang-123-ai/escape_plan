@@ -277,3 +277,116 @@ def test_route_plan_is_deterministic_with_narrowings(thresholds) -> None:
     a = _plan_for("bungalow-narrow.json", thresholds)
     b = _plan_for("bungalow-narrow.json", thresholds)
     assert a.model_dump_json() == b.model_dump_json()
+
+
+# ---------------------------------------------------------------------------
+# Elevation: a wall-mounted object does not take floor away (BLOCKERS §3)
+# ---------------------------------------------------------------------------
+#
+# The defect was latent but mechanically real: `build_room_grid` blocked any
+# footprint it was handed, whatever its elevation, so a television bolted to the
+# wall 1.35 m up eroded walkable floor. It never bit because `jagged.json`'s
+# `o_u_tv_over_bed` sits over the bed, which is blocked anyway — the fixture hid
+# it. These tests move it into open floor, which is what makes the guard real.
+
+
+def _jagged_tv_room():
+    """The `jagged` floor, room and mounted TV the board's measurement used."""
+    home = HomeModel.model_validate(load_fixture("jagged.json"))
+    for floor in home.floors:
+        for obj in floor.objects:
+            if obj.id == "o_u_tv_over_bed":
+                room = next(r for r in floor.rooms if _room_contains(r, obj.center))
+                return home, floor, room, obj
+    raise AssertionError("jagged.json no longer carries o_u_tv_over_bed")
+
+
+def _room_contains(room, point) -> bool:
+    from app.routing.nav_grid import point_in_polygon
+
+    return point_in_polygon(list(room.polygon), point)
+
+
+def _free_cells(room, objects) -> int:
+    from app.routing.nav_grid import build_room_grid
+
+    grid = build_room_grid(room.polygon, objects, 0.0)
+    return sum(1 for cell in grid.walkable if cell)
+
+
+def _open_point(room):
+    """A point in genuinely open floor, well away from the walls.
+
+    NOT the polygon centroid: `jagged.json`'s rooms are non-convex (that is what
+    it is for), so the centroid can fall outside the room entirely — an object
+    placed there blocks nothing and the test passes for the wrong reason, which
+    is exactly what happened on the first run of these tests.
+    """
+    from app.routing.nav_grid import CELL_M, build_room_grid
+
+    grid = build_room_grid(room.polygon, [], 0.0)
+    free = [
+        (grid.min_x + (i % grid.cols + 0.5) * CELL_M,
+         grid.min_y + (i // grid.cols + 0.5) * CELL_M)
+        for i, walkable in enumerate(grid.walkable)
+        if walkable
+    ]
+    assert free, "the room has no open floor at all"
+    mean_x = sum(p[0] for p in free) / len(free)
+    mean_y = sum(p[1] for p in free) / len(free)
+    # The open cell nearest the average of the open cells — inside the room by
+    # construction, whatever shape it is.
+    return min(free, key=lambda p: (p[0] - mean_x) ** 2 + (p[1] - mean_y) ** 2)
+
+
+def test_a_wall_mounted_object_in_open_floor_takes_no_floor_away():
+    """The case the fixture hides. A mounted TV moved off the bed and into the
+    middle of the room must not cost a single walkable cell."""
+    _, _, room, tv = _jagged_tv_room()
+    assert tv.mounted is True and tv.elevation_m > 0
+
+    empty = _free_cells(room, [])
+    mid_room_tv = tv.model_copy(update={"center": _open_point(room)})
+    assert _free_cells(room, [mid_room_tv]) == empty
+
+
+def test_the_same_object_unmounted_does_take_floor_away():
+    """The other half, so the test above cannot pass for the wrong reason (an
+    object too small to cover a cell, or a centroid outside the polygon). An
+    identical object standing ON the floor must still block it — this is the
+    measured 5476 → 5296 erosion, and it is correct behaviour for a floor-
+    standing television."""
+    _, _, room, tv = _jagged_tv_room()
+
+    empty = _free_cells(room, [])
+    standing_tv = tv.model_copy(
+        update={"center": _open_point(room), "mounted": False, "elevation_m": 0.0}
+    )
+    blocked = _free_cells(room, [standing_tv])
+
+    assert blocked < empty, "a floor-standing object must still erode walkable floor"
+
+
+def test_mounting_an_object_is_what_decides_it_not_its_elevation():
+    """`elevation_m` is deliberately not consulted: a box raised on a table is
+    still something you cannot walk through. Only `mounted` frees the floor."""
+    _, _, room, tv = _jagged_tv_room()
+    centre = _open_point(room)
+
+    raised_but_standing = tv.model_copy(
+        update={"center": centre, "mounted": False, "elevation_m": 1.35}
+    )
+    assert _free_cells(room, [raised_but_standing]) < _free_cells(room, [])
+
+
+def test_routing_still_treats_floor_standing_objects_as_obstacles():
+    """The guard against over-applying the fix: every object in every bundled
+    fixture stands on the floor except the one TV, so obstruction must be
+    unchanged for all of them."""
+    from app.routing.nav_grid import obstructs_floor
+
+    for name in ("bungalow.json", "apartment.json", "twostory.json", "jagged.json"):
+        home = HomeModel.model_validate(load_fixture(name))
+        for floor in home.floors:
+            for obj in floor.objects:
+                assert obstructs_floor(obj) is (not obj.mounted), f"{name}:{obj.id}"

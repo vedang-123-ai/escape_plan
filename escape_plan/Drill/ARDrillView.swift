@@ -49,11 +49,28 @@ struct ARDrillViewRepresentable: UIViewRepresentable {
             self.parent = parent
         }
         
+        /// How far above its own floor a waypoint sphere floats, in metres. Chest height, so
+        /// the markers read as signposts rather than as things on the ground.
+        static let waypointHoverHeight = 1.0
+
         func drawWaypoints(in node: SCNNode, plan: RoutePlan, profileID: String, homeModel: HomeModel) {
             guard let profile = homeModel.profiles.first(where: { $0.id == profileID }) else { return }
             guard let room = plan.rooms.first(where: { $0.room_id == profile.bedroom_room_id }) else { return }
             guard let primary = room.primary else { return }
-            
+
+            // Waypoints are FLOOR-LOCAL: `Waypoint` carries x/y in plan metres plus the
+            // `floor_id` they belong to, and the type's own doc comment says "height comes from
+            // the floor". Until 2026-09-16 this drew every one at a hardcoded 1.0 m, so on
+            // `twostory` — a core fixture — a route from an upstairs bedroom down to the front
+            // door drew both legs at the same height, and a user standing upstairs saw the
+            // ground-floor leg floating at eye level.
+            //
+            // `DollhouseGeometry.floorBaseHeights` is the SAME stacking the dollhouse uses to
+            // place its floors, reused rather than reimplemented: two formulas for where a
+            // floor sits would eventually disagree, and the AR view and the 3D view would show
+            // the same route at two different heights.
+            let floorBases = DollhouseGeometry.floorBaseHeights(of: homeModel)
+
             // Draw waypoints
             for (index, wp) in primary.waypoints.enumerated() {
                 // Floating semi-transparent waypoints
@@ -64,13 +81,16 @@ struct ARDrillViewRepresentable: UIViewRepresentable {
                 sphere.materials = [material]
                 
                 let wpNode = SCNNode(geometry: sphere)
-                // Hover slightly above the floor (1.0 meter)
-                wpNode.position = SCNVector3(Float(wp.x), 1.0, Float(wp.y))
+                // An unknown floor_id falls back to 0 rather than being skipped: a waypoint
+                // drawn on the ground floor is wrong, but a missing one breaks the path the
+                // user is following.
+                let y = Float((floorBases[wp.floor_id] ?? 0) + Self.waypointHoverHeight)
+                wpNode.position = SCNVector3(Float(wp.x), y, Float(wp.y))
                 node.addChildNode(wpNode)
                 
                 // Track the last waypoint as the exit
                 if index == primary.waypoints.count - 1 {
-                    exitPosition = SIMD3<Float>(Float(wp.x), 1.0, Float(wp.y))
+                    exitPosition = SIMD3<Float>(Float(wp.x), y, Float(wp.y))
                     
                     // Make the exit node more distinct
                     material.diffuse.contents = UIColor.green.withAlphaComponent(0.7)

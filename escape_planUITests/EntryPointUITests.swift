@@ -21,6 +21,7 @@ final class EntryPointUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-onboarding.completed", "YES",
+            "-auth.gate.dismissed", "YES",
             "-APIClient.baseURL", "http://localhost:8000",
             "-APIClient.bearerToken", "dev-local-token",
         ]

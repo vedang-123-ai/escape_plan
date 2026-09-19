@@ -65,6 +65,7 @@ final class RouteRedrawAfterEditUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-onboarding.completed", "YES",
+            "-auth.gate.dismissed", "YES",
             "-TEST_SEED_DEMO_HOME", "YES",
             "-APIClient.baseURL", env["ROUTE_REDRAW_BASE_URL"] ?? "http://localhost:8000",
             "-APIClient.bearerToken", env["ROUTE_REDRAW_TOKEN"] ?? "dev-local-token",

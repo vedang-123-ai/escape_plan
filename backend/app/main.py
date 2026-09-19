@@ -10,8 +10,9 @@ from __future__ import annotations
 import logging
 from app.routing.diff import compute_diff, DiffRequest, DiffResult
 import secrets
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Annotated, Any, Optional, Literal
+from typing import Annotated, Any, AsyncIterator, Optional, Literal
 
 import anthropic
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -25,9 +26,11 @@ from app.routing.egress import EgressThresholds
 from app.ai.agent import AgentError, AnalysisResult, run_agent_analysis
 from app.ai.builder import BuilderError, BuildResult, run_builder
 from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
+from app.api_auth import router as cloud_router
 from app.api_chat import router as chat_router
 from app.config import get_settings, get_thresholds, get_object_hazard_thresholds
 from app.convert.converter import convert_scan
+from app.database import CloudSyncDisabled, database
 from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
 from app.routing.hazard import EvacuationTimeline, compute_evacuation_timeline
@@ -39,6 +42,37 @@ from app.scoring.score import ScoreBreakdown, compute_score
 
 logging.basicConfig(level=logging.INFO)
 
+# Pin pymongo's command logger to INFO, whatever the root level is.
+#
+# pymongo logs every command it issues — including the full document — at DEBUG. Since S8.4
+# that means users' home layouts: floor polygons, room names, `meta.address_optional` and the
+# household composition, written into the process log on every sync. Raising the root logger to
+# DEBUG is a thing people do while chasing an unrelated bug, and on a hosted service those logs
+# are retained and readable by anyone with dashboard access.
+#
+# So the protection cannot be "we happen to run at INFO" — it has to survive someone turning
+# the root level up. `propagate` is left alone: these loggers still reach the root handler, they
+# just will not emit below INFO. Anyone who genuinely needs wire-level pymongo output can set
+# this logger explicitly, which is a deliberate act rather than a side effect.
+for _pymongo_logger in ("pymongo", "pymongo.command", "pymongo.connection", "pymongo.serverSelection"):
+    logging.getLogger(_pymongo_logger).setLevel(logging.INFO)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Own the MongoDB pool for the process lifetime (S8.1).
+
+    `lifespan` rather than `@app.on_event`, which FastAPI documents as
+    deprecated. Connecting here — not per request — is what keeps a single
+    connection pool; `database.connect()` is a no-op when MONGODB_URI is unset,
+    so this is inert for anyone not using cloud sync.
+    """
+    await database.connect()
+    try:
+        yield
+    finally:
+        await database.close()
+
+
 app = FastAPI(
     title="Escape Plan backend",
     description=(
@@ -46,8 +80,10 @@ app = FastAPI(
         "grounded AI explanation layer. Routing is never done by AI."
     ),
     version="1.0",
+    lifespan=lifespan,
 )
 app.include_router(chat_router)
+app.include_router(cloud_router)
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -111,6 +147,69 @@ def anthropic_error(_request: Request, exc: anthropic.APIError) -> JSONResponse:
     )
 
 
+@app.exception_handler(CloudSyncDisabled)
+def cloud_sync_disabled(_request: Request, exc: CloudSyncDisabled) -> JSONResponse:
+    """503, not the bare 500 a RuntimeError would otherwise produce.
+
+    Cloud sync is optional, so "no database configured" is a deployment state, not
+    a bug. 503 tells the client the feature is unavailable rather than that the
+    request was malformed or the server broke.
+
+    Routes must raise this at the top rather than branching on `database.enabled`
+    — a branch would silently skip a write and report success.
+    """
+    logging.warning("cloud-sync route reached with no database: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Cloud sync is not configured on this server."},
+    )
+
+
+# `CloudSyncDisabled` covers "no database CONFIGURED". It does not cover "database
+# configured but UNREACHABLE" — a different state with the same right answer.
+# Found 2026-09-15 against the deployed service: `MONGODB_URI` was set but Atlas
+# was not allow-listing Render's IPs, so `/health/db` reported "unreachable" while
+# `POST /auth/register` returned a bare **500 Internal Server Error** with no body.
+# That is the worst possible answer for S8.3/S8.4: the iOS client cannot tell a
+# transient outage it should retry from a malformed request it must not.
+#
+# `ConnectionFailure` is the precise seam. It is the base of
+# ServerSelectionTimeoutError, NetworkTimeout, AutoReconnect and
+# WaitQueueTimeoutError, and is NOT a base of OperationFailure — so a genuine bug
+# in one of our queries still surfaces as a 500 rather than being dressed up as a
+# transient blip. The import is guarded to preserve the property `database.py`
+# relies on: the app must still import when the driver is absent.
+try:  # pragma: no cover - exercised by whether the handler below registers
+    from pymongo.errors import ConnectionFailure as _ConnectionFailure
+except ImportError:  # pragma: no cover - driver-absent deployments
+    _ConnectionFailure = None
+
+if _ConnectionFailure is not None:
+
+    @app.exception_handler(_ConnectionFailure)
+    def cloud_sync_unreachable(
+        _request: Request, exc: Exception
+    ) -> JSONResponse:
+        """503 with a retryable message when the database cannot be reached.
+
+        Mirrors the Anthropic handler's split above: 503 means "the same request
+        may work shortly", which is exactly true of a network partition, an Atlas
+        IP allow-list that has not caught up, or a paused free-tier cluster.
+        """
+        logging.error(
+            "cloud-sync route could not reach the database (%s): %s",
+            exc.__class__.__name__,
+            exc,
+            exc_info=True,
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "Cloud sync is temporarily unavailable. Please try again."
+            },
+        )
+
+
 def require_token(
     credentials: Annotated[
         Optional[HTTPAuthorizationCredentials], Depends(_bearer_scheme)
@@ -147,6 +246,35 @@ class HealthResponse(BaseModel):
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok", version=app.version)
+
+
+class DatabaseHealthResponse(BaseModel):
+    """`database` is one of: disabled (no MONGODB_URI), ok, unreachable."""
+
+    database: Literal["disabled", "ok", "unreachable"]
+    db_name: str | None
+
+
+@app.get("/health/db", response_model=DatabaseHealthResponse)
+async def health_db() -> DatabaseHealthResponse:
+    """Cloud-sync connectivity (S8.1).
+
+    Open, like /health, so a platform probe can reach it. It reveals only
+    whether a database is configured and reachable — never the URI, which
+    carries credentials.
+
+    Returns 200 even when the database is unreachable: the endpoint's job is to
+    report that fact, and a 5xx here would be indistinguishable from the whole
+    service being down.
+    """
+    status = await database.status()
+    # Both fields come from the live client state, never from the environment.
+    # Reading `db_name` from settings let the body contradict itself — a bad
+    # MONGODB_URI reports "disabled" while settings still names a database.
+    return DatabaseHealthResponse(
+        database=status,
+        db_name=get_settings().mongodb_db_name if database.enabled else None,
+    )
 
 
 @app.post(

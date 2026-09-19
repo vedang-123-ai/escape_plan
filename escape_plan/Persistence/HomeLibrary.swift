@@ -32,6 +32,10 @@ final class HomeLibrary: ObservableObject {
     let store: HomeDocumentStore
     /// The session of the currently open editor, if any — see `HomeModelPersisting` above.
     weak var editor: HomeModelPersisting?
+    /// Told when a home is deleted here, so cloud sync can remember it (S8.4). The backend has
+    /// no delete endpoint, so without a tombstone the next sync downloads the home straight
+    /// back. Weak, and optional — deleting works exactly as before with nobody listening.
+    weak var deletionObserver: HomeDeletionObserving?
 
     init(store: HomeDocumentStore) {
         self.store = store
@@ -51,6 +55,9 @@ final class HomeLibrary: ObservableObject {
         perform {
             try store.delete(homeID: homeID)
             editor?.homeWasDeleted(homeID: homeID)
+            // After the delete succeeds, so a failed delete never leaves a tombstone for a
+            // home that is still on disk.
+            deletionObserver?.homeWasDeletedLocally(homeID: homeID)
         }
     }
 

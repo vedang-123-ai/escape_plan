@@ -663,7 +663,9 @@
     {
       "id": "p_ada",
       "name": "Ada",
-      "tags": [],
+      "tags": [
+        "vision_impaired"
+      ],
       "bedroom_room_id": "r_u_bed"
     },
     {
@@ -679,6 +681,7 @@
   "meta": {
     "created": "2026-08-05T12:00:00Z",
     "modified": "2026-08-05T12:00:00Z",
-    "address_optional": null
+    "address_optional": null,
+    "last_scanned": "2026-09-02T17:05:00Z"
   }
 }

@@ -89,10 +89,16 @@ exists so it gets caught early next time.
 
 ## Scope
 
-Fire, earthquake, and severe weather (tornado). iOS only. LiDAR scan only. No user accounts —
-local persistence and an anonymous device id. Deliberately out of scope: furniture detection,
-camera-only capture, Android, multi-user sync, disaster types beyond those three.
+Fire, earthquake, and severe weather (tornado). iOS only. LiDAR scan only. Deliberately out of
+scope: camera-only capture, Android, custom/trained ML models, disaster types beyond those three.
 
-Multi-peril was approved 2026-09-05 with the S6 readiness arc
-([`docs/playbook/06-pivot-intro.md`](docs/playbook/06-pivot-intro.md)); the scope was fire-only
-before that, and no S6 session has been built yet.
+The scope has been deliberately widened three times, each with a dated entry in
+[`docs/decisions.md`](docs/decisions.md):
+
+| Approved | Arc | What left the out-of-scope list |
+| --- | --- | --- |
+| 2026-09-05 | S6 readiness ([`06-pivot-intro.md`](docs/playbook/06-pivot-intro.md)) | Earthquake and severe weather; the product was fire-only before it. S6.1–S6.9 are built. |
+| 2026-09-08 | S7 object hazards ([`07-object-hazard-intro.md`](docs/playbook/07-object-hazard-intro.md)) | "Furniture detection". The sanctioned form is RoomPlan scan objects + guided manual tagging feeding a deterministic engine — **never custom ML**, which stays out. |
+| 2026-09-14 | S8 cloud sync ([`08-cloud-sync-intro.md`](docs/playbook/08-cloud-sync-intro.md)) | "No user accounts" and "multi-user sync". Local-only persistence remains the supported configuration when no database is configured. |
+
+These are deliberate boundaries that moved for stated reasons, not gaps.

@@ -84,7 +84,19 @@ enum FixtureSeeder {
         var seeded: [HomeModel] = []
         for fixture in HomeFixture.allCases {
             let model = try FixtureLoader.load(fixture)
-            try store.save(model: model)
+            // `now: model.meta.modified` — seed VERBATIM, including the timestamp.
+            //
+            // This is a cloud-sync correctness requirement, not a cosmetic one. The default
+            // (`now: Date()`) stamps `meta.modified` with the install time, and these three
+            // homes keep FIXED `home_id`s. So a user who edits the Bungalow for a month on
+            // one device, then installs on a second device, gets a pristine fixture carrying
+            // today's date under the same id as their real home. S8.4's conflict tiebreak is
+            // last-write-wins on `meta.modified`, so the factory fixture would win, be pushed
+            // over a month of their work, and then be pulled down onto the first device too —
+            // destroying the home everywhere, on the single most likely sequence of events.
+            // The fixtures' own 2026-07-10 stamp is older than anything a user can have
+            // edited, which makes the timestamp mean what the tiebreak assumes it means.
+            try store.save(model: model, now: model.meta.modified)
             seeded.append(model)
         }
         defaults.set(true, forKey: starterSeedDefaultsKey)
