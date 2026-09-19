@@ -11,7 +11,6 @@ struct MockLiveRoom: LiveRoomExtractable {
     var extractedLongestWall: (length: Float, normal: SIMD2<Float>, direction: SIMD2<Float>)?
     var extractedDoorPositions: [SIMD2<Float>]
     var extractedBoundingBox: (width: Float, depth: Float)
-    var extractedPerimeter: Float
 }
 
 final class SemanticMatcherTests: XCTestCase {
@@ -22,8 +21,7 @@ final class SemanticMatcherTests: XCTestCase {
             extractedCenter: .zero,
             extractedLongestWall: (length: 10, normal: SIMD2<Float>(0, 1), direction: SIMD2<Float>(1, 0)),
             extractedDoorPositions: [SIMD2<Float>(0, 5)], // Door on the "top" wall
-            extractedBoundingBox: (width: 10, depth: 10),
-            extractedPerimeter: 40
+            extractedBoundingBox: (width: 10, depth: 10)
         )
         
         let poly = [
@@ -61,8 +59,7 @@ final class SemanticMatcherTests: XCTestCase {
             extractedCenter: SIMD2<Float>(10, 10),
             extractedLongestWall: (length: 10, normal: SIMD2<Float>(0, -1), direction: SIMD2<Float>(-1, 0)),
             extractedDoorPositions: [SIMD2<Float>(10, 5)], // Door at top
-            extractedBoundingBox: (width: 10, depth: 10),
-            extractedPerimeter: 40
+            extractedBoundingBox: (width: 10, depth: 10)
         )
         
         let poly = [
@@ -99,8 +96,7 @@ final class SemanticMatcherTests: XCTestCase {
             extractedCenter: .zero,
             extractedLongestWall: (length: 10, normal: SIMD2<Float>(0, 1), direction: SIMD2<Float>(1, 0)),
             extractedDoorPositions: [SIMD2<Float>(0, 5)],
-            extractedBoundingBox: (width: 10, depth: 10),
-            extractedPerimeter: 40
+            extractedBoundingBox: (width: 10, depth: 10)
         )
         
         let poly1 = [
@@ -149,8 +145,7 @@ final class SemanticMatcherTests: XCTestCase {
             extractedCenter: SIMD2<Float>(10, 10),
             extractedLongestWall: (length: 10, normal: SIMD2<Float>(-s, c), direction: SIMD2<Float>(c, s)),
             extractedDoorPositions: [SIMD2<Float>(10 - 5 * s, 10 + 5 * c)],
-            extractedBoundingBox: (width: 10, depth: 10),
-            extractedPerimeter: 40
+            extractedBoundingBox: (width: 10, depth: 10)
         )
         
         let poly = [
@@ -185,8 +180,7 @@ final class SemanticMatcherTests: XCTestCase {
             extractedCenter: .zero,
             extractedLongestWall: (length: 10, normal: SIMD2<Float>(0, 1), direction: SIMD2<Float>(1, 0)),
             extractedDoorPositions: [], // NO DOORS
-            extractedBoundingBox: (width: 10, depth: 10),
-            extractedPerimeter: 40
+            extractedBoundingBox: (width: 10, depth: 10)
         )
         
         let poly = [

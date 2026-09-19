@@ -1,6 +1,6 @@
 # Object hazard detection — the spec
 
-**Status: APPROVED 2026-09-08 by the owner. Governs the S7 arc (`docs/playbook/07-object-hazard-intro.md`).**
+**Status: APPROVED 2026-09-08 by the owner. Governs the S7 arc (shipped; charter at `archive/playbook-v1:docs/playbook/07-object-hazard-intro.md`).**
 Written against the merged tree at `388cf37` (post-S6.9). Every "already exists" claim below was
 re-verified on that tree, not copied from older notes.
 

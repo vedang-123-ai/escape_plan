@@ -16,7 +16,6 @@ protocol LiveRoomExtractable {
     var extractedLongestWall: (length: Float, normal: SIMD2<Float>, direction: SIMD2<Float>)? { get }
     var extractedDoorPositions: [SIMD2<Float>] { get }
     var extractedBoundingBox: (width: Float, depth: Float) { get }
-    var extractedPerimeter: Float { get }
 }
 
 /// One wall segment, as the matcher needs it and independent of RoomPlan.
@@ -135,7 +134,9 @@ struct SemanticMatcher {
     init() {}
     
     func match(liveRoom: LiveRoomExtractable, against model: HomeModel) -> SemanticMatchResult {
-        let livePerimeter = liveRoom.extractedPerimeter
+        let liveWidth = liveRoom.extractedBoundingBox.width
+        let liveDepth = liveRoom.extractedBoundingBox.depth
+        let liveArea = liveWidth * liveDepth
         
         guard let liveLongestWall = liveRoom.extractedLongestWall else {
             return .noMatch
@@ -146,7 +147,7 @@ struct SemanticMatcher {
             let center: SIMD2<Float>
             let longestWall: (length: Float, normal: SIMD2<Float>, direction: SIMD2<Float>)
             let doorPositions: [SIMD2<Float>]
-            let perimeter: Float
+            let area: Float
         }
         
         var candidates: [Candidate] = []
@@ -165,8 +166,6 @@ struct SemanticMatcher {
                 var maxEdgeDir = SIMD2<Float>(1, 0)
                 var maxEdgeNorm = SIMD2<Float>(0, 1)
                 
-                var perimeter: Float = 0
-                
                 for i in 0..<poly.count {
                     let p1 = poly[i]
                     let p2 = poly[(i + 1) % poly.count]
@@ -184,7 +183,6 @@ struct SemanticMatcher {
                     let dx = fx2 - fx1
                     let dy = fy2 - fy1
                     let len = sqrt(dx * dx + dy * dy)
-                    perimeter += len
                     if len > maxEdgeLength {
                         maxEdgeLength = len
                         maxEdgeDir = SIMD2<Float>(dx, dy) / len
@@ -192,9 +190,17 @@ struct SemanticMatcher {
                     }
                 }
                 
-                // Compare perimeter (e.g. 20% tolerance)
-                let perimeterDiff = abs(perimeter - livePerimeter) / max(livePerimeter, 0.001)
-                if perimeterDiff < 0.20 {
+                var area: Float = 0
+                for i in 0..<poly.count {
+                    let p1 = poly[i]
+                    let p2 = poly[(i + 1) % poly.count]
+                    area += Float(p1.x * p2.y - p2.x * p1.y)
+                }
+                area = abs(area) / 2.0
+                
+                // Compare area (e.g. 15% tolerance)
+                let areaDiff = abs(area - liveArea) / max(liveArea, 0.001)
+                if areaDiff < 0.20 {
                     let center = SIMD2<Float>((minX + maxX) / 2.0, (minY + maxY) / 2.0)
                     
                     // find doors for this room
@@ -222,7 +228,7 @@ struct SemanticMatcher {
                         center: center,
                         longestWall: (length: maxEdgeLength, normal: maxEdgeNorm, direction: maxEdgeDir),
                         doorPositions: doorPos,
-                        perimeter: perimeter
+                        area: area
                     )
                     candidates.append(candidate)
                 }
@@ -253,7 +259,7 @@ struct SemanticMatcher {
             let lDir = liveLongestWall.direction
             let cDir = candidate.longestWall.direction
             
-            let angle = atan2(lDir.y, lDir.x) - atan2(cDir.y, cDir.x)
+            let angle = atan2(cDir.y, cDir.x) - atan2(lDir.y, lDir.x)
             let angles = [angle, angle + Float.pi]
             
             for ang in angles {
@@ -329,9 +335,9 @@ extension simd_float4x4 {
         let c = cos(angle)
         let s = sin(angle)
         self = simd_float4x4(
-            SIMD4<Float>(c, 0, -s, 0),
+            SIMD4<Float>(c, 0, s, 0),
             SIMD4<Float>(0, 1, 0, 0),
-            SIMD4<Float>(s, 0, c, 0),
+            SIMD4<Float>(-s, 0, c, 0),
             SIMD4<Float>(0, 0, 0, 1)
         )
     }
@@ -410,10 +416,6 @@ extension CapturedRoom: LiveRoomExtractable {
         }
         if walls.isEmpty { return (0, 0) }
         return (maxProjDir - minProjDir, maxProjNorm - minProjNorm)
-    }
-    
-    var extractedPerimeter: Float {
-        return walls.reduce(0) { $0 + $1.dimensions.x }
     }
 }
 #endif

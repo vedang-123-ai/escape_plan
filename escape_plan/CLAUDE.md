@@ -1,67 +1,56 @@
 # escape_plan/ — iOS app (SwiftUI)
 
 The iOS half of the project. Read the root `CLAUDE.md` first; Swift conventions are in
-`.claude/rules/languages/swift.md`.
+`.claude/rules/languages/swift.md`. The Xcode project lives at the repo root (not `ios/`) and uses a
+`PBXFileSystemSynchronizedRootGroup`: any `.swift` file added under `escape_plan/` or `escape_planTests/` is
+compiled automatically (no `project.pbxproj` edit, and no stray scratch files). Deployment target is iOS 17.0.
 
-The project stays at the repo root (not the playbook's `ios/` layout) — see `docs/decisions.md`;
-revisit only if the team wants the monorepo layout. The Xcode project uses a
-`PBXFileSystemSynchronizedRootGroup`, so any `.swift` file added under `escape_plan/` (or
-`escape_planTests/`) is compiled automatically — no project.pbxproj edit, but also no stray
-scratch files.
-
-## Structure (current)
+## Structure
 
 - `Models/` — Codable schema mirror, field-for-field exact vs `schema/homemodel.schema.json` and
-  `backend/app/models.py`. **Pure mirror** — round-trip test in `escape_planTests/`. Non-schema
-  conveniences live in `Editor/Core/ModelSupport.swift` / `Renderer/HomeModel+Renderer.swift`,
-  never as new fields here (that would be a schema change).
-- `Persistence/` — local JSON documents via FileManager, one file per home
-  (`<Documents>/Homes/<home_id>.homeplan.json`), schema-versioned, atomic writes. Plus
-  `ConversationStore` (chat thread) and `ChecklistStateStore` (score checklist, UserDefaults).
-- `Editor/Core/` — `HomeModelStore` reducer (the ONLY path that mutates a `HomeModel`),
-  `EditAction`, `UndoStack`, validation, hit-testing, snapping. Pure Foundation — also compiled &
-  tested as the `tools/editorcore` SwiftPM package.
-- `Editor/SceneKit/` — `EditorSceneView` (unified free-camera editor surface, hosts
-  `UnifiedSceneController` + `OrbitCameraRig`) and `SceneKitEditorBridge` (gesture →
-  `EditAction`, with `GestureArbiter` deciding edit-drag vs orbit).
-- `Renderer/` — SceneKit dollhouse (`DollhouseScene*`) + `RouteOverlay`/`RouteGeometry` (animated
-  escape routes drawn from a `/routes` RoutePlan — never computed client-side).
-- `Capture/` — RoomPlan LiDAR capture + raw JSON/USDZ exporter matching the converter contract.
-- `Networking/` — `APIClient` (base URL + bearer token, `/health`) plus sibling extensions:
-  `APIClient+Routes`, `+Chat`, `+Score`. Keep new endpoints as new extension files.
-- `Auth/` — S8.3 accounts: `AuthClient` (`/auth/register` `/auth/login` `/auth/me`),
-  `AuthSession` (the state machine — restore, sign in, register, refresh, sign out),
-  `KeychainTokenStore`, `AuthFailure`, `AuthValidation`, `FormURLEncoding`. **Pure Foundation,
-  no SwiftUI or UIKit** — the directory is symlinked into `tools/editorcore` as
-  `Sources/EditorCore/Auth`, so `swift test` covers it on a machine with no simulator. Adding a
-  SwiftUI import here silently removes that coverage. Screens live in `Screens/Auth/`.
-- `Sync/` — S8.4 cloud sync: `CloudHomesClient` (`GET`/`POST /homes`), `SyncReconciler` (the
-  pure function deciding each home's direction), `SyncManager` (the observable run + status),
-  `HomeFingerprint`, `SyncState` (the sidecar), `SyncFailure`. **Pure Foundation, no SwiftUI or
-  UIKit** — symlinked into `tools/editorcore` as `Sources/EditorCore/Sync`, exactly like
-  `Auth/`, so `swift test` covers it with no simulator. Two rules that are easy to break:
-  the per-user JWT goes on `/homes` and nowhere else (the deterministic endpoints are on the
-  shared-bearer axis), and the dirty check fingerprints the **decoded model**, never bytes — a
-  server round trip differs by bytes but not by value. App-side adapter is
-  `Persistence/HomeDocumentSyncRepository.swift`; the badge is `Screens/SyncStatusBadge.swift`.
-- `Screens/` — the tab shell + per-home sub-screens.
+  `backend/app/models.py`. **Pure mirror**; non-schema conveniences live in `Editor/Core/ModelSupport.swift` or
+  `Renderer/HomeModel+Renderer.swift`, never as new fields here (that would be a schema change).
+- `Persistence/` — local JSON documents via FileManager, one file per home, schema-versioned, atomic writes;
+  `ConversationStore`, `ChecklistStateStore`, and `HomeDocumentSyncRepository` (adapter for `Sync/`).
+- `Editor/Core/` — `HomeModelStore` reducer (the ONLY path that mutates a `HomeModel`), `EditAction`, `UndoStack`,
+  validation, hit-testing, snapping, `CameraRigModel`. Pure Foundation, also tested as `tools/editorcore`.
+- `Editor/SceneKit/` — `EditorSceneView` (+ `UnifiedSceneController`, `OrbitCameraRig`), `SceneKitEditorBridge`.
+- `Renderer/` — SceneKit dollhouse plus `RouteOverlay`/`RouteGeometry`. Routes are drawn from a `/routes` plan,
+  never computed client-side.
+- `Capture/` — RoomPlan LiDAR capture and the raw JSON/USDZ exporter matching the converter contract.
+- `Networking/` — `APIClient` (base URL + shared bearer token) plus `+Routes`, `+Chat`, `+Score` extensions.
+- `Onboarding/` — first-run flow, household interview, `FixtureSeeder` (seeds the demo home only into an empty library).
+- `Drill/` — S9 AR drill: `SemanticMatcher` (which stored room is the phone in, and the live-to-model transform),
+  `DrillRelocalizationController/View`, `ARDrillView`. Device-only, unverified; the flat-screen `DrillMode/` is the fallback.
+- `DrillMode/` — flat-screen practice drill, practice log and reminders.
+- `Export/` — plan PDF/JSON export, `MeetingPointStore`, and the Responder Snapshot (`ResponderSnapshot*`).
+- `Auth/`, `Sync/` — optional accounts and cloud sync. **Pure Foundation, no SwiftUI/UIKit**: both are symlinked into
+  `tools/editorcore`, as is `Drill/SemanticMatcher.swift`; a SwiftUI import there silently removes test coverage.
+  The per-user JWT goes on `/homes` only; the dirty check fingerprints the decoded model, never bytes.
+- `Screens/` — the tab shell and sub-screens (table below).
 
-## Screen → session ownership (non-obvious after the five-lane merge)
+## Screens
 
-| Screen | Session | Notes |
+Tabs (`ContentView`): **Beta, Home, House, Assistant, Settings**. `RootView` chooses the soft auth gate vs the app.
+
+| Screen | What it is | Playbook owner |
 |---|---|---|
-| `HomeScreen` | S0.3/S2.4 | home library; swipe/menu → Score & Profiles |
-| `HouseScreen` | revamp A3 | THE unified screen: free-orbit translucent dollhouse that is editor (rooms, openings, stairs, undo/redo) AND route viewer (overlay, tour, profile picker) at once — replaced EditorScreen + PlanScreen |
-| `AssistantScreen` | S3.3 | grounded chat; graceful error when the key is unset |
-| `ScoreScreen` | S3.5 | preparedness score; backend does all the math |
-| `ProfilesScreen` / `ProfileEditorView` | S3.4 | per-home family profiles CRUD |
-| `SettingsScreen` | S0.3 | app-global config |
-| `SyncStatusBadge` | S8.4 | the cloud glyph in the Home tab's toolbar. Tapping syncs and shows the detail popover. Sync is never a wall — it is a badge and a sentence, never a modal |
-| `AuthGateView` / `LoginView` / `SignupView` | S8.3 | accounts. The gate is SOFT — "Continue without an account" is a real button, and the app is fully usable without one. `RootView` chooses gate vs `ContentView`; `AuthSheetView` is the same flow from Settings |
+| `HomeScreen` | readiness score/checklist entry, homes library, launches drills | S11.5 |
+| `ScoreScreen`, `ProfilesScreen`, `ProfileEditorView` | preparedness score; per-home family profiles CRUD | S11.5 / stable |
+| `HouseScreen` | THE unified 3D screen: editor (rooms, openings, stairs, undo/redo) and route viewer at once | S11.9 (camera) |
+| `AssistantScreen` | grounded chat against `/chat`; degrades gracefully with no key or bearer | stable |
+| `SettingsScreen` | server URL/token, account section | S11.7 |
+| `BetaScreen` | tester tab: the old homes library and fixture shortcuts | see BLOCKERS (Release decision) |
+| `BuildFromPlanView` | text/photo `/build` intake, draft-only, mandatory editor review | stable |
+| `HazardHuntView`, `DiffReviewSheet` | guided manual hazard tagging; partial re-scan diff review | stable |
+| `ConsentSheet` (+ `Export/`) | "Share with your fire department" consent and snapshot | S11.6 |
+| `AuthGateView`, `LoginView`, `SignupView`, `AuthSheetView`, `SyncStatusBadge` | optional accounts; gate is SOFT ("Continue without an account") | S11.7 |
+| `RouteFindingViews`, `HomeThumbnailView`, `BackendFailureBanner` | presentation only; the shared failure notice | stable |
 
-## Hard rules (from rules/languages/swift.md — don't relearn them the hard way)
+## Hard rules
 
 - Mutate the model only through `HomeModelStore` + an `EditAction`. Never from a view.
-- Openings are parametric (`wall_segment` = `edge_index` + `t0/t1`) — never absolute coordinates.
-- Routes always come from a real `/routes` response — the app never computes or approximates one.
-- No API keys / tokens in source; they come from configuration.
+- Openings are parametric (`wall_segment` = `edge_index` + `t0/t1`), never absolute coordinates.
+- Routes always come from a real `/routes` response. The app never computes or approximates one.
+- No API keys or tokens in source; they come from configuration. No new colours (`Theme.swift`).
+- Never re-enable `allowsCameraControl`. Keep `CameraRigModel` free of SceneKit/UIKit.

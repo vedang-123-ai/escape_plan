@@ -3,7 +3,7 @@ excluded by default).
 
 Run: cd backend && ANTHROPIC_API_KEY=sk-ant-... python3 -m pytest tests/test_agent_live.py -m live -v
 
-Encodes the S3.2 acceptance criteria from docs/playbook/S3-2.md: on
+Encodes the S3.2 acceptance criteria from archive/playbook-v1:docs/playbook/S3-2.md: on
 apartment.json the agent flags the single-point-of-failure exit (d_entry) with
 real evidence; on twostory.json it flags the Kids' Bedroom's undersized-only
 window (w_kids); zero findings without evidence links; each run < 60s. Written

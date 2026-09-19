@@ -12,15 +12,15 @@ integration disciplined.
 
 ## Launching lanes
 
-1. **Pick genuinely independent sessions.** Check `docs/tracker/TODO.md` and the dependency map
-   (`docs/playbook/03-sessions-intro.md`). Never start a session whose prereqs aren't DONE.
+1. **Pick genuinely independent sessions.** Check `docs/playbook/README.md` (lane table and dependency map)
+   and `docs/tracker/BLOCKERS.md`. Never start a session whose prereqs aren't DONE.
 2. **Assign non-overlapping file ownership** and state each lane's do-not-touch list explicitly in
    its prompt (e.g. "don't touch PlanScreen.swift or Editor/"). Shared files that must be edited by
    more than one lane (`EditAction.swift`, `ContentView.swift`) are the risk — keep changes there
    strictly additive.
 3. **Create a real worktree per lane** and VERIFY it:
    ```
-   git worktree add ../ep-<slug> -b <lane-branch>
+   git worktree add ../ep-<slug> -b s11-N-<slug> origin/main   # branch naming: docs/playbook/README.md
    git worktree list        # confirm the entry exists — do not skip this check
    ```
    If you're not creating worktrees, say so out loud — don't let separate agents silently share

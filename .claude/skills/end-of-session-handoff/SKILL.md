@@ -1,6 +1,6 @@
 ---
 name: end-of-session-handoff
-description: Run the complete mandatory end-of-session protocol for a playbook session (S0.1–S5.3). Use when finishing/closing a session, declaring one DONE, or when the user says "wrap up", "hand off", "close out S<x>.<y>". This is the authoritative protocol — the tracker step is MANDATORY.
+description: Run the complete mandatory end-of-session protocol for a playbook session (S11.1 to S11.13). Use when finishing/closing a session, declaring one DONE, or when the user says "wrap up", "hand off", "close out S<x>.<y>". This is the authoritative protocol — the tracker step is MANDATORY.
 ---
 
 # end-of-session-handoff
@@ -11,7 +11,7 @@ common miss — it is NOT optional.
 
 ## 1. Verify acceptance (evidence, not claims)
 
-Re-read the session file's acceptance criteria (`docs/playbook/S<x>-<y>.md`). Verify each against
+Re-read the session file's acceptance criteria (`docs/playbook/S11-<n>.md`). Verify each against
 the repo — run the tests (invoke the `verify-all` skill), open the artifact. Consider dispatching
 the `session-auditor` agent for an independent check. Any criterion that fails or is unverifiable
 → the session is NOT done; say so plainly.

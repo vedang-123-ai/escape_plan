@@ -8,7 +8,7 @@ There was no single file with this view. The pieces existed and still do — rea
 | For | Read |
 |---|---|
 | The locked product decisions and the pitch | [`playbook/01-product-spec.md`](playbook/01-product-spec.md) |
-| The 29-session plan, dependency map and calendar | [`playbook/03-sessions-intro.md`](playbook/03-sessions-intro.md) + `playbook/S*.md` |
+| The S11 session plan, lanes, dependency map and branch protocol | [`playbook/README.md`](playbook/README.md) + `playbook/S11-*.md` |
 | The contract every part agrees on | [`../schema/homemodel.schema.json`](../schema/homemodel.schema.json), summarized in [`schema-summary.md`](schema-summary.md) |
 | What is still open, and why | [`tracker/TODO.md`](tracker/TODO.md) — the source of truth for status |
 | Why anything was built the way it was | [`decisions.md`](decisions.md) |

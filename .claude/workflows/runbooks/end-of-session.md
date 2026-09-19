@@ -1,9 +1,11 @@
 # End-of-session runbook
 
-**Use when:** any playbook session (S0.1–S5.3) is about to be declared DONE.
+**Use when:** any playbook session (S11.1 to S11.13) is about to be declared DONE.
 
 ## Phase 1 — Verify
 
+0. Confirm `git branch --show-current` is the session branch (never `main`) and that your diff touches only the
+   session's OWNED FILES (`git diff --stat origin/main`).
 1. Re-read the session file's acceptance criteria; verify each one against the repo with
    evidence (run the tests, open the artifact). Consider dispatching the `session-auditor`
    agent for an independent check.

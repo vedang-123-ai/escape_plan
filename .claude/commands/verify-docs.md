@@ -7,7 +7,7 @@ anything it finds back here and fix it explicitly, so the fix is visible in the 
 
 Scope, unless the user narrows it:
 
-- `docs/tracker/TODO.md` — the source of truth for open work. Its `_Last verified:_` stamp,
+- `docs/tracker/BLOCKERS.md` and `docs/tracker/TODO.md` — the source of truth for open work. Its `_Last verified:_` stamp,
   its test-count table, and every path it names.
 - `CLAUDE.md`, `backend/CLAUDE.md`, `escape_plan/CLAUDE.md`, `README.md`.
 - `.claude/` — rule `globs` that match nothing, index READMEs that disagree with what's on

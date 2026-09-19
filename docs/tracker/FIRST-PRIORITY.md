@@ -5,6 +5,9 @@ gate_owner: Anish / Yuki
 
 # FIRST PRIORITY — do this before anything else
 
+> **Cleared by playbook session [S11.8](../playbook/S11-8.md).** Whoever runs it sets `gate_status: closed`
+> in the front-matter above once the real counts are recorded in `BLOCKERS.md`.
+
 **Someone with a working iOS simulator must compile and test the app, and record a real
 count.** Do this before starting a new session and before any feature work. (This line used to
 say "before S8.2" — S8.1 through S8.4 have all landed since, so read it as "before the next

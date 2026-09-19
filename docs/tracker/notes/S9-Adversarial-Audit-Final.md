@@ -1,5 +1,9 @@
 # Final Adversarial Audit of S9
 
+> **SUPERSEDED 2026-09-18.** The rotation "correction" below was disproven: a 30 degree known-answer test passes
+> on the original rotation and the flip is not carried into `main`. The perimeter change is unproven and open.
+> See `docs/decisions.md` (2026-09-18, S11 baseline).
+
 ## What was evaluated
 - SemanticMatcher fixes (AABB area -> perimeter, Double-Negative rotation correction, Ambiguity count).
 - S9.2 Relocalization UI & AR Setup (DrillRelocalizationController, DrillRelocalizationView).

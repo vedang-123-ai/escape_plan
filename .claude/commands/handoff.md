@@ -1,4 +1,4 @@
-# /handoff <session-id, e.g. S2.2>
+# /handoff <session-id, e.g. S11.4>
 
 Run the complete end-of-session protocol for `$ARGUMENTS`. Invoke the `end-of-session-handoff`
 skill and follow every step — acceptance verification, `decisions.md` + `tools-used.md`, and the

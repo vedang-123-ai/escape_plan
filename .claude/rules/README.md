@@ -3,7 +3,8 @@
 Granular guidance scoped narrower than CLAUDE.md. **Nothing here auto-loads.**
 
 - `languages/` — `python.md` (backend), `swift.md` (iOS).
-- `paths/` — `schema.md` (the HomeModel contract), `corpus.md` (grounding + citation rules).
+- `paths/` — `schema.md` (the HomeModel contract), `corpus.md` (grounding + citation rules), `docs.md` (tracker,
+  decisions, tools-used, playbook), `editorcore.md` (the Foundation-only package and its symlinks).
 - `vendors/` — `anthropic.md` (Claude integration rules: grounded, cited, never routes).
 
 Scoped rules carry frontmatter `globs` so they surface only when a matching file is in play, and
