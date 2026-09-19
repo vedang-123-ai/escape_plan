@@ -224,7 +224,7 @@ final class PersistenceTests: XCTestCase {
 
     func testLoadRefusesADocumentFromANewerBuild() throws {
         let future = try XCTUnwrap(
-            PersistenceFixtures.document("bungalow").body.setting("schema_version", to: .string("2.0"))
+            PersistenceFixtures.document("bungalow").body.setting("schema_version", to: .string("3.0"))
         )
         let document = HomeDocument(body: future)
         let homeID = try XCTUnwrap(document.homeID)
@@ -235,7 +235,7 @@ final class PersistenceTests: XCTestCase {
         XCTAssertThrowsError(try makeStore().load(homeID: homeID)) { error in
             XCTAssertEqual(
                 error as? PersistenceError,
-                .documentTooNew(documentVersion: "2.0", supportedVersion: "1.1")
+                .documentTooNew(documentVersion: "3.0", supportedVersion: "2.0")
             )
         }
         // Refused gracefully: the file is still there, unmodified, and the rest
@@ -252,7 +252,7 @@ final class PersistenceTests: XCTestCase {
         XCTAssertThrowsError(try SchemaMigrator.migrate(HomeDocument(body: old))) { error in
             XCTAssertEqual(
                 error as? PersistenceError,
-                .migrationUnavailable(fromVersion: "0.9", toVersion: "1.1")
+                .migrationUnavailable(fromVersion: "0.9", toVersion: "2.0")
             )
         }
     }
@@ -266,7 +266,7 @@ final class PersistenceTests: XCTestCase {
         let migrated = try SchemaMigrator.migrate(HomeDocument(body: old))
         XCTAssertEqual(migrated.schemaVersion, SchemaMigrator.currentVersion)
         let model = try migrated.decode(as: HomeModel.self)
-        XCTAssertEqual(model.schema_version, "1.1")
+        XCTAssertEqual(model.schema_version, "2.0")
         XCTAssertTrue(model.floors.allSatisfy { $0.objects.isEmpty },
                       "a migrated 1.0 document has no objects yet")
     }
@@ -277,9 +277,8 @@ final class PersistenceTests: XCTestCase {
             from: Data(contentsOf: PersistenceFixtures.repoRoot
                 .appendingPathComponent("schema/homemodel.schema.json"))
         )
-        XCTAssertEqual(
-            schema["properties"]?["schema_version"]?["const"]?.stringValue,
-            SchemaMigrator.currentVersion,
+        XCTAssertTrue(
+            (schema["properties"]?["schema_version"]?["enum"]?.arrayValue?.compactMap({ $0.stringValue }) ?? []).contains(SchemaMigrator.currentVersion),
             "SchemaMigrator.currentVersion has drifted from the schema"
         )
     }

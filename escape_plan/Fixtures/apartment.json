@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "2.0",
   "home_id": "7e9c4b22-8a1d-4f3e-b502-3456789abcd2",
   "name": "Apartment 4B",
   "floors": [
@@ -13,35 +13,120 @@
           "id": "r_hall",
           "name": "Hallway",
           "type": "hall",
-          "polygon": [[5.0, 0.0], [7.0, 0.0], [7.0, 8.0], [5.0, 8.0]],
+          "polygon": [
+            [
+              5.0,
+              0.0
+            ],
+            [
+              7.0,
+              0.0
+            ],
+            [
+              7.0,
+              8.0
+            ],
+            [
+              5.0,
+              8.0
+            ]
+          ],
           "source": "manual"
         },
         {
           "id": "r_bed1",
           "name": "Bedroom 1",
           "type": "bedroom",
-          "polygon": [[0.0, 0.0], [5.0, 0.0], [5.0, 4.0], [0.0, 4.0]],
+          "polygon": [
+            [
+              0.0,
+              0.0
+            ],
+            [
+              5.0,
+              0.0
+            ],
+            [
+              5.0,
+              4.0
+            ],
+            [
+              0.0,
+              4.0
+            ]
+          ],
           "source": "manual"
         },
         {
           "id": "r_bed2",
           "name": "Bedroom 2",
           "type": "bedroom",
-          "polygon": [[0.0, 4.0], [5.0, 4.0], [5.0, 8.0], [0.0, 8.0]],
+          "polygon": [
+            [
+              0.0,
+              4.0
+            ],
+            [
+              5.0,
+              4.0
+            ],
+            [
+              5.0,
+              8.0
+            ],
+            [
+              0.0,
+              8.0
+            ]
+          ],
           "source": "manual"
         },
         {
           "id": "r_living",
           "name": "Living Room",
           "type": "living",
-          "polygon": [[7.0, 0.0], [12.0, 0.0], [12.0, 4.0], [7.0, 4.0]],
+          "polygon": [
+            [
+              7.0,
+              0.0
+            ],
+            [
+              12.0,
+              0.0
+            ],
+            [
+              12.0,
+              4.0
+            ],
+            [
+              7.0,
+              4.0
+            ]
+          ],
           "source": "manual"
         },
         {
           "id": "r_kitchen",
           "name": "Kitchen",
           "type": "kitchen",
-          "polygon": [[7.0, 4.0], [12.0, 4.0], [12.0, 8.0], [7.0, 8.0]],
+          "polygon": [
+            [
+              7.0,
+              4.0
+            ],
+            [
+              12.0,
+              4.0
+            ],
+            [
+              12.0,
+              8.0
+            ],
+            [
+              7.0,
+              8.0
+            ]
+          ],
           "source": "manual"
         }
       ],
@@ -49,8 +134,16 @@
         {
           "id": "d_entry",
           "kind": "door",
-          "room_ids": ["r_hall", "EXTERIOR"],
-          "wall_segment": { "room_id": "r_hall", "edge_index": 0, "t0": 0.3, "t1": 0.75 },
+          "room_ids": [
+            "r_hall",
+            "EXTERIOR"
+          ],
+          "wall_segment": {
+            "room_id": "r_hall",
+            "edge_index": 0,
+            "t0": 0.3,
+            "t1": 0.75
+          },
           "width_m": 0.9,
           "height_m": 2.0,
           "sill_height_m": 0.0,
@@ -59,8 +152,16 @@
         {
           "id": "d_hall_bed1",
           "kind": "door",
-          "room_ids": ["r_hall", "r_bed1"],
-          "wall_segment": { "room_id": "r_hall", "edge_index": 3, "t0": 0.7, "t1": 0.8125 },
+          "room_ids": [
+            "r_hall",
+            "r_bed1"
+          ],
+          "wall_segment": {
+            "room_id": "r_hall",
+            "edge_index": 3,
+            "t0": 0.7,
+            "t1": 0.8125
+          },
           "width_m": 0.9,
           "height_m": 2.0,
           "sill_height_m": 0.0,
@@ -69,8 +170,16 @@
         {
           "id": "d_hall_bed2",
           "kind": "door",
-          "room_ids": ["r_hall", "r_bed2"],
-          "wall_segment": { "room_id": "r_hall", "edge_index": 3, "t0": 0.2, "t1": 0.3125 },
+          "room_ids": [
+            "r_hall",
+            "r_bed2"
+          ],
+          "wall_segment": {
+            "room_id": "r_hall",
+            "edge_index": 3,
+            "t0": 0.2,
+            "t1": 0.3125
+          },
           "width_m": 0.9,
           "height_m": 2.0,
           "sill_height_m": 0.0,
@@ -79,8 +188,16 @@
         {
           "id": "d_hall_living",
           "kind": "door",
-          "room_ids": ["r_hall", "r_living"],
-          "wall_segment": { "room_id": "r_hall", "edge_index": 1, "t0": 0.2, "t1": 0.3125 },
+          "room_ids": [
+            "r_hall",
+            "r_living"
+          ],
+          "wall_segment": {
+            "room_id": "r_hall",
+            "edge_index": 1,
+            "t0": 0.2,
+            "t1": 0.3125
+          },
           "width_m": 0.9,
           "height_m": 2.0,
           "sill_height_m": 0.0,
@@ -89,8 +206,16 @@
         {
           "id": "d_hall_kitchen",
           "kind": "door",
-          "room_ids": ["r_hall", "r_kitchen"],
-          "wall_segment": { "room_id": "r_hall", "edge_index": 1, "t0": 0.7, "t1": 0.8125 },
+          "room_ids": [
+            "r_hall",
+            "r_kitchen"
+          ],
+          "wall_segment": {
+            "room_id": "r_hall",
+            "edge_index": 1,
+            "t0": 0.7,
+            "t1": 0.8125
+          },
           "width_m": 0.9,
           "height_m": 2.0,
           "sill_height_m": 0.0,
@@ -99,8 +224,16 @@
         {
           "id": "w_bed1",
           "kind": "window",
-          "room_ids": ["r_bed1", "EXTERIOR"],
-          "wall_segment": { "room_id": "r_bed1", "edge_index": 3, "t0": 0.35, "t1": 0.6 },
+          "room_ids": [
+            "r_bed1",
+            "EXTERIOR"
+          ],
+          "wall_segment": {
+            "room_id": "r_bed1",
+            "edge_index": 3,
+            "t0": 0.35,
+            "t1": 0.6
+          },
           "width_m": 1.0,
           "height_m": 1.2,
           "sill_height_m": 1.4,
@@ -109,8 +242,16 @@
         {
           "id": "w_bed2",
           "kind": "window",
-          "room_ids": ["r_bed2", "EXTERIOR"],
-          "wall_segment": { "room_id": "r_bed2", "edge_index": 3, "t0": 0.35, "t1": 0.6 },
+          "room_ids": [
+            "r_bed2",
+            "EXTERIOR"
+          ],
+          "wall_segment": {
+            "room_id": "r_bed2",
+            "edge_index": 3,
+            "t0": 0.35,
+            "t1": 0.6
+          },
           "width_m": 1.0,
           "height_m": 1.2,
           "sill_height_m": 1.4,
@@ -119,14 +260,41 @@
         {
           "id": "w_living",
           "kind": "window",
-          "room_ids": ["r_living", "EXTERIOR"],
-          "wall_segment": { "room_id": "r_living", "edge_index": 1, "t0": 0.3, "t1": 0.6 },
+          "room_ids": [
+            "r_living",
+            "EXTERIOR"
+          ],
+          "wall_segment": {
+            "room_id": "r_living",
+            "edge_index": 1,
+            "t0": 0.3,
+            "t1": 0.6
+          },
           "width_m": 1.2,
           "height_m": 1.2,
           "sill_height_m": 1.4,
           "source": "manual"
         }
-      ]
+      ],
+      "objects": [
+        {
+          "id": "obj_wardrobe_1",
+          "category": "wardrobe",
+          "center": [
+            0.5,
+            0.5
+          ],
+          "size_m": [
+            1.0,
+            0.5
+          ],
+          "height_m": 2.0,
+          "rotation_deg": 0.0,
+          "source": "manual",
+          "secured": true
+        }
+      ],
+      "safety_points": []
     }
   ],
   "stairs": [],

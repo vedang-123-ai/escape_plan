@@ -14,11 +14,20 @@ import Foundation
 enum SchemaMigrator {
     /// The version this build reads and writes. Must track
     /// `schema/homemodel.schema.json`'s `schema_version` const.
-    static let currentVersion = "1.1"
+    static let currentVersion = "2.0"
 
     /// Ordered one-step migrations, keyed by the version they upgrade *from*.
     /// Add an entry alongside any schema_version bump.
     static let migrations: [String: (HomeDocument) throws -> HomeDocument] = [
+
+        "1.1": { document in
+            guard case .object(var root) = document.body else {
+                throw PersistenceError.missingSchemaVersion
+            }
+            root["schema_version"] = .string("2.0")
+            return HomeDocument(body: .object(root))
+        },
+
         // 1.0 → 1.1: adds `floor.objects` (defaults to [] — decoders tolerate its absence,
         // so only the version stamp needs rewriting) and the 'ai_plan' source (new documents
         // only; nothing existing to rewrite).
