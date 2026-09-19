@@ -19,6 +19,13 @@ Current state:
  (the S3.2 interface — carries a TODO(integration)), `recommend.py` (the only AI call here;
  its items never score). Weights + hand-calculations: `docs/preparedness-score-weights.md`,
  which `tests/test_scoring.py` asserts — change the two together or the doc lies
+- `app/database.py` + `app/cloud_models.py` — S8.1 cloud sync: MongoDB lifecycle on
+ `pymongo.AsyncMongoClient` (NOT Motor — EOL 2026-05-14), owned by `main.py`'s `lifespan`;
+ `User`/`StoredHomeModel` kept out of `models.py` so the schema contract stays unambiguous.
+ **Optional** — no `MONGODB_URI` means the layer is disabled and everything else is unaffected.
+ Open `/health/db` reports `disabled`/`ok`/`unreachable`. **Verified against a live Atlas cluster
+ 2026-09-15**; `tests/test_cloud_mongo.py` (marked `mongo`, deselected by default) is the suite
+ that re-checks it: `pytest -m mongo` with `MONGODB_URI` set, else it skips
 - `scripts/render_graphs.py` — dev-only matplotlib graph renderings → docs/graphs/
 - `tests/` — pytest; run `python3 -m pytest` from backend/. Live-API golden tests are
  `-m live` only: `ANTHROPIC_API_KEY=... python3 -m pytest tests/test_ai_live.py -m live -v`

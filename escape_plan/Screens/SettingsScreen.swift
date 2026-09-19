@@ -13,6 +13,8 @@ import SwiftUI
 
 struct SettingsScreen: View {
     @Environment(APIClient.self) private var apiClient
+    @Environment(AuthSession.self) private var authSession
+    @Environment(SyncManager.self) private var syncManager
 
     private enum HealthState: Equatable {
         case unknown
@@ -26,6 +28,7 @@ struct SettingsScreen: View {
     @State private var health: HealthState = .unknown
     @State private var showSaved = false
     @State private var showingHowRoutes = false
+    @State private var isPresentingAuth = false
     
     @AppStorage("snapshot_enabled") private var isSnapshotEnabled = false
     @State private var showingConsent = false
@@ -42,6 +45,8 @@ struct SettingsScreen: View {
                         .padding(.horizontal, DS.pagePadding)
                         .padding(.top, 12)
                         .accessibilityAddTraits(.isHeader)
+
+                    accountSection
 
                     section("Server") {
                         row("Status") { healthBadge }
@@ -96,14 +101,14 @@ struct SettingsScreen: View {
                     #if DEBUG
                     section("Developer") {
                         actionRow("Use deployed server") {
-                            apiClient.baseURL = APIClient.deployedDefaultBaseURL
+                            setBaseURL(APIClient.deployedDefaultBaseURL)
                             refreshFields()
                             health = .unknown
                         }
                         .accessibilityHint("Points the app back at the team's hosted server.")
                         divider
                         actionRow("Use local dev server (localhost:8000)") {
-                            apiClient.baseURL = APIClient.localDevBaseURL
+                            setBaseURL(APIClient.localDevBaseURL)
                             refreshFields()
                             health = .unknown
                         }
@@ -191,6 +196,9 @@ struct SettingsScreen: View {
             .navigationTitle("Settings")
             .toolbar(.hidden, for: .navigationBar)
             .onAppear(perform: refreshFields)
+            .sheet(isPresented: $isPresentingAuth) {
+                AuthSheetView()
+            }
             .sheet(isPresented: $showingHowRoutes) { HowRoutesAreComputedSheet() }
             .sheet(isPresented: $showingConsent) {
                 ConsentSheet {
@@ -221,6 +229,50 @@ struct SettingsScreen: View {
             shareURLs = urls
         } catch {
             print("Failed to generate snapshot: \(error)")
+        }
+    }
+
+    // MARK: - Account (S8.3)
+
+    /// Signing in from here, rather than only from the launch gate, is the whole reason the
+    /// gate can be dismissed without consequence: someone who taps "Continue without an
+    /// account" has to be able to change their mind, and this is where they look.
+    @ViewBuilder
+    private var accountSection: some View {
+        if let user = authSession.state.user {
+            section("Account") {
+                // Signed in, but the token could not be written to the Keychain — the session
+                // will not survive a relaunch. Shown HERE rather than on the sign-in form,
+                // because the form dismisses itself the instant sign-in succeeds: the warning's
+                // own success path would destroy its host in the same frame. Settings persists,
+                // and is where someone goes when the app "forgot" them.
+                if let warning = authSession.persistenceWarning {
+                    AuthPersistenceNote(message: warning)
+                        .padding(.horizontal, 18)
+                        .padding(.top, 14)
+                }
+                row("Signed in as") {
+                    Text(user.email)
+                        .font(.subheadline)
+                        .foregroundStyle(DS.supporting)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                divider
+                actionRow("Sign out") { authSession.signOut() }
+                    .accessibilityHint("Signs out on this iPhone. Your homes stay on this device.")
+            }
+            // True, and worth saying at the moment someone is deciding: nothing local is lost
+            // by signing out, because the app keeps its own copy either way.
+            footnote("Your homes are saved on this iPhone as well as your account. "
+                   + "Signing out doesn't remove them from this device.")
+        } else {
+            section("Account") {
+                actionRow("Sign in or create an account") { isPresentingAuth = true }
+                    .accessibilityHint("Back up your homes and open them on another device.")
+            }
+            footnote("An account backs up your homes and lets you open them on another device. "
+                   + "Everything in Escape Plan works without one.")
         }
     }
 
@@ -317,6 +369,22 @@ struct SettingsScreen: View {
         baseURLText != apiClient.baseURL.absoluteString || bearerTokenText != apiClient.bearerToken
     }
 
+    /// The one place the server address changes.
+    ///
+    /// `AuthSession` holds its own copy because the auth layer is pure Foundation — symlinked
+    /// into the EditorCore package so it can be tested without a simulator — and so cannot
+    /// read APIClient's. Updating one and not the other would point sign-in at a different
+    /// server than everything else, which is exactly the kind of split-brain bug that only
+    /// shows up on the day someone switches to the local dev server.
+    private func setBaseURL(_ url: URL) {
+        apiClient.baseURL = url
+        authSession.baseURL = url
+        // The sync client holds its own copy for the same reason AuthClient does: Sync/ is
+        // pure Foundation and cannot reach into Networking/ to read it. All three move together
+        // or a changed server address silently applies to some requests and not others.
+        syncManager.baseURL = url
+    }
+
     private func refreshFields() {
         baseURLText = apiClient.baseURL.absoluteString
         bearerTokenText = apiClient.bearerToken
@@ -324,7 +392,7 @@ struct SettingsScreen: View {
 
     private func save() {
         if let url = URL(string: baseURLText.trimmingCharacters(in: .whitespaces)) {
-            apiClient.baseURL = url
+            setBaseURL(url)
         }
         apiClient.bearerToken = bearerTokenText
         health = .unknown
@@ -386,7 +454,15 @@ private struct HowRoutesAreComputedSheet: View {
     }
 }
 
+// Previews only — `InMemoryTokenStore` is DEBUG-only, and a preview must never
+// touch the real Keychain or the standard UserDefaults.
+#if DEBUG
 #Preview {
     SettingsScreen()
         .environment(APIClient())
+        .environment(AuthSession(client: AuthClient(baseURL: APIClient.deployedDefaultBaseURL),
+                                 store: InMemoryTokenStore(),
+                                 defaults: UserDefaults(suiteName: "preview.\(UUID().uuidString)")!))
+        .previewSyncEnvironment()
 }
+#endif

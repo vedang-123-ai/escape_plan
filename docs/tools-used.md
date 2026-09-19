@@ -12,6 +12,7 @@ Every library, framework, API, and tool used in this project — required for Co
 | ARKit (via RoomPlan) | iOS 17+ | World tracking underneath RoomPlan; kept alive across rooms (`stop(pauseARSession: false)`) so multi-room scans share one world origin (S1.4) | Apple SDK |
 | simd (Apple) | — | `simd_float4x4` surface transforms, flattened column-major for the scan export contract (S1.4) | Apple SDK |
 | Observation (Apple) | iOS 17+ | `@Observable` state: APIClient (S0.3) and the scan state machine (`RoomCaptureController`, S1.4) | Apple SDK |
+| Security / Keychain Services (Apple framework) | iOS SDK (built-in) | Storing the per-user access token (`escape_plan/Auth/KeychainTokenStore.swift`, S8.3): `kSecClassGenericPassword`, `AfterFirstUnlock`, non-synchronizable. The first Keychain use in the project — the shared backend bearer token stays in UserDefaults, which is appropriate for a value that ships in the build but not for a credential that authenticates one person's account. No third-party keychain wrapper was added | Apple SDK |
 | Claude Code | — | AI pair-programming assistant; all code reviewed and understood by the team | Anthropic ToS |
 | git / GitHub | — | Version control, private repo `vedang-123-ai/escape_plan` | — |
 | Python 3 | 3.11+ | Backend: models, validation, routing engine | PSF |
@@ -22,8 +23,13 @@ Every library, framework, API, and tool used in this project — required for Co
 | FastAPI | ≥0.115 | HTTP service wrapping the routing engine + AI layer (`backend/app/main.py`) | MIT |
 | uvicorn | ≥0.30 | ASGI server running the FastAPI app (local + Render) | BSD-3 |
 | httpx | ≥0.27 | FastAPI TestClient transport; HTTP client inside the anthropic SDK | BSD-3 |
+| pymongo (async API) | ≥4.13,<5.0 (4.18.1 installed) | S8.1 cloud sync: MongoDB connection lifecycle (`backend/app/database.py`) via `pymongo.AsyncMongoClient`, owned by the FastAPI `lifespan` handler. **Deliberately not Motor**, which reached end-of-life 2026-05-14 — PyMongo's native async API is MongoDB's stated replacement (GA in 4.13) | Apache-2.0 |
+| argon2-cffi | ≥23.1.0 (25.1.0 installed) | S8.2 password hashing (`backend/app/auth/passwords.py`). Argon2id — OWASP's first choice; defaults m=64MiB/t=3/p=4 exceed every OWASP minimum. **Deliberately not passlib** (no release since 2020, hard-fails against bcrypt 5.x) and not bare bcrypt (72-byte limit, now filed under legacy) | MIT |
+| PyJWT | ≥2.13.0,<3.0 (2.14.0 installed) | S8.2 access tokens (`backend/app/auth/tokens.py`), HS256. 2.13.0 is a **security floor**: CVE-2026-48522..48526 (algorithm allow-list bypass, public JWK accepted as an HMAC secret, JWKS SSRF) are fixed there. Not python-jose — patched, but 3.7 years between releases and dropped from FastAPI's docs | MIT |
+| python-multipart | ≥0.0.20 | Form parsing for `OAuth2PasswordRequestForm` on `/auth/login` (S8.2) | Apache-2.0 |
 | anthropic (Python SDK) | ≥0.60 | Grounded explanation layer (S3.1+): Claude API calls with prompt caching + tool-use structured output | MIT |
 | Render.com | free tier | Backend hosting (blueprint `render.yaml`); **live** at `https://escape-plan-backend.onrender.com` since 2026-07-16 | Render ToS |
+| MongoDB Atlas | M0 free tier | S8 cloud sync datastore (cluster `escape-plan`, database `escape_plan`), provisioned 2026-09-15. Holds accounts (`users`) and synced home models (`homes`). The connection string is an environment variable in Render and in a gitignored local `.env` — never in git. A managed cluster rather than a self-hosted `mongod` because the deployed backend and a developer laptop need the same reachable instance | MongoDB Atlas ToS (SSPL server) |
 | Foundation (FileManager / JSONEncoder / UserDefaults) | iOS 17+ SDK | S2.4 local persistence: home documents on disk, JSON coding, anonymous device id. No third-party persistence library — the store is ~350 lines of Apple SDK | Apple SDK |
 | XCTest | Xcode 26 | Swift test suites (`escape_planTests/`, incl. `EditorCore/`) — run by both `xcodebuild test` and SwiftPM | Apple SDK |
 | Swift Package Manager | Swift 6.3 toolchain | **Dev/test harnesses only, never shipped**: `tools/editorcore/` (editor-core tests) and `scripts/verify_export_validates.sh` (S2.4 persistence tests + export validation) give a ~5s macOS feedback loop instead of a simulator boot. Symlinked app sources — no vendored copies, no third-party dependencies. As of S2.2 (2026-07-22) an iOS 26.5 simulator runtime IS installed on the dev machine (iPhone 17/17 Pro/17 Pro Max/17e/Air) — earlier sessions' "no simulator" blockers are stale; `xcodebuild test`/`xcodebuild build` now run for real, see decisions.md | Apache-2.0 (toolchain) |
@@ -69,3 +75,17 @@ one a judge is most likely to assume was bought in or handed to a model.
 ## Content sources (grounding corpus, not code dependencies)
 
 Full index with URLs and retrieval dates: `backend/corpus/sources.json`. Orgs: NFPA (escape planning, smoke-alarm fire statistics, disability evacuation guide), USFA/FEMA (smoke alarms, escape plans, disability fire safety), American Red Cross (escape plan steps, two-minute campaign, planning fact sheet, tornado safety), ICC (2021 IRC §R310/§R311 egress requirements), USGS (earthquake preparedness), NOAA/NWS (tornado safety). All corpus content is paraphrased with per-claim citations.
+
+### iOS cloud sync (2026-09-16, S8.4)
+
+**No new dependencies.** Recorded explicitly because "syncs across devices" is the kind of
+feature a judge would reasonably assume was bought in — a sync SDK, a CRDT library, a
+backend-as-a-service.
+
+| Capability | Where it comes from | Note |
+|---|---|---|
+| `GET`/`POST /homes` client | `escape_plan/Sync/CloudHomesClient.swift` — `URLSession` | Same injected-session shape as `AuthClient`, which is what makes the wire contract testable with no simulator |
+| Conflict resolution | `escape_plan/Sync/SyncReconciler.swift` — a pure function, ~90 lines | Server-owned `revision` decides who is ahead; `meta.modified` breaks a genuine two-sided conflict, tie to the server. No CRDT, no operational transform, no sync framework |
+| Change detection | `escape_plan/Sync/HomeFingerprint.swift` — FNV-1a over a canonical re-encoding | ~15 lines. Non-cryptographic on purpose (a change detector, not a security primitive), which also keeps the directory free of a CryptoKit import so it still compiles as a Foundation-only package |
+| Sync-state persistence | `escape_plan/Sync/SyncState.swift` — `Codable` + `FileManager`, atomic writes | A versioned sidecar file. No database on the client |
+| The fake `/homes` backend the tests run against | `escape_planTests/EditorCore/SyncTestSupport.swift` — `URLProtocol` | Our own ~150-line stand-in implementing the two routes as `api_auth.py` defines them, so the real client is exercised rather than a protocol double. No HTTP-mocking library |

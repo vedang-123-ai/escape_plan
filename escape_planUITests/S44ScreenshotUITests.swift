@@ -22,6 +22,7 @@ final class S44ScreenshotUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-onboarding.completed", onboarding ? "NO" : "YES",
+            "-auth.gate.dismissed", "YES",
             "-APIClient.baseURL", baseURL,
             "-APIClient.bearerToken", token,
         ]
@@ -298,6 +299,7 @@ final class S44BackendDownUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-onboarding.completed", "YES",
+            "-auth.gate.dismissed", "YES",
             // A port nothing listens on: connection-refused, the offline-cache path.
             "-APIClient.baseURL", "http://localhost:9799",
             "-APIClient.bearerToken", "dev-local-token",

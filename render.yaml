@@ -18,3 +18,19 @@ services:
         sync: false # set manually in the Render dashboard — never in git
       - key: ANTHROPIC_MODEL
         value: claude-sonnet-5
+      # S8.1 cloud sync. Optional: leave MONGODB_URI unset and the backend runs
+      # exactly as before, with /health/db reporting "disabled". sync:false
+      # because the URI carries a password — set it in the Render dashboard,
+      # never in git, and percent-escape the credentials (an unescaped '@' is
+      # rejected by the driver; the layer then stays disabled and logs why).
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: escape_plan
+      # S8.2 auth. generateValue so a strong secret exists without anyone
+      # choosing one — the service refuses any secret under 32 bytes. Changing
+      # it invalidates every issued token, which is the intended panic button.
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ACCESS_TTL_MINUTES
+        value: "60"

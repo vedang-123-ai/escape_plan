@@ -27,6 +27,7 @@ final class ScoreScreenshotUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-onboarding.completed", "YES",
+            "-auth.gate.dismissed", "YES",
             "-APIClient.baseURL", env["SCORE_SHOT_BASE_URL"] ?? "http://localhost:8000",
             "-APIClient.bearerToken", env["SCORE_SHOT_TOKEN"] ?? "dev-local-token",
         ]

@@ -304,13 +304,28 @@
     {
       "id": "p_sam",
       "name": "Sam",
-      "tags": [],
+      "tags": [
+        "hearing_impaired"
+      ],
+      "bedroom_room_id": "r_bed1"
+    },
+    {
+      "id": "p_biscuit",
+      "name": "Biscuit",
+      "tags": [
+        "pet"
+      ],
       "bedroom_room_id": "r_bed1"
     }
   ],
   "meta": {
     "created": "2026-07-10T12:00:00Z",
     "modified": "2026-07-10T12:00:00Z",
-    "address_optional": null
+    "address_optional": null,
+    "last_scanned": "2026-08-14T09:30:00Z"
+  },
+  "household": {
+    "tenure": "own",
+    "existing_equipment": []
   }
 }

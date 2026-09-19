@@ -62,7 +62,15 @@ struct ContentView: View {
     }
 }
 
+// Previews only — `InMemoryTokenStore` is DEBUG-only, and a preview must never
+// touch the real Keychain or the standard UserDefaults.
+#if DEBUG
 #Preview {
     ContentView()
         .environment(APIClient())
+        .environment(AuthSession(client: AuthClient(baseURL: APIClient.deployedDefaultBaseURL),
+                                 store: InMemoryTokenStore(),
+                                 defaults: UserDefaults(suiteName: "preview.\(UUID().uuidString)")!))
+        .previewSyncEnvironment()
 }
+#endif

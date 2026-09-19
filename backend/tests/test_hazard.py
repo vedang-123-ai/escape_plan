@@ -233,12 +233,25 @@ def test_occupant_in_the_origin_room_is_flagged_overtaken(thresholds) -> None:
 
 def test_igniting_the_only_exit_room_strands_occupants_honestly(thresholds) -> None:
     """The apartment's single exit is d_entry off r_hall, and its windows all
-    fail egress. Igniting r_hall must produce a no_viable_route finding and NO
-    fabricated track — never a path through the fire."""
+    fail egress. Igniting r_hall must produce a no_viable_route finding for every
+    occupant of the stranded bedroom and NO fabricated track — never a path
+    through the fire.
+
+    Counted per occupant rather than hardcoded: the apartment gained a second
+    profile in 2026-09-16's fixture-seeding pass (the `pet` tag had no coverage
+    anywhere), and an assertion that two stranded people produce one finding
+    would be wrong on the merits as well as brittle.
+    """
+    home = HomeModel.model_validate(load_fixture("apartment.json"))
     timeline = _timeline("apartment.json", thresholds, "r_hall")
+    stranded = [p for p in home.profiles if p.bedroom_room_id == "r_bed1"]
+
     assert timeline.tracks == []
-    assert [f.kind for f in timeline.findings] == ["no_viable_route"]
-    assert timeline.findings[0].room_id == "r_bed1"
+    assert {f.kind for f in timeline.findings} == {"no_viable_route"}
+    assert {f.room_id for f in timeline.findings} == {"r_bed1"}
+    assert len(timeline.findings) == len(stranded), (
+        "every occupant of the stranded room deserves their own finding"
+    )
     assert "r_bed1" not in [t.start_room_id for t in timeline.tracks]
 
 

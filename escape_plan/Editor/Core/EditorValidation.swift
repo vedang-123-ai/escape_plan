@@ -105,6 +105,12 @@ enum EditorValidation {
             for room in floor.rooms { check(room.id, "room") }
             for opening in floor.openings { check(opening.id, "opening") }
             for object in floor.objects { check(object.id, "object") }
+            // Safety points join the GLOBAL pass, not a pass of their own —
+            // `backend/app/models.py` claims their ids alongside every other entity, so a
+            // landmark sharing a room's id is a 422. Omitted here until 2026-09-16, which
+            // meant the editor accepted homes the server would refuse and the user found out
+            // at save time with no way to tell which id was the problem.
+            for point in floor.safety_points { check(point.id, "safety point") }
         }
         for stair in model.stairs { check(stair.id, "stairs") }
         for profile in model.profiles { check(profile.id, "profile") }

@@ -24,6 +24,7 @@ final class GoldenPathRecordingUITests: XCTestCase {
         // UserDefaults overrides: force first-launch onboarding and point at the local backend.
         app.launchArguments = [
             "-onboarding.completed", "NO",
+            "-auth.gate.dismissed", "YES",
             "-APIClient.baseURL", baseURL,
             "-APIClient.bearerToken", token,
         ]

@@ -4,8 +4,33 @@ Running log of deviations from playbook defaults, and why. Newest first.
 
 | Date | Session | Decision | Why |
 |------|---------|----------|-----|
+| 2026-09-16 | S8.3 (follow-up) | **`IPHONEOS_DEPLOYMENT_TARGET` lowered 26.5 → 17.0** in all four build configurations | 26.5 was never a decision — it is what Xcode defaults a new project to, and the owner confirmed nobody set it. It would have shipped a Congressional App Challenge submission installable only on the very newest iOS, so a judge opening it on anything older gets nothing. The floor was **measured, not guessed**: the app type-checks clean at iOS 17.0 and 18.0 (exit 0, both `-DDEBUG` and release) and fails at 16.0 with exactly 38 `is only available in iOS 17.0 or newer` errors — so 17.0 is the exact floor, and it is the number `CLAUDE.md` and `rules/languages/swift.md` have claimed all along for the documented reason (RoomPlan's merged multi-room `CapturedStructure`). The docs were right; the project file was wrong. **Compile-verified is not run-verified**: nothing has ever executed below 26.5, so an older-runtime spot check is now a device-pass item in `BLOCKERS.md` §2 |
+| 2026-09-15 | S8.3 (review) | **`restore()` is non-destructive; only a locally-known-expired token is deleted.** A nil read leaves the store untouched | `KeychainTokenStore.load()` returns nil for **any** non-success status, and the item is stored `AfterFirstUnlock` — so a background launch before the device's first unlock (iOS does this after a reboot) yields `errSecInteractionNotAllowed`, which reads as nil. The original code deleted on that path, signing the user out **permanently** because their phone rebooted in their pocket, with no error and nothing to retry. Being unable to READ a token and having none look identical on screen; they must not look identical to the store. `UnreadableTokenStore` exists purely to keep that distinction tested |
+| 2026-09-15 | S8.3 (review) | **A `generation` counter is captured before every `await` and re-checked after**, in `refresh()`, `signIn()` and `register()` | The guards ran before the suspension only. `RootView` fires `refresh()` at launch against a Render instance that can take most of a minute, and Settings' Sign out is reachable throughout — so a 200 arriving late wrote the session straight back, leaving the app showing an account with `token == nil` and nothing in the Keychain, which every S8.4 request would then trip over. Both new tests were confirmed to FAIL with the guard removed, so they pin the behaviour rather than merely accompanying it |
+| 2026-09-15 | S8.3 (review) | **`signOut()` does NOT re-arm the auth gate**, and a successful `restore()` marks the gate as already answered | Reverses the same session's earlier choice ("signing out is a request to be asked"). `shouldPresentGate` drives a **root-level switch** between `AuthGateView` and `ContentView`, so re-arming it destroys the entire ContentView subtree — tab selection, navigation stacks, any in-progress edit — and drops the user on a full-screen welcome screen they did not ask for. Unacceptable from `refresh()`'s 401 path, which does it with no interaction at all, seconds after launch. It directly contradicted this layer's own stated rule that nothing in it may block the rest of the app. Signing back in is available from Settings (`AuthSheetView`), which is what makes the soft gate genuinely reversible |
+| 2026-09-15 | S8.3 (review) | **`AuthClient` is `@MainActor`** | `baseURL` is mutable and written from the main actor (Settings' `setBaseURL` via `AuthSession.baseURL`), while the `async` methods were `nonisolated` and read it on the global concurrent executor — a torn read of a refcounted struct, not a benign race. It type-checked only because the SwiftPM package pins Swift 5 language mode; Swift 6 would reject it. Isolation costs nothing here because the network work happens inside `URLSession` and `await session.data(for:)` suspends rather than blocking |
+| 2026-09-15 | S8.3 (review) | **Test tokens are minted at runtime, never pasted as literals** | `AuthSessionTests` originally pinned a genuinely backend-signed JWT — which carried a fixed `exp` of 2026-09-16T06:39:01Z. `AuthSession.restore()` checks expiry against the real clock with no seam to inject one, so sixteen tests were scheduled to go permanently red that morning, in the one file whose entire purpose is to keep S8.3 verified. Caught roughly 26 minutes before the cliff. Backend-signed tokens are still used where the test injects `now:` (`AccessTokenTests`), which is where pinning the real claim encoding actually belongs |
+| 2026-09-15 | S8.3 | **The auth gate is SOFT.** `AuthGateView` appears at root when no token exists — the brief's "show the Auth flow if no token exists" — but carries **"Continue without an account"** as a first-class button, remembered in `auth.gate.dismissed`. `AuthSheetView` in Settings lets someone change their mind later | A literal reading is a wall in front of the whole app, and this app is local-first: the editor, routing, drill, export and persistence all work with no server. A wall would mean the CAC demo is one Render cold start away from being a login screen, and that the golden-path recording depends on Atlas being up. It would also have required a live account for all 8 UI tests. The account buys cloud backup and a second device — which is what S8.4 builds — so that is exactly what the gate offers and nothing more. Owner-approved during planning, 2026-09-15. The escape hatch must stay reachable from Settings or the soft gate is a hard gate with extra steps |
+| 2026-09-15 | S8.3 | **`escape_plan/Auth/` is pure Foundation and symlinked into `tools/editorcore` as `Sources/EditorCore/Auth`**, the way `Editor/Core` already is. Only the three SwiftUI screens live outside it | This machine cannot run the iOS simulator and `FIRST-PRIORITY.md` is open precisely because four bodies of Swift have landed since 2026-09-09 with no recorded result. Putting the client, token store, session state machine, error mapping and validation behind a Foundation-only boundary meant **84 new tests that actually execute** (suite 295 → 379) rather than a fifth unverified body. The cost is a rule that has to be respected: **a SwiftUI import anywhere in `Auth/` silently removes all of that coverage**, so it is called out in the directory's own header comments and in `escape_plan/CLAUDE.md` |
+| 2026-09-15 | S8.3 | **`AuthClient` takes its `URLSession` as an injected dependency**, where every `APIClient+*` extension calls `URLSession.shared` directly | Required by the decision above — a stub installed on a private `URLSessionConfiguration` is what makes the wire contract testable in the package. The app-target alternative already in the repo (`OfflineStubProtocol`) calls `URLProtocol.registerClass`, which affects `URLSession.shared` process-wide and is why that suite must be `.serialized`. Not a criticism of the existing extensions; the new constraint is testability without a simulator |
+| 2026-09-15 | S8.3 | **A separate `AuthFailure` type rather than a new `BackendFailure.Operation` case** | `BackendFailure` is shared by six screens and reads the same status codes differently: 401 there means "the build's shared bearer token is wrong, open Settings", here it means "that password is wrong" and Settings cannot help; 503 there means "busy, retry", here it means the operator never set `MONGODB_URI` and retrying forever will not fix it; 409 has no case there at all. Bending the shared type to cover both vocabularies would blur the distinction it was written to draw. `AuthFailure` deliberately mirrors its shape (kind / message / isRetryable / symbol) so the two read as one system |
+| 2026-09-15 | S8.3 | **PLANNED AND REVERSED: auth does NOT get its own `JSONDecoder`.** It uses `HomeModel.decoder`, the house convention | The session plan called for a bespoke decoder on the premise that `.iso8601` cannot parse the fractional seconds pydantic emits (`2026-09-16T05:33:58.567000Z`). **Measured, that premise is false on this project's platform**: `JSONDecoder.dateDecodingStrategy = .iso8601` parses it correctly and preserves the 567 ms, and the deployment target is **iOS 26.5**, not the iOS 17 the root `CLAUDE.md` still claims — so the lenient Foundation parser is guaranteed. The real trap is adjacent and is what the tests now pin: a bare `ISO8601DateFormatter()` returns **nil** for that same string, so `.iso8601` and `ISO8601DateFormatter` are not interchangeable. Recorded because writing code justified by a fiction is how a comment outlives the fact it describes |
+| 2026-09-15 | S8.3 | **First launch purges the Keychain** (`AuthSession.purgeKeychainOnFirstLaunch`, flagged in UserDefaults) | On iOS a Keychain item **outlives the app that wrote it** — delete the app, reinstall, and the old token is still there. Without the purge a reinstall silently resumes a session the user may have deleted the app to get out of. UserDefaults does *not* survive deletion, which is exactly what makes it the correct home for the "have I ever run before" flag. Tested in `AuthSessionTests` |
+| 2026-09-15 | S8.3 | **`refresh()` signs out on 401 but never on offline, timeout or 5xx** | The backend re-reads the user on every request, so a deleted account stops working immediately and 401 genuinely means "this session is over". Every other failure is about the network or the server, and dropping someone's session because their train went into a tunnel is unforgivable in a safety app they may be opening *because* something is wrong. Three tests pin it |
+| 2026-09-15 | S8 (live verification) | **`_utc_now()` truncates to milliseconds.** Every `created_at`/`updated_at` in `cloud_models.py` is generated already rounded to millisecond resolution | **BSON stores datetimes as milliseconds since the epoch**, so microseconds do not survive a write — measured against live Atlas: written `…744441Z`, read back `…744000Z`. Any `written == read_back` assertion therefore passes against `tests/fake_mongo.py` and fails against a real server, which is precisely the trap S8.4's merge would fall into while comparing a local copy to a fetched one (and the same class as S8.1's `tz_aware` finding). Truncating at generation makes the model a fixed point of the storage round-trip. Sub-millisecond precision has no meaning for ordering syncs between devices whose clocks disagree by far more. `test_cloud_mongo.py` asserts the server really does truncate, so if a future MongoDB gains microsecond resolution the test fails and says so — a silently unnecessary workaround is how the next reader concludes the comment is wrong |
+| 2026-09-15 | S8 (live verification) | **`/homes` serialises its id as `id`, not `_id`** — `response_model_by_alias=False` on both routes. The alias stays on the model for `to_document()` | `StoredHomeModel.id` is aliased to `_id` so the Mongo primary key is written correctly — a storage concern. FastAPI serialises response models **by alias by default**, which leaked that alias onto the wire: `POST /homes` returned `{"_id": …}`. Two reasons to stop it. It contradicted `/auth/me`, which returns `UserPublic` with a plain `id`, so one API spoke two dialects; and it would force S8.4's Swift `Codable` into a `CodingKeys` mapping — surrendering free `Identifiable` conformance — to accommodate a database detail the client has no business knowing. `populate_by_name=True` means an inbound `id` still validates, so the read side loses nothing. Found by inspecting a real response body; no fake-backed test had ever asserted the wire shape |
+| 2026-09-15 | S8 (live verification) | **`created_at` is carried forward on a home update** instead of being re-defaulted | `HomeRepository.upsert` is a full `replace_one`, so the freshly constructed `StoredHomeModel` overwrote the stored `created_at` on every write. The field therefore meant "last written" — indistinguishable from `updated_at` — and any S8.4 merge heuristic reading it would have been reading noise. Found while tracing the `_id` fix; not a Mongo-specific bug, but only visible once real documents were being updated rather than asserted about |
+| 2026-09-15 | S8 (live verification) | **A configured-but-unreachable database returns 503, not 500.** A guarded `pymongo.errors.ConnectionFailure` handler in `main.py` sits alongside the existing `CloudSyncDisabled` one | Found on the **deployed** service: `MONGODB_URI` was set but Atlas was not allow-listing Render's egress IPs, so `/health/db` said `unreachable` while `POST /auth/register` returned a bare **500 with no body**. `CloudSyncDisabled` only covers "no database configured"; "configured but unreachable" is a third state with the same right answer — 503, "the same request may work shortly" — mirroring the split the Anthropic handler already makes. `ConnectionFailure` is the precise seam: it is the base of `ServerSelectionTimeoutError`, `NetworkTimeout`, `AutoReconnect` and `WaitQueueTimeoutError`, and is **not** a base of `OperationFailure`, so a genuine bug in one of our queries still surfaces as a 500 rather than being dressed up as a transient blip. The import is guarded so `database.py`'s "the app still imports with no driver present" property survives. Matters for S8.3/S8.4: an iOS client cannot tell "retry this" from "your request was wrong" if both are 500 |
+| 2026-09-15 | S8 (live verification) | **The `mongo` suite runs against a throwaway database, named per-run and dropped afterwards** — deliberately not `MONGODB_DB_NAME` | `pytest -m mongo` is run with the same `MONGODB_URI` a developer uses for real work. Pointing the suite at the configured database would have it creating and deleting users in the same place the app stores them; one absent-minded run against a populated cluster is all it takes. A per-run name means the worst case of a misconfigured URI is an empty scratch database. The fixture also skips (not fails) when the server is unreachable, so a laptop off the allow-list reports "no reachable MongoDB" instead of 22 red tests |
+| 2026-09-14 | S8.2 | **Argon2id via `argon2-cffi` for password hashing — NOT passlib, which the playbook's ecosystem still assumes, and not bcrypt.** Also rejected `pwdlib`, which is what FastAPI's current tutorial recommends | passlib has had **no release since 2020-10-08** and now **hard-fails against bcrypt 5.0.0** (2025-09-25): its own backend probe feeds a >72-byte secret to `hashpw`, which changed from silent truncation to raising `ValueError`. passlib declares no bcrypt upper bound, so a clean `pip install` today picks bcrypt 5 and breaks on first use — verified empirically, not from bug reports. Bare bcrypt inherits the 72-byte limit as a crash and OWASP now files it under legacy. `pwdlib[argon2]` is FastAPI's current recommendation and would be defensible, but it is **0.3.1, "Development Status :: 4 - Beta", one maintainer** — and it is a thin wrapper over argon2-cffi, which is Production/Stable. For a submission six weeks out, the wrapper's convenience did not justify a 0.x dependency. Argon2 has no input length cap, so the entire 72-byte pre-hashing minefield does not apply |
+| 2026-09-14 | S8.2 | **PyJWT pinned `>=2.13.0` as a security floor, not a preference.** Two PyJWT defaults are explicitly overridden: `algorithms` is always passed, and `options={"require": ["exp", "iat", "sub"]}` | CVE-2026-48522 through 48526 (disclosed 2026-06-15) are all fixed in 2.13.0 — algorithm allow-list bypass, a public JWK accepted as an HMAC secret yielding **forged HS256 tokens**, and JWKS SSRF. Below that floor is not a judgement call. The `require` option matters because **PyJWT's `verify_exp` only checks `exp` if it is present**, so a hand-made token that simply omits the claim never expires — the easiest real vulnerability to ship in a JWT layer, and a test now pins it. python-jose was rejected on maintenance velocity (3.7 years between releases, dropped from FastAPI's docs), NOT on open CVEs — its 2024 CVEs *are* patched in 3.5.0, and saying otherwise in a design defence would be inaccurate |
+| 2026-09-14 | S8.2 | **The service refuses a `JWT_SECRET_KEY` shorter than 32 bytes**, rather than warning | PyJWT emits `InsecureKeyLengthWarning` below the RFC 7518 §3.2 minimum and signs anyway. A warning in a deploy log is easy to miss, and a short HMAC secret is brute-forceable — at which point anyone can mint tokens for any user. An ABSENT secret still means "auth disabled" (the same split as `MONGODB_URI`): not configuring a feature is a choice, misconfiguring it is a mistake |
+| 2026-09-14 | S8.2 | **Login always performs a password verification, against a dummy hash when the email is unknown; the user is re-read from the database on every request; a home id owned by someone else returns 404, not 403** | Three deliberate anti-enumeration choices. Without the dummy hash an unknown address returns in microseconds while a real one costs a full Argon2 hash — a timing oracle for who has registered. Re-reading the user means deleting an account revokes access immediately rather than when its token expires, which a stateless JWT otherwise cannot do. 403 on another user's home would confirm that the id exists; 404 reveals nothing |
+| 2026-09-14 | S8 arc | **The S8 Cloud Sync & Authentication arc is APPROVED by the owner.** "No user accounts" and "multi-user sync" are removed from the scope lock; accounts, a MongoDB-backed store and cross-device sync are in scope. Scope locks updated in lockstep: `CLAUDE.md` and `docs/playbook/01-product-spec.md` (both the in-scope line and the explicit out-of-scope list) — the same pattern as the 2026-09-05 multi-peril and 2026-09-08 object-hazard reversals | The owner authorised it directly on 2026-09-14 after the arc arrived on `origin/main` without an approval entry. Recorded as its own row because the arc was written and pushed *before* it was sanctioned, and a later reader must be able to see that the authorisation was a separate act. **This reverses a decision recorded the same day**: the S9.1 entry below deleted an S8 Firebase-auth arc precisely for violating the lock this row lifts. Both rows are kept — the contradiction is the history, and editing the earlier one would hide it. Two consequences are open: `docs/demo/script-v1.md` still pitches local-only privacy, and the submission's "explicitly out of scope" answer must no longer say multi-user sync |
+| 2026-09-14 | S8.1 | **PyMongo's native async API (`pymongo.AsyncMongoClient`), NOT Motor or Beanie as the playbook specifies.** Pinned `pymongo>=4.13,<5.0` (4.13 is the async-GA floor; 4.18.1 installed) | **Motor reached end-of-life on 2026-05-14**, four months before this session, and MongoDB now directs new code at the PyMongo async API. Writing the project's first database layer against a dead driver would have been a knowing defect. Beanie is alive (2.2.0) and already off Motor, but it is an ODM this layer does not need and it caps Python at <3.14. Two Motor habits do not carry over and are called out in `database.py`: `close()` is a coroutine, and the client must be one long-lived instance, not one per request |
+| 2026-09-14 | S8.1 | **Cloud sync is OPTIONAL: a missing `MONGODB_URI` disables the layer instead of refusing to boot.** This deviates from the acceptance criterion "backend starts successfully and connects to MongoDB". `/health/db` reports `disabled`/`ok`/`unreachable`, and returns 200 even when unreachable | `get_settings()` fails closed on a missing `BACKEND_BEARER_TOKEN` because an unauthenticated backend is a security hole. Copying that pattern for Mongo would have a different effect: the routing engine, the corpus and every pre-S8 endpoint need no database, and the demo path runs entirely on them — so a fail-closed Mongo would trade a working product for an unbuilt feature, and would have broken all 394 existing tests. The unreachable-but-200 choice is so a down database reads as a down database rather than as the whole service being broken |
+| 2026-09-14 | S8.1 | **No `mongomock`, no `mongomock-motor`, and no Docker/Testcontainers in the default test path.** The DB is faked by a hand-written stub implementing only the operations `Database` touches; tests needing a real server are marked `mongo` and excluded by default, mirroring the existing `live` marker | `mongomock` is stale (4.3.0, Nov 2024), has no Python 3.13 classifier and no async support (issue #916 open, unanswered). `mongomock-motor` mocks `AsyncIOMotorClient` and would drag the EOL Motor back into the tree purely for tests. Testcontainers would work but makes Docker a precondition for running the suite at all, on a machine that already struggles with `xcodebuild`. The stub costs ~30 lines and keeps the default suite infrastructure-free |
 | 2026-09-14 | S9.1 | **Semantic Relocalization replaces ARWorldMap for AR Drills. Firebase Auth (S8) deleted.** Playbook files S8/S9 updated or deleted to reflect this architectural shift and enforce the "no user accounts" scope lock. | ARWorldMap files are too large (20-50MB) and brittle to environmental changes. We have a robust semantic HomeModel, so live geometric matching is faster, smaller, and more resilient. S8 was purged as it violated explicit project scope locks in CLAUDE.md. |
-
 | 2026-09-08 | S7 arc | **Object-hazard detection is APPROVED as the S7 arc, reversing the "furniture detection" scope lock.** Rule book: `docs/object-hazard-spec.md`; charter: `docs/playbook/07-object-hazard-intro.md`; ten sessions `S7-1.md`…`S7-10.md` + `S7-EXECUTE.md`. Scope locks updated in lockstep: `CLAUDE.md`, `.claude/rules/global/conventions.md`, `docs/playbook/01-product-spec.md` — same four-file pattern as the 2026-09-05 multi-peril reversal. The sanctioned form is RoomPlan scan objects + guided manual tagging feeding a deterministic hazard engine; custom/trained ML is now *explicitly* on the out-of-scope list where "furniture detection" used to be | The owner directed the feature 2026-09-08 and the scoping vetted it rather than just transcribing it. Three honesty rulings shaped the arc and are binding (spec §2): the core "detection" is data RoomPlan already produces and the app throws away (`apple-raw.json` has objects; the wire format and `/convert` drop them), so this is plumbing + judgment, not ML; transient clutter (backpacks, cords) is NEVER claimed as detected — recurrence items, the hazard hunt, and the stretch re-scan diff are the honest substitutes; and every finding must carry a number, a threshold, a citation and an action, because the feature's answer to "the user can see the bookcase themselves" is measurement against codified standards, not perception. **Nothing was built as part of this approval** — docs only, plus the `origin/main` merge (S6.4–S6.9 landed remotely; local was 1 ahead/9 behind) and a fresh green baseline: backend 348 not-live, EditorCore 270, corpus 17/8. iOS not run (owner's standing simulator restriction on this machine) |
 | 2026-09-05 | S6.2 | **Deliberately did not add numeric thresholds for earthquake or tornado.** `egress_thresholds.json` was not modified. | The playbook instructed adding thresholds "if and only if you find genuinely numeric, codified thresholds worth computing on." Research across USGS, FEMA, NOAA, and Red Cross revealed qualitative rules (e.g. "lowest floor, most interior room", "secure tall furniture to studs") rather than codified engineering thresholds like the fire egress window measurements. No numbers were manufactured to make the engine's job easier. |
 | 2026-09-05 | S6 arc | **The readiness pivot is APPROVED. It is no longer a proposal.** Scope is now fire + earthquake + severe weather (tornado). The scope locks in `CLAUDE.md`, `.claude/rules/global/conventions.md` and `docs/playbook/01-product-spec.md` were updated in lockstep; `06-pivot-intro.md`'s status line now reads APPROVED | The arc was scoped and parked the same day as a proposal, with `TODO.md`'s first line being the pivot-or-finish decision itself. The owner answered it: pivot. Recorded as its own entry rather than by editing the scoping entry above it, so the sequence stays legible — the arc was written before it was sanctioned, and a future reader should be able to see that the decision was a separate act. **Nothing was built as part of this approval**: no S6 session has been run, no code, schema or test was touched. What changed is authority, not implementation. Two consequences are open and named in `TODO.md`: `docs/demo/script-v1.md` still pitches a fire-only product and its truth ledger cites the old lock, and `docs/START-HERE.md`'s UI/UX handoff is still `active` while the arc now competes with it for the same weeks before Oct 24 |
@@ -1565,3 +1590,284 @@ device checks not re-run).
 **Why:** A macOS CLI script testing `VNClassifyImageRequest` on representative images (space heater, water heater, bookcase, wall-mounted TV, mirror, radiator, etc.) yielded only one usable label mapping (`television` for Wall-mounted TV). Other objects returned overly generic labels (e.g. `structure`, `portal`) or completely misidentified the subject.
 
 The established S7 playbook gate explicitly required 2+ target classes to receive usable label mappings to proceed to S7.10. Since the condition failed, building the Vision classifier into the app's Hazard Hunt is unwarranted and the feature is cancelled. S7.9's NO-GO represents a successful completion of the spike and a clean cutoff of S7.10.
+
+## 2026-09-10 — The hazard hunt asks about what the scan found
+
+**Decision:** Hunt question generation moves out of `HazardHuntView` into
+`HazardHuntPlan` (EditorCore, Foundation-only, pure), and the questions are now derived from
+the objects already in the room rather than asked cold.
+
+**Why it moved:** the questions lived inside a SwiftUI view, which `swift test` cannot reach
+and the iOS suite never exercised. Three defects survived there unnoticed — one of them
+silently disabled a rule that cites FEMA. Logic no test can reach is logic nobody is checking;
+the view is now a renderer for a tested value.
+
+**The three defects, and what replaced them:**
+
+1. **The water-heater question was inverted.** It asked "Water heater — strapped?" and a Yes
+   created a heater with `secured: true`; a No created **nothing at all**. So the user with an
+   unstrapped water heater — precisely the hazard `water_heater_unsecured` exists to catch —
+   answered honestly and the model recorded nothing. It is now two questions ("is there one?",
+   then "is it strapped?"), and the No branch dispatches `setObjectSecured(false)` rather than
+   skipping, so every combination of answers lands in the model.
+   `testUnstrappedWaterHeaterIsRecordedInsteadOfDropped` is the guard.
+
+2. **Every answer landed at the room's centroid.** All four hazard rules are measured in
+   distance — topple reach to the bed, clearance from the heat source — so a confirmed bookcase
+   dropped in the middle of the room was a correct answer measured against the wrong place.
+   Objects the app can place from real geometry now are: the fallback bookcase goes beside the
+   scanned bed (first side that fits inside the room polygon, fixed order for determinism), and
+   a mounted object goes at the bed's center with `elevation_m` set. Objects it genuinely
+   cannot place — a portable heater has no scanned counterpart — carry a `placementHint` the
+   view renders, instead of a silent guess.
+
+3. **It asked cold.** The hunt ignored the scan, so a room whose scan already contained a
+   1.9 m `storage` unit was still asked "anything tall and heavy near the bed?", inviting a
+   second object on top of the first. Now a tall scanned `storage`/`wardrobe` produces a
+   *relabel* question (`setObjectCategory(.bookcase)`) against that object, and the cold
+   fallback is only asked when the room has nothing topple-prone at all. Same for the water
+   heater: a scanned `appliance` in a utility room is offered for relabeling before a new
+   object is invented. This is the cheap half of "close the gap between RoomPlan's taxonomy
+   and ours" — RoomPlan sees the box and gets the label wrong; only the label needs asking.
+
+**Also ruled here:** the mounted-above-the-bed question is not asked in a bedroom with no bed
+("above it" needs an "it"), the strap question is skipped for `mounted` objects (a wall shelf
+is not a floor-standing topple risk), and the heater question is skipped in bathrooms and
+kitchens. Scope discipline: no new colour (the hint uses `DS.supporting`), no new
+`EditAction` — every answer is expressed in the vocabulary S7.6 already added.
+
+**Not done here:** the placement improvement helps only where the scan found an anchor. The
+general fix is the same one the S7.9 NO-GO leaves open — better identification of scanned
+objects — and it stays open.
+
+---
+
+## 2026-09-16 — S8.4: sync compares VALUES, and the JWT stays on `/homes`
+
+Four rulings from the iOS cloud-sync session, each one a place the obvious implementation is
+wrong in a way that would not show up until it was in a user's hands.
+
+**1. The dirty check is a fingerprint of the DECODED model, never of bytes.**
+A home that has been through the server differs from the local one by bytes but not by value:
+pydantic serialises absent optionals as explicit `null` and fills `objects: []` (measured
+2026-09-16, 21 extra keys on `bungalow.json`). `HomeFingerprint` therefore canonically
+re-encodes the decoded `HomeModel` — sorted keys, ISO-8601 dates — and digests that. Two models
+that are `==` always fingerprint identically, which is exactly the property a dirty check needs
+and exactly what a hash of the stored JSON would not give. A byte comparison would have marked
+every synced home permanently modified and re-uploaded the user's whole library on every sync.
+`HomeFingerprintTests` pins it against the real bytes `model_dump_json()` emits, so a change in
+pydantic's serialisation surfaces there rather than as mystery traffic.
+
+It is FNV-1a, not SHA-256: this is a change detector, nothing trusts it against an adversary,
+and a non-cryptographic digest avoids a CryptoKit import in a directory that must stay pure
+Foundation.
+
+**2. The per-user JWT is attached to `/homes` only — the playbook's "all requests" is wrong.**
+`S8-4.md` WHAT-TO-ADD #1 says to attach the bearer token to every request. The deterministic
+endpoints (`/routes`, `/score`, `/convert`, `/evacuate`, `/chat`) are guarded by the *shared*
+`BACKEND_BEARER_TOKEN` — "this build may talk to this server" — while the cloud endpoints use a
+*per-user* JWT — "this request is this user". `backend/app/api_auth.py` deliberately does not
+layer them. Mixing them would work today and break silently the moment that stops being true.
+Enforced structurally rather than by convention: `CloudHomesClient` is the only code that
+attaches a JWT and it can only construct `/homes` URLs. `APIClient` is untouched.
+
+**3. Conflicts are settled by `revision` first, `meta.modified` only as the tiebreak, and a tie
+goes to the server.**
+`revision` is a monotonic counter the server owns, so it is the only trustworthy answer to "is
+the server ahead of what I last saw?" — two devices' clocks disagree by far more than the
+interval between edits. But it cannot settle a genuine conflict (edited here *and* there),
+because by construction both sides are ahead; only there does last-write-wins on `meta.modified`
+apply. An exact tie resolves to the server on every device, deliberately: if each device
+preferred its own copy, two devices would trade the same home back and forth forever,
+incrementing the revision on every exchange and never converging.
+
+**4. Sync state lives in a sidecar file, not on `HomeModel`.**
+`<Documents>/sync-state.json`, versioned, holding one record per home (remote id, synced
+revision, synced fingerprint, timestamp). Adding `last_synced_revision` to the schema would have
+been a `schema_version` bump with matching pydantic and Swift changes and a
+`schema-contract-guardian` run — and it would have been wrong regardless: sync progress is a
+fact about *this device*, two devices legitimately disagree about it, and a device-local fact
+stored inside a synced document is overwritten by the very sync it describes. Nothing under
+`schema/`, `backend/app/models.py` or `escape_plan/Models/` changed in this session.
+
+**Also ruled here.** A pulled home is written with `now: home.meta.modified` so it lands
+verbatim — the default stamp would make it look newer than the server's copy and push it
+straight back, which is an infinite loop between two devices with nobody editing anything.
+Duplicate server records for one `home_id` (two devices both creating before either syncs; the
+backend has no uniqueness constraint on a field inside the document) collapse client-side to
+highest revision, then latest `updated_at`, then lowest record id — deterministic so every
+device picks the same winner. A pull never overwrites the home open in the editor. And
+`SyncFailure` is a third error type beside `BackendFailure` and `AuthFailure` for the reason
+`AuthFailure` is the second one: a 401 here means "your session expired, re-authenticate", which
+is neither "wrong password" nor "open Settings".
+
+**What this session did NOT do, stated so the tracker cannot drift:** no iOS binary was built or
+launched, the sync badge has never been rendered, and "pulls down homes created on other
+devices" needs two phones. S8.4 is **not ticked**. See `BLOCKERS.md` §2.
+
+## 2026-09-16 — S8.4 review: five tests that passed because the double couldn't fail
+
+The S8.4 branch was reviewed before merge and six defects came back, every one of them a path
+that lost or resurrected a user's home. They are recorded together because they share a cause
+worth naming, and because the fix for the first one changes a file that has nothing to do with
+sync.
+
+**The cause: the test double could not reproduce the hazard.** `SyncManagerTests` runs against
+`InMemoryHomeRepository`, whose `writePulledHome` is one line — `homes[home.home_id] = home`.
+The hazard it is supposed to guard against lives in `HomeDocumentStore.save(model:)`, which
+defaults to `now: Date()` and rewrites `meta.modified`. A dictionary assignment cannot re-stamp
+a date, so the ping-pong test passed no matter what the real adapter did. Same shape for the
+session-expiry test, whose `onSessionExpired` double incremented a counter and changed no state,
+while the production closure signs the user out and thereby erases the very status the test was
+asserting on. **A double that cannot exhibit the failure is not a test of the failure**, and
+both of these read as thorough coverage right up until someone traced the production wiring.
+`escape_planTests/HomeDocumentSyncRepositoryTests.swift` now covers the real adapter against a
+real `HomeDocumentStore`; it needs a simulator and has never run.
+
+**The worst defect was in `FixtureSeeder`, not in `Sync/`.** `seedStarterHomes` wrote the three
+bundled homes with the default `save(model:)`, stamping `meta.modified` with the install time —
+and those three keep **fixed `home_id`s** so that re-running the seeder overwrites rather than
+piling up copies. Harmless for two years of this project; fatal the moment S8.4 landed. Edit the
+Bungalow for a month on device A and sync; install on device B; B seeds a pristine fixture under
+the same id carrying today's date; with no sidecar the conflict falls to last-write-wins, the
+factory home wins, it is pushed over a month of real work, and device A pulls it back down over
+its own copy. The home is gone from both devices and the server, on the most ordinary sequence
+of events there is.
+
+Fixed by seeding verbatim — `try store.save(model: model, now: model.meta.modified)`. That is
+the principled fix rather than a patch on the tiebreak: the fixtures' own `2026-07-10` stamp is
+genuinely when their content last changed, so it makes `meta.modified` mean what the tiebreak
+already assumes it means. **The general lesson is worth keeping: a timestamp that is stamped
+rather than carried is not evidence of anything, and S8.4 made every `meta.modified` in the app
+load-bearing.** Anything that writes one should now be read with that in mind.
+
+**The other five, briefly.** The sidecar was not scoped to an account, so a second user on one
+device inherited the first user's server record ids — now keyed on `AccessToken.subject`, with a
+mismatch starting clean. The "never overwrite an open editor" guard resolved through
+`HomeLibrary.editor`, but the editor has three entry points with three different libraries and
+the House tab's own initialiser passes `library: nil`, so two of three paths bypassed it
+entirely; `openHomeID` is now app-scoped on the repository and set by `HouseScreen` itself.
+`.failed(.sessionExpired)` was unreachable on screen because the sign-out it triggers made
+`RootView` re-enter and overwrite it with `.signedOut`; a sticky `needsReauthentication` flag
+carries the explanation across. A lost conflict destroyed the local copy silently under a green
+checkmark — the reconciler computed `.conflictRemoteWins` and the manager never read it; the
+losing copy is now kept as "<name> (this device)" and the badge says so. And a deleted home came
+back on the next sync, because the backend has no delete endpoint — tombstones live in the
+sidecar now. The app had already learned that last one locally:
+`FixtureSeeder.starterSeedDefaultsKey` exists precisely so "a home the user deleted on purpose
+is never resurrected on the next launch", and sync reintroduced the same bug one layer up.
+
+**Ruled and NOT fixed, because it is a product decision.** The app is local-first, so a home
+document belongs to the device rather than to an account. It follows that when any user signs
+in, every home on that device is pushed into their account — including homes a previous user of
+the same device created, address and household included. Scoping the sidecar closes the
+stale-record half; the question "do local homes belong to whoever signs in?" is the owner's to
+answer, and it is on `BLOCKERS.md` §2 rather than settled here.
+
+## 2026-09-16 — Two §3 defects fixed, and one file moved into the reach of `swift test`
+
+Housekeeping after S8.4, but two of the three carry a rule worth keeping.
+
+**`pymongo`'s logger is pinned to INFO explicitly, not left to the root level.** It logs every
+command with the full document at DEBUG, and since S8.4 those documents are users' homes —
+floor polygons, room names, `meta.address_optional`, household composition. The tempting fix is
+"we already call `basicConfig(level=logging.INFO)`", and that is not a safeguard, it is a
+coincidence: raising the root logger while chasing an unrelated bug is an ordinary thing to do,
+and on a hosted service the output is retained and readable by anyone with dashboard access. So
+the four pymongo loggers are set to INFO by name, and `test_logging_privacy.py` sets the ROOT
+logger to DEBUG and asserts they still refuse to emit there. **A privacy control has to survive
+the action it is protecting against, or it is a comment.**
+
+**`SemanticMatcher` moved into `tools/editorcore`, and that is the more useful half of this.**
+Its RoomPlan-dependent code was already behind `#if canImport(RoomPlan)`, so everything above
+that guard is Foundation + simd and compiles fine as a macOS package target — it had simply
+never been symlinked. One file-level symlink (the first; `Auth/`, `Sync/`, `Core/` and `Models/`
+are directory symlinks) plus moving its two test files into `escape_planTests/EditorCore/`, and
+nine tests that had never run on this machine now run in under a second. **Worth checking other
+files for the same property:** the bar is not "is it UI-free", it is "is everything non-Foundation
+already behind a `canImport` guard", and `SemanticMatcher` cleared it by accident.
+
+**The no-door scoring fix was deliberately narrowed, by a test.** The defect was that a
+candidate room with no doors scored `totalDist = 0` — lower is better — and therefore outranked
+a room that matched its doors at 0.35 m. The first version of the fix also changed the
+no-evidence-anywhere case from `.ambiguous` to `.noMatch`, reasoning that the caller responds to
+`.noMatch` by continuing the scan. `testNoDoorAmbiguity`, written by the 2026-09-14 ambiguity
+fix, failed immediately: a 180° rotation genuinely cannot be resolved without doors, and
+"I can't tell" is the intended answer there. The fix now changes only the ranking. Recorded
+because it is the second time in this session a pre-existing test stopped a widening, and
+because the S8.4 review found the opposite failure five times over — tests that could not fail.
+
+**`ARDrillView`'s waypoint height** now comes from `DollhouseGeometry.floorBaseHeights`, the same
+stacking the dollhouse uses, rather than a second formula. Two formulas for where a floor sits
+would eventually disagree and the AR view and the 3D view would draw the same route at two
+different heights. It is fixed in code and verified by nothing — ARKit in a
+`UIViewRepresentable`, untestable on any machine here — and is carried as a device-pass item.
+
+---
+
+## 2026-09-16 — Whose homes are these, and four defects the fixtures were hiding
+
+### The scope question, ruled: first account adopts, second never does
+
+The app is local-first, so homes exist before any account. That makes "do local homes belong to
+whoever signs in?" a real question with two failure modes pointing opposite ways. Answer "no" and
+the overwhelmingly common case breaks: someone uses the app offline for weeks, signs up, and
+"sign in to back up your homes" backs up nothing. Answer "yes" unconditionally and a shared
+device — a family phone, a demo iPad, a handed-down handset — copies the previous user's home
+layout, `meta.address_optional` and household composition into a stranger's cloud account
+permanently, with no prompt and nothing to undo it.
+
+**The rule is per-home, not per-device.** `SyncState.homeOwners` records which account claimed
+each home the first time it synced, and survives an account switch because it is a fact about the
+device rather than about one login. Unclaimed → the signing-in account adopts it. Claimed by
+someone else → skipped in **both** directions, never pushed and never overwritten, and the badge
+says so rather than reporting a clean sync.
+
+Deletions are scoped the same way, carrying the owner in the tombstone. That is not fussiness:
+the three starter homes keep **fixed `home_id`s**, so without it one user deleting the bundled
+Bungalow would stop a second user from ever receiving *their own* Bungalow from *their* account.
+Deleting also releases the claim — a home gone from the device is owned by nobody on it, and a
+lingering claim would make a later account's own copy of that id read as somebody else's forever.
+
+**The deliberate gap:** a home owned by another account stays *visible* on the device. The
+boundary for that is the phone's lock screen, not sync. Deleting a previous user's homes on
+sign-in would be a far worse failure than showing them.
+
+### Four defects, and what they have in common
+
+`build_room_grid` blocked any footprint handed to it, so a TV bolted to the wall 1.35 m up took
+walkable floor away. `extractedLongestWall` took the longest raw wall *segment*, and RoomPlan
+splits a wall at every doorway, so a 10 m wall in three pieces lost to an unbroken 4 m
+perpendicular one — a permanent 90° alignment error. `EditorValidation` claimed every entity id
+except safety points, so the editor accepted homes pydantic rejects with a 422. And
+`escape_plan/Fixtures/` — byte-identical copies bundled into the iOS app — had drifted from
+`schema/fixtures/`.
+
+**Every one of them was invisible because the test bed could not express the failing case.** The
+mounted TV overlaps a bed, which is blocked anyway. No fixture carried `meta.last_scanned`, or
+`hearing_impaired`, or `vision_impaired`, or — nobody had noticed — `pet`. The wall-merging lived
+inside `#if canImport(RoomPlan)`, where no machine without a simulator can reach it. The bundled
+copies were guarded by nothing at all.
+
+So the fixes were as much about reach as about logic: `WallGrouping` and `SemanticMatcher` moved
+*out* of the RoomPlan-only region and into `tools/editorcore`, the fixtures were seeded once to
+cover **both sides** of every optional branch, and `test_fixture_coverage.py` now fails if that
+coverage drains away again. The seeding rule worth keeping is that **a field present in every
+fixture is as untested as one present in none** — `meta.last_scanned` had an iOS rescan prompt no
+fixture could trigger, and the never-scanned path needs a fixture just as much as the scanned one.
+
+Two of the ported contract tests found defects within minutes of landing, having sat unmerged on
+`my-s6-1-and-policy` for ten days. That is the argument against parking a branch: the tests were
+written *with* the behaviour they guard, and the behaviour shipped without them.
+
+### Also decided
+
+`obstructs_floor` keys on **`mounted`**, not `elevation_m` — mounted is the schema's "how is this
+installed", while a box raised on a table is still something you cannot walk through. How far a
+mounted object protrudes is not modelled, documented at the helper, and errs toward offering a
+path a shoulder brushes rather than one that does not exist.
+
+Sync now fires on **editor close** (gated on an actual commit) and on **returning to the
+foreground**, deliberately not on autosave — autosave debounces during active editing, so a push
+per autosave would mint a server revision every few seconds for a home nobody has finished
+changing, on a free tier measured at a 42 s cold start.

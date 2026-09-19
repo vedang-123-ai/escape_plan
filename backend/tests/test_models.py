@@ -220,3 +220,143 @@ def test_happy_path_s6_1_fields(twostory: dict, apartment: dict) -> None:
     assert len(secure_objs) > 0
     assert secure_objs[0].id == "obj_wardrobe_1"
 
+
+
+# ---------------------------------------------------------------------------
+# Ported from `my-s6-1-and-policy` 2026-09-16
+# ---------------------------------------------------------------------------
+#
+# These invariants were written alongside the schema-2.0 fields they guard and
+# then stranded on an unmerged branch — the worst place for a contract test,
+# because the behaviour shipped without them. Only the seeding-INDEPENDENT ones
+# are ported: the branch also carried assertions about which fixture has which
+# household, and that seeding was superseded on 2026-09-16 (see
+# `test_fixture_coverage.py`, which pins the current decision instead).
+
+
+def _bungalow() -> dict:
+    return load_fixture("bungalow.json")
+
+
+def test_the_apps_bundled_fixtures_match_the_contracts() -> None:
+    """`escape_plan/Fixtures/*.json` are byte-identical copies of
+    `schema/fixtures/`, bundled into the iOS app because it cannot reach outside
+    its own bundle. The copies are the deliberate design; this test is what makes
+    them safe.
+
+    It earned its keep the moment it landed: porting it on 2026-09-16 immediately
+    caught `apartment.json` and `jagged.json` drifting, because the fixture
+    seeding done earlier the same day had updated `schema/fixtures/` and nothing
+    on main knew the copies existed.
+    """
+    from tests.conftest import REPO_ROOT
+
+    bundled = REPO_ROOT / "escape_plan" / "Fixtures"
+    assert bundled.is_dir(), "the app's bundled fixture directory has moved"
+    names = sorted(p.name for p in bundled.glob("*.json"))
+    assert names, "no bundled fixtures found"
+    for name in names:
+        source = FIXTURES_DIR / name
+        assert source.exists(), f"{name} is bundled but is gone from schema/fixtures/"
+        assert bundled.joinpath(name).read_bytes() == source.read_bytes(), (
+            f"escape_plan/Fixtures/{name} has drifted from schema/fixtures/{name}. "
+            "Re-copy it; do not hand-edit the bundled copy."
+        )
+
+
+def test_an_unsupported_schema_version_is_refused_loudly() -> None:
+    """The branch this came from matched on "unsupported schema_version"; since
+    then the message became something a person can act on. Assert the property
+    that actually matters — it names BOTH versions, so a user who opens a home
+    saved by a newer build learns which one they need rather than seeing a
+    validation dump."""
+    with pytest.raises(ValidationError) as caught:
+        HomeModel.model_validate(_bungalow() | {"schema_version": "3.0"})
+    message = str(caught.value)
+    assert "3.0" in message and "2.1" in message, message
+    assert "newer version" in message
+
+
+def test_safety_point_ids_are_unique_against_every_other_entity() -> None:
+    """Not merely unique among safety points — they join the global id pass, so a
+    collision with a ROOM id is caught too."""
+    doc = _bungalow()
+    room_id = doc["floors"][0]["rooms"][0]["id"]
+    doc["floors"][0]["safety_points"] = [
+        {"id": room_id, "kind": "gas_shutoff", "position": [1.0, 1.0], "source": "manual"}
+    ]
+    with pytest.raises(ValidationError, match="duplicate id"):
+        HomeModel.model_validate(doc)
+
+
+def test_unknown_safety_point_kind_is_rejected() -> None:
+    doc = _bungalow()
+    doc["floors"][0]["safety_points"] = [
+        {"id": "sp_x", "kind": "nuclear_shutoff", "position": [1.0, 1.0], "source": "manual"}
+    ]
+    with pytest.raises(ValidationError):
+        HomeModel.model_validate(doc)
+
+
+def test_scan_derived_safety_point_must_carry_confidence() -> None:
+    """SafetyPoint inherits the provenance rule: machine-derived items carry a
+    confidence, so the editor can flag them for review rather than silently
+    trusting them."""
+    doc = _bungalow()
+    doc["floors"][0]["safety_points"] = [
+        {"id": "sp_scan", "kind": "gas_shutoff", "position": [1.0, 1.0], "source": "scan"}
+    ]
+    with pytest.raises(ValidationError, match="must carry a confidence"):
+        HomeModel.model_validate(doc)
+
+
+def test_unknown_equipment_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        HomeModel.model_validate(
+            _bungalow() | {"household": {"existing_equipment": ["moat"]}}
+        )
+
+
+def test_household_is_optional_and_a_skipped_interview_is_valid() -> None:
+    """Skipping every question must produce a valid home, not a half-written one."""
+    assert HomeModel.model_validate(_bungalow()).household is None
+    empty = HomeModel.model_validate(_bungalow() | {"household": {}})
+    assert empty.household is not None
+    assert empty.household.tenure is None, "unanswered tenure is None, never 'own'"
+    assert empty.household.existing_equipment == []
+
+
+def test_secured_defaults_to_false() -> None:
+    home = HomeModel.model_validate(load_fixture("bungalow-blocked.json"))
+    assert all(not o.secured for f in home.floors for o in f.objects)
+
+
+def test_what_pydantic_serializes_validates_against_the_schema() -> None:
+    """The contract has to accept what the backend actually EMITS, not merely
+    what the fixtures happen to contain.
+
+    pydantic writes an unanswered household as an explicit `"household": null`,
+    and a bare `$ref` to an object type rejects null — so v2.0 shipped, briefly,
+    a contract its own serializer violated. `household` is therefore declared
+    nullable, matching `meta.address_optional` and `meta.last_scanned`.
+
+    Scoped to `household` on purpose: `confidence: null` and `egress: null` have
+    the same shape and predate this work (the endpoints paper over them with
+    `response_model_exclude_none=True`). Widening it to the whole document is a
+    separate decision, tracked rather than smuggled in here.
+    """
+    schema = json.loads(SCHEMA_PATH.read_text())
+    validator = jsonschema.Draft202012Validator(schema)
+
+    for name in ("bungalow.json", "apartment.json"):
+        home = HomeModel.model_validate(load_fixture(name))
+        emitted = json.loads(home.model_dump_json())
+        household_errors = [
+            e
+            for e in validator.iter_errors(emitted)
+            if "household" in "/".join(str(p) for p in e.path)
+        ]
+        assert not household_errors, (
+            f"{name}: pydantic emits a household the schema rejects — "
+            f"{[e.message for e in household_errors]}"
+        )
