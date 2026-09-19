@@ -3,7 +3,7 @@
 S3.5 is being built while S3.2 (the agentic home inspector) is still in flight in
 a parallel lane, so this module declares the contract explicitly rather than
 importing it. The shape is transcribed from the agent contract in
-docs/playbook/S3-2.md: each finding is
+archive/playbook-v1:docs/playbook/S3-2.md: each finding is
 `{severity: high|med|low, room_ids, finding, evidence: [tool_call_refs],
 recommendation, citation}`.
 

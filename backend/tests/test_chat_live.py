@@ -2,7 +2,7 @@
 
 Run: cd backend && ANTHROPIC_API_KEY=sk-ant-... python3 -m pytest tests/test_chat_live.py -m live -v
 
-Acceptance smoke tests from docs/playbook/S3-3.md: a house-specific cited
+Acceptance smoke tests from archive/playbook-v1:docs/playbook/S3-3.md: a house-specific cited
 answer about smoke detectors, and a graceful deferral for a question outside
 the corpus. This is prep work — see docs/decisions.md: S3.1's human live-run
 (the prerequisite for S3.3) is still pending, so these are the checks P1 runs

@@ -20,8 +20,8 @@ edited stops being trustworthy.
 
 ## Working here
 
-1. **Starting work?** Open `TODO.md` and pick something. Read `docs/playbook/S<x>-<y>.md` for
-   the session tag on that line before you start.
+1. **Starting work?** Open `BLOCKERS.md`, then the session you are running in `docs/playbook/S11-<n>.md`
+   (via `/session S11.<n>`). Its BRANCH block tells you which branch to work on.
 2. **While working**, jot anything worth remembering into a note — copy `notes/_TEMPLATE.md` to
    `notes/<YYYY-MM-DD>-<slug>.md`. Fragments are fine; it's a lab notebook, not documentation.
 3. **Finishing work?** Remove the lines you actually completed, and only those. Add whatever you

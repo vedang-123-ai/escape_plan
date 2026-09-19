@@ -1,31 +1,25 @@
 # Escape Plan
 
-_Last verified: 2026-07-22 @ 2fef343_
+An iOS home-safety **readiness and prevention** app. A family scans its home with Apple RoomPlan LiDAR
+(or builds it in a full 3D editor), and a deterministic Python engine computes escape routes, shelter
+choices, hazard findings, a readiness score and a checklist for **fire, earthquake and severe weather
+(tornado)**. Routes are drawn as animated paths on a SceneKit dollhouse. A server-side Claude layer
+explains, answers questions and audits, grounded in a curated, cited FEMA / NFPA / Red Cross / USFA corpus.
 
-An iOS app that builds a structured 3D model of your home and computes personalized fire escape
-routes on it.
+**The AI never computes a route and never invents safety guidance.** The engine is deterministic and
+testable; the AI explains, audits and cites. Neither does the other's job.
 
-You capture your home with an Apple RoomPlan LiDAR scan (or build it by hand in a full 3D
-editor), and a deterministic Python routing engine computes a primary and a secondary escape
-route from every room to an exterior exit. Routes are drawn as animated paths on a SceneKit
-dollhouse. A server-side Claude layer explains those routes, answers questions about them, and
-agentically audits the home for problems — always grounded in a curated FEMA / NFPA / Red Cross
-corpus, never inventing safety advice, and **never computing routes**.
-
-That last separation is the design, not a detail. The routing engine is deterministic and
-testable; the AI explains, audits, and cites. Neither does the other's job.
-
-Congressional App Challenge 2026.
+Congressional App Challenge 2026. Submit by Oct 24, 2026.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `schema/` | `homemodel.schema.json` — the contract every other part agrees on, plus test fixtures |
-| `backend/` | Python 3.11+ / FastAPI: `/convert`, `/routes`, `/score`, `/explain`, `/analyze`, `/chat` |
-| `escape_plan/` | The iOS app (SwiftUI + SceneKit). At the repo root, not `ios/` — see `docs/decisions.md` |
-| `tools/editorcore/` | SwiftPM harness that tests the editor's pure logic on macOS, fast |
-| `docs/` | Playbook, tracker, decisions log, demo materials |
+| `schema/` | `homemodel.schema.json`, the contract every other part agrees on, plus fixtures |
+| `backend/` | Python 3.11+ / FastAPI: routing, scoring, corpus, AI layer, optional accounts and sync |
+| `escape_plan/` | The iOS app (SwiftUI + SceneKit), at the repo root rather than under `ios/` |
+| `tools/editorcore/` | SwiftPM harness that tests the pure Foundation logic on macOS, fast |
+| `docs/` | Product spec and playbook, tracker, decisions log, demo materials |
 
 ## Running it
 
@@ -33,72 +27,52 @@ Congressional App Challenge 2026.
 
 ```
 cd backend
-pip install -r requirements.txt
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 export BACKEND_BEARER_TOKEN=dev-local-token     # the service fails closed without this
-export ANTHROPIC_API_KEY=sk-ant-...             # only needed for /explain, /analyze, /chat
-uvicorn app.main:app --reload --port 8000
+export ANTHROPIC_API_KEY=sk-ant-...             # only needed for /explain, /analyze, /chat, /build
+.venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
-Without `ANTHROPIC_API_KEY` the AI endpoints return a clean 502; everything else works. A
-deployed instance runs at `https://escape-plan-backend.onrender.com` (the key is currently
-unset there, so its AI endpoints 502 too).
+Without `ANTHROPIC_API_KEY` the AI endpoints return a clean 502; the deterministic endpoints
+(`/routes`, `/score`, `/convert`, `/evacuate`) still work. A deployed instance runs on Render.
 
-**iOS**
-
-Open `escape_plan.xcodeproj` and run. There is no prefilled backend URL or token — set both in
-the app's Settings tab (it defaults to `http://localhost:8000`). LiDAR scanning needs a real
-iPhone Pro; everything else works on the simulator.
+**iOS.** Open `escape_plan.xcodeproj` and run (iOS 17+). Set the backend URL and token in Settings, or
+create the gitignored `escape_plan/BackendConfig.local.json`. LiDAR scanning needs a real iPhone Pro;
+everything else works on the simulator.
 
 ## Verifying
 
 Run `/verify` for the whole gate, or individually:
 
 ```
-python3 -m pytest backend/tests/ -m "not live"          # 196 tests
-swift test --package-path tools/editorcore              # 128 tests
-python3 backend/corpus/validate.py                      # 11 sources, 6 corpus files
+python3 backend/corpus/validate.py
+backend/.venv/bin/python -m pytest backend/tests/ -m "not live"
+swift test --package-path tools/editorcore
+bash scripts/typecheck-ios.sh                      # fast iOS type-check, no simulator needed
 xcodebuild test -project escape_plan.xcodeproj -scheme escape_plan \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO   # 242 tests
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO
 ```
 
-SourceKit and VS Code cannot index this project — they show errors that aren't real. Trust
-`xcodebuild`.
+Exact test counts change often; the current ones live in `docs/tracker/BLOCKERS.md`. SourceKit and VS Code
+cannot index this project and show errors that are not real: trust `xcodebuild`.
 
 ## Where the truth lives
 
-- **`docs/tracker/TODO.md`** — everything still to do. Start here.
-- `docs/tracker/notes/` — one note per work session; why things were done the way they were.
-- `docs/tracker/activity-log.md` — machine-written record of what changed when.
-- `docs/decisions.md` — every deviation from the plan, with the reasoning.
-- `docs/tools-used.md` — every dependency and why (the Challenge requires this).
-- `docs/playbook/` — the original execution plan, one file per session (`S0-1.md` … `S5-3.md`).
-- `CLAUDE.md` — how Claude Code should work in this repo.
-
-Run `/verify-docs` to check these still match the code. They drifted badly once; the auditor
-exists so it gets caught early next time.
+- **`docs/tracker/BLOCKERS.md`**: everything blocking or unverified, ranked. Start here.
+- `docs/tracker/TODO.md`: the long-tail backlog. `docs/tracker/notes/`: one note per session.
+- `docs/playbook/README.md`: the S11 session plan (13 sessions, three lanes, branch protocol).
+- `docs/playbook/01-product-spec.md`: the product spec and scope lock. `docs/decisions.md`: every deviation, with reasons.
 
 ## How we work
 
-1. Work is split into checkpointed sessions — `docs/playbook/`, one file per session with
-   prerequisites and acceptance criteria.
-2. Before starting: read `CLAUDE.md`, the session file, and `docs/decisions.md`. Never start a
-   session whose prerequisites aren't done.
-3. A session is done only when its acceptance criteria actually pass — verified, not assumed.
-4. Every session ends by updating `docs/tracker/TODO.md`, `docs/decisions.md`, and
-   `docs/tools-used.md`, and writing a session note in `docs/tracker/notes/`.
+Three people work in parallel, each session on its own branch (`s11-N-slug`), merging to `main` only after the
+session's gate is green. See `docs/playbook/README.md` for lanes, branch protocol and conflict rules, and
+`CLAUDE.md` for how Claude Code behaves in this repo. Run `/verify-docs` to catch documentation drift.
 
 ## Scope
 
-Fire, earthquake, and severe weather (tornado). iOS only. LiDAR scan only. Deliberately out of
-scope: camera-only capture, Android, custom/trained ML models, disaster types beyond those three.
-
-The scope has been deliberately widened three times, each with a dated entry in
-[`docs/decisions.md`](docs/decisions.md):
-
-| Approved | Arc | What left the out-of-scope list |
-| --- | --- | --- |
-| 2026-09-05 | S6 readiness ([`06-pivot-intro.md`](docs/playbook/06-pivot-intro.md)) | Earthquake and severe weather; the product was fire-only before it. S6.1–S6.9 are built. |
-| 2026-09-08 | S7 object hazards ([`07-object-hazard-intro.md`](docs/playbook/07-object-hazard-intro.md)) | "Furniture detection". The sanctioned form is RoomPlan scan objects + guided manual tagging feeding a deterministic engine — **never custom ML**, which stays out. |
-| 2026-09-14 | S8 cloud sync ([`08-cloud-sync-intro.md`](docs/playbook/08-cloud-sync-intro.md)) | "No user accounts" and "multi-user sync". Local-only persistence remains the supported configuration when no database is configured. |
-
-These are deliberate boundaries that moved for stated reasons, not gaps.
+Fire, earthquake and severe weather (tornado); iOS only; LiDAR scan plus editor as the primary capture, with a
+draft-only text/photo builder as an accessibility fallback; accounts and cloud sync optional and soft-gated;
+no custom or trained ML. The scope has moved deliberately, each time with a dated entry in
+[`docs/decisions.md`](docs/decisions.md). The current lock is in
+[`docs/playbook/01-product-spec.md`](docs/playbook/01-product-spec.md) §4.

@@ -26,17 +26,10 @@ xcrun simctl launch 'iPhone 17 Pro' cac.Escape-Plan
 
 ## The pass
 
-For the session under test, read its acceptance criteria in `docs/tracker/TODO.md` and walk
-each on-screen. Current device-blocked items across the merged lanes:
-
-- **S2.2 editor:** drag an opening along a wall; place stairs between two floors; undo/redo a drag.
-- **S2.3 routes:** primary pulse + secondary dashed render; camera tour is smooth; warning badges
-  appear on the apartment fixture (single-exit) — NOT the twostory kids' room (documented gap).
-- **S3.4 profiles:** add Grandpa (mobility_limited) + Maya (child); Plan tab "Who" picker switches
-  the rendered route / jumps to the profile's bedroom. This is the demo money shot.
-- **S3.5 score:** breakdown screen is legible; toggling a checklist item updates the score.
-- **S3.3 chat:** blocked on `ANTHROPIC_API_KEY` on Render, not on a device — a graceful error
-  banner (not a spinner/crash) IS device-verifiable now; the cited Q&A is not, until the key lands.
+For the session under test (S11.9 or S11.10 on the device, S11.8 on the simulator), read its acceptance criteria
+in `docs/playbook/S11-<n>.md` and the device checklist in `docs/tracker/BLOCKERS.md` §2, and walk each item
+on-screen. Never tick a box you did not observe. The golden path to walk as a judge would: onboarding, build or open
+a home, routes render, switch profiles, drill, score, share snapshot.
 
 Capture evidence (screenshot/recording via `xcrun simctl io … screenshot|recordVideo`) for the
 handoff artifact.
@@ -44,6 +37,6 @@ handoff artifact.
 ## Reporting
 
 For each criterion: OBSERVED (with the evidence file) → check the box; NOT OBSERVED → leave it
-unchecked and say why. Update `docs/tracker/TODO.md` only for what you saw.
+unchecked and say why. Update `docs/tracker/BLOCKERS.md` only for what you saw.
 A criterion you couldn't reach (needs a real LiDAR phone, needs the API key) stays a documented
 blocker, not a check.

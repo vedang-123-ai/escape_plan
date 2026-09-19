@@ -41,6 +41,62 @@ backend — still red, see §3._
 
 ---
 
+## S11 · The reframe arc: where every open item now lives
+
+Everything below this section is the pre-S11 board, still true unless a line says otherwise. The plan for closing it is
+[`../playbook/README.md`](../playbook/README.md): 13 sessions, three lanes, one branch each. Put your findings under your
+own session heading here so three people editing at once do not collide.
+
+**Baseline verified 2026-09-18 on `s11-0-baseline`** (local `main` merged with `origin/main`, 164 commits behind):
+EditorCore **516** passed, 0 failed (515 from origin + the new 30 degree matcher test); backend **556** passed, 1 skipped,
+13 deselected; corpus valid (24 sources, 9 files, 2 threshold files); `scripts/typecheck-ios.sh` ok on all four targets
+against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is still unknown (last recorded: 615 on
+2026-09-09, stale). That is what S11.8 is for.
+
+| Open item on this board | Owned by |
+| --- | --- |
+| §0 first priority: run the iOS suite, record real counts | S11.8 |
+| §1 Anthropic credits, bearer token mismatch (owner-only) | owner; S11.4 covers what works without a key |
+| §2 device checklist 2.1-2.3, 2.7-2.8 (camera, frame rate, framing, floors) | S11.9 |
+| §2 device checklist 2.4-2.6, 2.9, real-scan verification, AR Drill on device | S11.10 |
+| S8 auth screens, Keychain, sync criteria that need a simulator or two devices | S11.7 (signed-out proof, privacy, delete) and S11.8 |
+| S8.4 "do local homes belong to whoever signs in" (ruled 2026-09-16: first account adopts, second never) | S11.7 confirms the ruling in the UI |
+| §3 hazard-engine defects BUG-01..04 | S11.3 |
+| §3 `RouteFinding.citation`, earthquake/tornado depth | S11.2, S11.1 |
+| §4 flake, console undercount | S11.8 |
+| §5 submission path (script, table-read, film, submit) | S11.12, S11.13 |
+
+### New findings from the baseline session (2026-09-18)
+
+- [ ] **The baseline is not pushed.** `s11-0-baseline` is merged locally only. Nobody else can branch from it until the
+      owner merges it to `main` and pushes. Next action (owner): `git switch main && git merge --no-ff s11-0-baseline &&
+      git push`, then tell the other two to `git fetch origin`.
+- [ ] **`.claude/settings.json` and the hook scripts still need owner-approved edits.** The planned changes were blocked
+      by the auto-mode classifier as self-modification and were NOT applied: (1) wire the new
+      `.claude/hooks/pre-commit/branch-guard.sh` (written, unexecutable, unwired) into PreToolUse(Bash) and `chmod +x`
+      it; (2) add shared allow rules for `xcodebuild test`, `swift test`, `xcrun xcresulttool|simctl`, `bash scripts/*`,
+      `python3 scripts/*`, `git fetch|switch|branch|worktree list`; (3) update the stale wording in
+      `handoff-banner.sh` (it still says "615 passed" and "S8.2") and `schema-guard.sh` ("team sign-off"). Next action
+      (owner): apply them yourself or tell Claude to.
+- [ ] **SemanticMatcher candidate filter: perimeter or bounding-box area?** Origin uses area; unmerged local commit
+      `dde7f08` argued for perimeter (and flipped the rotation, which a 30 degree known-answer test disproved). Decide with
+      a failing real-scan case, not by argument. Owner: S11.10. See `decisions.md` 2026-09-18.
+- [ ] **Stale worktree with uncommitted files:** `../wt-s6-1` (branch `lane-a-s6.1`, merged into `main`) holds modified
+      or untracked files, so it was not removed. Next action (owner): look at `git -C ../wt-s6-1 status`, keep or discard.
+- [ ] **`origin/s6-1-schema-2-0` is 12 commits ahead of `main`** and unmerged (old S6.1 policy branch; some of its
+      contract tests were ported by origin). Decide: archive-tag and delete, or merge. Also three
+      `subagent-*` branches and worktrees under `~/.gemini/antigravity/...` were left alone.
+- [x] **`backend/.venv` created on this machine 2026-09-18** (Python 3.13, `pip install -r requirements.txt`);
+      backend suite 556 passed there. It is gitignored, so each person creates their own.
+
+### S11.1 to S11.13: session findings (append under your heading)
+
+_S11.1_ none yet · _S11.2_ none yet · _S11.3_ none yet · _S11.4_ none yet · _S11.5_ none yet · _S11.6_ none yet ·
+_S11.7_ none yet · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
+_S11.13_ none yet
+
+---
+
 ## 0 · FIRST PRIORITY — before any other work
 
 - [ ] **Compile and test the app on a working simulator, and record a real count.**
@@ -381,7 +437,7 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       and confirm `check_deployed_schema()` reports 2.1. (Preflight cannot run on this machine
       today — see §4.) (Closed in S7.2 STEP 0: preflight verifies schema 2.1 deployed)
 - [x] **Two S7.1 acceptance items are simulator-gated and were NOT run — assigned to S7.2 as
-      its STEP 0** (`docs/playbook/S7-2.md`), so it is the first thing that session does rather
+      its STEP 0** (`archive/playbook-v1:docs/playbook/S7-2.md`), so it is the first thing that session does rather
       than a line on this board someone can skim past.
       `HomeModelRoundTripTests` and `PersistenceTests` live outside the symlinked EditorCore
       package, so `swift test` does not reach them. **The fix for the vacuous drift guard
@@ -495,7 +551,7 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
       2026-09-10 to render `HazardHuntPlan` (three defects fixed — see
       `notes/2026-09-10-hazard-hunt-rough-edges.md`). The planner is green on EditorCore
       (**295** tests) but **the iOS target has not been compiled since**, so the view is
-      typechecked by nothing. **Handed to S7.7 as its STEP 0** (`docs/playbook/S7-7.md`) so it
+      typechecked by nothing. **Handed to S7.7 as its STEP 0** (`archive/playbook-v1:docs/playbook/S7-7.md`) so it
       is the first thing that session does — one `xcodebuild build`, spelled out there — rather
       than a line here someone can skim past. Do not tick this on the strength of EditorCore
       being green; it does not compile SwiftUI.
@@ -731,6 +787,8 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 ---
 
 ## 5 · Submission path
+
+> Owned by [S11.12](../playbook/S11-12.md) (script, storyboard, truth audit) and [S11.13](../playbook/S11-13.md) (film, submit).
 
 - [ ] **`docs/demo/script-v1.md` pitches a product that no longer exists** — it sells fire-only,
       offers "other disasters" as *future* work, and its truth-ledger row 17 cites the superseded

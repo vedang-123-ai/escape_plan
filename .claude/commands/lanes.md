@@ -2,7 +2,7 @@
 
 Plan, launch, or integrate parallel worktree sessions. Invoke the `parallel-lanes` skill.
 
-- **Launching:** pick independent sessions (check `docs/tracker/TODO.md` + the dependency map),
+- **Launching:** pick independent sessions (check `docs/playbook/README.md` for lanes and the dependency map),
   assign non-overlapping file ownership with explicit do-not-touch lists, create a real
   `git worktree` per lane and VERIFY it with `git worktree list`, then brief each lane precisely.
 - **Integrating:** dispatch the `lane-integrator` agent — collision checks, close cross-lane

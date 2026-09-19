@@ -1,6 +1,6 @@
 ---
 name: session-auditor
-description: Audits a completed (or claimed-complete) playbook session against its acceptance criteria and the end-of-session protocol. Use before declaring any S<x>.<y> session DONE, or when reviewing a teammate's handoff.
+description: Audits a completed (or claimed-complete) playbook session against its acceptance criteria and the end-of-session protocol. Use before declaring any S11.<n> session DONE, or when reviewing a teammate's handoff.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -10,7 +10,7 @@ skeptically, with evidence from the repo — not from claims.
 
 ## When invoked
 
-1. Read `docs/playbook/<session-file>.md` for the session under audit (S1.2 → `S1-2.md`).
+1. Read `docs/playbook/<session-file>.md` for the session under audit (S11.4 -> `S11-4.md`); also confirm the work is on its own `s11-N-slug` branch and touched only OWNED FILES.
 2. For each acceptance criterion, find concrete evidence in the repo (files, passing tests you
    actually run, committed artifacts). Mark each PASS / FAIL / UNVERIFIABLE with the evidence.
 3. Check the protocol: `docs/decisions.md` has an entry for this session's deviations (or none
