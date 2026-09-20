@@ -327,6 +327,34 @@ struct HomeModel: Codable, Equatable, Identifiable {
     }
 }
 
+// MARK: - Shared date parsing
+
+extension ISO8601DateFormatter {
+    /// The two forms the contract's `date-time` fields appear in. Shared so the model
+    /// decoder and the persistence layer cannot drift apart on what a timestamp is.
+    ///
+    /// Every committed fixture uses whole seconds; pydantic can emit fractional ones
+    /// (`meta.last_scanned`, and `/convert`'s `datetime.now(timezone.utc)`).
+    static let homeModelWhole: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    static let homeModelFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    /// Parse either form. Returns nil for anything else — callers decide how loud to be.
+    /// Deliberately still nil for a naive timestamp with no offset: if a backend path ever
+    /// serializes a non-tz-aware datetime, failing beats inventing a timezone.
+    static func parseHomeModelDate(_ raw: String) -> Date? {
+        homeModelWhole.date(from: raw) ?? homeModelFractional.date(from: raw)
+    }
+}
+
 // MARK: - Shared coder configuration
 
 extension HomeModel {

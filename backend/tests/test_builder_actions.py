@@ -11,6 +11,7 @@ import pytest
 from app.builder import actions
 from app.builder.actions import ActionError
 from app.models import EXTERIOR_ID, HomeModel
+from app.schema_migrator import CURRENT_VERSION
 
 NOW = "2026-07-23T12:00:00Z"
 
@@ -168,3 +169,16 @@ def test_validate_draft_reports_actionable_errors():
 def test_validate_empty_draft_points_at_add_floor():
     d = actions.new_draft("Empty", "11111111-2222-3333-4444-555555555555", NOW)
     assert actions.validate_draft(d) == ["the home has no floors yet — add_floor first"]
+
+
+def test_new_draft_stamps_the_version_pydantic_actually_accepts():
+    """A draft stamped with any other version is rejected the moment it validates.
+
+    This guards the seam that failed the 2026-09-19 deploy: actions.py and
+    models.py each carried their own idea of the current schema version, and
+    nothing asserted they agreed.
+    """
+    d = actions.new_draft("V", "11111111-2222-3333-4444-555555555555", NOW)
+    accepted = HomeModel.model_fields["schema_version"].annotation.__args__
+    assert d["schema_version"] == CURRENT_VERSION
+    assert CURRENT_VERSION in accepted
