@@ -2,8 +2,8 @@
 
 - **Who:** P3
 - **Date(s):** 2026-09-19
-- **Status when I stopped:** fixed and green locally on `fix-schema-version-import` (backend 556 passed,
-  1 skipped, 13 deselected); the Render redeploy itself is still unverified.
+- **Status when I stopped:** both breaks fixed, full gate green on `fix-schema-version-import`; the Render
+  redeploy itself is still unverified.
 
 ## What happened
 
@@ -40,6 +40,27 @@ d6e982c -- backend/app/models.py` (identical) and the same against `933f233` for
 
 This is `CLAUDE.md`'s "don't trust a clean merge" trap, second occurrence — the first was the flipped
 rotation on 2026-09-18. Both times a clean merge combined two halves that were individually correct.
+
+### The same merge broke the iOS app too, and only the type-check could see it
+
+Running the gate before merging found a second, independent break of exactly the same shape:
+
+```
+escape_plan/Persistence/HomeDocument.swift:77  type 'ISO8601DateFormatter' has no member 'parseHomeModelDate'
+escape_plan/Persistence/HomeDocument.swift:119 cannot find 'homeModelWhole' in scope
+```
+
+`HomeDocument.swift` came from the branch, `Models/HomeModel.swift` came from main, and only the branch
+defined those helpers. **`main` has not compiled as an iOS app since `d6e982c`.**
+
+The part to remember: **EditorCore reported 516 passed over an app that does not compile.** `Models/` is
+symlinked into `tools/editorcore`, `Persistence/` is not — so `swift test` proved the symlinked subset and
+nothing more. `scripts/typecheck-ios.sh` was the only thing in the gate that could see this. A green
+EditorCore run is not evidence the app builds.
+
+Fixed by porting the three helpers into `HomeModel.swift` (Foundation-only, so still legal under the
+symlink). Deliberately did **not** take the branch's custom `HomeModel.decoder` — its own comment says it is
+not a bug fix, since plain `.iso8601` already accepts fractional seconds here.
 
 ## Decisions / surprises
 

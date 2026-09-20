@@ -101,6 +101,14 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
       push. Fixed on `fix-schema-version-import` by pointing at `schema_migrator.CURRENT_VERSION`, main's existing
       single source of truth; regression test added in `test_builder_actions.py`. Backend **556 passed, 1 skipped,
       13 deselected** verified on that branch 2026-09-19.
+- [x] **The same merge also stopped `main` compiling as an iOS app** — a second, independent break found by
+      running the gate, not by the deploy. `Persistence/HomeDocument.swift` came from the branch and calls
+      `ISO8601DateFormatter.parseHomeModelDate` / `homeModelWhole`; `Models/HomeModel.swift` came from main and
+      defines neither. **EditorCore could not see it**: `Models/` is symlinked into the package but
+      `Persistence/` is not, so `swift test` reported 516 passed over an app that does not compile.
+      `scripts/typecheck-ios.sh` is the only thing in the gate that catches this class — treat a green
+      EditorCore run as covering the symlinked subset only. Fixed by porting the three helpers into
+      `HomeModel.swift`; all four targets ok at iOS 17.0, EditorCore still 516.
 - [ ] **The Render redeploy is unverified.** Prod served the 2026-09-17 deploy (`b45446a3`) throughout — `/health`
       returned 200, after a ~14s free-tier cold start — so nothing was down, but the deployed backend is two days
       behind `main` until the next deploy goes green. Next action (whoever pushes): watch deployment status on the
