@@ -83,11 +83,32 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
       a failing real-scan case, not by argument. Owner: S11.10. See `decisions.md` 2026-09-18.
 - [ ] **Stale worktree with uncommitted files:** `../wt-s6-1` (branch `lane-a-s6.1`, merged into `main`) holds modified
       or untracked files, so it was not removed. Next action (owner): look at `git -C ../wt-s6-1 status`, keep or discard.
-- [ ] **`origin/s6-1-schema-2-0` is 12 commits ahead of `main`** and unmerged (old S6.1 policy branch; some of its
-      contract tests were ported by origin). Decide: archive-tag and delete, or merge. Also three
+- [x] **`origin/s6-1-schema-2-0` is 12 commits ahead of `main`** and unmerged (old S6.1 policy branch; some of its
+      contract tests were ported by origin). Decide: archive-tag and delete, or merge. **Resolved 2026-09-19: merged
+      (`d6e982c`) — and the merge broke the backend, see "Out-of-band" below.** Also three
       `subagent-*` branches and worktrees under `~/.gemini/antigravity/...` were left alone.
 - [x] **`backend/.venv` created on this machine 2026-09-18** (Python 3.13, `pip install -r requirements.txt`);
       backend suite 556 passed there. It is gitignored, so each person creates their own.
+
+### Out-of-band 2026-09-19 · the `s6-1-schema-2-0` merge broke the backend and failed the Render deploy
+
+- [x] **`main` was red and undeployable from `d6e982c` (2026-09-19 04:40 UTC) to `cf9ea46`.** Render deploy
+      `6537170320` failed 73s in; `backend/app/builder/actions.py` imported `SCHEMA_VERSION` from `app.models`,
+      which has never defined it, so `uvicorn app.main:app` could not import and the service never bound a port.
+      The backend suite was 13 collection errors, not 556 passed. **Cause: a textually clean merge.** `d6e982c`
+      took main's `models.py` (schema 2.1, no such constant) and `s6-1-schema-2-0`'s `actions.py` (which needs
+      the 2.0-era constant) — different files, so git reported no conflict, and the gate was not run before the
+      push. Fixed on `fix-schema-version-import` by pointing at `schema_migrator.CURRENT_VERSION`, main's existing
+      single source of truth; regression test added in `test_builder_actions.py`. Backend **556 passed, 1 skipped,
+      13 deselected** verified on that branch 2026-09-19.
+- [ ] **The Render redeploy is unverified.** Prod served the 2026-09-17 deploy (`b45446a3`) throughout — `/health`
+      returned 200, after a ~14s free-tier cold start — so nothing was down, but the deployed backend is two days
+      behind `main` until the next deploy goes green. Next action (whoever pushes): watch deployment status on the
+      merge commit and confirm `success`, then re-check `/health`.
+- [ ] **Nothing in this repo runs the gate before a deploy.** There is no `.github/workflows/`; Render deploys
+      every push to `main` and a broken import is only caught by the deploy failing. A CI job running the backend
+      suite and the corpus validator on push would have caught this before Render did. Owner: unassigned — see
+      `TODO.md` if it is not picked up.
 
 ### S11.1 to S11.13: session findings (append under your heading)
 
