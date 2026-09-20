@@ -109,10 +109,10 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
       `scripts/typecheck-ios.sh` is the only thing in the gate that catches this class — treat a green
       EditorCore run as covering the symlinked subset only. Fixed by porting the three helpers into
       `HomeModel.swift`; all four targets ok at iOS 17.0, EditorCore still 516.
-- [ ] **The Render redeploy is unverified.** Prod served the 2026-09-17 deploy (`b45446a3`) throughout — `/health`
-      returned 200, after a ~14s free-tier cold start — so nothing was down, but the deployed backend is two days
-      behind `main` until the next deploy goes green. Next action (whoever pushes): watch deployment status on the
-      merge commit and confirm `success`, then re-check `/health`.
+- [x] **The Render redeploy is verified.** Prod served the 2026-09-17 deploy (`b45446a3`) throughout the window —
+      nothing was ever down. Deployment `6548963490` on the fix merge (`9698559`) went **`success` 2026-09-19
+      21:21 UTC**, and `/health` returned `{"status":"ok","version":"1.0"}` in 0.27s against it. The deployed
+      backend is current with `main` again.
 - [ ] **Nothing in this repo runs the gate before a deploy.** There is no `.github/workflows/`; Render deploys
       every push to `main` and a broken import is only caught by the deploy failing. A CI job running the backend
       suite and the corpus validator on push would have caught this before Render did. Owner: unassigned — see
