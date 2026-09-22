@@ -185,7 +185,13 @@ def test_object_hazard_item_capping_score_roundtrip(bungalow, object_hazard_thre
     
     # Check off the item
     breakdown_checked = compute_score(home, plan, [], {hazard_items[0].id: True}, thresholds, object_hazard_thresholds=object_hazard_thresholds)
-    assert breakdown_checked.score == 83
+    # Releasing the cap returns the composite to its ordinary arithmetic:
+    # fire 70, earthquake 70 (the water heater added here also emits
+    # eq.flexible_gas_connectors), severe weather 90 — no tornado_plan is passed
+    # to this call, so only the alerts item scores there.
+    # 0.5*70 + 0.25*70 + 0.25*90 = 75.
+    assert breakdown_checked.sub_scores == {"fire": 70, "earthquake": 70, "severe_weather": 90}
+    assert breakdown_checked.score == 75
 
 
 def test_bookcase_and_water_heater_use_specific_hazards_without_generic_duplicates(

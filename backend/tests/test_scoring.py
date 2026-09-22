@@ -51,9 +51,25 @@ def _scored(fixture: dict, findings=None, state=None) -> ScoreBreakdown:
     home = HomeModel.model_validate(fixture)
     thresholds = config.get_thresholds()
     plan = compute_route_plan(home, thresholds)
-    # Pass thresholds exactly as /score does, so these tests see the same
-    # checklist the endpoint returns (including the R310 egress-window items).
-    return compute_score(home, plan, findings or [], state or {}, thresholds)
+    # Call compute_score exactly as POST /score does (app/main.py), so these
+    # tests see the same checklist the endpoint returns — the R310 egress-window
+    # items, and both peril plans.
+    #
+    # S11.2: the peril plans were missing here while the comment already claimed
+    # parity. It went unnoticed because no tornado item scored, so the omission
+    # cost nothing; the moment safe_room.* became scoring, the helper and the
+    # endpoint disagreed by 15 severe-weather points.
+    tornado_plan = compute_route_plan(home, thresholds, peril="tornado")
+    earthquake_plan = compute_route_plan(home, thresholds, peril="earthquake")
+    return compute_score(
+        home,
+        plan,
+        findings or [],
+        state or {},
+        thresholds,
+        tornado_plan=tornado_plan,
+        earthquake_plan=earthquake_plan,
+    )
 
 
 def _all_done(breakdown: ScoreBreakdown) -> dict[str, bool]:
@@ -77,22 +93,24 @@ def _high(room_id: str) -> Finding:
 
 
 def test_bungalow_baseline_score(bungalow: dict):
-    # The only `scoring: true` items are 5 smoke-alarm items (fire, info, -5
-    # each) and 1 practice.meeting_point item (general, info, -5).
-    # fire = 100-30=70, earthquake=severe_weather=100-5=95.
-    # composite = 0.5*70 + 0.25*95 + 0.25*95 = 82.5 -> 83 (round-half-up).
+    # 5 smoke-alarm items (fire), 4 earthquake prep items, 4 tornado items, and
+    # 1 practice.meeting_point item (general, counts toward all three).
+    # fire        = 100 - 5*5 - 5 = 70
+    # earthquake  = 100 - 4*5 - 5 = 75   (move/heavy/tv/latches; no gas appliance)
+    # severe_wx   = 100 - 4*5 - 5 = 75
+    # composite = 0.5*70 + 0.25*75 + 0.25*75 = 72.5 -> 73 (round-half-up).
     result = _scored(bungalow)
-    assert result.sub_scores == {"fire": 70, "earthquake": 95, "severe_weather": 95}
-    assert result.score == 83
+    assert result.sub_scores == {"fire": 70, "earthquake": 75, "severe_weather": 75}
+    assert result.score == 73
 
 
 def test_apartment_baseline_score(apartment: dict):
-    # 6 smoke-alarm items + 1 meeting-point item are the only scoring items.
-    # fire = 100-35=65, earthquake=severe_weather=95.
-    # composite = 0.5*65 + 0.25*95 + 0.25*95 = 80.
+    # 6 smoke-alarm items, 4 earthquake, 4 tornado, 1 meeting point.
+    # fire = 100-30-5=65, earthquake = severe_wx = 100-20-5 = 75.
+    # composite = 0.5*65 + 0.25*75 + 0.25*75 = 70.
     result = _scored(apartment)
-    assert result.sub_scores == {"fire": 65, "earthquake": 95, "severe_weather": 95}
-    assert result.score == 80
+    assert result.sub_scores == {"fire": 65, "earthquake": 75, "severe_weather": 75}
+    assert result.score == 70
     # The single front door means no secondary egress — but routes items are
     # non-scoring, so that fact never shows up as a point deduction.
     route_items_ = [i for i in result.checklist if i.category == "routes"]
@@ -100,12 +118,14 @@ def test_apartment_baseline_score(apartment: dict):
 
 
 def test_twostory_baseline_score(twostory: dict):
-    # 7 smoke-alarm items + 1 meeting-point item.
-    # fire = 100-40=60, earthquake=severe_weather=95.
-    # composite = 0.5*60 + 0.25*95 + 0.25*95 = 77.5 -> 78.
+    # 7 smoke-alarm items, 5 earthquake, 4 tornado, 1 meeting point. Earthquake
+    # gets one more item than the bungalow: this home has a water heater, so
+    # eq.flexible_gas_connectors is emitted.
+    # fire = 100-35-5=60, earthquake = 100-25-5 = 70, severe_wx = 100-20-5 = 75.
+    # composite = 0.5*60 + 0.25*70 + 0.25*75 = 66.25 -> 66.
     result = _scored(twostory)
-    assert result.sub_scores == {"fire": 60, "earthquake": 95, "severe_weather": 95}
-    assert result.score == 78
+    assert result.sub_scores == {"fire": 60, "earthquake": 70, "severe_weather": 75}
+    assert result.score == 66
 
 
 @pytest.mark.parametrize(
@@ -133,7 +153,8 @@ def test_one_alarm_item_moves_twostory_fire_by_5(twostory: dict):
     assert len(alarm_items) == 7
     after = _scored(twostory, state={alarm_items[0].id: True})
     assert after.sub_scores["fire"] == baseline.sub_scores["fire"] + 5
-    assert after.score == 80
+    # fire 65 is still the minimum: 0.5*65 + 0.25*70 + 0.25*75 = 68.75 -> 69.
+    assert after.score == 69
 
 
 def test_meeting_point_item_moves_all_three_sub_scores(bungalow: dict):
@@ -144,7 +165,8 @@ def test_meeting_point_item_moves_all_three_sub_scores(bungalow: dict):
     assert after.sub_scores["fire"] == baseline.sub_scores["fire"] + 5
     assert after.sub_scores["earthquake"] == baseline.sub_scores["earthquake"] + 5
     assert after.sub_scores["severe_weather"] == baseline.sub_scores["severe_weather"] + 5
-    assert after.score == 88
+    # (75, 80, 80): 0.5*75 + 0.25*80 + 0.25*80 = 77.5 -> 78.
+    assert after.score == 78
 
 
 def test_each_bungalow_alarm_item_moves_fire_by_5(bungalow: dict):
@@ -152,7 +174,11 @@ def test_each_bungalow_alarm_item_moves_fire_by_5(bungalow: dict):
     baseline = _scored(bungalow)
     alarm_ids = [i.id for i in baseline.checklist if i.category == "smoke_alarm"]
     assert len(alarm_ids) == 5
-    expected_score_by_count = [83, 85, 88, 90, 93, 95]
+    # Earthquake (75) and severe weather (75) are now fixed points the composite
+    # has to move around, so ticking alarms stops being worth a flat 2.5 each:
+    # once fire passes 75 it is no longer the minimum and its weight drops from
+    # 0.50 to 0.25. That bend is the "weakest link" rule doing its job.
+    expected_score_by_count = [73, 75, 76, 78, 79, 80]
     for count in range(0, 6):
         result = _scored(bungalow, state={i: True for i in alarm_ids[:count]})
         assert result.sub_scores["fire"] == 70 + 5 * count
@@ -522,13 +548,17 @@ def test_score_endpoint_requires_token(bungalow: dict):
 
 
 @pytest.mark.parametrize(
-    "fixture_name,expected", [("bungalow", 83), ("apartment", 80), ("twostory", 78)]
+    "fixture_name,expected", [("bungalow", 73), ("apartment", 70), ("twostory", 66)]
 )
 def test_score_endpoint_matches_the_engine(fixture_name: str, expected: int, request):
     fixture = request.getfixturevalue(fixture_name)
     resp = TestClient(app).post("/score", json={"home": fixture}, headers=AUTH)
     assert resp.status_code == 200
-    assert ScoreBreakdown.model_validate(resp.json()).score == expected
+    breakdown = ScoreBreakdown.model_validate(resp.json())
+    assert breakdown.score == expected
+    # Same numbers the in-process engine produces — this is the test that would
+    # have caught _scored drifting away from the endpoint (S11.2).
+    assert breakdown.sub_scores == _scored(fixture).sub_scores
 
 
 def test_score_endpoint_accepts_findings_and_state(apartment: dict):
@@ -581,7 +611,7 @@ def test_score_endpoint_appends_recommendations_without_moving_score(
     )
     assert resp.status_code == 200
     result = ScoreBreakdown.model_validate(resp.json())
-    assert result.score == 80  # unchanged vs. the no-recommendations baseline
+    assert result.score == 70  # unchanged vs. the no-recommendations baseline
     assert [i.title for i in result.checklist if i.category == "recommendation"] == [
         "Add an egress window to Bedroom 1."
     ]
@@ -715,3 +745,156 @@ def test_squeeze_checklist_item_is_non_scoring(bungalow_narrow) -> None:
     items = route_items(_narrow_plan(bungalow_narrow), state={})
     squeeze = next(i for i in items if "narrows_route" in i.id)
     assert squeeze.scoring is False
+
+
+# --- S11.2: peril depth, honest tiering ------------------------------------
+
+
+def test_every_peril_sub_score_actually_varies(bungalow: dict, twostory: dict):
+    """The defect this session exists to fix.
+
+    Before S11.2 neither earthquake nor severe weather had a single scoring item,
+    so both sat at a constant 95 on every home and 0.50*min(sub_scores) always
+    resolved to fire. Two of the three pillars in the composite carried no
+    information at all. If that ever comes back, this goes red.
+    """
+    for peril in ("fire", "earthquake", "severe_weather"):
+        baseline = _scored(bungalow)
+        peril_items = [
+            i for i in baseline.checklist
+            if i.scoring and i.hazard == peril
+        ]
+        assert peril_items, f"{peril} has no scoring checklist item of its own"
+        after = _scored(bungalow, state={peril_items[0].id: True})
+        assert after.sub_scores[peril] == baseline.sub_scores[peril] + 5, (
+            f"ticking a {peril} item did not move the {peril} sub-score"
+        )
+
+    # And the three are not locked together: twostory's water heater gives
+    # earthquake one item the bungalow does not have.
+    assert _scored(twostory).sub_scores["earthquake"] != _scored(bungalow).sub_scores["earthquake"]
+
+
+def test_basis_labels_every_peril_and_matches_sub_scores(bungalow: dict):
+    result = _scored(bungalow)
+    assert result.basis == {
+        "fire": "code_quantified",
+        "earthquake": "guidance_based",
+        "severe_weather": "guidance_based",
+    }
+    # Keyed exactly like sub_scores, so a client can zip the two without guessing.
+    assert result.basis.keys() == result.sub_scores.keys()
+
+
+def test_basis_is_optional_so_older_clients_still_decode():
+    """`basis` must never be required: an iOS build predating S11.2 decodes a
+    response without it, and a response it does not understand must not fail."""
+    payload = {
+        "home_id": "h", "home_name": "H", "score": 50,
+        "sub_scores": {"fire": 50, "earthquake": 50, "severe_weather": 50},
+        "components": [], "checklist": [],
+    }
+    assert ScoreBreakdown.model_validate(payload).basis is None
+
+
+def test_guidance_based_perils_use_the_same_flat_deduction_as_fire(bungalow: dict):
+    """The tiering must not become a weighting.
+
+    `basis` reports what kind of evidence a peril rests on. It must not buy a
+    guidance-based peril a different deduction, a multiplier, or a decimal the
+    sources do not support — that would be exactly the false precision the tier
+    exists to flag. Every scoring item, whatever its peril, is worth a flat 5.
+    """
+    baseline = _scored(bungalow)
+    for item in [i for i in baseline.checklist if i.scoring]:
+        after = _scored(bungalow, state={item.id: True})
+        moved = {
+            peril: after.sub_scores[peril] - baseline.sub_scores[peril]
+            for peril in baseline.sub_scores
+        }
+        assert set(moved.values()) <= {0, 5}, (
+            f"{item.id} ({item.hazard}) moved sub-scores by {moved}, not a flat 5"
+        )
+
+
+def test_no_earthquake_or_tornado_item_asserts_a_number(bungalow: dict, twostory: dict):
+    """S11.1 established the sources carry no app-checkable threshold for these
+    two perils, and that the absence is the finding. A digit appearing in one of
+    their items is the smell of one being invented — the fire items are where
+    measured numbers belong.
+    """
+    import re as _re
+
+    for fixture in (bungalow, twostory):
+        for item in _scored(fixture).checklist:
+            if item.hazard not in ("earthquake", "severe_weather"):
+                continue
+            if not item.id.startswith(("eq.", "safe_room.", "alerts.")):
+                continue
+            text = f"{item.title} {item.detail}"
+            assert not _re.search(r"\d", text), (
+                f"{item.id} states a number ({text!r}); earthquake and tornado "
+                f"guidance in this corpus carries none — see decisions.md 2026-09-21"
+            )
+
+
+def test_every_new_peril_item_cites_a_resolvable_source(bungalow: dict, twostory: dict):
+    from app.ai.grounded import valid_source_ids
+
+    valid = valid_source_ids()
+    seen: set[str] = set()
+    for fixture in (bungalow, twostory):
+        for item in _scored(fixture).checklist:
+            if item.hazard not in ("earthquake", "severe_weather"):
+                continue
+            assert item.source_citation, f"{item.id} makes a safety claim with no source"
+            assert item.source_citation in valid, (
+                f"{item.id} cites {item.source_citation!r}, not in sources.json"
+            )
+            seen.add(item.id)
+
+    # Named explicitly so a silently-dropped item cannot make this vacuous.
+    assert {
+        "eq.move_before_fasten", "eq.heavy_objects_low", "eq.tv_computer_straps",
+        "eq.cabinet_latches", "eq.flexible_gas_connectors", "eq.stay_if_undamaged",
+        "safe_room.know", "safe_room.head_protection", "safe_room.practice_the_move",
+        "alerts.weather_radio",
+    } <= seen
+
+
+def test_accessible_alert_items_never_lower_the_score(bungalow: dict):
+    """A household must not score lower because someone in it is deaf.
+
+    The SAME-receiver and strobe items are real, sourced actions, and they appear
+    on the checklist — but they are non-scoring on purpose. See
+    docs/preparedness-score-weights.md.
+    """
+    from app.models import Profile
+
+    home = HomeModel.model_validate(bungalow)
+    without = _scored(bungalow)
+
+    home.profiles.append(
+        Profile(
+            id="p_hoh",
+            name="Sam",
+            bedroom_room_id=home.floors[0].rooms[0].id,
+            tags=["hearing_impaired"],
+        )
+    )
+    thresholds = config.get_thresholds()
+    plan = compute_route_plan(home, thresholds)
+    with_hoh = compute_score(
+        home, plan, [], {}, thresholds,
+        tornado_plan=compute_route_plan(home, thresholds, peril="tornado"),
+        earthquake_plan=compute_route_plan(home, thresholds, peril="earthquake"),
+    )
+
+    accessibility_items = [
+        i for i in with_hoh.checklist
+        if i.id.startswith(("alerts.same_receiver.", "alerts.strobe."))
+    ]
+    assert accessibility_items, "hearing_impaired profile produced no alert items"
+    assert all(not i.scoring for i in accessibility_items)
+    assert with_hoh.sub_scores == without.sub_scores
+    assert with_hoh.score == without.score
