@@ -1,4 +1,6 @@
 import json
+import re
+
 import pytest
 from app.models import EXTERIOR_ID, Floor, HomeModel, Opening, Room, Source, WallSegmentRef
 from app.routing.plan import RoutingConstraints
@@ -170,3 +172,183 @@ def test_determinism_perils(twostory, thresholds):
     plan_e1 = compute_route_plan(twostory, thresholds, peril="earthquake")
     plan_e2 = compute_route_plan(twostory, thresholds, peril="earthquake")
     assert plan_e1.model_dump_json() == plan_e2.model_dump_json()
+
+
+# ---------------------------------------------------------------------------
+# RouteFinding.citation (S11.2)
+#
+# The field already existed on both sides of the wire (app/routing/plan.py and
+# escape_plan/Models/RoutePlan.swift). What did not exist was anything holding it
+# honest. BLOCKERS §3 listed the field as closed while its text still read as a
+# next action; this is the test that settles it.
+#
+# The policy is a known-answer table, not a self-consistent assertion. Listing
+# which kinds give advice — rather than asking the code what it currently does —
+# is what makes the test able to disagree with the code.
+# ---------------------------------------------------------------------------
+
+#: Finding kinds whose `detail` tells the resident to DO something. Every one of
+#: these is a safety claim and must carry a citation that resolves.
+CITED_FINDING_KINDS = {
+    "blocked_opening",
+    "narrows_route",
+    "no_cover_in_room",
+    "no_viable_safe_room",
+}
+
+#: Finding kinds that only describe the home's geometry — "there is no second way
+#: out of this room". No advice, so no citation is required. They are guarded
+#: below: the moment someone adds advice to one, the test goes red.
+DESCRIPTIVE_FINDING_KINDS = {
+    "no_viable_route",
+    "no_secondary_egress",
+}
+
+#: Imperative openers that mark a sentence as guidance rather than description.
+IMPERATIVE_ADVICE = re.compile(
+    r"\b(?:drop|cover|go now|get out|get to|move to|seek shelter|call|shut off|"
+    r"stay away|leave|evacuate|take shelter|crawl|hold on)\b",
+    re.IGNORECASE,
+)
+
+
+def _valid_source_ids() -> frozenset[str]:
+    """The same helper the AI layer validates model citations against.
+
+    Deliberately not a second reader of sources.json: if the deterministic engine
+    and the AI disagreed about which ids exist, this test would not notice.
+    """
+    from app.ai.grounded import valid_source_ids
+
+    return valid_source_ids()
+
+
+def _all_findings(home, thresholds):
+    """Every finding the engine can produce for this home.
+
+    The unconstrained pass alone never reaches `no_viable_route` or
+    `no_viable_safe_room` on any fixture in schema/fixtures/ — a site-built home
+    with working stairs always has both. The `avoid_stairs` pass is what makes
+    those two kinds observable, which is the same scenario the high-severity
+    composite cap exists for (see docs/preparedness-score-weights.md).
+    """
+    # The unconstrained pass alone reaches only four of the six kinds. The second
+    # is the mobility-limited case the high-severity composite cap exists for
+    # (docs/preparedness-score-weights.md): someone who can use neither the stairs
+    # nor a window. That is what makes `no_viable_route` and `no_viable_safe_room`
+    # observable at all — no fixture produces them otherwise.
+    passes = (
+        None,
+        RoutingConstraints(avoid_stairs=True, avoid_windows=True),
+    )
+    for peril in ("fire", "earthquake", "tornado"):
+        for constraints in passes:
+            plan = compute_route_plan(
+                home, thresholds, constraints=constraints, peril=peril
+            )
+            for room in plan.rooms:
+                for finding in room.findings:
+                    yield peril, finding
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    ["bungalow.json", "apartment.json", "twostory.json", "bungalow-blocked.json",
+     "bungalow-narrow.json"],
+)
+def test_every_route_finding_citation_resolves(fixture_name, thresholds):
+    """No RouteFinding may cite a source id that is not in sources.json.
+
+    This is the same class of defect S11.1 spent a session removing from the
+    corpus: a cite that looks fine because nothing ever crossed it against the
+    source list.
+    """
+    home = HomeModel.model_validate(load_fixture(fixture_name))
+    valid = _valid_source_ids()
+    for peril, finding in _all_findings(home, thresholds):
+        if finding.citation is not None:
+            assert finding.citation in valid, (
+                f"{fixture_name}/{peril}: finding {finding.kind!r} cites "
+                f"{finding.citation!r}, which is not in sources.json"
+            )
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    ["bungalow.json", "apartment.json", "twostory.json", "bungalow-blocked.json",
+     "bungalow-narrow.json"],
+)
+def test_advice_bearing_findings_are_cited(fixture_name, thresholds):
+    """A finding that tells the resident what to do must say where that came from."""
+    home = HomeModel.model_validate(load_fixture(fixture_name))
+    seen_kinds = set()
+    for peril, finding in _all_findings(home, thresholds):
+        seen_kinds.add(finding.kind)
+        if finding.kind in CITED_FINDING_KINDS:
+            assert finding.citation, (
+                f"{fixture_name}/{peril}: {finding.kind!r} gives guidance "
+                f"({finding.detail!r}) with no citation"
+            )
+    assert seen_kinds, f"{fixture_name} produced no findings at all — test is vacuous"
+
+
+def test_the_fixtures_between_them_exercise_every_finding_kind(thresholds):
+    """The anti-vacuity guard for the two tests above.
+
+    Each of those is parametrized per fixture and can only check the kinds that
+    fixture happens to produce. Without this, a kind that stopped being emitted
+    anywhere would make its citation policy silently untested rather than red.
+    """
+    from typing import get_args
+    from app.routing.plan import RouteFinding
+
+    seen: set[str] = set()
+    for fixture_name in ("bungalow.json", "apartment.json", "twostory.json",
+                         "bungalow-blocked.json", "bungalow-narrow.json"):
+        home = HomeModel.model_validate(load_fixture(fixture_name))
+        for _peril, finding in _all_findings(home, thresholds):
+            seen.add(finding.kind)
+
+    declared = set(get_args(RouteFinding.model_fields["kind"].annotation))
+    assert seen == declared, (
+        f"finding kinds no fixture produces, so their citation policy is untested: "
+        f"{sorted(declared - seen)}"
+    )
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    ["bungalow.json", "apartment.json", "twostory.json", "bungalow-blocked.json",
+     "bungalow-narrow.json"],
+)
+def test_uncited_findings_stay_purely_descriptive(fixture_name, thresholds):
+    """The guard that keeps the table above from rotting.
+
+    `no_viable_route` and `no_secondary_egress` carry no citation because they
+    describe geometry rather than advise action. If someone later writes advice
+    into one of them without adding a source, this goes red instead of shipping
+    an uncited safety claim.
+    """
+    home = HomeModel.model_validate(load_fixture(fixture_name))
+    for peril, finding in _all_findings(home, thresholds):
+        if finding.kind in DESCRIPTIVE_FINDING_KINDS and finding.citation is None:
+            match = IMPERATIVE_ADVICE.search(finding.detail)
+            assert match is None, (
+                f"{fixture_name}/{peril}: {finding.kind!r} now gives advice "
+                f"({match.group(0)!r} in {finding.detail!r}) but carries no citation. "
+                f"Either cite it and move the kind into CITED_FINDING_KINDS, or "
+                f"keep the detail descriptive."
+            )
+
+
+def test_the_two_finding_tables_cover_every_kind():
+    """A new RouteFinding kind must be classified, not silently unguarded."""
+    from typing import get_args
+    from app.routing.plan import RouteFinding
+
+    declared = set(get_args(RouteFinding.model_fields["kind"].annotation))
+    classified = CITED_FINDING_KINDS | DESCRIPTIVE_FINDING_KINDS
+    assert declared == classified, (
+        f"RouteFinding kinds not classified as advice-bearing or descriptive: "
+        f"{declared - classified}. Add each to one of the two tables in this file."
+    )

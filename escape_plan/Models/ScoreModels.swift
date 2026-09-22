@@ -160,6 +160,16 @@ struct ScoreBreakdown: Codable {
     var home_name: String
     var score: Int
     var sub_scores: [String: Int]
+    /// Per-peril evidence tier (S11.2), keyed exactly like `sub_scores`:
+    /// `"code_quantified"` for fire, which is measured against IRC/NFPA numbers,
+    /// `"guidance_based"` for earthquake and severe weather, which have no
+    /// app-checkable numeric threshold in the corpus. Optional because a server
+    /// predating S11.2 omits the key entirely.
+    ///
+    /// Typed as `String` rather than an enum on purpose: decoding an unknown
+    /// future case into an enum throws and would fail the whole response.
+    /// S11.5 renders the label; nothing here interprets it.
+    var basis: [String: String]?
     var components: [ScoreComponent]
     var checklist: [ChecklistItem]
 }

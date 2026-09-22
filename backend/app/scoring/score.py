@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Optional, Sequence, TYPE_CHECKING
+from typing import Literal, Optional, Sequence, TYPE_CHECKING
 from datetime import datetime
 
 if TYPE_CHECKING:
@@ -32,6 +32,26 @@ SEVERITY_DEDUCTIONS: dict[str, float] = {
     "info": 5.0,
 }
 
+#: What kind of evidence a peril's score rests on. Fire is measured against
+#: codified numbers — IRC egress dimensions, NFPA alarm placement — so a fire
+#: finding can say a window is 0.42 m2 against a 0.53 m2 minimum. Earthquake and
+#: tornado have no app-checkable numeric threshold anywhere in the corpus, and
+#: S11.1 established that this is a finding rather than a gap: the only two
+#: numbers the sources carry are "two metal straps" (a practice, not a dimension)
+#: and FEMA's 200-250 mph safe-room design wind speed (a construction criterion
+#: no phone or scan can measure). Their items are behavioural checkboxes instead.
+#:
+#: This is reported so that three numbers side by side can never be read as three
+#: equally rigorous pillars. It changes no arithmetic: a guidance_based item uses
+#: the same flat SEVERITY_DEDUCTIONS table as a code_quantified one.
+PerilBasis = Literal["code_quantified", "guidance_based"]
+
+PERIL_BASIS: dict[str, PerilBasis] = {
+    "fire": "code_quantified",
+    "earthquake": "guidance_based",
+    "severe_weather": "guidance_based",
+}
+
 # -----------------------------------------------------------------------------
 
 def _round_half_up(value: float) -> int:
@@ -54,6 +74,14 @@ class ScoreBreakdown(BaseModel):
     home_name: str
     score: int = Field(ge=0, le=100)
     sub_scores: dict[str, int]
+    basis: Optional[dict[str, str]] = Field(
+        default=None,
+        description=(
+            "Per-peril evidence tier, keyed exactly like sub_scores: "
+            "'code_quantified' or 'guidance_based'. Optional so clients predating "
+            "S11.2 still decode; always populated by compute_score."
+        ),
+    )
     components: list[ScoreComponent]
     checklist: list[ChecklistItem]
 
@@ -141,6 +169,7 @@ def compute_score(
         home_name=plan.home_name,
         score=composite,
         sub_scores=sub_scores,
+        basis={peril: PERIL_BASIS[peril] for peril in sub_scores},
         components=components,
         checklist=items,
     )
