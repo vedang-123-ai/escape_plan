@@ -174,7 +174,7 @@
       "id": "eq-secure-furniture-to-studs",
       "peril": "earthquake",
       "topic": "securing",
-      "text": "Secure top-heavy furniture and appliances to wall studs. Anchoring into drywall alone is not the instruction — find the stud.",
+      "text": "Secure top-heavy furniture and appliances to wall studs — find the stud, not just the drywall.",
       "cite": "shakeout-guidance",
       "audience": "everyone"
     },
@@ -190,7 +190,7 @@
       "id": "eq-water-heater-two-straps",
       "peril": "earthquake",
       "topic": "securing",
-      "text": "Strap the water heater to wall studs with two metal straps. A toppled heater can rupture its gas line.",
+      "text": "Strap the water heater to wall studs with two metal straps.",
       "cite": "shakeout-guidance",
       "audience": "everyone"
     },

@@ -30,7 +30,7 @@ Four agencies describe the same ranking, best first:
    [cite: redcross-tornado]. In practice this is a closet, bathroom, or interior hallway without windows
    [cite: noaa-tornado-shelter].
 
-## The rule that drives the app's objective function
+## The rule that drives the app's objective function (editorial note, not safety guidance)
 
 **Put as many walls between yourself and the outside as possible** [cite: noaa-tornado-shelter].
 

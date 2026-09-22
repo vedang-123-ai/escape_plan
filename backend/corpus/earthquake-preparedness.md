@@ -42,8 +42,10 @@ The USGS adds three specifics about the indoor environment [cite: usgs-earthquak
 - **Do not run downstairs or rush outside while the building is shaking**, or while there is danger of
   falling, being hurt, or being hit by falling glass or debris [cite: usgs-earthquake-during].
 
-The first two are the grounding for the app treating the kitchen, and rooms with heavy unsecured
-furniture, as poor shelter spots for this peril.
+**Editorial note, not safety guidance, and not a description of current behaviour:** the first two would
+be the grounding if the app ever ranked rooms for earthquake shelter. It does not — `perils/earthquake.py`
+has no room scoring, and `kitchen` exists only as a room-type enum. Do not describe this as something the
+app detects.
 
 ## By situation
 

@@ -19,6 +19,10 @@ Checks:
      engineering constants each carry a written basis.
   7. prevention_tips.json parses; ids are unique; peril is one of the
      three in scope; text is non-empty; every cite resolves.
+  8. No orphan sources: every id in sources.json is cited by at least
+     one indexed .md, or named as a source_doc_id in a threshold file.
+     An id the AI may cite but was never shown a document for is a hole
+     the model can invent guidance through.
 
 What this script deliberately does NOT check: whether a claim is
 actually present on the page its citation points at. That needs the
@@ -39,6 +43,21 @@ REQUIRED_FRONT_MATTER = {"id", "org", "doc_title", "url", "retrieved", "topics"}
 CITE_RE = re.compile(r"\[cite:\s*([a-z0-9-]+)\]")
 REQUIRED_TIP_FIELDS = {"id", "peril", "topic", "text", "cite", "audience"}
 PERILS = {"fire", "earthquake", "tornado"}
+
+# Check 8 exceptions: source ids kept in sources.json despite no corpus doc citing
+# them, because code OUTSIDE backend/corpus/ still cites them and removing the id
+# would break that citation. Each entry is debt with a named owner, not a waiver --
+# delete the entry and the source together once the caller is re-pointed.
+ORPHAN_SOURCE_EXCEPTIONS = {
+    "usgs-earthquake": (
+        "S11.1 (2026-09-21): usgs.gov/.../prepare is a link directory carrying none of "
+        "the claims made of it, so no corpus doc cites it any more. Still cited by "
+        "backend/app/scoring/checklist.py and escape_plan/DrillMode/DrillInstructions.swift, "
+        "both misattributions. Owners: S11.2 and Lane B -- see BLOCKERS.md S11.1. "
+        "Re-point those to shakeout-guidance / shakeout-guidance-after, then delete both "
+        "this entry and the source."
+    ),
+}
 
 SQFT_TO_M2 = 0.09290304
 IN_TO_M = 0.0254
@@ -239,6 +258,43 @@ def main() -> int:
             if cite not in source_ids:
                 err(f"{where}: cite {cite!r} does not resolve to a source in sources.json")
 
+    # 8. no orphan sources
+    grounded_ids: set[str] = set()
+    for fname in indexed:
+        path = CORPUS_DIR / fname
+        if path.exists():
+            grounded_ids |= set(CITE_RE.findall(path.read_text()))
+    for tf in ("egress_thresholds.json", "object_hazard_thresholds.json"):
+        tf_path = CORPUS_DIR / tf
+        if not tf_path.exists():
+            continue
+
+        def collect(node: object) -> None:
+            if isinstance(node, dict):
+                sid = node.get("source_doc_id")
+                if isinstance(sid, str):
+                    grounded_ids.add(sid)
+                for v in node.values():
+                    collect(v)
+            elif isinstance(node, list):
+                for v in node:
+                    collect(v)
+
+        try:
+            collect(json.loads(tf_path.read_text()))
+        except (OSError, json.JSONDecodeError):
+            pass  # already reported by checks 5/6
+
+    for sid in sorted(source_ids - grounded_ids - ORPHAN_SOURCE_EXCEPTIONS.keys()):
+        err(
+            f"sources.json: {sid!r} is an orphan — no corpus .md cites it and no threshold "
+            f"file names it, so the AI may cite an id it was never shown a document for. "
+            f"Cite it somewhere, remove it, or add it to ORPHAN_SOURCE_EXCEPTIONS with an owner."
+        )
+    stale_exceptions = ORPHAN_SOURCE_EXCEPTIONS.keys() & grounded_ids
+    for sid in sorted(stale_exceptions):
+        err(f"validate.py: {sid!r} is in ORPHAN_SOURCE_EXCEPTIONS but is now cited — remove the exception.")
+
     if errors:
         print(f"CORPUS INVALID — {len(errors)} problem(s):", file=sys.stderr)
         for e in errors:
@@ -248,7 +304,8 @@ def main() -> int:
     n_threshold_files = sum(1 for f in ["egress_thresholds.json", "object_hazard_thresholds.json"]
                             if (CORPUS_DIR / f).exists())
     print(f"Corpus valid: {len(source_ids)} sources, {n_md} corpus files, "
-          f"{n_threshold_files} threshold file(s) consistent, {n_tips} prevention tips.")
+          f"{n_threshold_files} threshold file(s) consistent, {n_tips} prevention tips"
+          f"{', ' + str(len(ORPHAN_SOURCE_EXCEPTIONS)) + ' orphan exception(s)' if ORPHAN_SOURCE_EXCEPTIONS else ''}.")
     return 0
 
 

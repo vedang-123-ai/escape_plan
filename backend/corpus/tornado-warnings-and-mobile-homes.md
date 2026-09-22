@@ -31,7 +31,7 @@ The National Weather Service issues three key alerts [cite: noaa-tornado-ww]:
   location possible [cite: noaa-tornado-ww].
 
 The practical difference: a **watch** is when you check that your plan still works; a **warning** is when
-you execute it.
+you execute it [cite: noaa-tornado-ww].
 
 ## Getting the alert at all
 
@@ -76,9 +76,14 @@ Because there is no interior room that makes such a home safe, the plan has to b
 ahead by finding a sturdy building to shelter in before a tornado watch or warning is ever issued
 [cite: redcross-tornado].
 
-**This is a case the app must handle honestly.** For a manufactured home, the correct output is not an
-interior room — it is that the home has no adequate shelter and the plan is a pre-identified destination
-elsewhere. Ranking rooms within such a structure would be a false result.
+**Design intent (editorial note, not safety guidance, and not a description of current behaviour).** The
+honest output for a manufactured home is that it has no adequate shelter and the plan is a pre-identified
+destination elsewhere, rather than a ranked interior room. **The engine does not do this today, by
+deliberate choice:** construction type is not derivable from a floor-plan footprint and `HomeModel` has no
+field for it, so an earlier mobile-home check was removed after it misfired on 4 of 5 fixtures (see
+`backend/app/routing/perils/tornado.py`). What ships instead is a conditional finding when no interior
+room is reachable. Nothing in this app should tell a resident it has identified their home as a
+manufactured home.
 
 ## Practising
 
