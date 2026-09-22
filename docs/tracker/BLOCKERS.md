@@ -120,9 +120,39 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
 
 ### S11.1 to S11.13: session findings (append under your heading)
 
-_S11.1_ none yet · _S11.2_ none yet · _S11.3_ none yet · _S11.4_ none yet · _S11.5_ none yet · _S11.6_ none yet ·
+_S11.1_ **see below** · _S11.2_ none yet · _S11.3_ none yet · _S11.4_ none yet · _S11.5_ none yet · _S11.6_ none yet ·
 _S11.7_ none yet · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
 _S11.13_ none yet
+
+#### S11.1 · corpus depth (2026-09-21, branch `s11-1-corpus-depth`)
+
+Done and verified this session: corpus **35 sources, 13 files, 2 threshold files, 44 tips**, `validate.py`
+green; 15 of 17 peril/prevention sources content-verified against the live pages by `check_urls.py`.
+
+- [ ] **`validate.py` structurally cannot tell whether a claim is on the page it cites, and four claims
+      were wrong.** Green corpus runs have never meant the guidance is attributed correctly. `check_urls.py`
+      closes only the machine-checkable half (URL still 200, `verify_keywords` still present). The other
+      half — does this sentence reflect that source — needs a human or the grounding-auditor. Next action:
+      treat a `validate.py` pass as necessary, never sufficient, and re-read claims when a source changes.
+- [ ] **18 of 35 sources have no `verify_keywords` and cannot be content-checked.** The 8 NFPA sources
+      return a ~40-char JS shell; `fema-tornado` and `fema-safe-room-criteria` are bot-walled to any script;
+      `redcross-escape-fact-sheet` and `usfa-dryer-safety` are PDFs. All the **fire** sources are in this
+      group — this session verified the peril sources, not the fire ones. Next action (any session touching
+      the fire corpus): add keywords for the reachable fire sources (`usfa-*`, `redcross-*` HTML, `irc-*`).
+- [ ] **`irc-2021-r311` was a dead link (404) and is load-bearing.** It is the source behind the egress-door
+      32×78 in thresholds the engine uses. Fixed this session to the section URL, which serves 200. Nobody
+      noticed because nothing re-fetched sources until now. Next action: run `check_urls.py` before any
+      submission; the same rot can hit any of the other 34.
+- [ ] **No candle prevention tips** — the USFA candles page is a 404 and nothing reachable replaces it. See
+      `decisions.md` 2026-09-21. Next action: add the tips if a real source turns up; do not cite an
+      adjacent page.
+- [ ] **Earthquake guidance leans Californian** (ShakeOut, CA H&S §19211). General practice is sound
+      everywhere, and the legal-mandate section is labelled California-only, but a judge outside California
+      may notice. Next action: accept, or find a second state's equivalent.
+- [ ] **For S11.2:** the tips file is `backend/corpus/prevention_tips.json`, shape
+      `{"tips":[{"id","peril","topic","text","cite","audience"}]}`. **Earthquake and tornado carry no
+      numeric thresholds and that is deliberate** (`decisions.md` 2026-09-21) — build their checklist items
+      from the markdown docs and do not go looking for numbers to encode.
 
 ---
 
