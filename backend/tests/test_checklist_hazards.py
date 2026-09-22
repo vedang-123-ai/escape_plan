@@ -31,7 +31,11 @@ def test_mitigation_items_renter_vs_owner(twostory, thresholds):
     mitigation_renter = [i for i in checklist_renter if i.category == "mitigation" and i.id.startswith("mitigation.secure")]
     assert len(mitigation_renter) > 0
     assert all(i.id.endswith(".renter") for i in mitigation_renter)
-    assert all("adhesive straps" in i.title for i in mitigation_renter)
+    # S11.2: renters get the actions that need no attachment, NOT a different
+    # fastener. "adhesive straps" was an unsourced claim (BLOCKERS S11.1) and the
+    # string is pinned here so it cannot come back.
+    assert all("Move" in i.title for i in mitigation_renter)
+    assert not any("adhesive" in i.title + i.detail + i.why for i in mitigation_renter)
 
     home_owner = HomeModel.model_validate(twostory)
     home_owner.floors[0].objects.append(heavy_obj)

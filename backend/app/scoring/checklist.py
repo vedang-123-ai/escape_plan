@@ -548,8 +548,12 @@ def object_hazard_items(home: HomeModel, thresholds: ObjectHazardThresholds, sta
 def mitigation_items(home: HomeModel, state: ChecklistState, hazards: list[ObjectHazard] | None = None) -> list[ChecklistItem]:
     """Earthquake mitigation items for unsecured tall/heavy objects.
 
-    Tenure-aware: renters get adhesive-strap guidance (corpus-cited from
-    shakeout-guidance); owners get wall-stud guidance.
+    Tenure-aware, but NOT because renters get a different fastener: they get the
+    subset of actions that need no attachment. S11.1 (2026-09-21) established that
+    ShakeOut names flexible nylon straps for *storage racks* and putty for *small
+    objects*, and presents neither as a no-drill substitute for securing tall
+    furniture — see backend/corpus/earthquake-securing-home.md, "What this corpus
+    does not claim". Owners get the wall-stud instruction; renters get move-it-first.
     """
     is_renter = (
         home.household is not None and home.household.tenure is not None
@@ -575,20 +579,25 @@ def mitigation_items(home: HomeModel, state: ChecklistState, hazards: list[Objec
                 
             if is_renter:
                 item_id = f"mitigation.secure.{obj.id}.renter"
-                title = f"Secure {obj.category.value} '{obj.id}' with earthquake-rated adhesive straps"
+                title = f"Move {obj.category.value} '{obj.id}' away from beds and seating"
                 detail = (
-                    "Use flexible nylon straps with high-strength, earthquake-rated "
-                    "adhesives — no wall drilling required."
+                    "Securing to studs needs the landlord's permission, so start with "
+                    "what needs no attachment: move it away from where people sit and "
+                    "sleep, put heavy objects on lower shelves, and hold small objects "
+                    "down with museum putty."
                 )
-                why = "Renter-friendly furniture straps are available without drilling. [cite: shakeout-guidance]"
+                why = "Moving it comes before fastening it, and needs no installation. [cite: shakeout-guidance]"
             else:
                 item_id = f"mitigation.secure.{obj.id}"
                 title = f"Secure {obj.category.value} '{obj.id}' to wall studs"
                 detail = (
-                    "Bolt tall or heavy furniture to wall studs. Standard drywall "
-                    "anchors are not strong enough during an earthquake."
+                    "Secure tall or heavy furniture to wall studs."
                 )
-                why = "Unsecured furniture is a leading cause of earthquake injuries. [cite: usgs-earthquake]"
+                why = (
+                    "A UCLA study of the 1994 Northridge earthquake found 55% of injuries "
+                    "came from falling furniture or objects and 1% from building damage. "
+                    "[cite: shakeout-guidance]"
+                )
             items.append(
                 ChecklistItem(
                     id=item_id,
