@@ -26,7 +26,9 @@ This document defines the routing objective for each peril type supported by the
 ## Earthquake
 
 **Objective**: Find the nearest sturdy object to get under within the room, and provide post-shaking evacuation routes.
-**Corpus Justification**: "Drop, Cover, and Hold On" under a sturdy desk or table ([cite: shakeout-guidance]). Post-shaking evacuation is necessary if instructed by authorities, using regular escape paths ([cite: fema-earthquake]).
+**Corpus Justification**: "Drop, Cover, and Hold On" under a sturdy desk or table ([cite: shakeout-guidance-dcho]). Post-shaking, the sourced default is the **opposite** of fire: outside a tsunami zone, evacuate only if the building is damaged or the surrounding area is unsafe ([cite: shakeout-guidance-after]). The engine still computes exit routes for the case where it is.
+
+**Attribution note (S11.2, 2026-09-22):** this section previously cited `fema-earthquake` for post-shaking evacuation and `shakeout-guidance` for Drop/Cover/Hold On. Neither page carries the claim made of it — see `backend/corpus/earthquake-after-shaking.md` and `earthquake-preparedness.md`, which S11.1 re-attributed. Both are re-pointed above.
 **Implementation**: 
 - **Cover points**: Returns the first qualifying object (`category == "table"`) in the room. If none is found, it returns an honest `no_cover_in_room` finding advising to drop to the ground.
 - **Post-shaking evacuation**: Identical to Fire evacuation (uses the same `_dijkstra_to_exterior` logic).

@@ -120,9 +120,100 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
 
 ### S11.1 to S11.13: session findings (append under your heading)
 
-_S11.1_ **see below** · _S11.2_ none yet · _S11.3_ none yet · _S11.4_ none yet · _S11.5_ none yet · _S11.6_ none yet ·
+_S11.1_ **see below** · _S11.2_ **see below** · _S11.3_ none yet · _S11.4_ none yet · _S11.5_ none yet · _S11.6_ none yet ·
 _S11.7_ none yet · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
 _S11.13_ none yet
+
+#### S11.2 · peril scoring and honest tiering (2026-09-22, branch `s11-2-peril-scoring`)
+
+Verified this session: backend **583 passed, 1 skipped, 13 deselected** (was 557; +26). Corpus valid
+(36 sources, 13 files, 2 threshold files, 44 tips), unchanged — this session added no corpus content.
+EditorCore **516 passed, 0 failed**. `scripts/typecheck-ios.sh` ok on all four targets against iOS 17.0
+(161 app files in both `-DDEBUG` and release, 73 test files, 9 UI-test files). **`xcodebuild test` was NOT
+run** — this machine has no working simulator; the iOS app count is still the stale 615 from 2026-09-09.
+
+**Closed by this session** (verified line by line, not "the code exists"):
+
+- [x] **The two claims S11.1 deleted are no longer shipping from `backend/app/scoring/checklist.py`.** The
+      renter adhesive-strap item, the fabricated `shakeout-guidance` cite behind it, the drywall-anchor
+      sentence, and the `usgs-earthquake` cite on the injuries claim are all gone. Renters now get the
+      no-attachment actions `earthquake-securing-home.md` actually sources; the injuries claim carries the
+      real ShakeOut evidence (55% Northridge / 1% building damage). `test_checklist_hazards.py` pins the
+      new string and asserts "adhesive" appears nowhere in those items.
+- [x] **`RouteFinding.citation` is confirmed present** in `backend/app/routing/plan.py:79` and
+      `escape_plan/Models/RoutePlan.swift:135`. BLOCKERS §3 was right that it is closed; what was missing
+      was any test. Three now exist in `test_perils.py`, all proven to go red by breaking `engine.py` on
+      purpose.
+- [x] **`usgs-earthquake` has one caller left, not two.** No file under `backend/app/` cites it any more.
+      It must stay in `sources.json` and in `validate.py`'s `ORPHAN_SOURCE_EXCEPTIONS` until
+      `escape_plan/DrillMode/DrillInstructions.swift:74` is re-pointed. **That exception's comment names
+      S11.2 as a co-owner and is now out of date** — `backend/corpus/validate.py` is S11.1's file, so I did
+      not edit it. Next action (S11.11 or whoever re-points DrillMode): delete the caller citation, the
+      exception entry and the source together.
+
+**Found and not closed** (all outside this session's OWNED FILES):
+
+- [x] **`backend/app/routing/object_hazards.py` — both misattributed hazard details are fixed** (see the
+      auditor section below; this was outside OWNED FILES and taken anyway because leaving it meant the
+      deleted claim stayed the only text a renter saw). S11.3 keeps the rest of the hazard QA.
+- [ ] **`escape_plan/DrillMode/DrillInstructions.swift:74`** still cites `fema-earthquake` and
+      `usgs-earthquake` for aftershocks; neither page mentions them. Re-point to `shakeout-guidance-after`.
+      **Owner: Lane B / S11.11.** (Carried forward from S11.1 — restated here because clearing it is what
+      lets `usgs-earthquake` be deleted.)
+- [x] **`docs/object-hazard-spec.md`** no longer describes the renter/adhesive mapping or cites
+      `usgs-earthquake`; corrected in place with a dated note, alongside the code fix.
+
+**Discovered about this session's own area:**
+
+- [ ] **`backend/tests/test_scoring.py::_scored` had silently diverged from `POST /score`.** Its comment
+      claimed parity while it omitted both peril plans, so the two disagreed by 15 severe-weather points
+      the moment a tornado item became scoring. Fixed, and the endpoint test now compares `sub_scores`
+      against the helper rather than only the composite. Next action: **nothing for this file** — but the
+      general lesson is that a comment asserting parity is not parity, and nothing was checking it.
+- [ ] **No fixture in `schema/fixtures/` produces a `no_viable_route` finding** under default constraints,
+      and none produces `no_viable_safe_room` either. Both are only reachable with
+      `RoutingConstraints(avoid_stairs=True, avoid_windows=True)` — the mobility-limited case the
+      high-severity cap exists for. `test_perils.py` now sweeps that pass so their citation policy is
+      actually exercised, and a guard test fails if any kind stops being produced. Next action: consider a
+      fixture that reaches these two without constraints, if S11.3 wants one for hazard work.
+- [ ] **The composite's "weakest link" weighting was decorative until this session.** Earthquake and severe
+      weather were a constant 95 on every fixture, so `0.50 x min(sub_scores)` always resolved to fire.
+      Fixed; recorded here because the old `docs/preparedness-score-weights.md` presented those numbers as
+      meaningful and any pitch material written off that page needs re-checking. Next action: **S11.12/13
+      must not quote 83/80/78** — the fixtures now score 73 / 70 / 66.
+
+**What the grounding-auditor found** (run at the end of the session; verdict VIOLATIONS, all now closed):
+
+- [x] **BLOCKING — the repair to `checklist.py` was close to cosmetic.** `mitigation_items` suppresses its
+      own renter item for any object that produced a `topple` hazard, so for the exact case the repair
+      targeted — a renter with a toppling wardrobe — the **only** text shown came from
+      `object_hazards.py:292`, still carrying "adhesive strap kits work for renters" under a
+      `shakeout-guidance` cite that resolves. Confirmed by running it on `jagged.json`. Fixed here despite
+      the file being S11.3's; the alternative was shipping the deleted claim as the primary guidance.
+- [x] **BLOCKING — `safe_room.know` reintroduced a misattribution S11.1 had fixed.** I put "as many walls"
+      back under `noaa-tornado`; `decisions.md` 2026-09-21 records it being re-pointed to
+      `noaa-tornado-shelter` because `weather.gov/safety/tornado-during` does not carry it. Re-pointed,
+      with a comment in the code saying why so it cannot be undone by accident a third time.
+- [x] **The severe-weather sub-score rewarded having no safe room** — 90 with no shelter vs 75 with one,
+      because the two new scoring items were gated on `has_shelter`. The composite hid it behind the
+      high-severity cap, but `sub_scores` is what S11.5 renders. Both branches now emit the same three
+      items; `test_a_home_with_no_safe_room_never_outscores_one_with_a_safe_room` pins the item sets equal.
+- [x] **"At least two independent ways" to get a warning was the app's synthesis**, not the sources' — and
+      on a scoring item, so an invented requirement was moving a real number. Reworded.
+- [x] **The no-safe-room item stated the manufactured-home reason unconditionally**, on a finding that is
+      pure reachability, against a corpus line saying nothing may tell a resident the app identified their
+      home as manufactured. Now conditional.
+- [x] **The no-numbers guard was weaker than two docs claimed it was** — it omitted `why`, excluded every
+      engine-generated item, and cannot see a spelled-out number. Test widened, both doc sentences
+      corrected to state the real scope.
+
+**Two auditor claims I checked and did not accept:**
+
+- It reported both `usgs-earthquake` callers clean and recommended deleting the source and its
+  `ORPHAN_SOURCE_EXCEPTIONS` entry. **`escape_plan/DrillMode/DrillInstructions.swift:74` still cites it** —
+  deleting the source would break that citation. The exception stays; only its owner text is stale.
+- It reported the diff under review had uncommitted hunks. That was a mid-session snapshot; the tree was
+  clean at the point the gate was run, and is clean now.
 
 #### S11.1 · corpus depth (2026-09-21, branch `s11-1-corpus-depth`)
 

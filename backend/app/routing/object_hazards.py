@@ -207,8 +207,16 @@ def analyze_object_hazards(home: HomeModel, thresholds: ObjectHazardThresholds) 
                         object_category=cat,
                         target=None,
                         reach_m=None, gap_m=None, clearance_m=None, threshold_m=None,
-                        citation="fema-earthquake",
-                        detail="The water heater isn't strapped. An earthquake can tip it and rupture the gas line — strap it to wall studs at the top and bottom."
+                        # Was fema-earthquake with "an earthquake can tip it and
+                        # rupture the gas line ... at the top and bottom". Ready.gov
+                        # lists water heaters among the heavy items to secure, so the
+                        # ACTION was covered; the rupture mechanism is on no page
+                        # fetched (S11.1 deleted the identical claim from
+                        # prevention_tips.json), and the sources say TWO METAL STRAPS,
+                        # not top and bottom — the CPC's strap positions were
+                        # unreachable behind a paywall (decisions.md 2026-09-21).
+                        citation="shakeout-guidance",
+                        detail="The water heater isn't strapped. Secure it to wall studs with two metal straps."
                     ))
                 
                 # R1: topple
@@ -289,7 +297,14 @@ def analyze_object_hazards(home: HomeModel, thresholds: ObjectHazardThresholds) 
                                 
                     if best_target_name:
                         cat_str = cat.replace('_', ' ')
-                        detail = f"The {cat_str} ({obj.height_m:.1f} m tall, unsecured) can reach {best_target_name} {best_dist:.1f} m away if it topples. Strap it to wall studs — adhesive strap kits work for renters."
+                        # "adhesive strap kits work for renters" was deleted from
+                        # the corpus on 2026-09-21 as unsourced (see
+                        # earthquake-securing-home.md, "What this corpus does not
+                        # claim"), but survived here under a shakeout-guidance
+                        # cite that resolves. Removed in S11.2: this is the text a
+                        # renter actually sees, because mitigation_items suppresses
+                        # its own item for any object that produced a topple hazard.
+                        detail = f"The {cat_str} ({obj.height_m:.1f} m tall, unsecured) can reach {best_target_name} {best_dist:.1f} m away if it topples. Secure it to wall studs; if you rent and cannot drill, move it away from where people sit and sleep."
                         hazards.append(ObjectHazard(
                             rule_id="topple",
                             severity="high" if is_high else "info",

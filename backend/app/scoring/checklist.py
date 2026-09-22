@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models import (
     Equipment,
     HomeModel,
+    ObjectCategory,
     OpeningKind,
     ProfileTag,
     RoomType,
@@ -409,12 +410,19 @@ def shutoff_items(home: HomeModel, state: ChecklistState) -> list[ChecklistItem]
                     hazard="earthquake",
                     title=f"Locate and tag your gas shutoff valve on {floor.name}",
                     detail=(
-                        "Know where your gas shutoff is and keep a wrench nearby. "
-                        "Only shut off if you suspect a leak."
+                        "Know where your gas shutoff is. Shut it off ONLY if you "
+                        "suspect a leak — broken pipes, the smell or sound of gas, "
+                        "or a meter spinning quickly. Never turn it back on "
+                        "yourself: only the gas company can, after checking for "
+                        "leaks."
                     ),
-                    why="A ruptured gas line after shaking is a secondary fire/explosion hazard. [cite: fema-earthquake]",
+                    why=(
+                        "Shutting the gas off is a judgement call with a named trigger; "
+                        "turning it back on is never the resident's action. "
+                        "[cite: shakeout-guidance-after] [cite: usgs-earthquake-donts]"
+                    ),
                     done=state.get(item_id, False) is True,
-                    source_citation="fema-earthquake",
+                    source_citation="shakeout-guidance-after",
                     scoring=False,
                 )
             )
@@ -427,12 +435,16 @@ def shutoff_items(home: HomeModel, state: ChecklistState) -> list[ChecklistItem]
                     hazard="general",
                     title=f"Locate and tag your electrical panel on {floor.name}",
                     detail=(
-                        "Know where your electrical panel is so you can shut off "
-                        "power in an emergency."
+                        "Know where your electrical panel is. After shaking, shut "
+                        "power off at the main breaker if there is any damage to "
+                        "house wiring, and leave it off until the damage is repaired."
                     ),
-                    why="Post-disaster electrical damage can cause fires. [cite: fema-earthquake]",
+                    why=(
+                        "Damaged house wiring is the named trigger for killing power at "
+                        "the main breaker. [cite: shakeout-guidance-after]"
+                    ),
                     done=state.get(item_id, False) is True,
-                    source_citation="fema-earthquake",
+                    source_citation="shakeout-guidance-after",
                     scoring=False,
                 )
             )
@@ -463,9 +475,16 @@ def safe_room_items(
                         detail=(
                             "No room in your home qualifies as a safe room. "
                             "Identify a nearby sturdy building (community shelter, "
-                            "neighbor's basement) you can reach quickly."
+                            "neighbor's basement) you can reach quickly, and do it "
+                            "now rather than when a warning arrives."
                         ),
-                        why="Mobile and manufactured homes are not safe during a tornado, whatever the wind speed. [cite: redcross-tornado]",
+                        why=(
+                            "Where there is no safe location indoors, the plan has to be "
+                            "made in advance — find a sturdy building before a watch or "
+                            "warning is ever issued. If this is a mobile, manufactured or "
+                            "trailer home, that is doubly true: they are not safe in high "
+                            "wind events. [cite: redcross-tornado]"
+                        ),
                         done=state.get(item_id, False) is True,
                         source_citation="redcross-tornado",
                         scoring=False,
@@ -475,29 +494,124 @@ def safe_room_items(
         if room.primary is not None:
             has_shelter = True
 
-    if has_shelter and not seen_no_viable:
+    # S11.2, corrected after the grounding-auditor: these three used to be gated
+    # on `has_shelter and not seen_no_viable`, which inverted the sub-score. A
+    # home with NO safe room scored 90 on severe weather while a home WITH one
+    # scored 75, because the home with no shelter simply had fewer scoring items
+    # to fail. The composite hid it behind the high-severity cap, but `sub_scores`
+    # is what the UI renders.
+    #
+    # The fix is to emit the same THREE scoring items either way and change only
+    # what they point at: an in-home safe room, or the off-site building the
+    # `nearby_shelter` item asks the household to identify.
+    if has_shelter or seen_no_viable:
+        destination = "safe room" if not seen_no_viable else "safe place"
+
         item_id = "safe_room.know"
+        if seen_no_viable:
+            know_title = "Make sure everyone knows where to go when a warning is issued"
+            know_detail = (
+                "No room in this home qualifies as a safe room, so the destination "
+                "is the sturdy building you identified. Every household member "
+                "needs to know which building, and how to get there."
+            )
+            know_why = (
+                "Under a warning, someone with no safe location indoors moves to the "
+                "closest substantial shelter. [cite: noaa-tornado-ww]"
+            )
+            know_citation = "noaa-tornado-ww"
+        else:
+            know_title = "Know your tornado safe room"
+            know_detail = (
+                "Your home's safe room has been identified by the engine. "
+                "Make sure every household member knows where to go when a "
+                "tornado warning is issued."
+            )
+            know_why = (
+                "Put as many walls between yourself and the outside as possible "
+                "[cite: noaa-tornado-shelter] — a safe room or storm shelter first, "
+                "then a basement, then a small windowless interior room on the "
+                "lowest floor. [cite: fema-tornado-ready]"
+            )
+            # NOT noaa-tornado: decisions.md 2026-09-21 re-pointed "as many walls"
+            # to noaa-tornado-shelter because weather.gov/safety/tornado-during
+            # does not carry it. Restoring the old id here would reintroduce the
+            # misattribution S11.1 removed.
+            know_citation = "noaa-tornado-shelter"
+
         items.append(
             ChecklistItem(
                 id=item_id,
                 category="safe_room",
                 hazard="severe_weather",
-                title="Know your tornado safe room",
-                detail=(
-                    "Your home's safe room has been identified by the engine. "
-                    "Make sure every household member knows where to go when a "
-                    "tornado warning is issued."
-                ),
-                why="Go to the lowest floor, most interior room, as many walls as possible between you and outside. [cite: noaa-tornado]",
+                title=know_title,
+                detail=know_detail,
+                why=know_why,
                 done=state.get(item_id, False) is True,
-                source_citation="noaa-tornado",
-                scoring=False,
+                source_citation=know_citation,
+                # S11.2: scoring. Knowing where to go is the single completable
+                # action tornado readiness turns on, and it was filed as advisory.
+                scoring=True,
+                severity="info",
+            )
+        )
+
+        item_id = "safe_room.head_protection"
+        items.append(
+            ChecklistItem(
+                id=item_id,
+                category="safe_room",
+                hazard="severe_weather",
+                title=f"Keep head protection and something sturdy in your {destination}",
+                detail=(
+                    "Keep a bicycle or motorcycle helmet for each person where you "
+                    "shelter if you can, and know what you will get under — a heavy "
+                    "table, or a mattress pulled over you."
+                ),
+                why=(
+                    "Most injuries associated with high winds come from flying debris, "
+                    "so protecting your head is the priority once you are sheltered; "
+                    "the sources name a helmet if one is available. "
+                    "[cite: noaa-tornado-shelter]"
+                ),
+                done=state.get(item_id, False) is True,
+                source_citation="noaa-tornado-shelter",
+                scoring=True,
+                severity="info",
+            )
+        )
+
+        item_id = "safe_room.practice_the_move"
+        items.append(
+            ChecklistItem(
+                id=item_id,
+                category="safe_room",
+                hazard="severe_weather",
+                title=f"Practise moving to your {destination} with the whole household",
+                detail=(
+                    "Walk everyone through it, including anyone who needs help "
+                    "getting there — the sources name a personal support team of "
+                    "people you may assist and who can assist you."
+                ),
+                why=(
+                    "Practising the move with the entire household is the sourced "
+                    "instruction, and it is given for mobile homes by name as well. "
+                    "[cite: redcross-tornado]"
+                ),
+                done=state.get(item_id, False) is True,
+                source_citation="redcross-tornado",
+                # Deliberately NOT recurring: docs/preparedness-score-weights.md
+                # establishes that recurring items are non-punitive, and a scoring
+                # recurring item would contradict that rule.
+                scoring=True,
+                severity="info",
             )
         )
     return items
 
 
 from app.routing.object_hazards import ObjectHazardThresholds, analyze_object_hazards, ObjectHazard
+
 
 def object_hazard_items(home: HomeModel, thresholds: ObjectHazardThresholds, state: ChecklistState) -> list[ChecklistItem]:
     hazards = analyze_object_hazards(home, thresholds)
@@ -548,8 +662,12 @@ def object_hazard_items(home: HomeModel, thresholds: ObjectHazardThresholds, sta
 def mitigation_items(home: HomeModel, state: ChecklistState, hazards: list[ObjectHazard] | None = None) -> list[ChecklistItem]:
     """Earthquake mitigation items for unsecured tall/heavy objects.
 
-    Tenure-aware: renters get adhesive-strap guidance (corpus-cited from
-    shakeout-guidance); owners get wall-stud guidance.
+    Tenure-aware, but NOT because renters get a different fastener: they get the
+    subset of actions that need no attachment. S11.1 (2026-09-21) established that
+    ShakeOut names flexible nylon straps for *storage racks* and putty for *small
+    objects*, and presents neither as a no-drill substitute for securing tall
+    furniture — see backend/corpus/earthquake-securing-home.md, "What this corpus
+    does not claim". Owners get the wall-stud instruction; renters get move-it-first.
     """
     is_renter = (
         home.household is not None and home.household.tenure is not None
@@ -575,20 +693,25 @@ def mitigation_items(home: HomeModel, state: ChecklistState, hazards: list[Objec
                 
             if is_renter:
                 item_id = f"mitigation.secure.{obj.id}.renter"
-                title = f"Secure {obj.category.value} '{obj.id}' with earthquake-rated adhesive straps"
+                title = f"Move {obj.category.value} '{obj.id}' away from beds and seating"
                 detail = (
-                    "Use flexible nylon straps with high-strength, earthquake-rated "
-                    "adhesives — no wall drilling required."
+                    "Securing to studs needs the landlord's permission, so start with "
+                    "what needs no attachment: move it away from where people sit and "
+                    "sleep, put heavy objects on lower shelves, and hold small objects "
+                    "down with museum putty."
                 )
-                why = "Renter-friendly furniture straps are available without drilling. [cite: shakeout-guidance]"
+                why = "Moving it comes before fastening it, and needs no installation. [cite: shakeout-guidance]"
             else:
                 item_id = f"mitigation.secure.{obj.id}"
                 title = f"Secure {obj.category.value} '{obj.id}' to wall studs"
                 detail = (
-                    "Bolt tall or heavy furniture to wall studs. Standard drywall "
-                    "anchors are not strong enough during an earthquake."
+                    "Secure tall or heavy furniture to wall studs."
                 )
-                why = "Unsecured furniture is a leading cause of earthquake injuries. [cite: usgs-earthquake]"
+                why = (
+                    "A UCLA study of the 1994 Northridge earthquake found 55% of injuries "
+                    "came from falling furniture or objects and 1% from building damage. "
+                    "[cite: shakeout-guidance]"
+                )
             items.append(
                 ChecklistItem(
                     id=item_id,
@@ -605,23 +728,162 @@ def mitigation_items(home: HomeModel, state: ChecklistState, hazards: list[Objec
     return items
 
 
+def earthquake_prep_items(home: HomeModel, state: ChecklistState) -> list[ChecklistItem]:
+    """Whole-home earthquake preparation, from backend/corpus/earthquake-securing-home.md.
+
+    S11.2 (2026-09-22). Until this session, `earthquake` had no `scoring: true`
+    item at all: its sub-score was a constant 95 on every fixture, so the
+    "weakest link" composite always resolved to fire. These are the items that
+    make it move.
+
+    They are `scoring: true` but carry NO numeric threshold — there is none to
+    carry. `docs/decisions.md` 2026-09-21 records that the sources hold exactly
+    two numbers and neither is app-checkable. A checkbox is a fact the resident
+    asserts, not a measurement, which is why scoring these does not smuggle in
+    the false precision the `guidance_based` tier exists to prevent.
+
+    `mitigation_items` is per-object and stays per-object; these are per-home and
+    fire once each. Emission conditions are facts the model actually holds — a
+    kitchen room, a water heater, a tagged gas shutoff — never an inference about
+    construction type.
+    """
+    items: list[ChecklistItem] = []
+
+    def add(
+        item_id: str,
+        title: str,
+        detail: str,
+        why: str,
+        citation: str,
+    ) -> None:
+        items.append(
+            ChecklistItem(
+                id=item_id,
+                category="mitigation",
+                hazard="earthquake",
+                title=title,
+                detail=detail,
+                why=why,
+                done=state.get(item_id, False) is True,
+                source_citation=citation,
+                scoring=True,
+                severity="info",
+            )
+        )
+
+    add(
+        "eq.move_before_fasten",
+        "Move tall furniture away from beds and seating",
+        "Start by moving, not fastening. Bookcases and other tall furniture "
+        "should not stand where people sit, sleep, or spend a lot of time.",
+        "A UCLA study of the 1994 Northridge earthquake found 55% of injuries came "
+        "from falling furniture or objects and 1% from building damage, which is why "
+        "securing contents comes before structural work. [cite: shakeout-guidance]",
+        "shakeout-guidance",
+    )
+    add(
+        "eq.heavy_objects_low",
+        "Move heavy and breakable objects to lower shelves",
+        "Store heavy and breakable objects on low shelves rather than high ones.",
+        "Both ShakeOut and Ready.gov give this instruction directly. "
+        "[cite: shakeout-guidance] [cite: fema-earthquake]",
+        "shakeout-guidance",
+    )
+    add(
+        "eq.tv_computer_straps",
+        "Secure televisions and computers with straps made for them",
+        "Televisions and computers are secured with special straps made for that "
+        "purpose, not with general-purpose furniture hardware.",
+        "ShakeOut names televisions and computers as their own securing case. "
+        "[cite: shakeout-guidance]",
+        "shakeout-guidance",
+    )
+
+    room_types = {room.type for floor in home.floors for room in floor.rooms}
+    if RoomType.kitchen in room_types:
+        add(
+            "eq.cabinet_latches",
+            "Fit latches to your kitchen cabinet doors",
+            "Latches stop cabinet doors swinging open and emptying their contents "
+            "during shaking.",
+            "ShakeOut names kitchen cabinet latches as a securing step. "
+            "[cite: shakeout-guidance]",
+            "shakeout-guidance",
+        )
+
+    object_categories = {obj.category for floor in home.floors for obj in floor.objects}
+    safety_point_kinds = {
+        sp.kind for floor in home.floors for sp in floor.safety_points
+    }
+    has_gas_appliance = (
+        ObjectCategory.water_heater in object_categories
+        or SafetyPointKind.gas_shutoff in safety_point_kinds
+    )
+    if has_gas_appliance:
+        add(
+            "eq.flexible_gas_connectors",
+            "Put flexible connections on gas lines to appliances",
+            "Water heaters, ovens and clothes dryers should connect to the gas "
+            "supply with flexible connections rather than rigid pipe.",
+            "ShakeOut names gas lines to appliances as a securing step in their "
+            "own right. [cite: shakeout-guidance]",
+            "shakeout-guidance",
+        )
+
+    # Advisory, never scoring: this is information, not a task anyone completes.
+    item_id = "eq.stay_if_undamaged"
+    items.append(
+        ChecklistItem(
+            id=item_id,
+            category="mitigation",
+            hazard="earthquake",
+            title="Know the after-shaking default: stay put if the building is undamaged",
+            detail=(
+                "Outside a tsunami zone, evacuate only if the building is damaged "
+                "or the area around it is unsafe. An undamaged building can be safe "
+                "to remain in even with the power out."
+            ),
+            why=(
+                "This is the opposite default from fire, where leaving immediately is "
+                "always right. [cite: shakeout-guidance-after]"
+            ),
+            done=state.get(item_id, False) is True,
+            source_citation="shakeout-guidance-after",
+            scoring=False,
+        )
+    )
+    return items
+
+
 def supply_kit_items(state: ChecklistState) -> list[ChecklistItem]:
-    """The single shared supply-kit item — tagged general, appears once."""
+    """The single shared supply-kit item — tagged general, appears once.
+
+    S11.2 (2026-09-22): this used to read "72-hour kit… one gallon per person per
+    day for three days" cited to `fema-earthquake`. Nothing in the corpus carries
+    that — `fema-earthquake` (ready.gov/earthquakes) is only ever cited for
+    securing objects and for Drop, Cover, Hold On. The quantities were invented.
+    The item now says only what `earthquake-after-shaking.md` sources, and the id
+    is kept unchanged so persisted done-state survives.
+    """
     item_id = "supply_kit.72h"
     return [
         ChecklistItem(
             id=item_id,
             category="supply_kit",
             hazard="general",
-            title="Assemble a 72-hour emergency supply kit",
+            title="Pack a grab-and-go bag and keep flashlights, not candles",
             detail=(
-                "Water (one gallon per person per day for three days), food, "
-                "flashlight, batteries, first-aid kit, medications, copies of "
-                "important documents."
+                "Shelters have limited space, so pack essentials only: medication, "
+                "important documents, prescription eyewear. Keep flashlights, "
+                "battery-powered lights or light sticks to hand — not candles or "
+                "matches, which can ignite a gas leak you have not found yet."
             ),
-            why="You may need to shelter in place or evacuate with no access to stores. [cite: fema-earthquake]",
+            why=(
+                "Both the bag's contents and the no-open-flame rule are what the "
+                "sources actually specify. [cite: shakeout-guidance-after]"
+            ),
             done=state.get(item_id, False) is True,
-            source_citation="fema-earthquake",
+            source_citation="shakeout-guidance-after",
             scoring=False,
         )
     ]
@@ -642,21 +904,60 @@ def alert_items(home: HomeModel, state: ChecklistState) -> list[ChecklistItem]:
             id=item_id,
             category="alerts",
             hazard="severe_weather",
-            title="Ensure multiple ways to receive severe weather alerts",
+            title="Set up more than one way to get a tornado warning",
             detail=(
-                "NOAA Weather Radio plus phone notifications. Know the difference: "
-                "Watch = conditions favorable; Warning = seek shelter immediately."
+                "Sign up for your community's alerts, and know the Emergency Alert "
+                "System and NOAA Weather Radio. If your community has sirens, become "
+                "familiar with the warning tone. Keep a way to charge a phone and a battery-powered "
+                "radio for a power outage. Know the difference: a Watch is when "
+                "you check that your plan still works; a Warning is when you "
+                "execute it."
             ),
-            why="Tornado warnings give minutes of lead time — receiving them is life-or-death. [cite: redcross-tornado]",
+            why=(
+                "You may not always receive a warning, which is why the sources name "
+                "more than one channel rather than one. "
+                "[cite: fema-tornado-ready] [cite: redcross-tornado] [cite: noaa-tornado-ww]"
+            ),
             done=state.get(item_id, False) is True,
-            source_citation="redcross-tornado",
-            scoring=False,
+            source_citation="fema-tornado-ready",
+            # S11.2: scoring. Setting up alert channels is a concrete completable
+            # action that was filed as advisory.
+            scoring=True,
+            severity="info",
         )
     )
 
-    # hearing_impaired profiles -> strobe/bed-shaker
+    # hearing_impaired profiles -> strobe/bed-shaker.
+    #
+    # Both items below are deliberately `scoring: False`. The actions are real and
+    # sourced, but a household's score must not fall because it includes a deaf or
+    # hard-of-hearing member. See docs/preparedness-score-weights.md.
     for profile in home.profiles:
         if ProfileTag.hearing_impaired in profile.tags:
+            item_id = f"alerts.same_receiver.{profile.id}"
+            items.append(
+                ChecklistItem(
+                    id=item_id,
+                    category="alerts",
+                    hazard="severe_weather",
+                    title=f"Set up a SAME-programmed weather radio alert for {profile.name}",
+                    detail=(
+                        "Outdoor sirens are an audible warning and are not an "
+                        "accessible indoor alert. A NOAA Weather Radio receiver with "
+                        "Specific Area Message Encoding can be programmed for specific "
+                        "events and counties, and drives connected strobe lights, bed "
+                        "shakers and pillow vibrators when a warning arrives."
+                    ),
+                    why=(
+                        "NOAA Weather Radio carries non-verbal information specifically "
+                        "to warn people who are deaf or hard of hearing. "
+                        "[cite: noaa-nwr-accessibility]"
+                    ),
+                    done=state.get(item_id, False) is True,
+                    source_citation="noaa-nwr-accessibility",
+                    scoring=False,
+                )
+            )
             item_id = f"alerts.strobe.{profile.id}"
             items.append(
                 ChecklistItem(
@@ -913,6 +1214,7 @@ def build_checklist(
         *safe_room_items(tornado_plan, state),
         *(object_hazard_items(home, object_hazard_thresholds, state) if object_hazard_thresholds else []),
         *mitigation_items(home, state, hazards=hazards),
+        *earthquake_prep_items(home, state),
         *supply_kit_items(state),
         *alert_items(home, state),
         *household_items(home, state, plan, tornado_plan),

@@ -31,7 +31,11 @@ def test_mitigation_items_renter_vs_owner(twostory, thresholds):
     mitigation_renter = [i for i in checklist_renter if i.category == "mitigation" and i.id.startswith("mitigation.secure")]
     assert len(mitigation_renter) > 0
     assert all(i.id.endswith(".renter") for i in mitigation_renter)
-    assert all("adhesive straps" in i.title for i in mitigation_renter)
+    # S11.2: renters get the actions that need no attachment, NOT a different
+    # fastener. "adhesive straps" was an unsourced claim (BLOCKERS S11.1) and the
+    # string is pinned here so it cannot come back.
+    assert all("Move" in i.title for i in mitigation_renter)
+    assert not any("adhesive" in i.title + i.detail + i.why for i in mitigation_renter)
 
     home_owner = HomeModel.model_validate(twostory)
     home_owner.floors[0].objects.append(heavy_obj)
@@ -181,7 +185,13 @@ def test_object_hazard_item_capping_score_roundtrip(bungalow, object_hazard_thre
     
     # Check off the item
     breakdown_checked = compute_score(home, plan, [], {hazard_items[0].id: True}, thresholds, object_hazard_thresholds=object_hazard_thresholds)
-    assert breakdown_checked.score == 83
+    # Releasing the cap returns the composite to its ordinary arithmetic:
+    # fire 70, earthquake 70 (the water heater added here also emits
+    # eq.flexible_gas_connectors), severe weather 90 — no tornado_plan is passed
+    # to this call, so only the alerts item scores there.
+    # 0.5*70 + 0.25*70 + 0.25*90 = 75.
+    assert breakdown_checked.sub_scores == {"fire": 70, "earthquake": 70, "severe_weather": 90}
+    assert breakdown_checked.score == 75
 
 
 def test_bookcase_and_water_heater_use_specific_hazards_without_generic_duplicates(

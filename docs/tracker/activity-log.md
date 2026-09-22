@@ -2168,3 +2168,35 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 5d3e263 Merge branch 'verify-render-redeploy'
   - beb8e86 BLOCKERS: the redeploy is verified, not assumed
 
+## 2026-09-22T02:58:07Z · vedang-123-ai · `main` @ `c95d6de`
+
+**Commits this session**
+  - c95d6de Merge branch 's11-1-corpus-depth'
+  - 51ef66e Docs: the auditor's findings, including one against my own decisions row
+  - 5e991f2 Corpus: make the orphan-source rule mechanical, and stop the docs claiming behaviour the engine does not have
+  - f13b8b2 Docs: counts to 36 sources / 17 verified, from a run not from recall
+  - 34dcddf Corpus: stop citing the USGS link directory, and flag the two callers outside this session that still do
+  - f2e6e18 Docs: replace my estimated verification counts with measured ones
+  - 6240bc1 Docs: record the accepted-but-unshown source hole
+  - 530b2a0 Corpus: a source the AI can cite but was never shown is a hole
+  - 03125a1 Note: S11.1, including why the session grew a repair phase
+  - 2b4d720 Docs: the summary was stale by 24 sources, plus the S11.1 decisions
+  - c622486 Corpus: 44 cited prevention tips, and validate.py learns to check them
+
+## 2026-09-22T18:22:31Z · vedang-123-ai · `s11-2-peril-scoring` @ `ea22ea1`
+
+**Commits this session**
+  - ea22ea1 Score: derive the peril list from PERIL_BASIS instead of repeating it
+  - 33af3a1 Docs: the S11.2 session note
+  - 6cbeffc Docs: the S11.2 board section and four decision rows
+  - 1dd17b0 Scoring: strip four unsourced embellishments from my own new items
+  - e8f20c1 Docs: the weights page, re-derived from a run, and what the tiering is not
+  - 9a3a6c2 Tests: recompute the fixture scores from a run, and pin what the tiering must not become
+  - 32ed20f Score: report which tier of evidence each peril rests on, and hold RouteFinding citations to it
+  - 8bc9ae2 Scoring: earthquake and tornado items that actually move their sub-scores
+  - b0c1390 Scoring: three more citations to a page that does not carry them
+  - a72aae5 Scoring: delete the two claims S11.1 removed from the corpus
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
