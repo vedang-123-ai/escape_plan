@@ -33,6 +33,7 @@ import re
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -45,6 +46,17 @@ BROWSER_UA = (
     "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 )
 TIMEOUT = 30
+
+# Hosts whose bot protection rejects scripted fetches no matter the headers (verified
+# 2026-09-21: fema.gov 403s both urllib and curl, including with full browser headers,
+# while the same URLs load fine in a browser). A 403 from these is NOT a dead link, so
+# it is reported as BLOCKED and does not fail the run -- but it does mean the page must
+# be verified by hand before its retrieved date is stamped.
+BOT_WALLED_HOSTS = {"www.fema.gov", "fema.gov"}
+
+# Hosts that serve a JS shell to any scripted fetch: status is meaningful, text is not.
+# nfpa.org returns 200 with ~40 characters of body.
+JS_SHELL_HOSTS = {"www.nfpa.org", "nfpa.org"}
 
 
 def to_text(raw: bytes) -> str:
@@ -115,8 +127,15 @@ def main() -> int:
         lowered = text.lower()
         missing = [k for k in keywords if k.lower() not in lowered]
 
+        host = urllib.parse.urlparse(url).netloc.lower()
+        blocked = host in BOT_WALLED_HOSTS and status in (403, 0)
+        js_shell = host in JS_SHELL_HOSTS
+
+        # A bot-walled 403 and a JS shell are limitations of this script, not defects in
+        # the corpus. Reporting them as failures would make the run permanently red and
+        # train the next person to ignore it.
         ok = status == 200 and not missing
-        if not ok:
+        if not ok and not blocked and not (js_shell and status == 200):
             failures += 1
 
         stale = None
@@ -133,14 +152,18 @@ def main() -> int:
             "chars": len(text), "keywords": len(keywords),
             "missing_keywords": missing,
             "verified": bool(keywords) and ok,
+            "needs_manual_check": blocked or (js_shell and status == 200) or (status == 200 and not text),
             "stale_days": stale,
         })
 
         if not args.json:
-            if status != 200:
+            if blocked:
+                mark, detail = "BLOCKED", f"HTTP {status} - {host} bot-walls scripts; verify by hand"
+            elif status != 200:
                 mark, detail = "FAIL", f"HTTP {status} via {how}"
-            elif not text:
-                mark, detail = "NO-TEXT", "200 but no extractable text (PDF or JS-rendered)"
+            elif js_shell or not text:
+                why = "JS shell" if js_shell else "PDF or no extractable text"
+                mark, detail = "NO-TEXT", f"200 but nothing to grep ({why}); verify by hand"
             elif missing:
                 mark, detail = "DRIFT", f"200 but missing {missing}"
             elif not keywords:
@@ -155,7 +178,9 @@ def main() -> int:
         print(json.dumps({"checked": len(results), "failures": failures, "results": results}, indent=2))
     else:
         verified = sum(1 for r in results if r["verified"])
-        print(f"\n{len(results)} source(s) checked · {verified} content-verified · {failures} problem(s)")
+        manual = sum(1 for r in results if r["needs_manual_check"])
+        print(f"\n{len(results)} source(s) checked · {verified} content-verified · "
+              f"{manual} need a manual check · {failures} problem(s)")
 
     return 1 if failures else 0
 
