@@ -149,6 +149,10 @@ green; 15 of 17 peril/prevention sources content-verified against the live pages
 - [ ] **Earthquake guidance leans Californian** (ShakeOut, CA H&S §19211). General practice is sound
       everywhere, and the legal-mandate section is labelled California-only, but a judge outside California
       may notice. Next action: accept, or find a second state's equivalent.
+- [x] **A source the AI may cite but was never shown to it.** `valid_source_ids()` reads `sources.json`;
+      the block the model sees is built from the markdown docs. Two ids added for the tips file alone were
+      accepted-but-unshown for one commit. Caught by `test_corpus_block_matches_sources_json`, fixed by
+      citing both in real docs. **`validate.py` cannot see this class** — the backend suite is the check.
 - [ ] **For S11.2:** the tips file is `backend/corpus/prevention_tips.json`, shape
       `{"tips":[{"id","peril","topic","text","cite","audience"}]}`. **Earthquake and tornado carry no
       numeric thresholds and that is deliberate** (`decisions.md` 2026-09-21) — build their checklist items

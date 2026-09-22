@@ -74,6 +74,24 @@ All four are in `docs/decisions.md` (2026-09-21). The two that will matter to so
   injuries from falling furniture, 1% from building damage.** That is the evidence for putting "secure
   your contents" ahead of structural work, and it is a real statistic for the pitch.
 
+### The one I did not see coming
+
+`backend/tests/test_ai.py::test_corpus_block_matches_sources_json` failed on my own work, and it was
+right. I added `usfa-extinguishers` and `usfa-batteries` to `sources.json` so the **tips file** could cite
+them — but the corpus block the model is shown is built from the **markdown docs**, and neither id
+appeared in one. For one commit, the server would have accepted `usfa-extinguishers` on an extinguisher
+claim the model made up, because `valid_source_ids()` reads `sources.json` while `corpus_text()` reads the
+markdown.
+
+That is the project's central law failing, in my diff, on the session whose whole theme was attribution.
+`validate.py` cannot catch it — the ids resolve perfectly. The backend suite caught it. Fixed by giving
+both sources a real home: the USFA extinguisher decision rule went into `escape-planning-nfpa.md` and
+lithium-ion batteries into `heating-electrical-fire-safety.md`.
+
+**Rule for anyone adding a source:** `prevention_tips.json` is not a corpus document for this purpose. A
+new source id needs a markdown doc citing it in the same commit, and you find out by running the backend
+suite, not the corpus validator.
+
 ## Questions for teammates
 
 - **@P1 / @P2 (Lane B, S11.5):** tips file is `backend/corpus/prevention_tips.json`, shape
