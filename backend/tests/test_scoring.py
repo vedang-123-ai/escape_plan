@@ -898,3 +898,55 @@ def test_accessible_alert_items_never_lower_the_score(bungalow: dict):
     assert all(not i.scoring for i in accessibility_items)
     assert with_hoh.sub_scores == without.sub_scores
     assert with_hoh.score == without.score
+
+
+def test_a_home_with_no_safe_room_never_outscores_one_with_a_safe_room(twostory: dict):
+    """Found by the grounding-auditor, S11.2.
+
+    `safe_room.head_protection` and `safe_room.practice_the_move` were first
+    written gated on `has_shelter and not seen_no_viable` while being scoring.
+    A home with NO safe room therefore had fewer items to fail and scored
+    **90** on severe weather where a home with one scored 75. The composite hid
+    it behind the high-severity cap, but `sub_scores` is what the UI renders
+    next to the `guidance_based` label.
+
+    The fix emits the same three items either way and changes only what they
+    point at, so the item COUNT must match — that is what this pins.
+    """
+    from app.routing.plan import RoutingConstraints
+
+    home = HomeModel.model_validate(twostory)
+    thresholds = config.get_thresholds()
+    fire = compute_route_plan(home, thresholds)
+    quake = compute_route_plan(home, thresholds, peril="earthquake")
+
+    with_shelter = compute_score(
+        home, fire, [], {}, thresholds,
+        tornado_plan=compute_route_plan(home, thresholds, peril="tornado"),
+        earthquake_plan=quake,
+    )
+    # avoid_stairs strands the upstairs rooms: no reachable interior shelter.
+    without_shelter = compute_score(
+        home, fire, [], {}, thresholds,
+        tornado_plan=compute_route_plan(
+            home, thresholds, RoutingConstraints(avoid_stairs=True), peril="tornado"
+        ),
+        earthquake_plan=quake,
+    )
+
+    def scoring_ids(breakdown):
+        return {i.id for i in breakdown.checklist
+                if i.scoring and i.hazard == "severe_weather"}
+
+    assert scoring_ids(without_shelter) == scoring_ids(with_shelter), (
+        "the two branches emit different scoring items, so one of them is "
+        "cheaper to satisfy than the other"
+    )
+    assert (
+        without_shelter.sub_scores["severe_weather"]
+        <= with_shelter.sub_scores["severe_weather"]
+    ), "having no safe room scored BETTER than having one"
+
+    # And the honest signal is still there: a structural high-severity item.
+    no_viable = [i for i in without_shelter.checklist if i.id == "safe_room.nearby_shelter"]
+    assert no_viable and no_viable[0].severity == "high" and not no_viable[0].scoring

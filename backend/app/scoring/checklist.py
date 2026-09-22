@@ -479,10 +479,11 @@ def safe_room_items(
                             "now rather than when a warning arrives."
                         ),
                         why=(
-                            "Mobile, manufactured and trailer homes and RVs are not safe "
-                            "in high wind events, so the plan has to be made in advance — "
-                            "before a watch or warning is ever issued. "
-                            "[cite: redcross-tornado] [cite: noaa-tornado-ww]"
+                            "Where there is no safe location indoors, the plan has to be "
+                            "made in advance — find a sturdy building before a watch or "
+                            "warning is ever issued. If this is a mobile, manufactured or "
+                            "trailer home, that is doubly true: they are not safe in high "
+                            "wind events. [cite: redcross-tornado]"
                         ),
                         done=state.get(item_id, False) is True,
                         source_citation="redcross-tornado",
@@ -493,27 +494,61 @@ def safe_room_items(
         if room.primary is not None:
             has_shelter = True
 
-    if has_shelter and not seen_no_viable:
+    # S11.2, corrected after the grounding-auditor: these three used to be gated
+    # on `has_shelter and not seen_no_viable`, which inverted the sub-score. A
+    # home with NO safe room scored 90 on severe weather while a home WITH one
+    # scored 75, because the home with no shelter simply had fewer scoring items
+    # to fail. The composite hid it behind the high-severity cap, but `sub_scores`
+    # is what the UI renders.
+    #
+    # The fix is to emit the same THREE scoring items either way and change only
+    # what they point at: an in-home safe room, or the off-site building the
+    # `nearby_shelter` item asks the household to identify.
+    if has_shelter or seen_no_viable:
+        destination = "safe room" if not seen_no_viable else "safe place"
+
         item_id = "safe_room.know"
+        if seen_no_viable:
+            know_title = "Make sure everyone knows where to go when a warning is issued"
+            know_detail = (
+                "No room in this home qualifies as a safe room, so the destination "
+                "is the sturdy building you identified. Every household member "
+                "needs to know which building, and how to get there."
+            )
+            know_why = (
+                "Under a warning, someone with no safe location indoors moves to the "
+                "closest substantial shelter. [cite: noaa-tornado-ww]"
+            )
+            know_citation = "noaa-tornado-ww"
+        else:
+            know_title = "Know your tornado safe room"
+            know_detail = (
+                "Your home's safe room has been identified by the engine. "
+                "Make sure every household member knows where to go when a "
+                "tornado warning is issued."
+            )
+            know_why = (
+                "Put as many walls between yourself and the outside as possible "
+                "[cite: noaa-tornado-shelter] — a safe room or storm shelter first, "
+                "then a basement, then a small windowless interior room on the "
+                "lowest floor. [cite: fema-tornado-ready]"
+            )
+            # NOT noaa-tornado: decisions.md 2026-09-21 re-pointed "as many walls"
+            # to noaa-tornado-shelter because weather.gov/safety/tornado-during
+            # does not carry it. Restoring the old id here would reintroduce the
+            # misattribution S11.1 removed.
+            know_citation = "noaa-tornado-shelter"
+
         items.append(
             ChecklistItem(
                 id=item_id,
                 category="safe_room",
                 hazard="severe_weather",
-                title="Know your tornado safe room",
-                detail=(
-                    "Your home's safe room has been identified by the engine. "
-                    "Make sure every household member knows where to go when a "
-                    "tornado warning is issued."
-                ),
-                why=(
-                    "Go to the lowest floor, most interior room, with as many walls as "
-                    "possible between you and the outside — a safe room or storm shelter "
-                    "first, then a basement, then a small windowless interior room. "
-                    "[cite: noaa-tornado] [cite: fema-tornado-ready]"
-                ),
+                title=know_title,
+                detail=know_detail,
+                why=know_why,
                 done=state.get(item_id, False) is True,
-                source_citation="noaa-tornado",
+                source_citation=know_citation,
                 # S11.2: scoring. Knowing where to go is the single completable
                 # action tornado readiness turns on, and it was filed as advisory.
                 scoring=True,
@@ -521,22 +556,22 @@ def safe_room_items(
             )
         )
 
-        # Both of these only make sense once a safe room exists to go to.
         item_id = "safe_room.head_protection"
         items.append(
             ChecklistItem(
                 id=item_id,
                 category="safe_room",
                 hazard="severe_weather",
-                title="Keep head protection and something sturdy in your safe room",
+                title=f"Keep head protection and something sturdy in your {destination}",
                 detail=(
-                    "Put a bicycle or motorcycle helmet for each person in the safe "
-                    "room, and know what you will get under — a heavy table, or a "
-                    "mattress pulled over you."
+                    "Keep a bicycle or motorcycle helmet for each person where you "
+                    "shelter if you can, and know what you will get under — a heavy "
+                    "table, or a mattress pulled over you."
                 ),
                 why=(
                     "Most injuries associated with high winds come from flying debris, "
-                    "so protecting your head is the priority once you are sheltered. "
+                    "so protecting your head is the priority once you are sheltered; "
+                    "the sources name a helmet if one is available. "
                     "[cite: noaa-tornado-shelter]"
                 ),
                 done=state.get(item_id, False) is True,
@@ -552,7 +587,7 @@ def safe_room_items(
                 id=item_id,
                 category="safe_room",
                 hazard="severe_weather",
-                title="Practise moving to your safe room with the whole household",
+                title=f"Practise moving to your {destination} with the whole household",
                 detail=(
                     "Walk everyone through it, including anyone who needs help "
                     "getting there — the sources name a personal support team of "
@@ -560,7 +595,7 @@ def safe_room_items(
                 ),
                 why=(
                     "Practising the move with the entire household is the sourced "
-                    "instruction, and a personal support team is named alongside it. "
+                    "instruction, and it is given for mobile homes by name as well. "
                     "[cite: redcross-tornado]"
                 ),
                 done=state.get(item_id, False) is True,
@@ -576,6 +611,7 @@ def safe_room_items(
 
 
 from app.routing.object_hazards import ObjectHazardThresholds, analyze_object_hazards, ObjectHazard
+
 
 def object_hazard_items(home: HomeModel, thresholds: ObjectHazardThresholds, state: ChecklistState) -> list[ChecklistItem]:
     hazards = analyze_object_hazards(home, thresholds)
@@ -868,11 +904,11 @@ def alert_items(home: HomeModel, state: ChecklistState) -> list[ChecklistItem]:
             id=item_id,
             category="alerts",
             hazard="severe_weather",
-            title="Set up at least two independent ways to get a tornado warning",
+            title="Set up more than one way to get a tornado warning",
             detail=(
-                "Sign up for your community's alerts, and add NOAA Weather Radio or "
-                "the Emergency Alert System as a second channel that does not depend "
-                "on the first. Keep a way to charge a phone and a battery-powered "
+                "Sign up for your community's alerts, and know the Emergency Alert "
+                "System and NOAA Weather Radio. If your community has sirens, become "
+                "familiar with the warning tone. Keep a way to charge a phone and a battery-powered "
                 "radio for a power outage. Know the difference: a Watch is when "
                 "you check that your plan still works; a Warning is when you "
                 "execute it."
