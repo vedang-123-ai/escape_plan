@@ -154,6 +154,23 @@ green; backend **557 passed, 1 skipped, 13 deselected**. `check_urls.py` over al
       the block the model sees is built from the markdown docs. Two ids added for the tips file alone were
       accepted-but-unshown for one commit. Caught by `test_corpus_block_matches_sources_json`, fixed by
       citing both in real docs. **`validate.py` cannot see this class** — the backend suite is the check.
+- [ ] **Two files OUTSIDE this session's ownership cite `usgs-earthquake` for claims that page does not
+      carry** — the same defect found in the corpus, in shipped code. `usgs.gov/.../prepare` is a link
+      directory. I did not touch either file (not my OWNED FILES) and did **not** remove the source id,
+      because removing it would break them. Both fixes are one-line, and the replacement sources now exist:
+      - `backend/app/scoring/checklist.py:591` — "Unsecured furniture is a leading cause of earthquake
+        injuries. `[cite: usgs-earthquake]`". Re-point to **`shakeout-guidance`**, which carries the real
+        evidence (UCLA: 55% of Northridge injuries from falling furniture, 1% from building damage).
+        **Owner: S11.2** (it owns `backend/app/scoring/**`).
+      - `escape_plan/DrillMode/DrillInstructions.swift:74` — aftershocks, cited to `fema-earthquake` and
+        `usgs-earthquake`, neither of which mentions aftershocks. Re-point to
+        **`shakeout-guidance-after`** ("Be prepared for aftershocks and stay away from anything that looks
+        like it may fall"). **Owner: whoever owns `DrillMode/`** — Lane B or S11.11.
+- [ ] **`test_corpus_block_matches_sources_json` uses a substring check**, so `usgs-earthquake` reads as
+      "shown to the model" purely because `usgs-earthquake-during` and `usgs-earthquake-donts` contain it.
+      The test is still valuable — it caught a real hole this session — but it cannot see an orphaned id
+      whose name is a prefix of another. Next action (S11.4, which owns `backend/app/ai/` and its tests):
+      match on a word boundary rather than `in`.
 - [ ] **For S11.2:** the tips file is `backend/corpus/prevention_tips.json`, shape
       `{"tips":[{"id","peril","topic","text","cite","audience"}]}`. **Earthquake and tornado carry no
       numeric thresholds and that is deliberate** (`decisions.md` 2026-09-21) — build their checklist items

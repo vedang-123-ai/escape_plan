@@ -5,7 +5,7 @@ doc_title: Earthquake Safety — What To Do During Shaking
 url: https://www.earthquakecountry.org/step5/
 retrieved: 2026-09-21
 topics: [earthquake, drop-cover-hold-on, during-shaking, myths, accessibility]
-additional_source_ids: [shakeout-guidance-dcho, usgs-triangle-of-life, fema-earthquake, usgs-earthquake, shakeout-guidance-after]
+additional_source_ids: [shakeout-guidance-dcho, usgs-triangle-of-life, usgs-earthquake-during, fema-earthquake, shakeout-guidance-after]
 ---
 
 # Earthquake Safety — What To Do During Shaking
@@ -14,7 +14,9 @@ What to do while the ground is moving. Securing the home in advance is
 `earthquake-securing-home.md`; what to do once shaking stops is `earthquake-after-shaking.md`.
 
 The official protective action in the United States is Drop, Cover, and Hold On
-[cite: shakeout-guidance-dcho]. The USGS points to the same action [cite: usgs-earthquake].
+[cite: shakeout-guidance-dcho]. The USGS gives the same instruction: if you are indoors, **stay there** — get under a
+desk or table and hang on to it, or move into a hallway or against an inside wall
+[cite: usgs-earthquake-during].
 
 ## Drop, Cover, and Hold On
 
@@ -30,6 +32,19 @@ The official protective action in the United States is Drop, Cover, and Hold On
 **If there is no shelter nearby**, crawl next to an interior wall, away from windows. Stay on your knees
 and bend over to protect vital organs [cite: fema-earthquake] [cite: shakeout-guidance-dcho].
 
+## Where not to be while it shakes
+
+The USGS adds three specifics about the indoor environment [cite: usgs-earthquake-during]:
+
+- **Stay clear of windows, fireplaces, and heavy furniture or appliances** [cite: usgs-earthquake-during].
+- **Get out of the kitchen** — it is a dangerous place, because things can fall on you
+  [cite: usgs-earthquake-during].
+- **Do not run downstairs or rush outside while the building is shaking**, or while there is danger of
+  falling, being hurt, or being hit by falling glass or debris [cite: usgs-earthquake-during].
+
+The first two are the grounding for the app treating the kitchen, and rooms with heavy unsecured
+furniture, as poor shelter spots for this peril.
+
 ## By situation
 
 - **In bed:** do not get out of bed. Lie face down to protect vital organs and cover your head and neck
@@ -41,7 +56,9 @@ and bend over to protect vital organs [cite: fema-earthquake] [cite: shakeout-gu
   until the shaking stops [cite: shakeout-guidance-dcho].
 - **Outdoors:** move to an open space if you can do so safely, away from power lines, trees, signs,
   buildings and vehicles, then Drop, Cover, and Hold On [cite: shakeout-guidance-dcho]. Ready.gov adds that
-  if you are already outside, stay there [cite: fema-earthquake].
+  if you are already outside, stay there [cite: fema-earthquake], and the USGS says to get into the open,
+  away from buildings, power lines, chimneys and anything else that might fall on you
+  [cite: usgs-earthquake-during].
 
 ## Two ideas that are out of date
 
