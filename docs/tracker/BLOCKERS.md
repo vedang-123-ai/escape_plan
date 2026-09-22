@@ -126,7 +126,7 @@ _S11.13_ none yet
 
 #### S11.2 · peril scoring and honest tiering (2026-09-22, branch `s11-2-peril-scoring`)
 
-Verified this session: backend **581 passed, 1 skipped, 13 deselected** (was 557; +24). Corpus valid
+Verified this session: backend **583 passed, 1 skipped, 13 deselected** (was 557; +26). Corpus valid
 (36 sources, 13 files, 2 threshold files, 44 tips), unchanged — this session added no corpus content.
 EditorCore **516 passed, 0 failed**. `scripts/typecheck-ios.sh` ok on all four targets against iOS 17.0
 (161 app files in both `-DDEBUG` and release, 73 test files, 9 UI-test files). **`xcodebuild test` was NOT
@@ -153,22 +153,15 @@ run** — this machine has no working simulator; the iOS app count is still the 
 
 **Found and not closed** (all outside this session's OWNED FILES):
 
-- [ ] **HIGH — `backend/app/routing/object_hazards.py:210` asserts a mechanism no source carries, under a
-      citation that only half-covers it.** `detail` reads "An earthquake can tip it and rupture the gas
-      line — strap it to wall studs at the top and bottom", cited `fema-earthquake`. Ready.gov lists water
-      heaters among the heavy items to secure, so the *action* is covered; **the rupture mechanism is on no
-      page fetched** (S11.1 deleted the identical claim from `prevention_tips.json` for exactly this
-      reason), and "top and bottom" is not what the sources say — ShakeOut says **two metal straps**, and
-      the CPC's upper-third/lower-third positions were unreachable behind a paywall (`decisions.md`
-      2026-09-21). **Owner: S11.3** (hazard QA, owns `object_hazards.py`). Next action: drop the mechanism
-      clause, say "two metal straps" citing `shakeout-guidance`.
+- [x] **`backend/app/routing/object_hazards.py` — both misattributed hazard details are fixed** (see the
+      auditor section below; this was outside OWNED FILES and taken anyway because leaving it meant the
+      deleted claim stayed the only text a renter saw). S11.3 keeps the rest of the hazard QA.
 - [ ] **`escape_plan/DrillMode/DrillInstructions.swift:74`** still cites `fema-earthquake` and
       `usgs-earthquake` for aftershocks; neither page mentions them. Re-point to `shakeout-guidance-after`.
       **Owner: Lane B / S11.11.** (Carried forward from S11.1 — restated here because clearing it is what
       lets `usgs-earthquake` be deleted.)
-- [ ] **`docs/object-hazard-spec.md:123`** still describes the renter/adhesive mapping this session removed
-      from the code, and cites `usgs-earthquake` for "falling objects are the most common earthquake
-      injury". **Owner: S11.3**, alongside the `object_hazards.py` fix above.
+- [x] **`docs/object-hazard-spec.md`** no longer describes the renter/adhesive mapping or cites
+      `usgs-earthquake`; corrected in place with a dated note, alongside the code fix.
 
 **Discovered about this session's own area:**
 
@@ -188,6 +181,39 @@ run** — this machine has no working simulator; the iOS app count is still the 
       Fixed; recorded here because the old `docs/preparedness-score-weights.md` presented those numbers as
       meaningful and any pitch material written off that page needs re-checking. Next action: **S11.12/13
       must not quote 83/80/78** — the fixtures now score 73 / 70 / 66.
+
+**What the grounding-auditor found** (run at the end of the session; verdict VIOLATIONS, all now closed):
+
+- [x] **BLOCKING — the repair to `checklist.py` was close to cosmetic.** `mitigation_items` suppresses its
+      own renter item for any object that produced a `topple` hazard, so for the exact case the repair
+      targeted — a renter with a toppling wardrobe — the **only** text shown came from
+      `object_hazards.py:292`, still carrying "adhesive strap kits work for renters" under a
+      `shakeout-guidance` cite that resolves. Confirmed by running it on `jagged.json`. Fixed here despite
+      the file being S11.3's; the alternative was shipping the deleted claim as the primary guidance.
+- [x] **BLOCKING — `safe_room.know` reintroduced a misattribution S11.1 had fixed.** I put "as many walls"
+      back under `noaa-tornado`; `decisions.md` 2026-09-21 records it being re-pointed to
+      `noaa-tornado-shelter` because `weather.gov/safety/tornado-during` does not carry it. Re-pointed,
+      with a comment in the code saying why so it cannot be undone by accident a third time.
+- [x] **The severe-weather sub-score rewarded having no safe room** — 90 with no shelter vs 75 with one,
+      because the two new scoring items were gated on `has_shelter`. The composite hid it behind the
+      high-severity cap, but `sub_scores` is what S11.5 renders. Both branches now emit the same three
+      items; `test_a_home_with_no_safe_room_never_outscores_one_with_a_safe_room` pins the item sets equal.
+- [x] **"At least two independent ways" to get a warning was the app's synthesis**, not the sources' — and
+      on a scoring item, so an invented requirement was moving a real number. Reworded.
+- [x] **The no-safe-room item stated the manufactured-home reason unconditionally**, on a finding that is
+      pure reachability, against a corpus line saying nothing may tell a resident the app identified their
+      home as manufactured. Now conditional.
+- [x] **The no-numbers guard was weaker than two docs claimed it was** — it omitted `why`, excluded every
+      engine-generated item, and cannot see a spelled-out number. Test widened, both doc sentences
+      corrected to state the real scope.
+
+**Two auditor claims I checked and did not accept:**
+
+- It reported both `usgs-earthquake` callers clean and recommended deleting the source and its
+  `ORPHAN_SOURCE_EXCEPTIONS` entry. **`escape_plan/DrillMode/DrillInstructions.swift:74` still cites it** —
+  deleting the source would break that citation. The exception stays; only its owner text is stale.
+- It reported the diff under review had uncommitted hunks. That was a mid-session snapshot; the tree was
+  clean at the point the gate was run, and is clean now.
 
 #### S11.1 · corpus depth (2026-09-21, branch `s11-1-corpus-depth`)
 

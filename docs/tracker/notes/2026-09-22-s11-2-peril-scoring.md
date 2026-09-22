@@ -2,7 +2,7 @@
 
 - **Who:** P3
 - **Date(s):** 2026-09-22
-- **Status when I stopped:** Done. Backend **581 passed, 1 skipped, 13 deselected** (was 557; **+24**).
+- **Status when I stopped:** Done. Backend **583 passed, 1 skipped, 13 deselected** (was 557; **+26**).
   Corpus valid (36 sources, 13 files, 2 threshold files, 44 tips) — unchanged, this session added no
   corpus content. EditorCore **516 passed, 0 failed**. `scripts/typecheck-ios.sh` ok on all four targets
   against iOS 17.0. **`xcodebuild test` NOT run** — no working simulator on this machine.
@@ -48,8 +48,10 @@ All four decisions are in `docs/decisions.md` (2026-09-22). The two that matter 
 - **The fixture scores are now 73 / 70 / 66, not 83 / 80 / 78.** Anyone writing pitch or demo material
   must not quote the old numbers. They were arithmetically correct and substantively empty.
 - **`basis` is a label, never a weight.** A `guidance_based` item deducts through exactly the same flat
-  table as a fire item — 5 points at `info`. Two tests hold that line, including one asserting that no
-  earthquake or tornado item states a number at all.
+  table as a fire item — 5 points at `info`. Two tests hold that line: one on the deduction, one on
+  authored earthquake/tornado items stating no figure. The second has a stated scope and a known blind
+  spot (spelled-out numbers) — see the auditor section; my first version of it, and the two docs I wrote
+  about it, all overclaimed.
 
 ### Three more citations to a page that does not carry them
 
@@ -116,15 +118,54 @@ restoring it. A green test that has never failed is not evidence.
   `ScoreBreakdown` is a Codable in `escape_plan/Models/ScoreModels.swift`. Checked all 13 playbook files
   — no other S11 session owns it. Edited there, logged in `decisions.md`.
 
+## What the grounding-auditor found
+
+Verdict: **VIOLATIONS**. Six findings, all now closed. It earned its run — two were blocking and one
+was the kind of defect no validator can see.
+
+1. **My headline repair was close to cosmetic.** `mitigation_items` suppresses its own renter item for
+   any object that produced a `topple` hazard, so for the exact case the repair targeted — a renter with
+   a toppling wardrobe — the only text shown still came from `object_hazards.py:292`, carrying the
+   deleted adhesive-strap claim. I had logged that line for S11.3 and moved on. **I ran it on
+   `jagged.json` and the auditor was right**: the bookcase over the bed and the wardrobe across the
+   doorway both showed the deleted claim, while my repaired item appeared only on a boiler that had not
+   tripped a hazard rule. Fixed here, outside OWNED FILES, because the alternative was a session about
+   removing that claim shipping it as the primary guidance.
+2. **I reintroduced a misattribution S11.1 had fixed.** `safe_room.know` put "as many walls" back under
+   `noaa-tornado`; `decisions.md` 2026-09-21 records that exact phrase being re-pointed to
+   `noaa-tornado-shelter`. Re-pointed, with a comment in the code so it does not happen a third time.
+3. **The severe-weather sub-score rewarded having no safe room** — 90 with no shelter against 75 with
+   one, because I gated the two new scoring items on `has_shelter`. The composite hid it behind the
+   high-severity cap, but `sub_scores` is what S11.5 renders next to the new `guidance_based` label.
+4. **"At least two independent ways"** to receive a warning is nowhere in the sources — my synthesis, on
+   a scoring item, so an invented requirement was moving a real number.
+5. **The no-safe-room item stated the manufactured-home reason unconditionally** on a pure reachability
+   finding, against a corpus line saying nothing may tell a resident the app identified their home as
+   manufactured.
+6. **My no-numbers guard was weaker than the two docs I wrote about it.** It omitted `why` — where the
+   figures actually are — excluded every engine-generated item, and cannot see a spelled-out number.
+   Widened, and both doc sentences corrected to state the real scope.
+
+**Two claims I checked and did not accept.** It reported both `usgs-earthquake` callers clean and
+recommended deleting the source; `DrillInstructions.swift:74` still cites it, so deleting it would break
+that citation — only the exception's owner text is stale. And it reported uncommitted hunks in the diff:
+that was a mid-session snapshot, and the tree was clean when the gate ran.
+
+The pattern across findings 2, 4 and 5 is the same as the four I caught myself: I wrote plausible safety
+text and attached a real source id to it. **Three of my six mistakes this session were in the direction
+of making the guidance sound more definite than the source is** — "two independent channels", "mobile
+homes are not safe" as this home's reason, a tornado lead time borrowed from a fire statistic. That is
+worth naming, because it is not carelessness, it is the instinct to write good advice.
+
 ## Questions for teammates
 
-- **@whoever takes S11.3** (owns `object_hazards.py`): two items are waiting for you in `BLOCKERS.md`
-  under S11.2. The higher one is `object_hazards.py:210` — "An earthquake can tip it and rupture the gas
-  line — strap it to wall studs at the top and bottom", cited `fema-earthquake`. The *action* is covered
-  (Ready.gov lists water heaters among heavy items to secure); the **rupture mechanism is on no page**,
-  and "top and bottom" is not what the sources say — ShakeOut says **two metal straps**. S11.1 deleted
-  this identical mechanism claim from `prevention_tips.json`. `docs/object-hazard-spec.md:123` needs the
-  same correction.
+- **@whoever takes S11.3** (owns `object_hazards.py`): **I edited two detail strings in your file** —
+  the `topple` renter claim and the `water_heater_unsecured` mechanism — and `docs/object-hazard-spec.md`
+  to match. Both were misattributions; the reason I did not leave them for you is in the auditor section
+  above. `test_agent.py`'s citation and detail assertions moved with them. Nothing else in the hazard
+  engine was touched, and the rest of the hazard QA is still yours. The new
+  `test_no_deleted_corpus_claim_survives_anywhere_on_the_checklist` sweeps your engine's output too, so
+  reintroducing any of the six banned phrases will go red.
 - **@Lane B / S11.11:** `escape_plan/DrillMode/DrillInstructions.swift:74` is now the **only** caller of
   `usgs-earthquake` anywhere in the project. Re-point it to `shakeout-guidance-after` and you can delete
   the source, the `ORPHAN_SOURCE_EXCEPTIONS` entry in `validate.py`, and close that whole thread. Note
@@ -138,7 +179,6 @@ restoring it. A green test that has never failed is not evidence.
 ## Next steps
 
 1. **S11.11 is unblocked** — this was its prereq.
-2. S11.3 should take the two `object_hazards.py` / `object-hazard-spec.md` items above before doing its
-   own hazard work; they are the same defect class it will be reading around anyway.
+2. S11.3 can start on hazard QA proper; the two attribution defects in its file are already closed.
 3. The iOS suite still has not run since 2026-09-09. Nothing in this session touched app code beyond one
    optional Codable field, but the 615 is now older by one more session.
