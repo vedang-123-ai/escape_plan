@@ -555,7 +555,8 @@ def safe_room_items(
                 title="Practise moving to your safe room with the whole household",
                 detail=(
                     "Walk everyone through it, including anyone who needs help "
-                    "getting there. A tornado warning can give only minutes."
+                    "getting there — the sources name a personal support team of "
+                    "people you may assist and who can assist you."
                 ),
                 why=(
                     "Practising the move with the entire household is the sourced "
@@ -747,7 +748,7 @@ def earthquake_prep_items(home: HomeModel, state: ChecklistState) -> list[Checkl
     add(
         "eq.heavy_objects_low",
         "Move heavy and breakable objects to lower shelves",
-        "Anything heavy or breakable stored high becomes a projectile. Put it low.",
+        "Store heavy and breakable objects on low shelves rather than high ones.",
         "Both ShakeOut and Ready.gov give this instruction directly. "
         "[cite: shakeout-guidance] [cite: fema-earthquake]",
         "shakeout-guidance",
@@ -788,8 +789,8 @@ def earthquake_prep_items(home: HomeModel, state: ChecklistState) -> list[Checkl
             "Put flexible connections on gas lines to appliances",
             "Water heaters, ovens and clothes dryers should connect to the gas "
             "supply with flexible connections rather than rigid pipe.",
-            "A rigid gas connection is what breaks when the appliance moves. "
-            "[cite: shakeout-guidance]",
+            "ShakeOut names gas lines to appliances as a securing step in their "
+            "own right. [cite: shakeout-guidance]",
             "shakeout-guidance",
         )
 
@@ -872,13 +873,14 @@ def alert_items(home: HomeModel, state: ChecklistState) -> list[ChecklistItem]:
                 "Sign up for your community's alerts, and add NOAA Weather Radio or "
                 "the Emergency Alert System as a second channel that does not depend "
                 "on the first. Keep a way to charge a phone and a battery-powered "
-                "radio for a power outage. Know the difference: a Watch means "
-                "conditions are favourable; a Warning means take shelter now."
+                "radio for a power outage. Know the difference: a Watch is when "
+                "you check that your plan still works; a Warning is when you "
+                "execute it."
             ),
             why=(
                 "You may not always receive a warning, which is why the sources name "
                 "more than one channel rather than one. "
-                "[cite: fema-tornado-ready] [cite: redcross-tornado]"
+                "[cite: fema-tornado-ready] [cite: redcross-tornado] [cite: noaa-tornado-ww]"
             ),
             done=state.get(item_id, False) is True,
             source_citation="fema-tornado-ready",
