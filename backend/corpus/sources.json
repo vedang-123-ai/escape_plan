@@ -293,7 +293,9 @@
     {"file": "earthquake-preparedness.md", "primary_id": "earthquake-preparedness", "source_ids": ["shakeout-guidance-dcho", "usgs-triangle-of-life", "fema-earthquake", "usgs-earthquake", "shakeout-guidance-after"]},
     {"file": "earthquake-securing-home.md", "primary_id": "earthquake-securing-home", "source_ids": ["shakeout-guidance", "fema-earthquake", "ca-hsc-19211"]},
     {"file": "earthquake-after-shaking.md", "primary_id": "earthquake-after-shaking", "source_ids": ["shakeout-guidance-after", "usgs-earthquake-donts"]},
-    {"file": "severe-weather-tornado.md", "primary_id": "severe-weather-tornado", "source_ids": ["noaa-tornado", "fema-tornado", "redcross-tornado"]},
+    {"file": "severe-weather-tornado.md", "primary_id": "severe-weather-tornado", "source_ids": ["noaa-tornado", "noaa-tornado-ww", "noaa-tornado-shelter", "fema-tornado-ready", "redcross-tornado"]},
+    {"file": "tornado-safe-rooms.md", "primary_id": "tornado-safe-rooms", "source_ids": ["fema-tornado", "fema-safe-room-criteria", "fema-tornado-ready", "redcross-tornado", "noaa-tornado"]},
+    {"file": "tornado-warnings-and-mobile-homes.md", "primary_id": "tornado-warnings-and-mobile-homes", "source_ids": ["noaa-tornado-ww", "noaa-tornado", "noaa-nwr-accessibility", "fema-tornado-ready", "redcross-tornado"]},
     {"file": "heating-electrical-fire-safety.md", "primary_id": "heating-electrical-fire-safety", "source_ids": ["nfpa-heating-safety", "nfpa-cooking-safety", "nfpa-electrical-safety", "usfa-dryer-safety", "nfpa-heating-report", "nfpa-cooking-report"]}
   ]
 }
