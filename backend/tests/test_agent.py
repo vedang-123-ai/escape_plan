@@ -532,9 +532,15 @@ def test_check_object_hazards_names_the_hazards_and_citations(blocked_home_and_t
     heater_hazard = next(h for h in hazards if h["object_id"] == "heater_1" and h["rule_id"] == "water_heater_unsecured")
     assert heater_hazard["rule_id"] == "water_heater_unsecured"
     assert heater_hazard["severity"] == "high"
-    assert heater_hazard["citation"] == "fema-earthquake"
+    # S11.2: was fema-earthquake. Ready.gov lists water heaters among the heavy
+    # items to secure, but the "two metal straps" instruction this hazard now
+    # gives is ShakeOut's — see backend/corpus/earthquake-securing-home.md.
+    assert heater_hazard["citation"] == "shakeout-guidance"
     assert "detail" in heater_hazard
-    assert "Strap it to wall studs" in heater_hazard["detail"] or "strap it" in heater_hazard["detail"].lower()
+    # The sourced instruction is "two metal straps" to wall studs
+    # [cite: shakeout-guidance], not a top-and-bottom placement.
+    assert "wall studs" in heater_hazard["detail"]
+    assert "two metal straps" in heater_hazard["detail"]
 
 def test_check_object_hazards_room_filter_scopes_to_one_room(blocked_home_and_thresholds):
     from app.ai.agent import _dispatch_tool

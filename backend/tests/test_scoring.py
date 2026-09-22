@@ -950,3 +950,63 @@ def test_a_home_with_no_safe_room_never_outscores_one_with_a_safe_room(twostory:
     # And the honest signal is still there: a structural high-severity item.
     no_viable = [i for i in without_shelter.checklist if i.id == "safe_room.nearby_shelter"]
     assert no_viable and no_viable[0].severity == "high" and not no_viable[0].scoring
+
+
+def test_no_deleted_corpus_claim_survives_anywhere_on_the_checklist(
+    bungalow: dict, apartment: dict, twostory: dict
+):
+    """The repo-wide version of the guard, added after the grounding-auditor.
+
+    S11.2's first attempt asserted "adhesive" was absent from `mitigation.secure*`
+    items — which is exactly where it had just been removed, and nowhere near
+    `object_hazards.py`, where it survived and was in fact the ONLY text a renter
+    with a toppling wardrobe was shown (`mitigation_items` suppresses its own item
+    for any object that produced a topple hazard). A guard scoped to the place you
+    already fixed proves nothing.
+
+    Each phrase below was deleted from the corpus on 2026-09-21 as unsourced, or
+    is a figure no source carries. See backend/corpus/earthquake-securing-home.md
+    "What this corpus does not claim" and docs/decisions.md 2026-09-21.
+    """
+    from app.models import Household
+    from app.routing.object_hazards import analyze_object_hazards
+
+    banned = [
+        "adhesive",            # renter adhesive straps: deleted, unsourced
+        "drywall anchor",      # "not strong enough": deleted, unsourced
+        "rupture the gas",     # mechanism on no page fetched
+        "top and bottom",      # sources say "two metal straps"
+        "72-hour",             # no corpus support for the kit or its quantities
+        "gallon per person",   # ditto
+    ]
+
+    thresholds = config.get_thresholds()
+    object_thresholds = config.get_object_hazard_thresholds()
+
+    for fixture in (bungalow, apartment, twostory):
+        for tenure in ("rent", "own"):
+            home = HomeModel.model_validate(fixture)
+            home.household = Household(tenure=tenure)
+            fire = compute_route_plan(home, thresholds)
+            items = compute_score(
+                home, fire, [], {}, thresholds,
+                tornado_plan=compute_route_plan(home, thresholds, peril="tornado"),
+                earthquake_plan=compute_route_plan(home, thresholds, peril="earthquake"),
+                object_hazard_thresholds=object_thresholds,
+            ).checklist
+            for item in items:
+                haystack = f"{item.title} {item.detail} {item.why}".lower()
+                for phrase in banned:
+                    assert phrase not in haystack, (
+                        f"{item.id} ({tenure}) still carries the deleted claim "
+                        f"{phrase!r}: {haystack!r}"
+                    )
+
+    # And the same sweep over the hazard engine directly, since its strings reach
+    # the user through both the checklist and the /analyze agent tools.
+    home = HomeModel.model_validate(twostory)
+    for hazard in analyze_object_hazards(home, object_thresholds):
+        for phrase in banned:
+            assert phrase not in hazard.detail.lower(), (
+                f"object hazard {hazard.rule_id} still carries {phrase!r}"
+            )
