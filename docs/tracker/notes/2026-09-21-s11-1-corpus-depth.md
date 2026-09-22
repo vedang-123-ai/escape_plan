@@ -94,6 +94,39 @@ lithium-ion batteries into `heating-electrical-fire-safety.md`.
 new source id needs a markdown doc citing it in the same commit, and you find out by running the backend
 suite, not the corpus validator.
 
+### What the grounding-auditor found
+
+Run at the end of the session. Verdict: the six new corpus documents are clean — every safety sentence
+cites, all 44 tip cites resolve, the tiering in `tornado-safe-rooms.md` is explicit, no numeric threshold
+was smuggled in, and the AI-never-routes invariants hold. **The defects were all at the edges**, and four
+were worth acting on:
+
+1. **The two claims I deleted are still shipping from `backend/app/scoring/checklist.py`** — and
+   `:583` cites `shakeout-guidance` for the renter adhesive-strap claim, which is a **fabricated citation
+   that validates**. The id resolves, so `validate.py` and the backend suite are both green over an
+   attribution my own new doc says is false. Outside my OWNED FILES; logged in `BLOCKERS.md` as the
+   highest item there, with every replacement string, the correct source, and the test that will go red.
+2. **`usgs-earthquake` became an orphan** when I re-pointed the last doc that cited it — the exact hole I
+   had written a rule against earlier the same session. Fixed properly: `validate.py` **check 8** now
+   fails on any source id no corpus doc cites and no threshold file names. A paragraph in `decisions.md`
+   was never going to hold that line. The one exception is documented *in the code* with its owner.
+3. **Two docs claimed app behaviour that does not exist**, and that prose goes verbatim into the system
+   prompt — so the model could have told a user the app detected something it never looks at. The
+   tornado mobile-home section described an output the engine **deliberately does not produce**
+   (construction type is not derivable from a footprint; the check was removed after misfiring on 4 of 5
+   fixtures), and the earthquake kitchen line implied room scoring `perils/earthquake.py` does not have.
+4. **My own `decisions.md` row miscounted itself** — "three re-pointed" above a list of six, and two
+   deletions when there were four. Corrected with a new dated row, since the log is append-only.
+
+Also dropped a tip's "a toppled heater can rupture its gas line" — the action is sourced, that mechanism
+is on no page I fetched.
+
+One auditor claim I checked and did not accept: it reported that
+`test_corpus_block_matches_sources_json` only compares file lists. It does more than that — it also
+asserts no valid source id is missing from the block, which is exactly how it caught my earlier hole. Its
+real weakness is the one I had already logged: the check is a substring test, so an orphan whose id
+prefixes another id reads as covered. Same conclusion, different reason.
+
 ## Questions for teammates
 
 - **@P1 / @P2 (Lane B, S11.5):** tips file is `backend/corpus/prevention_tips.json`, shape

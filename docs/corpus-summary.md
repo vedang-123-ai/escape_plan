@@ -67,6 +67,10 @@ bundles a byte-identical copy; `scripts/check-tips-sync.py` (S11.5) is what keep
 
 - Every citable source has an id in `sources.json` (36); inline citations are `[cite: source-id]`, and
   `validate.py` rejects unresolvable or undeclared ones.
+- **No orphan sources** (`validate.py` check 8): every source id must be cited by a corpus doc or named in
+  a threshold file. An id the AI may cite but was never shown a document for is a hole it can invent
+  guidance through. One documented exception, `usgs-earthquake`, held open only until the two callers
+  outside `backend/corpus/` are re-pointed — see `BLOCKERS.md`.
 - Compilation docs (`fire-facts-stats.md`, `special-considerations.md`, and the four new peril docs) have
   non-source primary ids and only ever cite underlying external sources.
 - Statistics outside `fire-facts-stats.md` are off-limits; uncovered topics get honest deferral.
