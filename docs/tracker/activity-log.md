@@ -2200,3 +2200,37 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-22T18:42:34Z · vedang-123-ai · `main` @ `85dc129`
+
+**Commits this session**
+  - 85dc129 Merge branch 's11-2-peril-scoring'
+  - 82e1869 Docs: record what the auditor found, and the two claims I did not accept
+  - e7c686e Docs and tests: say what the guard actually covers, and fix the hazard spec
+  - aaff190 Hazards: the deleted claim was still the ONLY text a renter actually saw
+  - 8dfe938 Scoring: four grounding-auditor findings, including a sub-score that rewarded having no safe room
+  - ea22ea1 Score: derive the peril list from PERIL_BASIS instead of repeating it
+  - 33af3a1 Docs: the S11.2 session note
+  - 6cbeffc Docs: the S11.2 board section and four decision rows
+  - 1dd17b0 Scoring: strip four unsourced embellishments from my own new items
+  - e8f20c1 Docs: the weights page, re-derived from a run, and what the tiering is not
+  - 9a3a6c2 Tests: recompute the fixture scores from a run, and pin what the tiering must not become
+  - 32ed20f Score: report which tier of evidence each peril rests on, and hold RouteFinding citations to it
+
+## 2026-09-22T18:48:41Z · vedang-123-ai · `main` @ `85dc129`
+
+**Commits this session**
+  - 85dc129 Merge branch 's11-2-peril-scoring'
+  - 82e1869 Docs: record what the auditor found, and the two claims I did not accept
+  - e7c686e Docs and tests: say what the guard actually covers, and fix the hazard spec
+  - aaff190 Hazards: the deleted claim was still the ONLY text a renter actually saw
+  - 8dfe938 Scoring: four grounding-auditor findings, including a sub-score that rewarded having no safe room
+  - ea22ea1 Score: derive the peril list from PERIL_BASIS instead of repeating it
+  - 33af3a1 Docs: the S11.2 session note
+  - 6cbeffc Docs: the S11.2 board section and four decision rows
+  - 1dd17b0 Scoring: strip four unsourced embellishments from my own new items
+  - e8f20c1 Docs: the weights page, re-derived from a run, and what the tiering is not
+  - 9a3a6c2 Tests: recompute the fixture scores from a run, and pin what the tiering must not become
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
