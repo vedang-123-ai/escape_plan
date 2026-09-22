@@ -120,9 +120,92 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
 
 ### S11.1 to S11.13: session findings (append under your heading)
 
-_S11.1_ none yet · _S11.2_ none yet · _S11.3_ none yet · _S11.4_ none yet · _S11.5_ none yet · _S11.6_ none yet ·
+_S11.1_ **see below** · _S11.2_ none yet · _S11.3_ none yet · _S11.4_ none yet · _S11.5_ none yet · _S11.6_ none yet ·
 _S11.7_ none yet · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
 _S11.13_ none yet
+
+#### S11.1 · corpus depth (2026-09-21, branch `s11-1-corpus-depth`)
+
+Done and verified this session: corpus **36 sources, 13 files, 2 threshold files, 44 tips**, `validate.py`
+green; backend **557 passed, 1 skipped, 13 deselected**. `check_urls.py` over all 36 sources:
+**0 hard failures, 17 content-verified** — those 17 being every source this session added or touched.
+
+- [ ] **`validate.py` structurally cannot tell whether a claim is on the page it cites, and four claims
+      were wrong.** Green corpus runs have never meant the guidance is attributed correctly. `check_urls.py`
+      closes only the machine-checkable half (URL still 200, `verify_keywords` still present). The other
+      half — does this sentence reflect that source — needs a human or the grounding-auditor. Next action:
+      treat a `validate.py` pass as necessary, never sufficient, and re-read claims when a source changes.
+- [ ] **19 of 36 sources have no `verify_keywords` and cannot be content-checked.** The 8 NFPA sources
+      return a ~40-char JS shell; `fema-tornado` and `fema-safe-room-criteria` are bot-walled to any script;
+      `redcross-escape-fact-sheet` and `usfa-dryer-safety` are PDFs. All the **fire** sources are in this
+      group — this session verified the peril sources, not the fire ones. Next action (any session touching
+      the fire corpus): add keywords for the reachable fire sources (`usfa-*`, `redcross-*` HTML, `irc-*`).
+- [ ] **`irc-2021-r311` was a dead link (404) and is load-bearing.** It is the source behind the egress-door
+      32×78 in thresholds the engine uses. Fixed this session to the section URL, which serves 200. Nobody
+      noticed because nothing re-fetched sources until now. Next action: run `check_urls.py` before any
+      submission; the same rot can hit any of the other 34.
+- [ ] **No candle prevention tips** — the USFA candles page is a 404 and nothing reachable replaces it. See
+      `decisions.md` 2026-09-21. Next action: add the tips if a real source turns up; do not cite an
+      adjacent page.
+- [ ] **Earthquake guidance leans Californian** (ShakeOut, CA H&S §19211). General practice is sound
+      everywhere, and the legal-mandate section is labelled California-only, but a judge outside California
+      may notice. Next action: accept, or find a second state's equivalent.
+- [x] **A source the AI may cite but was never shown to it.** `valid_source_ids()` reads `sources.json`;
+      the block the model sees is built from the markdown docs. Two ids added for the tips file alone were
+      accepted-but-unshown for one commit. Caught by `test_corpus_block_matches_sources_json`, fixed by
+      citing both in real docs. **`validate.py` cannot see this class** — the backend suite is the check.
+- [ ] **HIGH — the two claims S11.1 deleted as unsourced are still shipping to users from the
+      deterministic path, one of them under a FABRICATED CITATION THAT VALIDATES.** Found by the
+      grounding-auditor, confirmed line by line. These are outside S11.1's OWNED FILES so they were not
+      touched; every replacement is sourced and named below. This is the highest-value item on this list:
+      it is the project's central law failing in shipped code, and no validator can see it because
+      `validate.py` never crosses code strings against corpus text.
+      - `backend/app/scoring/checklist.py:583` — `why = "Renter-friendly furniture straps are available
+        without drilling. [cite: shakeout-guidance]"`. **`shakeout-guidance` does not say this.**
+        `earthquake-securing-home.md` now states in writing that ShakeOut names flexible nylon straps for
+        *storage racks* and putty for *small objects*, and presents neither as a no-drill substitute for
+        securing tall furniture. The cite resolves, so the corpus validator and the backend suite are both
+        green over an invented attribution. Also `:578` (title) and `:579-581` (detail, "no wall drilling
+        required") and the `:551-552` docstring. **Replace with the renter guidance that is sourced** —
+        `earthquake-securing-home.md` "What renters can do on this evidence": move bookcases away from
+        beds and seating, heavy objects to lower shelves `[cite: shakeout-guidance]`, museum putty for
+        small objects `[cite: shakeout-guidance]`. **Owner: S11.2** (owns `backend/app/scoring/**`).
+      - `backend/app/scoring/checklist.py:588-589` — detail: "Standard drywall anchors are not strong
+        enough during an earthquake." Deleted from the corpus as unsourced. Keep the positive, sourced
+        instruction only: secure to wall studs `[cite: shakeout-guidance]`. **Owner: S11.2.**
+      - `backend/app/scoring/checklist.py:591` — "Unsecured furniture is a leading cause of earthquake
+        injuries. `[cite: usgs-earthquake]`". `usgs.gov/.../prepare` is a link directory carrying nothing.
+        Re-point to **`shakeout-guidance`**, which has the real evidence: UCLA found 55% of Northridge
+        injuries came from falling furniture and 1% from building damage. **Owner: S11.2.**
+      - `backend/app/routing/object_hazards.py:292` — "Strap it to wall studs — adhesive strap kits work
+        for renters." Same deleted claim, and **no citation at all**. **Owner: S11.3** (hazard QA).
+      - `backend/tests/test_checklist_hazards.py:34` — `assert all("adhesive straps" in i.title ...)` pins
+        the wrong string, so the suite goes red the moment the above is fixed. Update it in the same
+        commit; it is the reason this cannot be a one-line change.
+      - `escape_plan/DrillMode/DrillInstructions.swift:74` — aftershocks cited to `fema-earthquake` and
+        `usgs-earthquake`, neither of which mentions aftershocks. Re-point to **`shakeout-guidance-after`**
+        ("Be prepared for aftershocks and stay away from anything that looks like it may fall").
+        **Owner: whoever owns `DrillMode/`** — Lane B or S11.11.
+      - `docs/object-hazard-spec.md:123` describes the same renter/adhesive mapping and needs the same
+        correction.
+      **`usgs-earthquake` stays in `sources.json` until the two callers above are re-pointed** — removing
+      it would break their citations. `validate.py` check 8 holds it in `ORPHAN_SOURCE_EXCEPTIONS` with
+      this owner list; deleting the caller citations and the source together is what closes this.
+- [ ] **`test_corpus_block_matches_sources_json` uses a substring check**, so `usgs-earthquake` reads as
+      "shown to the model" purely because `usgs-earthquake-during` and `usgs-earthquake-donts` contain it.
+      The test is still valuable — it caught a real hole this session — but it cannot see an orphaned id
+      whose name is a prefix of another. Next action (S11.4, which owns `backend/app/ai/` and its tests):
+      match on a word boundary rather than `in`.
+- [ ] **`prevention_tips.json` allows one `cite` per tip, but a few tips are composites** and so are
+      under-attributed (not misattributed): `tornado-pick-the-room-now` folds Ready.gov's room definition
+      together with the NWS "as many walls" rule, and `tornado-more-than-one-alert`'s last sentence comes
+      from `redcross-tornado`. Every tip's cite resolves and supports its main claim; the secondary source
+      is simply not named. Next action (S11.5, which renders the source label): decide whether `cite`
+      should become a list. If it does, `validate.py` check 7 must accept both shapes.
+- [ ] **For S11.2:** the tips file is `backend/corpus/prevention_tips.json`, shape
+      `{"tips":[{"id","peril","topic","text","cite","audience"}]}`. **Earthquake and tornado carry no
+      numeric thresholds and that is deliberate** (`decisions.md` 2026-09-21) — build their checklist items
+      from the markdown docs and do not go looking for numbers to encode.
 
 ---
 

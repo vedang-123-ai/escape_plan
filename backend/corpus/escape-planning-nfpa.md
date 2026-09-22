@@ -5,7 +5,7 @@ doc_title: How to make a home fire escape plan
 url: https://www.nfpa.org/education-and-research/home-fire-safety/escape-planning
 retrieved: 2026-07-10
 topics: [escape-planning, two-ways-out, meeting-point, practice, drills]
-additional_source_ids: [usfa-escape-plans]
+additional_source_ids: [usfa-escape-plans, usfa-extinguishers]
 ---
 
 # Home fire escape planning (NFPA guidance)
@@ -37,6 +37,27 @@ Choose one safe meeting place a safe distance from the home — a neighbor's hou
 - Close doors behind you as you leave to slow the spread of fire and smoke. [cite: usfa-escape-plans]
 - Call 911 (or the local emergency number) **from outside** the home. [cite: nfpa-escape-planning]
 - If escape is impossible, keep doors closed, seal door cracks and vents, and signal for help at the window. [cite: nfpa-escape-planning]
+
+## Fighting a fire: the decision rule
+
+Getting out is the plan. An extinguisher is the narrow exception, and the USFA states it as a checklist
+where **every** answer must be yes [cite: usfa-extinguishers]:
+
+- Have I alerted others in the building that there is a fire? [cite: usfa-extinguishers]
+- Has someone called the fire department? [cite: usfa-extinguishers]
+- Am I physically able to use a fire extinguisher? [cite: usfa-extinguishers]
+- Is the fire small and contained in a single object or to a surface, like a pan or a wastebasket? [cite: usfa-extinguishers]
+- Am I safe from the fire's toxic smoke? [cite: usfa-extinguishers]
+- Do I have a clear escape route? [cite: usfa-extinguishers]
+
+**If you are unsure whether it is safe to use an extinguisher, and in all other situations: alert others,
+leave the building, and call 911 from a mobile or a neighbour's phone** [cite: usfa-extinguishers].
+
+Young children and older adults should not use fire extinguishers [cite: usfa-extinguishers]. The
+operating mnemonic is PASS — pull the pin, aim, squeeze, sweep [cite: usfa-extinguishers].
+
+This is the grounding for the app never suggesting a resident fight a fire: the default is the escape
+route, and the exception has six conditions attached to it.
 
 ## Implications for the app (editorial note, not safety guidance)
 

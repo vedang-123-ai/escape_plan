@@ -30,8 +30,8 @@
       "id": "irc-2021-r311",
       "org": "ICC (International Code Council)",
       "doc_title": "2021 International Residential Code, Section R311 \u2014 Means of Egress",
-      "url": "https://codes.iccsafe.org/s/IRC2021P2/chapter-3-building-planning",
-      "retrieved": "2026-07-10",
+      "url": "https://codes.iccsafe.org/s/IRC2021P2/chapter-3-building-planning/IRC2021P2-Pt03-Ch03-SecR311.2",
+      "retrieved": "2026-09-21",
       "topics": ["egress", "doors", "code-requirements", "thresholds"]
     },
     {
@@ -96,7 +96,8 @@
       "doc_title": "Earthquake Hazards Program - Prepare",
       "url": "https://www.usgs.gov/programs/earthquake-hazards/prepare",
       "retrieved": "2026-09-05",
-      "topics": ["earthquake", "drop-cover-hold-on", "furniture", "gas-shutoff"]
+      "topics": ["earthquake", "drop-cover-hold-on", "furniture", "gas-shutoff"],
+      "verify_keywords": ["Earthquake Hazards Program"]
     },
     {
       "id": "fema-earthquake",
@@ -104,7 +105,8 @@
       "doc_title": "Earthquakes | Ready.gov",
       "url": "https://www.ready.gov/earthquakes",
       "retrieved": "2026-09-05",
-      "topics": ["earthquake", "preparedness"]
+      "topics": ["earthquake", "preparedness"],
+      "verify_keywords": ["Secure heavy items", "Drop where you are onto hands and knees"]
     },
     {
       "id": "shakeout-guidance",
@@ -112,7 +114,8 @@
       "doc_title": "Seven Steps to Earthquake Safety — Step 1: Secure Your Space",
       "url": "https://www.earthquakecountry.org/step1/",
       "retrieved": "2026-09-09",
-      "topics": ["earthquake", "furniture", "water-heaters", "renters", "triangle-of-life"]
+      "topics": ["earthquake", "furniture", "water-heaters", "renters", "triangle-of-life"],
+      "verify_keywords": ["two metal straps", "top-heavy", "museum putty"]
     },
     {
       "id": "shakeout-guidance-dcho",
@@ -120,7 +123,8 @@
       "doc_title": "Seven Steps to Earthquake Safety — Step 5: Drop, Cover, and Hold On",
       "url": "https://www.earthquakecountry.org/step5/",
       "retrieved": "2026-09-09",
-      "topics": ["earthquake", "drop-cover-hold-on", "triangle-of-life"]
+      "topics": ["earthquake", "drop-cover-hold-on", "triangle-of-life"],
+      "verify_keywords": ["onto your hands and knees", "doorways", "Do not get out of bed"]
     },
     {
       "id": "noaa-tornado",
@@ -128,7 +132,8 @@
       "doc_title": "Tornado Safety",
       "url": "https://www.weather.gov/safety/tornado-during",
       "retrieved": "2026-09-05",
-      "topics": ["tornado", "safe-room", "alerts"]
+      "topics": ["tornado", "safe-room", "alerts"],
+      "verify_keywords": ["interior room away from windows", "mobile home"]
     },
     {
       "id": "fema-tornado",
@@ -136,7 +141,8 @@
       "doc_title": "FEMA Safe Rooms",
       "url": "https://www.fema.gov/emergency-managers/risk-management/building-science/safe-rooms",
       "retrieved": "2026-09-09",
-      "topics": ["tornado", "safe-room", "construction"]
+      "topics": ["tornado", "safe-room", "construction"],
+      "verify_keywords": []
     },
     {
       "id": "redcross-tornado",
@@ -144,7 +150,8 @@
       "doc_title": "Tornado Preparedness & Safety",
       "url": "https://www.redcross.org/get-help/how-to-prepare-for-emergencies/types-of-emergencies/tornado.html",
       "retrieved": "2026-09-05",
-      "topics": ["tornado", "safe-room", "mobile-homes"]
+      "topics": ["tornado", "safe-room", "mobile-homes"],
+      "verify_keywords": ["no windows on the lowest level", "recreational vehicles"]
     },
     {
       "id": "nfpa-heating-safety",
@@ -193,17 +200,129 @@
       "url": "https://www.nfpa.org/education-and-research/research/nfpa-research/fire-statistical-reports/home-cooking-fires",
       "retrieved": "2026-09-09",
       "topics": ["cooking", "statistics", "fire-causes"]
+    },
+    {
+      "id": "usfa-extinguishers",
+      "org": "USFA (U.S. Fire Administration / FEMA)",
+      "doc_title": "Choosing and Using Fire Extinguishers",
+      "url": "https://www.usfa.fema.gov/prevention/home-fires/prepare-for-fire/fire-extinguishers/",
+      "retrieved": "2026-09-21",
+      "topics": ["fire", "extinguishers", "during-fire", "decision-rule"],
+      "verify_keywords": ["small and contained in a single object", "alert others, leave the building, and call 911", "clear escape route"]
+    },
+    {
+      "id": "usfa-batteries",
+      "org": "USFA (U.S. Fire Administration / FEMA)",
+      "doc_title": "Battery Fire Safety",
+      "url": "https://www.usfa.fema.gov/prevention/home-fires/prevent-fires/batteries/",
+      "retrieved": "2026-09-21",
+      "topics": ["fire", "lithium-ion", "batteries", "charging", "prevention"],
+      "verify_keywords": ["odor, change in color, too much heat", "away from anything that can burn"]
+    },
+    {
+      "id": "usgs-earthquake-during",
+      "org": "USGS (U.S. Geological Survey)",
+      "doc_title": "What should I do during an earthquake?",
+      "url": "https://www.usgs.gov/faqs/what-should-i-do-during-earthquake",
+      "retrieved": "2026-09-21",
+      "topics": ["earthquake", "drop-cover-hold-on", "during-shaking", "kitchen", "windows"],
+      "verify_keywords": ["Drop, Cover, and Hold on", "GET OUT of the kitchen", "run downstairs"]
+    },
+    {
+      "id": "usgs-triangle-of-life",
+      "org": "USGS (U.S. Geological Survey)",
+      "doc_title": "What is the \"Triangle of Life\" and is it legitimate?",
+      "url": "https://www.usgs.gov/faqs/what-triangle-life-and-it-legitimate",
+      "retrieved": "2026-09-21",
+      "topics": ["earthquake", "triangle-of-life", "drop-cover-hold-on", "myths"],
+      "verify_keywords": ["misguided idea", "drop, cover, and hold"]
+    },
+    {
+      "id": "usgs-earthquake-donts",
+      "org": "USGS (U.S. Geological Survey)",
+      "doc_title": "What should I NOT do during an earthquake?",
+      "url": "https://www.usgs.gov/faqs/what-should-i-not-do-during-earthquake",
+      "retrieved": "2026-09-21",
+      "topics": ["earthquake", "gas-shutoff", "after-shaking", "myths"],
+      "verify_keywords": ["let the gas company do it", "no gas leaks"]
+    },
+    {
+      "id": "shakeout-guidance-after",
+      "org": "Earthquake Country Alliance (Great ShakeOut)",
+      "doc_title": "Seven Steps to Earthquake Safety \u2014 Step 6: Improve Safety After Earthquakes",
+      "url": "https://www.earthquakecountry.org/step6/",
+      "retrieved": "2026-09-21",
+      "topics": ["earthquake", "gas-shutoff", "aftershocks", "evacuation", "after-shaking"],
+      "verify_keywords": ["only if you suspect a leak", "aftershocks", "evacuate your home or office only if"]
+    },
+    {
+      "id": "ca-hsc-19211",
+      "org": "California Legislature (Health and Safety Code)",
+      "doc_title": "California Health & Safety Code \u00a7 19211 \u2014 Water Heater Strapping",
+      "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=HSC&sectionNum=19211",
+      "retrieved": "2026-09-21",
+      "topics": ["earthquake", "water-heaters", "code-requirements", "thresholds"],
+      "verify_keywords": ["braced, anchored, or strapped", "California Plumbing Code"]
+    },
+    {
+      "id": "fema-tornado-ready",
+      "org": "FEMA (Federal Emergency Management Agency)",
+      "doc_title": "Tornadoes | Ready.gov",
+      "url": "https://www.ready.gov/tornadoes",
+      "retrieved": "2026-09-21",
+      "topics": ["tornado", "safe-room", "shelter", "alerts"],
+      "verify_keywords": ["small, interior, windowless room", "ICC 500", "NOAA Weather Radio"]
+    },
+    {
+      "id": "noaa-tornado-ww",
+      "org": "NOAA / NWS (National Weather Service)",
+      "doc_title": "Tornado Watch vs. Warning vs. Emergency",
+      "url": "https://www.weather.gov/safety/tornado-ww",
+      "retrieved": "2026-09-21",
+      "topics": ["tornado", "alerts", "watch-warning", "shelter"],
+      "verify_keywords": ["interior room on the lowest floor", "Tornado Watch", "Tornado Warning"]
+    },
+    {
+      "id": "noaa-tornado-shelter",
+      "org": "NOAA / NWS (National Weather Service, Mobile/Pensacola)",
+      "doc_title": "Severe Weather Awareness \u2014 Tornado Safety",
+      "url": "https://www.weather.gov/mob/Severe_Tornado",
+      "retrieved": "2026-09-21",
+      "topics": ["tornado", "shelter", "helmets", "debris", "vehicles"],
+      "verify_keywords": ["as many walls between yourself and the outside", "bicycle or motorcycle helmet", "overpass"]
+    },
+    {
+      "id": "noaa-nwr-accessibility",
+      "org": "NOAA / NWS (National Weather Service)",
+      "doc_title": "NOAA Weather Radio for the Deaf and Hard of Hearing",
+      "url": "https://www.weather.gov/nwr/special_needs",
+      "retrieved": "2026-09-21",
+      "topics": ["tornado", "alerts", "accessibility", "deaf-hard-of-hearing"],
+      "verify_keywords": ["bed shakers", "strobe lights", "Specific Area Message Encoding"]
+    },
+    {
+      "id": "fema-safe-room-criteria",
+      "org": "FEMA (Federal Emergency Management Agency)",
+      "doc_title": "Safe Rooms: Selecting Design Criteria \u2014 Tornado Recovery Advisory RA2 (June 2011)",
+      "url": "https://www.fema.gov/sites/default/files/2020-07/safe-rooms-design-criteria_recovery-advisory.pdf",
+      "retrieved": "2026-09-21",
+      "topics": ["tornado", "safe-room", "construction", "wind-speed", "thresholds"],
+      "verify_keywords": []
     }
   ],
   "corpus_files": [
-    {"file": "escape-planning-nfpa.md", "primary_id": "nfpa-escape-planning", "source_ids": ["nfpa-escape-planning", "usfa-escape-plans"]},
+    {"file": "escape-planning-nfpa.md", "primary_id": "nfpa-escape-planning", "source_ids": ["nfpa-escape-planning", "usfa-escape-plans", "usfa-extinguishers"]},
     {"file": "egress-windows-irc.md", "primary_id": "irc-2021-r310", "source_ids": ["irc-2021-r310", "irc-2021-r311"]},
     {"file": "smoke-alarms-usfa.md", "primary_id": "usfa-smoke-alarms", "source_ids": ["usfa-smoke-alarms", "nfpa-smoke-alarms-report"]},
     {"file": "home-fire-escape-redcross.md", "primary_id": "redcross-escape-plan", "source_ids": ["redcross-escape-plan", "redcross-two-minutes", "redcross-escape-fact-sheet"]},
     {"file": "fire-facts-stats.md", "primary_id": "fire-facts-stats", "source_ids": ["nfpa-smoke-alarms-report", "redcross-two-minutes", "redcross-escape-fact-sheet"]},
     {"file": "special-considerations.md", "primary_id": "special-considerations", "source_ids": ["usfa-disabilities", "nfpa-evacuation-disabilities", "nfpa-escape-planning", "usfa-smoke-alarms", "redcross-escape-plan"]},
-    {"file": "earthquake-preparedness.md", "primary_id": "earthquake-preparedness", "source_ids": ["usgs-earthquake", "fema-earthquake", "shakeout-guidance", "shakeout-guidance-dcho"]},
-    {"file": "severe-weather-tornado.md", "primary_id": "severe-weather-tornado", "source_ids": ["noaa-tornado", "fema-tornado", "redcross-tornado"]},
-    {"file": "heating-electrical-fire-safety.md", "primary_id": "heating-electrical-fire-safety", "source_ids": ["nfpa-heating-safety", "nfpa-cooking-safety", "nfpa-electrical-safety", "usfa-dryer-safety", "nfpa-heating-report", "nfpa-cooking-report"]}
+    {"file": "earthquake-preparedness.md", "primary_id": "earthquake-preparedness", "source_ids": ["shakeout-guidance-dcho", "usgs-triangle-of-life", "usgs-earthquake-during", "fema-earthquake", "shakeout-guidance-after"]},
+    {"file": "earthquake-securing-home.md", "primary_id": "earthquake-securing-home", "source_ids": ["shakeout-guidance", "fema-earthquake", "ca-hsc-19211"]},
+    {"file": "earthquake-after-shaking.md", "primary_id": "earthquake-after-shaking", "source_ids": ["shakeout-guidance-after", "usgs-earthquake-donts"]},
+    {"file": "severe-weather-tornado.md", "primary_id": "severe-weather-tornado", "source_ids": ["noaa-tornado", "noaa-tornado-ww", "noaa-tornado-shelter", "fema-tornado-ready", "redcross-tornado"]},
+    {"file": "tornado-safe-rooms.md", "primary_id": "tornado-safe-rooms", "source_ids": ["fema-tornado", "fema-safe-room-criteria", "fema-tornado-ready", "redcross-tornado", "noaa-tornado"]},
+    {"file": "tornado-warnings-and-mobile-homes.md", "primary_id": "tornado-warnings-and-mobile-homes", "source_ids": ["noaa-tornado-ww", "noaa-tornado", "noaa-nwr-accessibility", "fema-tornado-ready", "redcross-tornado"]},
+    {"file": "heating-electrical-fire-safety.md", "primary_id": "heating-electrical-fire-safety", "source_ids": ["nfpa-heating-safety", "nfpa-cooking-safety", "nfpa-electrical-safety", "usfa-dryer-safety", "nfpa-heating-report", "nfpa-cooking-report", "usfa-batteries"]}
   ]
 }

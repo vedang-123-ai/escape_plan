@@ -1,40 +1,86 @@
 ---
 id: earthquake-preparedness
-org: USGS / FEMA / Great ShakeOut
-doc_title: Earthquake Preparedness and Safety
-url: https://www.usgs.gov/programs/earthquake-hazards/prepare
-retrieved: 2026-09-05
-topics: [earthquake, drop-cover-hold-on, utilities, renter-friendly, evacuation]
-additional_source_ids: [usgs-earthquake, fema-earthquake, shakeout-guidance, shakeout-guidance-dcho]
+org: Earthquake Country Alliance / USGS / FEMA
+doc_title: Earthquake Safety — What To Do During Shaking
+url: https://www.earthquakecountry.org/step5/
+retrieved: 2026-09-21
+topics: [earthquake, drop-cover-hold-on, during-shaking, myths, accessibility]
+additional_source_ids: [shakeout-guidance-dcho, usgs-triangle-of-life, usgs-earthquake-during, fema-earthquake, shakeout-guidance-after]
 ---
 
-# Earthquake Preparedness and Safety
+# Earthquake Safety — What To Do During Shaking
 
-This document outlines the safety guidelines for earthquake preparedness, drawing from the U.S. Geological Survey (USGS) [cite: usgs-earthquake], FEMA [cite: fema-earthquake], and the Great ShakeOut [cite: shakeout-guidance].
+What to do while the ground is moving. Securing the home in advance is
+`earthquake-securing-home.md`; what to do once shaking stops is `earthquake-after-shaking.md`.
+
+The official protective action in the United States is Drop, Cover, and Hold On
+[cite: shakeout-guidance-dcho]. The USGS gives the same instruction: if you are indoors, **stay there** — get under a
+desk or table and hang on to it, or move into a hallway or against an inside wall
+[cite: usgs-earthquake-during].
 
 ## Drop, Cover, and Hold On
 
-During an earthquake, the official guidance is to Drop, Cover, and Hold On [cite: shakeout-guidance-dcho]. 
-- **DROP** to the ground before the shaking throws you down [cite: shakeout-guidance-dcho].
-- **COVER** your head and neck with your arms. Seek additional cover by getting under a sturdy desk or table [cite: shakeout-guidance-dcho]. A doorway does NOT count as cover; modern doorways are no stronger than the rest of the building and do not protect you from falling or flying objects [cite: shakeout-guidance-dcho].
-- **HOLD ON** to your shelter and move with it until the shaking stops [cite: shakeout-guidance-dcho].
+- **Drop** where you are, onto your hands and knees [cite: shakeout-guidance-dcho]. Ready.gov gives the
+  same first step, and notes that a person who cannot drop may lock a wheelchair instead
+  [cite: fema-earthquake].
+- **Cover** your head and neck with one arm and hand [cite: shakeout-guidance-dcho]. If a sturdy table or
+  desk is nearby, crawl underneath it for shelter [cite: fema-earthquake].
+- **Hold On** until the shaking stops [cite: shakeout-guidance-dcho]. Under shelter, hold on with one hand
+  and be ready to move with the shelter if it moves; with no shelter, hold on to your head and neck with
+  both arms and hands [cite: fema-earthquake].
 
-The "Triangle of Life" theory—which suggests curling up next to furniture rather than getting under it—is widely discredited by the USGS and emergency management experts [cite: usgs-earthquake]. Attempting to move next to furniture is dangerous because it exposes you to falling objects, which are the most common cause of earthquake injuries [cite: usgs-earthquake].
+**If there is no shelter nearby**, crawl next to an interior wall, away from windows. Stay on your knees
+and bend over to protect vital organs [cite: fema-earthquake] [cite: shakeout-guidance-dcho].
 
-## Securing Furniture (Including Renter-Friendly Options)
+## Where not to be while it shakes
 
-Identifying and securing items that might fall is a critical preparedness step [cite: usgs-earthquake]. 
-- Secure tall or heavy furniture, such as bookcases and armoires, to wall studs [cite: shakeout-guidance]. Standard drywall anchors are not strong enough to hold heavy furniture during an earthquake [cite: shakeout-guidance].
-- Water heaters must be strapped to wall studs to prevent them from tipping over and rupturing gas lines [cite: fema-earthquake].
-- **For renters:** Flexible nylon straps with high-strength, earthquake-rated adhesives are available to secure furniture without drilling into walls [cite: shakeout-guidance]. Heavy items should also be moved to bottom shelves or placed far away from beds and seating areas as a no-installation mitigation strategy [cite: shakeout-guidance].
+The USGS adds three specifics about the indoor environment [cite: usgs-earthquake-during]:
 
-## Gas Shutoff Guidance
+- **Stay clear of windows, fireplaces, and heavy furniture or appliances** [cite: usgs-earthquake-during].
+- **Get out of the kitchen** — it is a dangerous place, because things can fall on you
+  [cite: usgs-earthquake-during].
+- **Do not run downstairs or rush outside while the building is shaking**, or while there is danger of
+  falling, being hurt, or being hit by falling glass or debris [cite: usgs-earthquake-during].
 
-- **Only shut off the main gas valve if you suspect a leak**—such as if you smell gas, hear a hissing sound, or see a broken pipe [cite: usgs-earthquake]. 
-- Keep a crescent wrench or pipe wrench near the valve for emergencies [cite: fema-earthquake].
-- **Do not turn the gas back on yourself.** Only a professional from the gas company should restore service [cite: fema-earthquake]. Do not routinely shut off the gas during a drill or minor shaking [cite: usgs-earthquake].
+**Editorial note, not safety guidance, and not a description of current behaviour:** the first two would
+be the grounding if the app ever ranked rooms for earthquake shelter. It does not — `perils/earthquake.py`
+has no room scoring, and `kitchen` exists only as a room-type enum. Do not describe this as something the
+app detects.
 
-## Post-Shaking Evacuation
+## By situation
 
-- When the shaking stops, evaluate your surroundings. Evacuate only if the building is damaged or if you are instructed to do so by authorities [cite: fema-earthquake].
-- Be cautious of aftershocks, which can cause further damage to weakened structures [cite: usgs-earthquake]. When exiting, avoid using elevators [cite: fema-earthquake].
+- **In bed:** do not get out of bed. Lie face down to protect vital organs and cover your head and neck
+  with a pillow, keeping your arms close to your head, holding on until shaking stops. You are less likely
+  to be injured by fallen and broken objects by staying where you are [cite: shakeout-guidance-dcho].
+  Ready.gov gives the same instruction [cite: fema-earthquake].
+- **Using a walker or wheelchair:** lock your wheels if applicable. If using a walker, carefully get as low
+  as possible. Bend over and cover your head and neck with your arms, a book, or a pillow, then hold on
+  until the shaking stops [cite: shakeout-guidance-dcho].
+- **Outdoors:** move to an open space if you can do so safely, away from power lines, trees, signs,
+  buildings and vehicles, then Drop, Cover, and Hold On [cite: shakeout-guidance-dcho]. Ready.gov adds that
+  if you are already outside, stay there [cite: fema-earthquake], and the USGS says to get into the open,
+  away from buildings, power lines, chimneys and anything else that might fall on you
+  [cite: usgs-earthquake-during].
+
+## Two ideas that are out of date
+
+**Doorways are not shelter.** Getting in a doorway is out-of-date advice that should never have been
+recommended. Doorways are not stronger than any other part of the house, do not protect against falling or
+flying objects, and will not be a safe space in the rare case of building collapse
+[cite: shakeout-guidance-dcho].
+
+**The "Triangle of Life" is not legitimate guidance.** The USGS calls it "a misguided idea about the best
+location a person should try to occupy during an earthquake," notes that it is based on observations of an
+earthquake in Turkey and does not apply to buildings constructed within the United States, and restates
+that dropping and covering under a table or desk remains the best recommendation
+[cite: usgs-triangle-of-life].
+
+**Do not run out of the building while it is shaking.** The ShakeOut guidance names running outside
+alongside doorways and the Triangle of Life as dangerous or out-dated recommendations
+[cite: shakeout-guidance-dcho].
+
+## Note on scope
+
+This corpus covers protective action inside a home. Tsunami evacuation, which applies only to coastal
+hazard zones and is a different decision, is out of scope for this app and is named here only so that a
+reader in a coastal zone knows to seek local guidance [cite: shakeout-guidance-after].

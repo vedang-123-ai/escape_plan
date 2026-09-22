@@ -74,7 +74,13 @@ one a judge is most likely to assume was bought in or handed to a model.
 
 ## Content sources (grounding corpus, not code dependencies)
 
-Full index with URLs and retrieval dates: `backend/corpus/sources.json`. Orgs: NFPA (escape planning, smoke-alarm fire statistics, disability evacuation guide), USFA/FEMA (smoke alarms, escape plans, disability fire safety), American Red Cross (escape plan steps, two-minute campaign, planning fact sheet, tornado safety), ICC (2021 IRC §R310/§R311 egress requirements), USGS (earthquake preparedness), NOAA/NWS (tornado safety). All corpus content is paraphrased with per-claim citations.
+Full index with URLs and retrieval dates: `backend/corpus/sources.json` (**36 sources** as of 2026-09-21). Orgs: NFPA (escape planning, smoke-alarm and heating/cooking fire statistics, disability evacuation guide, electrical safety), USFA/FEMA (smoke alarms, escape plans, disability fire safety, clothes-dryer fires, **fire extinguishers**, **lithium-ion battery safety**), American Red Cross (escape plan steps, two-minute campaign, planning fact sheet, tornado safety), ICC (2021 IRC §R310/§R311 egress requirements), USGS (earthquake preparedness, plus the **"Triangle of Life"** and **"what NOT to do"** FAQs), **Earthquake Country Alliance / Great ShakeOut** (Seven Steps to Earthquake Safety, steps 1, 5 and 6), NOAA/NWS (tornado safety, watch-vs-warning, severe-weather shelter guidance, **NOAA Weather Radio accessibility for the deaf and hard of hearing**), **FEMA Building Science** (Safe Rooms; Tornado Recovery Advisory RA2), and the **California Legislature** (Health & Safety Code §19211, water-heater strapping). All corpus content is paraphrased with per-claim citations.
+
+Added S11.1 (2026-09-21): Earthquake Country Alliance, FEMA Building Science and the California Legislature are new **source organisations**; the USGS, NOAA/NWS and USFA entries gained new documents. Every source added or touched that session was fetched and content-checked before its `retrieved` date was stamped — see `backend/corpus/check_urls.py`.
+
+| Tool | Version | What it's used for | License |
+|------|---------|--------------------|---------|
+| `backend/corpus/check_urls.py` | in-repo, stdlib + `curl` | S11.1 source verification: re-fetches every URL in `sources.json`, confirms 200, and greps per-source `verify_keywords` so a page that stops saying what we cite it for is detectable. Network-dependent and **opt-in — deliberately not part of `validate.py` or the gate** | own work |
 
 ### iOS cloud sync (2026-09-16, S8.4)
 
