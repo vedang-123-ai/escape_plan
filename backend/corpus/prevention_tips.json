@@ -1,0 +1,366 @@
+{
+  "schema_version": "1.0",
+  "description": "Short, user-facing prevention and readiness tips for the Home tab's Prevent section (S11.5). Every tip's `cite` must resolve in sources.json, and every tip's text must be traceable to that source. Authored S11.1 from pages fetched and read on 2026-09-21. The iOS app bundles a byte-identical copy at escape_plan/Resources/prevention_tips.json; scripts/check-tips-sync.py (S11.5) enforces that.",
+  "fields": {
+    "id": "stable kebab-case id; never reuse or renumber (the app may persist dismissals against it)",
+    "peril": "fire | earthquake | tornado",
+    "topic": "grouping key for the UI",
+    "text": "the tip as shown to the user; imperative, one or two sentences, no citation markup",
+    "cite": "source id, must resolve in sources.json",
+    "audience": "everyone | renters | households-with-children | mobile-home | deaf-hard-of-hearing | california"
+  },
+  "tips": [
+    {
+      "id": "fire-meeting-place",
+      "peril": "fire",
+      "topic": "escape-plan",
+      "text": "Pick one meeting place outside, a safe distance from the home — a neighbour's porch, a mailbox, a specific tree. It is how you know everyone is out, and how you tell firefighters if someone is not.",
+      "cite": "nfpa-escape-planning",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-two-ways-out",
+      "peril": "fire",
+      "topic": "escape-plan",
+      "text": "Find two ways out of every room — usually the door plus a window or second doorway. The first way out is the one most likely to be blocked by smoke.",
+      "cite": "nfpa-escape-planning",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-close-doors-behind-you",
+      "peril": "fire",
+      "topic": "during-fire",
+      "text": "Close doors behind you as you leave. A closed door slows the spread of fire and smoke through the home.",
+      "cite": "usfa-escape-plans",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-get-out-then-call",
+      "peril": "fire",
+      "topic": "during-fire",
+      "text": "Get out first, then call 911 from outside. Do not stop to phone from inside the house.",
+      "cite": "nfpa-escape-planning",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-never-go-back-in",
+      "peril": "fire",
+      "topic": "during-fire",
+      "text": "Get out and stay out. Never go back inside for people, pets or possessions — tell the firefighters instead.",
+      "cite": "nfpa-escape-planning",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-leave-belongings",
+      "peril": "fire",
+      "topic": "during-fire",
+      "text": "Do not stop to collect valuables or belongings on the way out. Never re-enter for things.",
+      "cite": "redcross-escape-plan",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-extinguisher-decision",
+      "peril": "fire",
+      "topic": "during-fire",
+      "text": "Only use an extinguisher if every one of these is true: others are alerted, the fire department is called, the fire is small and contained to one object, you are clear of the smoke, and you have an escape route. If you are unsure, leave and call 911.",
+      "cite": "usfa-extinguishers",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-extinguisher-not-everyone",
+      "peril": "fire",
+      "topic": "during-fire",
+      "text": "Young children and older adults should not use fire extinguishers. Their job in the plan is to get out.",
+      "cite": "usfa-extinguishers",
+      "audience": "households-with-children"
+    },
+    {
+      "id": "fire-practice-twice-a-year",
+      "peril": "fire",
+      "topic": "practice",
+      "text": "Practise the escape plan twice a year, and make the drill as realistic as you can.",
+      "cite": "nfpa-escape-planning",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-two-minute-target",
+      "peril": "fire",
+      "topic": "practice",
+      "text": "Time your drill from the alarm to the meeting place. The target is under two minutes.",
+      "cite": "redcross-two-minutes",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-children-daytime-first",
+      "peril": "fire",
+      "topic": "practice",
+      "text": "Let children learn the escape plan in daytime practice before you ever run a night drill while they are asleep.",
+      "cite": "nfpa-escape-planning",
+      "audience": "households-with-children"
+    },
+    {
+      "id": "fire-test-alarms-monthly",
+      "peril": "fire",
+      "topic": "smoke-alarms",
+      "text": "Press the test button on every smoke alarm once a month.",
+      "cite": "usfa-smoke-alarms",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-replace-alarms-ten-years",
+      "peril": "fire",
+      "topic": "smoke-alarms",
+      "text": "Replace every smoke alarm ten years from its manufacture date — check the date printed on the back.",
+      "cite": "usfa-smoke-alarms",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-stay-in-kitchen",
+      "peril": "fire",
+      "topic": "kitchen",
+      "text": "Stay in the kitchen when you are frying, grilling, boiling or broiling. If you have to leave, even briefly, turn the stove off.",
+      "cite": "nfpa-cooking-safety",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-grease-fire-no-water",
+      "peril": "fire",
+      "topic": "kitchen",
+      "text": "If cooking oil starts to smoke, carefully turn off the burner. Never throw water on a grease fire.",
+      "cite": "nfpa-cooking-safety",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-heater-three-feet",
+      "peril": "fire",
+      "topic": "heating",
+      "text": "Keep anything that can burn — bedding, curtains, clothing, paper — at least three feet (0.9 m) from any heater.",
+      "cite": "nfpa-heating-safety",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-heater-direct-to-outlet",
+      "peril": "fire",
+      "topic": "heating",
+      "text": "Plug a space heater straight into a wall outlet, never into an extension cord or power strip, and switch it off when you leave the room or go to sleep.",
+      "cite": "nfpa-heating-safety",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-dryer-lint",
+      "peril": "fire",
+      "topic": "appliances",
+      "text": "Clean the dryer lint filter before and after every load. Lint is highly combustible and builds up in the vent as well as the filter.",
+      "cite": "usfa-dryer-safety",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-battery-warning-signs",
+      "peril": "fire",
+      "topic": "batteries",
+      "text": "Stop using a lithium-ion battery if you notice an odour, a change in colour or shape, too much heat, leaking, or odd noises.",
+      "cite": "usfa-batteries",
+      "audience": "everyone"
+    },
+    {
+      "id": "fire-battery-storage",
+      "peril": "fire",
+      "topic": "batteries",
+      "text": "Store spare lithium-ion batteries away from anything that can burn, and keep them out of direct sunlight and hot cars.",
+      "cite": "usfa-batteries",
+      "audience": "everyone"
+    },
+    {
+      "id": "eq-secure-furniture-to-studs",
+      "peril": "earthquake",
+      "topic": "securing",
+      "text": "Secure top-heavy furniture and appliances to wall studs. Anchoring into drywall alone is not the instruction — find the stud.",
+      "cite": "shakeout-guidance",
+      "audience": "everyone"
+    },
+    {
+      "id": "eq-move-before-you-fasten",
+      "peril": "earthquake",
+      "topic": "securing",
+      "text": "Before you fasten anything, move it: shift bookcases away from beds and sofas, and put heavy objects on lower shelves. This costs nothing and needs no landlord.",
+      "cite": "shakeout-guidance",
+      "audience": "renters"
+    },
+    {
+      "id": "eq-water-heater-two-straps",
+      "peril": "earthquake",
+      "topic": "securing",
+      "text": "Strap the water heater to wall studs with two metal straps. A toppled heater can rupture its gas line.",
+      "cite": "shakeout-guidance",
+      "audience": "everyone"
+    },
+    {
+      "id": "eq-water-heater-california-law",
+      "peril": "earthquake",
+      "topic": "securing",
+      "text": "In California, bracing or strapping a residential water heater is required by law, not just recommended, and a seller must certify it in writing.",
+      "cite": "ca-hsc-19211",
+      "audience": "california"
+    },
+    {
+      "id": "eq-museum-putty",
+      "peril": "earthquake",
+      "topic": "securing",
+      "text": "Use museum putty or wax to stop small objects sliding off shelves, and put latches on kitchen cabinets so doors cannot swing open.",
+      "cite": "shakeout-guidance",
+      "audience": "renters"
+    },
+    {
+      "id": "eq-drop-cover-hold-on",
+      "peril": "earthquake",
+      "topic": "during-shaking",
+      "text": "Drop onto your hands and knees, cover your head and neck, and hold on until the shaking stops. Get under a sturdy table if one is close.",
+      "cite": "shakeout-guidance-dcho",
+      "audience": "everyone"
+    },
+    {
+      "id": "eq-not-the-doorway",
+      "peril": "earthquake",
+      "topic": "during-shaking",
+      "text": "Do not stand in a doorway. It is no stronger than the rest of the house and gives no protection from falling or flying objects.",
+      "cite": "shakeout-guidance-dcho",
+      "audience": "everyone"
+    },
+    {
+      "id": "eq-stay-in-bed",
+      "peril": "earthquake",
+      "topic": "during-shaking",
+      "text": "If you are in bed when shaking starts, stay there. Turn face down and cover your head and neck with a pillow.",
+      "cite": "shakeout-guidance-dcho",
+      "audience": "everyone"
+    },
+    {
+      "id": "eq-gas-only-if-leak",
+      "peril": "earthquake",
+      "topic": "after-shaking",
+      "text": "Shut the main gas valve only if you suspect a leak — you smell or hear gas, see broken pipes, or the meter is spinning fast. Otherwise leave it alone.",
+      "cite": "shakeout-guidance-after",
+      "audience": "everyone"
+    },
+    {
+      "id": "eq-never-restore-gas",
+      "peril": "earthquake",
+      "topic": "after-shaking",
+      "text": "Never turn the gas back on yourself. Only the gas company does that, after they check for leaks.",
+      "cite": "usgs-earthquake-donts",
+      "audience": "everyone"
+    },
+    {
+      "id": "eq-no-flames-until-clear",
+      "peril": "earthquake",
+      "topic": "after-shaking",
+      "text": "No matches, lighters, candles or camp stoves until you know there are no gas leaks. Use a flashlight instead.",
+      "cite": "usgs-earthquake-donts",
+      "audience": "everyone"
+    },
+    {
+      "id": "eq-stay-if-undamaged",
+      "peril": "earthquake",
+      "topic": "after-shaking",
+      "text": "Unlike a fire, the default after shaking is to stay put. Leave only if the building is damaged or the area around it is unsafe.",
+      "cite": "shakeout-guidance-after",
+      "audience": "everyone"
+    },
+    {
+      "id": "eq-aftershocks",
+      "peril": "earthquake",
+      "topic": "after-shaking",
+      "text": "Expect aftershocks and stay clear of anything that looks like it could fall — especially brick chimneys and block walls.",
+      "cite": "shakeout-guidance-after",
+      "audience": "everyone"
+    },
+    {
+      "id": "tornado-pick-the-room-now",
+      "peril": "tornado",
+      "topic": "shelter",
+      "text": "Decide on your shelter spot before the season starts: a small interior windowless room or basement on the lowest level, with as many walls as possible between you and the outside.",
+      "cite": "fema-tornado-ready",
+      "audience": "everyone"
+    },
+    {
+      "id": "tornado-maximise-walls",
+      "peril": "tornado",
+      "topic": "shelter",
+      "text": "Put as many walls between yourself and the outside as you can. A closet, bathroom or interior hallway without windows beats a room on an outside wall.",
+      "cite": "noaa-tornado-shelter",
+      "audience": "everyone"
+    },
+    {
+      "id": "tornado-protect-your-head",
+      "peril": "tornado",
+      "topic": "shelter",
+      "text": "Most injuries from high winds come from flying debris, so protect your head. Keep a bicycle or motorcycle helmet with your shelter supplies and put it on.",
+      "cite": "noaa-tornado-shelter",
+      "audience": "everyone"
+    },
+    {
+      "id": "tornado-get-under-something",
+      "peril": "tornado",
+      "topic": "shelter",
+      "text": "Once you are in the room, get under something sturdy like a heavy table, or pull a mattress over you to block debris.",
+      "cite": "noaa-tornado-shelter",
+      "audience": "everyone"
+    },
+    {
+      "id": "tornado-watch-vs-warning",
+      "peril": "tornado",
+      "topic": "alerts",
+      "text": "A watch means check your plan and supplies. A warning means move to your shelter now — a tornado has been sighted or picked up on radar.",
+      "cite": "noaa-tornado-ww",
+      "audience": "everyone"
+    },
+    {
+      "id": "tornado-more-than-one-alert",
+      "peril": "tornado",
+      "topic": "alerts",
+      "text": "Have more than one way to get a warning: your community's alert system, the Emergency Alert System, and a NOAA Weather Radio. You will not always get a warning in time.",
+      "cite": "fema-tornado-ready",
+      "audience": "everyone"
+    },
+    {
+      "id": "tornado-accessible-alerts",
+      "peril": "tornado",
+      "topic": "alerts",
+      "text": "Outdoor sirens are sound-only. A NOAA Weather Radio with SAME can drive a bed shaker, pillow vibrator or strobe light, and can be set for just your county and just the events you choose.",
+      "cite": "noaa-nwr-accessibility",
+      "audience": "deaf-hard-of-hearing"
+    },
+    {
+      "id": "tornado-mobile-home-leave",
+      "peril": "tornado",
+      "topic": "mobile-homes",
+      "text": "A mobile, manufactured or trailer home is not safe in high winds and no room inside it is shelter. Identify a sturdy building to go to, before a watch is ever issued.",
+      "cite": "redcross-tornado",
+      "audience": "mobile-home"
+    },
+    {
+      "id": "tornado-practice-the-move",
+      "peril": "tornado",
+      "topic": "practice",
+      "text": "Practise moving quickly to your shelter spot with the whole household, and agree who helps whom.",
+      "cite": "redcross-tornado",
+      "audience": "everyone"
+    },
+    {
+      "id": "tornado-no-overpass",
+      "peril": "tornado",
+      "topic": "vehicles",
+      "text": "Never shelter under a highway overpass. It is not adequate shelter and the tunnelling effect can increase wind speeds.",
+      "cite": "noaa-tornado-shelter",
+      "audience": "everyone"
+    },
+    {
+      "id": "tornado-generator-carbon-monoxide",
+      "peril": "tornado",
+      "topic": "after",
+      "text": "After the storm, never run a generator or any petrol, propane or charcoal device inside a home, basement, garage or camper, or near an open window. Carbon monoxide has no smell and kills fast.",
+      "cite": "redcross-tornado",
+      "audience": "everyone"
+    }
+  ]
+}

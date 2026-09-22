@@ -202,6 +202,24 @@
       "topics": ["cooking", "statistics", "fire-causes"]
     },
     {
+      "id": "usfa-extinguishers",
+      "org": "USFA (U.S. Fire Administration / FEMA)",
+      "doc_title": "Choosing and Using Fire Extinguishers",
+      "url": "https://www.usfa.fema.gov/prevention/home-fires/prepare-for-fire/fire-extinguishers/",
+      "retrieved": "2026-09-21",
+      "topics": ["fire", "extinguishers", "during-fire", "decision-rule"],
+      "verify_keywords": ["small and contained in a single object", "alert others, leave the building, and call 911", "clear escape route"]
+    },
+    {
+      "id": "usfa-batteries",
+      "org": "USFA (U.S. Fire Administration / FEMA)",
+      "doc_title": "Battery Fire Safety",
+      "url": "https://www.usfa.fema.gov/prevention/home-fires/prevent-fires/batteries/",
+      "retrieved": "2026-09-21",
+      "topics": ["fire", "lithium-ion", "batteries", "charging", "prevention"],
+      "verify_keywords": ["odor, change in color, too much heat", "away from anything that can burn"]
+    },
+    {
       "id": "usgs-triangle-of-life",
       "org": "USGS (U.S. Geological Survey)",
       "doc_title": "What is the \"Triangle of Life\" and is it legitimate?",
