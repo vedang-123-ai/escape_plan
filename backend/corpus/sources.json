@@ -290,7 +290,9 @@
     {"file": "home-fire-escape-redcross.md", "primary_id": "redcross-escape-plan", "source_ids": ["redcross-escape-plan", "redcross-two-minutes", "redcross-escape-fact-sheet"]},
     {"file": "fire-facts-stats.md", "primary_id": "fire-facts-stats", "source_ids": ["nfpa-smoke-alarms-report", "redcross-two-minutes", "redcross-escape-fact-sheet"]},
     {"file": "special-considerations.md", "primary_id": "special-considerations", "source_ids": ["usfa-disabilities", "nfpa-evacuation-disabilities", "nfpa-escape-planning", "usfa-smoke-alarms", "redcross-escape-plan"]},
-    {"file": "earthquake-preparedness.md", "primary_id": "earthquake-preparedness", "source_ids": ["usgs-earthquake", "fema-earthquake", "shakeout-guidance", "shakeout-guidance-dcho"]},
+    {"file": "earthquake-preparedness.md", "primary_id": "earthquake-preparedness", "source_ids": ["shakeout-guidance-dcho", "usgs-triangle-of-life", "fema-earthquake", "usgs-earthquake", "shakeout-guidance-after"]},
+    {"file": "earthquake-securing-home.md", "primary_id": "earthquake-securing-home", "source_ids": ["shakeout-guidance", "fema-earthquake", "ca-hsc-19211"]},
+    {"file": "earthquake-after-shaking.md", "primary_id": "earthquake-after-shaking", "source_ids": ["shakeout-guidance-after", "usgs-earthquake-donts"]},
     {"file": "severe-weather-tornado.md", "primary_id": "severe-weather-tornado", "source_ids": ["noaa-tornado", "fema-tornado", "redcross-tornado"]},
     {"file": "heating-electrical-fire-safety.md", "primary_id": "heating-electrical-fire-safety", "source_ids": ["nfpa-heating-safety", "nfpa-cooking-safety", "nfpa-electrical-safety", "usfa-dryer-safety", "nfpa-heating-report", "nfpa-cooking-report"]}
   ]
