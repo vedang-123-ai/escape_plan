@@ -302,7 +302,7 @@
     }
   ],
   "corpus_files": [
-    {"file": "escape-planning-nfpa.md", "primary_id": "nfpa-escape-planning", "source_ids": ["nfpa-escape-planning", "usfa-escape-plans"]},
+    {"file": "escape-planning-nfpa.md", "primary_id": "nfpa-escape-planning", "source_ids": ["nfpa-escape-planning", "usfa-escape-plans", "usfa-extinguishers"]},
     {"file": "egress-windows-irc.md", "primary_id": "irc-2021-r310", "source_ids": ["irc-2021-r310", "irc-2021-r311"]},
     {"file": "smoke-alarms-usfa.md", "primary_id": "usfa-smoke-alarms", "source_ids": ["usfa-smoke-alarms", "nfpa-smoke-alarms-report"]},
     {"file": "home-fire-escape-redcross.md", "primary_id": "redcross-escape-plan", "source_ids": ["redcross-escape-plan", "redcross-two-minutes", "redcross-escape-fact-sheet"]},
@@ -314,6 +314,6 @@
     {"file": "severe-weather-tornado.md", "primary_id": "severe-weather-tornado", "source_ids": ["noaa-tornado", "noaa-tornado-ww", "noaa-tornado-shelter", "fema-tornado-ready", "redcross-tornado"]},
     {"file": "tornado-safe-rooms.md", "primary_id": "tornado-safe-rooms", "source_ids": ["fema-tornado", "fema-safe-room-criteria", "fema-tornado-ready", "redcross-tornado", "noaa-tornado"]},
     {"file": "tornado-warnings-and-mobile-homes.md", "primary_id": "tornado-warnings-and-mobile-homes", "source_ids": ["noaa-tornado-ww", "noaa-tornado", "noaa-nwr-accessibility", "fema-tornado-ready", "redcross-tornado"]},
-    {"file": "heating-electrical-fire-safety.md", "primary_id": "heating-electrical-fire-safety", "source_ids": ["nfpa-heating-safety", "nfpa-cooking-safety", "nfpa-electrical-safety", "usfa-dryer-safety", "nfpa-heating-report", "nfpa-cooking-report"]}
+    {"file": "heating-electrical-fire-safety.md", "primary_id": "heating-electrical-fire-safety", "source_ids": ["nfpa-heating-safety", "nfpa-cooking-safety", "nfpa-electrical-safety", "usfa-dryer-safety", "nfpa-heating-report", "nfpa-cooking-report", "usfa-batteries"]}
   ]
 }

@@ -5,7 +5,7 @@ doc_title: Heating, Electrical, and Appliance Fire Safety
 url: https://www.nfpa.org/education-and-research/home-fire-safety/heating
 retrieved: 2026-09-09
 topics: [heating, electrical, cooking, dryers, space-heaters, extension-cords, fire-causes]
-additional_source_ids: [nfpa-heating-safety, nfpa-cooking-safety, nfpa-electrical-safety, usfa-dryer-safety, nfpa-heating-report, nfpa-cooking-report]
+additional_source_ids: [nfpa-heating-safety, nfpa-cooking-safety, nfpa-electrical-safety, usfa-dryer-safety, nfpa-heating-report, nfpa-cooking-report, usfa-batteries]
 ---
 
 # Heating, Electrical, and Appliance Fire Safety
@@ -48,3 +48,23 @@ Failure to clean the dryer is a leading factor contributing to clothes dryer fir
 - **Clean the lint filter:** Clean the lint filter before and after each cycle [cite: usfa-dryer-safety].
 - **Lint as ignition source:** Lint is a highly combustible material that can accumulate both in the dryer and in the dryer vent [cite: usfa-dryer-safety].
 - **Inspect the vent duct:** Inspect the venting system behind the dryer to ensure it is not damaged, crushed, or restricted [cite: usfa-dryer-safety].
+
+## Lithium-Ion Battery Safety
+
+Rechargeable lithium-ion batteries — phones, laptops, power tools, e-bikes and scooters — are a fire cause
+the older guidance in this corpus predates. The USFA summarises household battery safety as C.H.A.R.G.E.:
+choose certified products, handle with care, always stay alert, recycle properly, get out quickly, educate
+others [cite: usfa-batteries].
+
+- **Warning signs:** stop using a lithium-ion battery if you notice an odour, a change in colour, too much
+  heat, a change in shape, leaking, or odd noises [cite: usfa-batteries].
+- **Storage:** store spare lithium-ion batteries away from anything that can burn
+  [cite: usfa-batteries]. Do not leave them in direct sunlight or in hot cars — that is a fire risk
+  [cite: usfa-batteries].
+- **Temperature:** store at room temperature where possible, and do not charge below 32 °F (0 °C) or above
+  105 °F (40 °C) [cite: usfa-batteries].
+- **Disposal:** do not put lithium-ion batteries in the household trash; recycle them at a battery
+  recycling location [cite: usfa-batteries].
+
+"Get out quickly" is the part that connects to the escape plan: the response to a battery fire is
+evacuation, not suppression — see the extinguisher decision rule in `escape-planning-nfpa.md`.
