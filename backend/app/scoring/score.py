@@ -110,7 +110,9 @@ def compute_score(
         now=now,
     )
 
-    sub_scores_raw = {"fire": 100.0, "earthquake": 100.0, "severe_weather": 100.0}
+    # Keyed off PERIL_BASIS so the perils and their evidence tiers cannot drift
+    # apart: a peril added to one is a peril added to the other.
+    sub_scores_raw = {peril: 100.0 for peril in PERIL_BASIS}
     largest_deduction_item: Optional[ChecklistItem] = None
     largest_deduction_value = -1.0
 
