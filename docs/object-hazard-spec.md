@@ -119,10 +119,18 @@ Severity vocabulary is the existing one: `high` caps the composite score while u
   caller — the route corridor itself.
 - **Severity.** `high` when the band reaches a bed or the room's *only* egress approach;
   `info` otherwise.
-- **Cites.** `shakeout-guidance` (secure tall/heavy furniture; drywall anchors insufficient;
-  renter options), `usgs-earthquake` (falling objects are the most common earthquake injury).
+- **Cites.** `shakeout-guidance` (secure top-heavy furniture to wall studs; move it away from
+  where people sit and sleep before fastening it; the UCLA Northridge finding that 55% of
+  injuries came from falling furniture and 1% from building damage).
+  **Corrected 2026-09-22 (S11.2):** this previously claimed `shakeout-guidance` covers "drywall
+  anchors insufficient" and "renter options", and cited `usgs-earthquake` for falling objects
+  being the most common injury. ShakeOut carries neither of the first two — both were deleted
+  from the corpus on 2026-09-21 as unsourced — and `usgs.gov/.../prepare` is a link directory
+  carrying nothing. See `backend/corpus/earthquake-securing-home.md`, "What this corpus does
+  not claim".
 - **Detail sentence pattern.** "The bookcase (1.9 m tall, unsecured) can reach the bed 1.1 m
-  away if it topples. Strap it to wall studs — adhesive strap kits work for renters."
+  away if it topples. Secure it to wall studs; if you rent and cannot drill, move it away from
+  where people sit and sleep."
 - **`secured == true` suppresses R1 entirely.**
 
 ### R2 — `overhead` (earthquake)

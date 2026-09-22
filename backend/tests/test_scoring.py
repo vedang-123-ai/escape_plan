@@ -817,13 +817,37 @@ def test_guidance_based_perils_use_the_same_flat_deduction_as_fire(bungalow: dic
         )
 
 
-def test_no_earthquake_or_tornado_item_asserts_a_number(bungalow: dict, twostory: dict):
-    """S11.1 established the sources carry no app-checkable threshold for these
-    two perils, and that the absence is the finding. A digit appearing in one of
-    their items is the smell of one being invented — the fire items are where
-    measured numbers belong.
+def test_no_authored_earthquake_or_tornado_item_invents_a_threshold(
+    bungalow: dict, twostory: dict
+):
+    """S11.1 established these two perils carry no app-checkable number, and that
+    the absence is the finding. A figure appearing in an item this project
+    *authored* is the smell of one being invented.
+
+    Scope, stated honestly after the grounding-auditor found the first version
+    overclaiming:
+
+    - It covers `title`, `detail` AND `why`. The first version omitted `why`,
+      which is exactly where figures live.
+    - It covers only items whose text this repo wrote (`eq.*`, `safe_room.*`,
+      `alerts.*`). Engine-generated items (`hazard.*`, `engine.*`,
+      `mitigation.secure.*`) legitimately state MEASURED geometry — "1.9 m tall,
+      1.5 m away" — which is the code-quantified half of the app doing its job,
+      not a corpus threshold.
+    - Sourced statistics are allowed by name, not by accident. The UCLA Northridge
+      figures are verbatim in earthquake-securing-home.md; they are evidence for
+      an ordering, not a threshold anything is checked against.
+
+    What it therefore does NOT catch: a spelled-out number ("two straps"). That
+    is a real limit, not an oversight — see docs/preparedness-score-weights.md,
+    which states the same scope.
     """
     import re as _re
+
+    ALLOWED_SOURCED_FIGURES = {
+        # earthquake-securing-home.md:17-20, verbatim from ShakeOut.
+        "eq.move_before_fasten": ["55%", "1%", "1994"],
+    }
 
     for fixture in (bungalow, twostory):
         for item in _scored(fixture).checklist:
@@ -831,10 +855,14 @@ def test_no_earthquake_or_tornado_item_asserts_a_number(bungalow: dict, twostory
                 continue
             if not item.id.startswith(("eq.", "safe_room.", "alerts.")):
                 continue
-            text = f"{item.title} {item.detail}"
+            text = f"{item.title} {item.detail} {item.why}"
+            for allowed in ALLOWED_SOURCED_FIGURES.get(item.id, []):
+                text = text.replace(allowed, "")
             assert not _re.search(r"\d", text), (
-                f"{item.id} states a number ({text!r}); earthquake and tornado "
-                f"guidance in this corpus carries none — see decisions.md 2026-09-21"
+                f"{item.id} states a figure ({text!r}). Earthquake and tornado "
+                f"guidance in this corpus carries no app-checkable number — see "
+                f"decisions.md 2026-09-21. If it is a sourced statistic, add it to "
+                f"ALLOWED_SOURCED_FIGURES with the corpus line that carries it."
             )
 
 
