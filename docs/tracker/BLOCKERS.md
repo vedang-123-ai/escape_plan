@@ -126,16 +126,16 @@ _S11.13_ none yet
 
 #### S11.1 · corpus depth (2026-09-21, branch `s11-1-corpus-depth`)
 
-Done and verified this session: corpus **35 sources, 13 files, 2 threshold files, 44 tips**, `validate.py`
-green; backend **557 passed, 1 skipped, 13 deselected**. `check_urls.py` over all 35 sources:
-**0 hard failures, 16 content-verified** — those 16 being every source this session added or touched.
+Done and verified this session: corpus **36 sources, 13 files, 2 threshold files, 44 tips**, `validate.py`
+green; backend **557 passed, 1 skipped, 13 deselected**. `check_urls.py` over all 36 sources:
+**0 hard failures, 17 content-verified** — those 17 being every source this session added or touched.
 
 - [ ] **`validate.py` structurally cannot tell whether a claim is on the page it cites, and four claims
       were wrong.** Green corpus runs have never meant the guidance is attributed correctly. `check_urls.py`
       closes only the machine-checkable half (URL still 200, `verify_keywords` still present). The other
       half — does this sentence reflect that source — needs a human or the grounding-auditor. Next action:
       treat a `validate.py` pass as necessary, never sufficient, and re-read claims when a source changes.
-- [ ] **19 of 35 sources have no `verify_keywords` and cannot be content-checked.** The 8 NFPA sources
+- [ ] **19 of 36 sources have no `verify_keywords` and cannot be content-checked.** The 8 NFPA sources
       return a ~40-char JS shell; `fema-tornado` and `fema-safe-room-criteria` are bot-walled to any script;
       `redcross-escape-fact-sheet` and `usfa-dryer-safety` are PDFs. All the **fire** sources are in this
       group — this session verified the peril sources, not the fire ones. Next action (any session touching

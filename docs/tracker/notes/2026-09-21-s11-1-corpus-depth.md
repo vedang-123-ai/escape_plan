@@ -2,9 +2,9 @@
 
 - **Who:** P3
 - **Date(s):** 2026-09-21
-- **Status when I stopped:** Done. Corpus **35 sources, 13 files, 2 threshold files, 44 tips**;
+- **Status when I stopped:** Done. Corpus **36 sources, 13 files, 2 threshold files, 44 tips**;
   `validate.py` green; backend **557 passed, 1 skipped, 13 deselected**.
-  `check_urls.py`: **0 hard failures across all 35 sources, 16 content-verified** — those 16 are every
+  `check_urls.py`: **0 hard failures across all 36 sources, 17 content-verified** — those 17 are every
   source this session added or touched. The other 19 carry no `verify_keywords` (all the fire sources,
   plus the bot-walled and PDF ones) and are listed in `BLOCKERS.md`.
 
@@ -111,6 +111,6 @@ suite, not the corpus validator.
 
 1. **S11.2 is unblocked** — this was its prereq.
 2. `check_urls.py` should be run before submission. 34 other URLs can rot the way R311 did.
-3. The open S11.1 items in `BLOCKERS.md`: 18 of 35 sources still have no `verify_keywords` and cannot be
+3. The open S11.1 items in `BLOCKERS.md`: 19 of 36 sources still have no `verify_keywords` and cannot be
    content-checked — **every fire source is in that group.** This session verified the peril sources, not
    the fire ones. Whoever next touches the fire corpus should add keywords for the reachable ones.

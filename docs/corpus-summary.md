@@ -4,7 +4,7 @@ One-page summary of the grounding corpus in `backend/corpus/`. The AI layer cite
 the deterministic engines read the threshold files. Validate anytime with
 `python3 backend/corpus/validate.py` (offline, stdlib-only).
 
-_Last verified 2026-09-21 on `s11-1-corpus-depth`: **35 sources, 13 corpus files, 2 threshold files,
+_Last verified 2026-09-21 on `s11-1-corpus-depth`: **36 sources, 13 corpus files, 2 threshold files,
 44 prevention tips.**_
 
 ## The corpus at a glance
@@ -65,7 +65,7 @@ bundles a byte-identical copy; `scripts/check-tips-sync.py` (S11.5) is what keep
 
 ## Grounding rules
 
-- Every citable source has an id in `sources.json` (35); inline citations are `[cite: source-id]`, and
+- Every citable source has an id in `sources.json` (36); inline citations are `[cite: source-id]`, and
   `validate.py` rejects unresolvable or undeclared ones.
 - Compilation docs (`fire-facts-stats.md`, `special-considerations.md`, and the four new peril docs) have
   non-source primary ids and only ever cite underlying external sources.
@@ -87,9 +87,9 @@ stamped. Known limits, all reported as BLOCKED or NO-TEXT rather than as failure
 ## Known gaps
 
 - IRC citations point at ICC's online code pages; jurisdictions amend values — the corpus says so.
-- **19 of 35 sources have no `verify_keywords`** and cannot be content-checked by script: the 8 NFPA
+- **19 of 36 sources have no `verify_keywords`** and cannot be content-checked by script: the 8 NFPA
   sources (JS shell), 2 FEMA (bot-walled), 2 PDFs, and the remaining fire sources, which S11.1 did not
-  reach. Last full run 2026-09-21: 0 hard failures, 16 content-verified.
+  reach. Last full run 2026-09-21: **36 checked, 0 hard failures, 17 content-verified**.
 - No fire-extinguisher *product* guidance or escape-ladder guidance; the extinguisher **decision rule** is
   covered by `usfa-extinguishers`.
 - Earthquake guidance leans on Californian sources (ShakeOut, CA statute). A user elsewhere gets sound
