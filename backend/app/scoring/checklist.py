@@ -409,12 +409,19 @@ def shutoff_items(home: HomeModel, state: ChecklistState) -> list[ChecklistItem]
                     hazard="earthquake",
                     title=f"Locate and tag your gas shutoff valve on {floor.name}",
                     detail=(
-                        "Know where your gas shutoff is and keep a wrench nearby. "
-                        "Only shut off if you suspect a leak."
+                        "Know where your gas shutoff is. Shut it off ONLY if you "
+                        "suspect a leak — broken pipes, the smell or sound of gas, "
+                        "or a meter spinning quickly. Never turn it back on "
+                        "yourself: only the gas company can, after checking for "
+                        "leaks."
                     ),
-                    why="A ruptured gas line after shaking is a secondary fire/explosion hazard. [cite: fema-earthquake]",
+                    why=(
+                        "Shutting the gas off is a judgement call with a named trigger; "
+                        "turning it back on is never the resident's action. "
+                        "[cite: shakeout-guidance-after] [cite: usgs-earthquake-donts]"
+                    ),
                     done=state.get(item_id, False) is True,
-                    source_citation="fema-earthquake",
+                    source_citation="shakeout-guidance-after",
                     scoring=False,
                 )
             )
@@ -427,12 +434,16 @@ def shutoff_items(home: HomeModel, state: ChecklistState) -> list[ChecklistItem]
                     hazard="general",
                     title=f"Locate and tag your electrical panel on {floor.name}",
                     detail=(
-                        "Know where your electrical panel is so you can shut off "
-                        "power in an emergency."
+                        "Know where your electrical panel is. After shaking, shut "
+                        "power off at the main breaker if there is any damage to "
+                        "house wiring, and leave it off until the damage is repaired."
                     ),
-                    why="Post-disaster electrical damage can cause fires. [cite: fema-earthquake]",
+                    why=(
+                        "Damaged house wiring is the named trigger for killing power at "
+                        "the main breaker. [cite: shakeout-guidance-after]"
+                    ),
                     done=state.get(item_id, False) is True,
-                    source_citation="fema-earthquake",
+                    source_citation="shakeout-guidance-after",
                     scoring=False,
                 )
             )
@@ -615,22 +626,34 @@ def mitigation_items(home: HomeModel, state: ChecklistState, hazards: list[Objec
 
 
 def supply_kit_items(state: ChecklistState) -> list[ChecklistItem]:
-    """The single shared supply-kit item — tagged general, appears once."""
+    """The single shared supply-kit item — tagged general, appears once.
+
+    S11.2 (2026-09-22): this used to read "72-hour kit… one gallon per person per
+    day for three days" cited to `fema-earthquake`. Nothing in the corpus carries
+    that — `fema-earthquake` (ready.gov/earthquakes) is only ever cited for
+    securing objects and for Drop, Cover, Hold On. The quantities were invented.
+    The item now says only what `earthquake-after-shaking.md` sources, and the id
+    is kept unchanged so persisted done-state survives.
+    """
     item_id = "supply_kit.72h"
     return [
         ChecklistItem(
             id=item_id,
             category="supply_kit",
             hazard="general",
-            title="Assemble a 72-hour emergency supply kit",
+            title="Pack a grab-and-go bag and keep flashlights, not candles",
             detail=(
-                "Water (one gallon per person per day for three days), food, "
-                "flashlight, batteries, first-aid kit, medications, copies of "
-                "important documents."
+                "Shelters have limited space, so pack essentials only: medication, "
+                "important documents, prescription eyewear. Keep flashlights, "
+                "battery-powered lights or light sticks to hand — not candles or "
+                "matches, which can ignite a gas leak you have not found yet."
             ),
-            why="You may need to shelter in place or evacuate with no access to stores. [cite: fema-earthquake]",
+            why=(
+                "Both the bag's contents and the no-open-flame rule are what the "
+                "sources actually specify. [cite: shakeout-guidance-after]"
+            ),
             done=state.get(item_id, False) is True,
-            source_citation="fema-earthquake",
+            source_citation="shakeout-guidance-after",
             scoring=False,
         )
     ]
