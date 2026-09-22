@@ -3,8 +3,10 @@
 - **Who:** P3
 - **Date(s):** 2026-09-21
 - **Status when I stopped:** Done. Corpus **35 sources, 13 files, 2 threshold files, 44 tips**;
-  `validate.py` green; 15 of 17 peril and prevention sources content-verified against the live pages.
-  Merged to `main`.
+  `validate.py` green; backend **557 passed, 1 skipped, 13 deselected**.
+  `check_urls.py`: **0 hard failures across all 35 sources, 16 content-verified** — those 16 are every
+  source this session added or touched. The other 19 carry no `verify_keywords` (all the fire sources,
+  plus the bot-walled and PDF ones) and are listed in `BLOCKERS.md`.
 
 ## What happened
 

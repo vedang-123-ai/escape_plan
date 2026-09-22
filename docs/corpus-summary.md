@@ -87,7 +87,9 @@ stamped. Known limits, all reported as BLOCKED or NO-TEXT rather than as failure
 ## Known gaps
 
 - IRC citations point at ICC's online code pages; jurisdictions amend values — the corpus says so.
-- The 8 NFPA sources and 2 PDF sources have no `verify_keywords` and cannot be content-checked by script.
+- **19 of 35 sources have no `verify_keywords`** and cannot be content-checked by script: the 8 NFPA
+  sources (JS shell), 2 FEMA (bot-walled), 2 PDFs, and the remaining fire sources, which S11.1 did not
+  reach. Last full run 2026-09-21: 0 hard failures, 16 content-verified.
 - No fire-extinguisher *product* guidance or escape-ladder guidance; the extinguisher **decision rule** is
   covered by `usfa-extinguishers`.
 - Earthquake guidance leans on Californian sources (ShakeOut, CA statute). A user elsewhere gets sound
