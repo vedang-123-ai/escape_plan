@@ -471,3 +471,56 @@ def test_every_fixture_finding_carries_a_citation_and_an_action(name, real_thres
         assert any(
             n is not None for n in (h.reach_m, h.gap_m, h.clearance_m, h.threshold_m)
         ), f"{name}: {h.rule_id} on {h.object_id} states no measured value"
+
+
+def test_jagged_narrates_its_egress_window_as_a_window(real_thresholds):
+    """BUG-04 was not hypothetical — it shipped on a stock fixture.
+
+    `r_u_bed`'s only opening, `w_u_bed`, is a window, and the wardrobe's topple band
+    reaches it. Every demo run of jagged.json told the user about a doorway that does
+    not exist.
+    """
+    (h,) = [
+        h for h in _fixture_hazards("jagged", real_thresholds) if h.object_id == "o_u_ward"
+    ]
+    assert "the window 'w_u_bed'" in h.detail
+    assert "doorway" not in h.detail
+    assert h.target == "egress"
+
+
+def test_twostory_water_heater_keeps_its_reach_after_r1_is_suppressed(real_thresholds):
+    """BUG-03 was live here too: two cards for `o_1_water_heater` before S11.3."""
+    (h,) = [
+        h
+        for h in _fixture_hazards("twostory", real_thresholds)
+        if h.object_id == "o_1_water_heater"
+    ]
+    assert h.rule_id == "water_heater_unsecured"
+    assert h.severity == "high"
+    assert h.target == "egress"
+    assert h.reach_m == pytest.approx(0.69, abs=0.01)
+    assert "isn't strapped" in h.detail and "can reach the doorway 'd_back'" in h.detail
+
+
+def test_an_object_whose_centre_is_in_no_room_is_analysed_by_no_rule(thresholds):
+    """Pinning a consequence of the BUG-02 fix so it is deliberate, not accidental.
+
+    Room membership is now point-in-polygon on the centre, so an object whose centre
+    lands outside every polygon — possible on a real scan where a wall line and an
+    object centre nearly coincide — gets no hazard analysis at all. The old bounding
+    box would have caught it (along with three rooms it was not in). No fixture has
+    such an object today; a real scan might, which is why S11.10 is asked to look.
+    """
+    home = _home(
+        [
+            Room(id="r1", name="Bedroom", source="manual", type="bedroom",
+                 polygon=[(0, 0), (4, 0), (4, 4), (0, 4)]),
+        ],
+        [
+            FloorObject(source="manual", id="ward_outside", category=ObjectCategory.wardrobe,
+                        center=(6, 6), size_m=(1, 1), height_m=1.9, secured=False),
+            FloorObject(source="manual", id="bed_outside", category=ObjectCategory.bed,
+                        center=(7.5, 6), size_m=(2, 2), height_m=0.5),
+        ],
+    )
+    assert analyze_object_hazards(home, thresholds) == []
