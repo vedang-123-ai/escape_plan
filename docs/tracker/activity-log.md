@@ -2246,3 +2246,57 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - c9285b3 BUG-01: a stove beside a stove is not a clearance violation
   - 6dd8489 Tests: the S10.1 reproductions, red
 
+## 2026-09-23T06:30:37Z · vedang-123-ai · `main` @ `ae3ba6e`
+
+**Commits this session**
+  - ae3ba6e Merge branch 's11-3-hazard-qa'
+  - d5da344 Docs: take the auditor's corrections, and log what I am not fixing
+  - 16af2b1 N1: a water heater on a stand still topples
+  - f4b09c8 Docs: S11.3 handoff — note, decisions rows, tools-used, BLOCKERS
+  - c742856 Docs: the object-detection scoping decision (folds in the cut S10.2)
+  - fc30597 Spec: say what the engine now does, and admit the one gap it leaves
+  - e9148c4 Tests: pin the two defects that were live on stock fixtures
+  - 87182e8 BUG-03, BUG-04, BUG-05: one finding per water heater, and R1 narrates what it found
+  - e56360b BUG-02: an object belongs to the room its centre is in
+  - c9285b3 BUG-01: a stove beside a stove is not a clearance violation
+  - 6dd8489 Tests: the S10.1 reproductions, red
+
+## 2026-09-23T06:32:48Z · vedang-123-ai · `s11-4-ai-layer` @ `ae3ba6e`
+
+**Commits this session**
+  - ae3ba6e Merge branch 's11-3-hazard-qa'
+  - d5da344 Docs: take the auditor's corrections, and log what I am not fixing
+  - 16af2b1 N1: a water heater on a stand still topples
+  - f4b09c8 Docs: S11.3 handoff — note, decisions rows, tools-used, BLOCKERS
+  - c742856 Docs: the object-detection scoping decision (folds in the cut S10.2)
+  - fc30597 Spec: say what the engine now does, and admit the one gap it leaves
+  - e9148c4 Tests: pin the two defects that were live on stock fixtures
+  - 87182e8 BUG-03, BUG-04, BUG-05: one finding per water heater, and R1 narrates what it found
+  - e56360b BUG-02: an object belongs to the room its centre is in
+  - c9285b3 BUG-01: a stove beside a stove is not a clearance violation
+  - 6dd8489 Tests: the S10.1 reproductions, red
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-23T06:53:58Z · vedang-123-ai · `s11-4-ai-layer` @ `ff143f2`
+
+**Commits this session**
+  - ff143f2 Tests: the agent's shipped cap, not just the mechanism behind it
+  - e666447 Evals: the live runner, so a top-up needs no rewrite
+  - a484c8d Evals: 14 cases with deterministic graders, no API key needed
+  - 4489239 Tests: "the AI never routes" as a property of the code, not of the prompt
+  - 2e68143 Prompts: this is a prevention app for three perils, not a fire tool
+  - ae3ba6e Merge branch 's11-3-hazard-qa'
+  - d5da344 Docs: take the auditor's corrections, and log what I am not fixing
+  - 16af2b1 N1: a water heater on a stand still topples
+  - f4b09c8 Docs: S11.3 handoff — note, decisions rows, tools-used, BLOCKERS
+  - c742856 Docs: the object-detection scoping decision (folds in the cut S10.2)
+  - fc30597 Spec: say what the engine now does, and admit the one gap it leaves
+  - e9148c4 Tests: pin the two defects that were live on stock fixtures
+  - 87182e8 BUG-03, BUG-04, BUG-05: one finding per water heater, and R1 narrates what it found
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? docs/tracker/notes/2026-09-22-s11-4-ai-layer.md
+

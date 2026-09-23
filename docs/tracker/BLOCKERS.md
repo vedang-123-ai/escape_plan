@@ -56,7 +56,7 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
 | Open item on this board | Owned by |
 | --- | --- |
 | §0 first priority: run the iOS suite, record real counts | S11.8 |
-| §1 Anthropic credits, bearer token mismatch (owner-only) | owner; S11.4 covers what works without a key |
+| §1 Anthropic credits, bearer token mismatch (owner-only) | **owner — still open.** S11.4 landed everything that works without a key (see below) |
 | §2 device checklist 2.1-2.3, 2.7-2.8 (camera, frame rate, framing, floors) | S11.9 |
 | §2 device checklist 2.4-2.6, 2.9, real-scan verification, AR Drill on device | S11.10 |
 | S8 auth screens, Keychain, sync criteria that need a simulator or two devices | S11.7 (signed-out proof, privacy, delete) and S11.8 |
@@ -120,9 +120,115 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
 
 ### S11.1 to S11.13: session findings (append under your heading)
 
-_S11.1_ **see below** · _S11.2_ **see below** · _S11.3_ **see below** · _S11.4_ none yet · _S11.5_ none yet · _S11.6_ none yet ·
+_S11.1_ **see below** · _S11.2_ **see below** · _S11.3_ **see below** · _S11.4_ **see below** · _S11.5_ none yet · _S11.6_ none yet ·
 _S11.7_ none yet · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
 _S11.13_ none yet
+
+#### S11.4 · AI layer positioning, evals, credit-independent tests (2026-09-22/23, branch `s11-4-ai-layer`)
+
+Verified this session: backend **768 passed**, 1 skipped, 26 deselected (was 619 at the branch point;
+**+149**, all this session's). **Live tests 13 -> 26** and still all skipped — no key. EditorCore **516
+passed, 0 failed**. Corpus valid (36 sources, 13 files, 2 threshold files, 44 tips), unchanged — no corpus
+content touched. `scripts/typecheck-ios.sh` ok on all four targets at iOS 17.0. **`xcodebuild test` NOT
+run** — no simulator; **no Swift changed this session**, and no endpoint request/response contract changed,
+so nothing here implies an iOS change.
+
+**Closed by this session:**
+
+- [x] **All four system prompts were fire-only.** Every one opened with "Escape Plan, a home fire escape
+      planning app", written when fire was the only peril, and the agent advertised "the **fire-safety**
+      grounding corpus" in `search_corpus` — a reason not to call it for an earthquake question, on a corpus
+      that has covered earthquake and severe weather since S6.2. All four now state the three perils, the
+      prevention framing, that this is neither a mid-emergency nor a responder tool, and which peril is
+      actually code-quantified. Every safety behaviour verified unchanged by the grounding-auditor line by
+      line against `origin/main`.
+- [x] **The positioning is now testable without a key** — `test_ai_positioning.py`, checked red against a
+      deliberately broken prompt. Prose in a prompt file is the easiest thing in this repo to regress:
+      nothing compiles it, and no live test can run.
+- [x] **"The AI never routes" is asserted about the code, not the prompt** — `test_ai_never_routes.py`.
+      Every registered tool is classified (a new tool fails the suite until someone says which kind),
+      `agent.py` is AST-checked for geometry in any function, and every tool's output is swept for
+      route-shaped payloads differing from the engine's. Proved by rounding `length_m` to one decimal.
+- [x] **The 15-iteration agent cap was unguarded.** `test_agent_truncates_at_iteration_cap` passes
+      `max_iterations=3`, so it proves the loop *can* truncate and never touches the shipped value:
+      raising `MAX_ITERATIONS` from 15 to 500 left the whole suite green. That cap bounds the <60s latency
+      acceptance and the per-call API cost, and `anthropic.md` states it as design. Closed, with the runaway
+      guard deliberately **not** derived from the constant. The **citation retry path is genuinely covered**
+      — verified by breaking the loop in `grounded.py` and `chat/service.py` and watching existing tests go
+      red; nothing added there.
+- [x] **14-case eval set with deterministic graders** (`backend/tests/evals/`), runnable with no key, and a
+      live runner that scores the same cases with the same graders when credits exist.
+
+**Found and NOT closed:**
+
+- [ ] **`THINKING = {"type": "disabled"}` in all four AI modules may be costing correctness.** It was set
+      for a measured latency reason (`/explain` p95 < 6s; the S3.2 loop measured 71s with adaptive), and the
+      reason is recorded in each file. But current Anthropic guidance says disabled thinking causes exactly
+      the failure **this repo already hit and documented** at `agent.py:47` — the model writing a tool call
+      or a descriptive evidence ref into visible text instead of a structured block, which is why
+      `MAX_SUBMIT_RETRIES` exists at all. The documented fix is adaptive thinking at low effort, which may
+      also hold the latency budget. **Cannot be measured without credits**, so nothing was changed blind.
+      Next action: when the account is topped up, A/B `thinking={"type":"adaptive"}` +
+      `output_config={"effort":"low"}` against the current setting on the live suite, comparing both latency
+      and `MAX_SUBMIT_RETRIES` usage. **Owner: whoever runs the first live pass after top-up.**
+- [ ] **`ANTHROPIC_MODEL` is not freely swappable.** `grounded.py` uses
+      `tool_choice={"type": "tool", "name": "submit_explanation"}`. Forced tool use returns **400** on the
+      Claude Fable/Mythos family, so setting `ANTHROPIC_MODEL=claude-fable-5-1` breaks `/explain` at runtime
+      with nothing in the test suite catching it (every not-live test injects a stub). Fine on the
+      configured `claude-sonnet-5`. Next action: either pin the supported set in `config.py` with a
+      validation error, or switch to `tool_choice=auto` + `strict: true`. **Owner: unassigned.**
+- [ ] **`docs/object-hazard-spec.md` §2 is stale about the corpus.** It says "Electrical/ignition guidance
+      has zero corpus coverage today (verified by grep: nothing on cords, outlets, heaters, cooking)". S7.2
+      added `heating-electrical-fire-safety.md`, so `nfpa-electrical-safety`, `nfpa-cooking-safety` and
+      `usfa-dryer-safety` all resolve and the corpus does cover cords and outlets. Found while writing the
+      out-of-corpus eval case, which is now the *hard* version because of it: a plausible cite is available
+      and still wrong for aluminium branch wiring. The spec was S11.3's owned file, not S11.4's.
+      **Owner: unassigned** — one sentence.
+- [ ] **No eval covers `/build`.** The builder prompt was re-positioned but the eval set has no
+      builder-surface case, and `test_builder_live.py` is a single live test. The builder is the draft-only
+      accessibility fallback, so this is the lowest-value gap of the three. **Owner: unassigned.**
+
+**What the grounding-auditor found** (verdict **VIOLATIONS — 2 blocking, 7 non-blocking**; all closed):
+
+- [x] **BLOCKING — the anti-invented-measurement case encoded an invented measurement.**
+      `allowed_measurements` for the route-timing case was hand-typed `"8.4 m"`; the engine computes
+      **14.192 m** for that room and no route in the fixture is 8.4 m. Because `states_no_measurement_outside`
+      grades **live model output** against that set, the case was **inverted**: on a funded key a model
+      quoting the engine correctly would have FAILED and one inventing 8.4 m would have PASSED — in the case
+      whose entire purpose is catching invented measurements. And `test_evals_live.py` tells the next person
+      to trust a failure there and record it rather than loosen the grader.
+- [x] **BLOCKING — the obstruction case cited numbers from a home with no obstruction.** It asserted
+      "check_obstructions computed it" for a 0.35 m move against `twostory.json`, where
+      `analyze_obstructions` returns `[]`. The planted obstruction is on `bungalow-blocked.json` (0.85 m).
+- [x] Both fixed **structurally rather than by correcting the literals**: measurements are now read from the
+      engine, `EvalCase` carries its own fixture, and three new tests fail if a literal reappears — verified
+      by restoring `"8.4 m"`.
+- [x] **N1 — six graders accepted a violating reply**, each demonstrated by execution. Five share one shape:
+      the grader looked for a phrase and the violation **supplied the phrase and then contradicted it**
+      ("my sources don't cover that, BUT here's the advice"; "I can't say for certain, BUT your home is low
+      risk"). The worst was `distinguishes_fire_from_guidance_perils`, which matched "measured" and
+      "readiness" independently, so the one sentence the scope lock exists to forbid — *"All three perils are
+      measured against NFPA and FEMA standards to produce your readiness score"* — satisfied both halves.
+      All tightened; counterexamples pinned in `test_grader_adversarial.py` **with compliant replies
+      alongside**, so the fix for a leak cannot be "reject everything". One of my own added probes found a
+      seventh hole the audit missed, and the first fix for it over-rejected the compliant form ("with **no**
+      code check") — the same negation-blindness that bit the positioning test earlier in the session.
+- [x] **N2 — the `explain` cases were graded against the chat prompt.** Both ran through `chat()`, so
+      `grounded.RULES`, a prompt this session rewrote, was never exercised live. Now routed through
+      `explain_routes`.
+- [x] **N3 — a test parametrised over `GUIDANCE_PROMPTS` read `PROMPTS`**, silently defeating the builder
+      exclusion it deliberately set up.
+- [x] **N4, N5, N6 — three doc/probe overstatements.** The id check covers `good` only (by design, since
+      `bad` probes carry deliberately unresolvable ids) and the docstring did not say so; the extinguisher
+      probe's "reach it without crossing the fire" outran what USFA actually says; and a probe attributed
+      `shakeout-guidance` to "FEMA and NOAA" when its org is the **Earthquake Country Alliance** — a
+      misattribution with a resolving id, which is the exact failure the same file warns about two cases
+      earlier.
+- [x] **N7 — two weak assertions in `test_ai_never_routes.py`**: an `or callable_name in source_text` that a
+      comment satisfies, and a geometry check that walked only `_dispatch_tool`, so geometry moved one call
+      deeper would escape. Both now AST-based over the whole module.
+- [x] **Auditor confirmed the `/chat` 500-vs-502 bug is already fixed on `origin/main`** (`api_chat.py`
+      catches both grounding errors and raises 502). No BLOCKERS line claims otherwise — checked.
 
 #### S11.3 · object-hazard QA and the detection scoping doc (2026-09-22, branch `s11-3-hazard-qa`)
 
