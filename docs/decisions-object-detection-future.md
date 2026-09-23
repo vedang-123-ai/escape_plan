@@ -1,6 +1,9 @@
 # Object detection: what it means here, and what would have to change
 
-**Status: settled 2026-09-22 (S11.3). Supersedes the scoping half of the cancelled S10.2.**
+**Status: settled 2026-09-22 (S11.3), which is where S10.2's scoping half was folded — see
+`decisions.md`, 2026-09-22. S10.2 was never cancelled on the record and never ran as its own
+session; `docs/playbook/S11-3.md` said "folded in here", and playbook files are deleted once
+their session ships, so the row in `decisions.md` is the durable copy of that.**
 This page answers one question a judge, a teammate or a future session will ask: *"you say
 the app detects hazards — detects them how, and why not with a model?"* The rule book is
 [`object-hazard-spec.md`](object-hazard-spec.md); this is the decision behind it.
@@ -44,15 +47,15 @@ asks it.
 
 **S7.9, 2026-09-10 — a timeboxed Vision feasibility spike. Verdict: NO-GO.**
 `VNClassifyImageRequest` (Apple's built-in on-device classifier, no training) was run over
-representative photos of the five target classes. The gate, written into the session's
+one generated photo per class, for five target classes. The gate, written into the session's
 acceptance *before* the spike ran, was 2+ target classes receiving a usable label mapping.
 
-| Target class | Top label | Usable? |
+| Target class | Best label returned | Usable? |
 |---|---|---|
 | Space heater | `structure` (96%) | no |
 | Water heater | `structure` (93%), `portal`, `window` | no |
 | Bookcase | `structure` (98%), `conveyance`, `portal` | no |
-| Wall-mounted TV | `television` (77%) | **yes** |
+| Wall-mounted TV | `consumer_electronics` (77%), with `television` at the same confidence | **yes** |
 | Wall mirror | `structure` (72%), `art`, `decoration` | no |
 
 1 of 5. The spike is `docs/tracker/notes/2026-09-10-s7-9-vision-spike.md`; the ruling is

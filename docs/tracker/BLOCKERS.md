@@ -124,6 +124,104 @@ _S11.1_ **see below** · _S11.2_ **see below** · _S11.3_ **see below** · _S11.
 _S11.7_ none yet · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
 _S11.13_ none yet
 
+#### S11.3 · object-hazard QA and the detection scoping doc (2026-09-22, branch `s11-3-hazard-qa`)
+
+Verified this session: backend **619 passed**, 1 skipped, 13 deselected (was 583 at the branch point;
++36, all this session's). EditorCore **516 passed, 0 failed**. Corpus valid (36 sources, 13 files,
+2 threshold files, 44 tips), unchanged — this session added no corpus content.
+`scripts/typecheck-ios.sh` ok on all four targets against iOS 17.0 (161 app files in both `-DDEBUG`
+and release, 73 test files, 9 UI-test files). **`xcodebuild test` was NOT run** — this machine has no
+working simulator; the iOS app count is still the stale 615 from 2026-09-09. **No Swift changed this
+session**, so nothing here moves §0.
+
+**Closed by this session** (each fixed test-first — reproduction written, watched red, fixed, watched green):
+
+- [x] **BUG-01 — R3 fired `heat_clearance` between two heat sources.** A stove beside a stove produced
+      two findings, each telling the user to move it away from the other. `heat_source` is now excluded
+      from R3's inner loop. The comment the fix replaced was the original author noticing this and
+      deciding not to act: *"Wait, what if they have two heat sources? Let's just trigger for all other
+      objects."*
+- [x] **BUG-02 — room membership was a bounding circle against the room's axis-aligned bounding box.**
+      Now point-in-polygon on the object's centre, so an object belongs to exactly one room.
+      **The QA note scoped this to R1; it was never only R1's** — `room_objects` is built once and read
+      by all five rules, so R3 bled across walls identically. Tested both.
+- [x] **BUG-03 — one unsecured water heater produced two findings** (`hazard.topple.<id>` and
+      `hazard.water_heater_unsecured.<id>`), so the checklist showed two strap-it cards for one action.
+      **Live on `twostory.json`.** R5 wins and absorbs R1's geometry rather than R1 simply being deleted —
+      see `decisions.md`.
+- [x] **BUG-04 — the R1 detail said "the doorway" for every `Opening`, including windows.**
+      **Live on `jagged.json`**, whose bedroom's only opening is a window, so every demo run described a
+      doorway that does not exist. The label now comes from `op.kind`.
+- [x] **BUG-05 (found this session, not in the S10.1 pass) — R1 set `high` severity for any single-exit
+      room *before* testing whether the topple band reached the exit.** Since an unresolved `high` caps
+      the composite score regardless of `scoring` (`score.py`), every unsecured tall object in a one-door
+      room was capping the score on geometry the engine had never checked. Spec §4 R1 says high only
+      when the band *reaches* the only egress; the flag is now set after the intersection test.
+- [x] **The four stock fixtures were snapshotted before and after.** The diff is exactly three lines,
+      all attributable to a fix (the two "live on a fixture" items above, plus the surviving `twostory`
+      R5 finding gaining `target=egress`, `reach_m=0.69`, `threshold_m=1.5`). No severity changed, no
+      finding was added or lost; `bungalow.json` and `apartment.json` remain at zero findings. All four
+      are pinned by name in `test_object_hazards_regressions.py`.
+- [x] **`docs/decisions-object-detection-future.md` is written** (folds in the never-run S10.2). Five
+      falsifiable conditions for revisiting custom ML, not a preference.
+
+**Found and NOT closed** (all outside this session's OWNED FILES or outside its four bugs):
+
+- [ ] **R2 `overhead` carries no structured measured value.** It emits `threshold_m=min_elev` — an
+      ENGINEERING CONSTANT — and leaves `reach_m`/`gap_m`/`clearance_m` all `None`, so the observed
+      `elevation_m` exists only inside the prose `detail`. Spec §2 requires a measured value on every
+      finding, and §4 says engineering constants are "never presented to the user as a safety standard",
+      yet `threshold_m` is the same field where R3 puts a cited NFPA number. Harmless in the checklist
+      (which renders only `detail`) and **exposed to the agent**, which receives the raw field.
+      Pre-existing, found by the grounding-auditor (N4). Fixing it means deciding which field carries a
+      measured elevation, which is a contract question, not a bug fix — so it is written down, not
+      slipped in. `test_every_fixture_finding_carries_a_citation_and_an_action` now names R2's gap in a
+      table instead of hiding it behind `any(field is not None)`. **Owner: unassigned.**
+- [ ] **The agent receives `threshold_m` on rules where it is not a cited standard** and the prompt does
+      not say so. `agent.py:265` forbids the model *inventing* a number; nothing forbids it presenting
+      `threshold_m=1.5` (an object's own height) as a code requirement. One sentence in the
+      `check_object_hazards` tool description closes it. **Owner: S11.4** — `backend/app/ai/` is that
+      session's, and CLAUDE.md says not to touch it outside S11.4. Found by the grounding-auditor (N3).
+- [ ] **An object whose centre lies in no room polygon now gets no hazard analysis at all.** A direct
+      consequence of the BUG-02 fix, and the right default (the old bounding box admitted it to rooms it
+      was not in), but it is a silent drop. No fixture has such an object — verified across all seven in
+      `schema/fixtures/` — and a real scan plausibly could, where a wall line and an object centre nearly
+      coincide. Pinned by `test_an_object_whose_centre_is_in_no_room_is_analysed_by_no_rule` so it is
+      deliberate rather than accidental. **Owner: S11.10** — check it against a real scan export.
+- [ ] **The object-hazard engine has never run on a scan of an actual home.** Everything above is
+      verified on fixtures and hand-computed geometry. The S10.1 real-world scan checklist
+      (`git show 01f6ca0:docs/tracker/TODO.md`) lists eight device-gated items, six of which say
+      "BUG-0n fix required first" — all five fixes are now in, so that checklist is unblocked.
+      **Owner: S11.10.** Its highest-value item is still the last one: commit one real scan export to
+      `schema/fixtures/scans/` exercising R1 and R3, so this stops being unfalsifiable.
+- [ ] **`docs/preparedness-score-weights.md` may be stale for any home with object hazards.** BUG-05
+      removed a class of false `high`, and an unresolved `high` caps the composite — so a home that
+      previously scored capped may now score higher. The four stock fixtures are unaffected (no severity
+      changed on any of them), so S11.2's 73/70/66 still stands; this is only a caution for any *new*
+      worked example. **Owner: S11.5** — confirm before quoting a number.
+
+**What the grounding-auditor found** (run at the end of the session; verdict **GROUNDED, no blocking
+violations**, 7 non-blocking findings):
+
+- [x] **N1 — R5 had inherited R1's `elevation_m == 0` gate**, so a water heater on a stand produced a
+      finding with no number at all *even with a bed inside its topple band* — and I had written that gap
+      into the spec in a narrower form that made it look handled. Fixed with a test; correction row in
+      `decisions.md`. The same session that fixed BUG-03 for costing the user a measured number nearly
+      shipped a second case of it.
+- [x] **N2 — the spec denied a behaviour the code had.** It said the §2 gap was left open "rather than
+      papered over with the object's own height dressed up as a threshold" while the code sets
+      `threshold_m=obj.height_m` on the other branch. The convention is R1's and is fine; the doc now
+      states it and the gap bullet is narrowed to what is actually true.
+- [x] **N5 — the new doc called S10.2 "cancelled"**, which nothing on the record supports; its only trace
+      is a playbook file that gets deleted when this session ships. Reworded, and a `decisions.md` row now
+      carries the durable version.
+- [x] **N6 — two overstatements in the Vision-spike table.** The spike's best label for the TV was
+      `consumer_electronics`, not `television` (same confidence, third in the list), and "representative
+      photos" was one *generated* photo per class. Both corrected.
+- [x] **N7 — stray trailing quote in the spec.** Removed.
+- [x] **N3 and N4 are real and are logged above** rather than fixed: N3 is S11.4's file, N4 is a contract
+      question outside this session's four bugs.
+
 #### S11.2 · peril scoring and honest tiering (2026-09-22, branch `s11-2-peril-scoring`)
 
 Verified this session: backend **583 passed, 1 skipped, 13 deselected** (was 557; +26). Corpus valid

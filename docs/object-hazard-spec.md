@@ -197,8 +197,11 @@ Severity vocabulary is the existing one: `high` caps the composite score while u
   for the same object, putting two cards in the checklist for one action. R5 is the more
   specific rule and wins — and takes R1's geometry with it, so when the heater's topple band
   reaches a bed, a sofa or an egress approach, the R5 finding carries that `target` and
-  `reach_m`. Deleting the R1 finding alone would have left the user the only rule in the set
-  with no measured value, which §2 forbids.
+  `reach_m`, and `threshold_m` carries the topple-band radius (the object's height), exactly as
+  R1 sets it. Unlike R1, R5 does **not** require `elevation_m == 0` — a water heater on a stand
+  still topples, and R1's elevation gate is there to separate floor-standing furniture from a
+  wall shelf (R2's job), which a raised heater is neither. Deleting the R1 finding alone would
+  have left the user the only rule in the set with no measured value, which §2 forbids.
 - **Cites.** `shakeout-guidance`. **Corrected 2026-09-21 (S11.2):** was `fema-earthquake` with
   "an earthquake can tip it and rupture the gas line … at the top and bottom". Ready.gov lists
   water heaters among the heavy items to secure, so the *action* was covered, but the rupture
@@ -206,9 +209,9 @@ Severity vocabulary is the existing one: `high` caps the composite score while u
 - **Detail pattern.** "The water heater isn't strapped. It can reach the doorway 'd_back' 0.7 m
   away if it topples. Secure it to wall studs with two metal straps." The middle sentence is
   present only when the topple band reaches something.
-- **Known §2 gap.** A heater with nothing in reach states no number at all — its trigger is
-  categorical, not a measurement. Logged in `BLOCKERS.md` under S11.3 rather than papered over
-  with the object's own height dressed up as a threshold."
+- **Known §2 gap.** When the topple band reaches *nothing at all*, the finding states no number
+  — the trigger is categorical, not a measurement. That case is logged in `BLOCKERS.md` under
+  S11.3 and left open rather than closed by inventing a measurement the engine did not take.
 
 ### R6 — exit-path obstruction (fire) — already shipped, documented here as part of the feature
 
