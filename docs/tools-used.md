@@ -82,6 +82,19 @@ Added S11.1 (2026-09-21): Earthquake Country Alliance, FEMA Building Science and
 |------|---------|--------------------|---------|
 | `backend/corpus/check_urls.py` | in-repo, stdlib + `curl` | S11.1 source verification: re-fetches every URL in `sources.json`, confirms 200, and greps per-source `verify_keywords` so a page that stops saying what we cite it for is detectable. Network-dependent and **opt-in — deliberately not part of `validate.py` or the gate** | own work |
 
+### The AI layer's eval set (2026-09-23, S11.4)
+
+**No new dependencies.** Recorded because "we evaluated the model" is a claim a judge may
+reasonably assume means a framework, a judge model, or a paid harness. It is none of those.
+
+| Capability | Where it comes from | Note |
+|---|---|---|
+| The 14 eval cases | `backend/tests/evals/cases.py` — plain dataclasses | Each case carries a question, the behaviours required and forbidden, and a pass/fail probe pair. No dataset was downloaded or generated |
+| Grading | `backend/tests/evals/graders.py` — `re` from the stdlib | Deterministic. **No LLM judge**: it would need credits and would make the suite non-deterministic, and every behaviour here is checkable against the corpus, the RoutePlan and a regex |
+| Running without a key | a ~20-line stub replaying scripted text through the real `chat()` | Not a mocking framework and not a recording of real output — a stand-in for one SDK call, so citation validation and the retry loop run exactly as in production |
+| Measurements in the cases | read from `app.routing` at import | Never typed by hand; S11.4's own correction row in `decisions.md` says why |
+| The model | `claude-sonnet-5` via the official `anthropic` SDK (already listed) | Live scoring is `pytest -m live` and needs a funded key; nothing is cached or faked to stand in for it |
+
 ### Object-hazard detection (2026-09-22, S11.3 — arc shipped S7)
 
 **No new dependencies.** Recorded explicitly because "detects hazards in your home" is the
