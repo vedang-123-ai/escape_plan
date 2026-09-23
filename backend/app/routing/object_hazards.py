@@ -50,6 +50,23 @@ def _obb_corners(obj: FloorObject, inflate_w_m: float = 0.0, inflate_d_m: float 
         res.append((rx, ry))
     return res
 
+def _point_in_poly(p: Point, poly: list[Point]) -> bool:
+    """Ray-cast point-in-polygon. The engine's single answer to "is it in here?".
+
+    Lived inline in three places before S11.3, which is how the room-assignment
+    filter (BUG-02) came to use a bounding box instead: the correct helper was
+    already in the file, just not reachable from the loop that needed it.
+    """
+    inside = False
+    j = len(poly) - 1
+    for i in range(len(poly)):
+        # 1e-9 is a math epsilon to prevent division by zero, not a domain threshold
+        if ((poly[i][1] > p[1]) != (poly[j][1] > p[1])) and \
+           (p[0] < (poly[j][0] - poly[i][0]) * (p[1] - poly[i][1]) / (poly[j][1] - poly[i][1] + 1e-9) + poly[i][0]):
+            inside = not inside
+        j = i
+    return inside
+
 def _dist_sq_point_segment(p: Point, a: Point, b: Point) -> float:
     l2 = (a[0] - b[0])**2 + (a[1] - b[1])**2
     if l2 == 0:
@@ -76,21 +93,22 @@ def _dist_segment_segment(a1: Point, a2: Point, b1: Point, b2: Point) -> float:
     d4 = _dist_sq_point_segment(a2, b1, b2)
     return math.sqrt(min(d1, d2, d3, d4))
 
+def _dist_point_to_obb(p: Point, corners: list[Point]) -> float:
+    """Distance from a point to an oriented box; 0 when the point is inside it."""
+    # 0.0 is exact geometric distance, not a domain threshold
+    if _point_in_poly(p, corners):
+        return 0.0
+    md = float('inf')
+    for i in range(4):
+        d_sq = _dist_sq_point_segment(p, corners[i], corners[(i + 1) % 4])
+        if d_sq < md:
+            md = d_sq
+    return math.sqrt(md)
+
 def _obb_distance(corners1: list[Point], corners2: list[Point]) -> float:
     # Check if one is inside the other by point in polygon
-    def point_in_poly(p, poly):
-        inside = False
-        j = len(poly) - 1
-        for i in range(len(poly)):
-            # 1e-9 is a math epsilon to prevent division by zero, not a domain threshold
-            if ((poly[i][1] > p[1]) != (poly[j][1] > p[1])) and \
-               (p[0] < (poly[j][0] - poly[i][0]) * (p[1] - poly[i][1]) / (poly[j][1] - poly[i][1] + 1e-9) + poly[i][0]):
-                inside = not inside
-            j = i
-        return inside
-
-    if any(point_in_poly(p, corners2) for p in corners1): return 0.0
-    if any(point_in_poly(p, corners1) for p in corners2): return 0.0
+    if any(_point_in_poly(p, corners2) for p in corners1): return 0.0
+    if any(_point_in_poly(p, corners1) for p in corners2): return 0.0
 
     min_dist = float('inf')
     for i in range(4):
@@ -106,18 +124,7 @@ def _obb_distance(corners1: list[Point], corners2: list[Point]) -> float:
 
 def _obb_intersects_circle(corners: list[Point], center: Point, radius: float) -> bool:
     # Check if circle center is inside OBB
-    def point_in_poly(p, poly):
-        inside = False
-        j = len(poly) - 1
-        for i in range(len(poly)):
-            # 1e-9 is a math epsilon to prevent division by zero, not a domain threshold
-            if ((poly[i][1] > p[1]) != (poly[j][1] > p[1])) and \
-               (p[0] < (poly[j][0] - poly[i][0]) * (p[1] - poly[i][1]) / (poly[j][1] - poly[i][1] + 1e-9) + poly[i][0]):
-                inside = not inside
-            j = i
-        return inside
-    
-    if point_in_poly(center, corners):
+    if _point_in_poly(center, corners):
         return True
     
     min_dist_sq = float('inf')
@@ -169,24 +176,21 @@ def analyze_object_hazards(home: HomeModel, thresholds: ObjectHazardThresholds) 
     for floor in home.floors:
         polygons = {room.id: list(room.polygon) for room in floor.rooms}
         for room in floor.rooms:
-            # Get objects in this room
-            # For simplicity and purity, since we can't reliably rely on nav_grid's objects_intersecting
-            # we'll just check bounding circles against the room's bounding box as nav_grid does, 
-            # or we can use point_in_polygon for the object center.
-            # Let's use the simplest: object center is in room polygon.
-            room_objects = []
-            for obj in floor.objects:
-                # bounding box check
-                xs = [p[0] for p in room.polygon]
-                ys = [p[1] for p in room.polygon]
-                r = math.hypot(obj.size_m[0], obj.size_m[1]) / 2
-                if (
-                    obj.center[0] + r >= min(xs)
-                    and obj.center[0] - r <= max(xs)
-                    and obj.center[1] + r >= min(ys)
-                    and obj.center[1] - r <= max(ys)
-                ):
-                    room_objects.append(obj)
+            # Which objects are in this room?
+            #
+            # BUG-02 (S10.1 QA, fixed S11.3): this used to inflate the object to a
+            # bounding circle and test it against the room's AXIS-ALIGNED BOUNDING BOX.
+            # That admitted objects whose centre is in a different room — a bed just
+            # over the wall in the living room landed in the bedroom's list, and R1
+            # reported a wardrobe able to reach it "0.5 m away", through the wall. It
+            # also put one object in several rooms at once, duplicating its findings,
+            # and on a non-convex room the AABB covers floor the room does not.
+            #
+            # An object belongs to the room its CENTRE is in, and to exactly one room.
+            # Every rule below reads this list, so the bleed was never only R1's.
+            room_objects = [
+                obj for obj in floor.objects if _point_in_poly(obj.center, list(room.polygon))
+            ]
             
             # Sort for deterministic output
             room_objects.sort(key=lambda o: o.id)
@@ -272,25 +276,8 @@ def analyze_object_hazards(home: HomeModel, thresholds: ObjectHazardThresholds) 
                             # We can just say "the doorway 'op-id'"
                             pass
                             # Actually let's calculate proper distance
-                            def dist_point_poly(p, poly):
-                                inside = False
-                                j = len(poly) - 1
-                                for i in range(len(poly)):
-                                    # 1e-9 is a math epsilon to prevent division by zero, not a domain threshold
-                                    if ((poly[i][1] > p[1]) != (poly[j][1] > p[1])) and \
-                                       (p[0] < (poly[j][0] - poly[i][0]) * (p[1] - poly[i][1]) / (poly[j][1] - poly[i][1] + 1e-9) + poly[i][0]):
-                                        inside = not inside
-                                    j = i
-                                # 0.0 is exact geometric distance, not a domain threshold
-                                if inside: return 0.0
-                                md = float('inf')
-                                for i in range(4):
-                                    d_sq = _dist_sq_point_segment(p, poly[i], poly[(i+1)%4])
-                                    if d_sq < md: md = d_sq
-                                return math.sqrt(md)
-                            
                             # 0.0 bounds exact geometric distance to be non-negative
-                            c_dist = max(0.0, dist_point_poly(goal, obj_corners) - radius)
+                            c_dist = max(0.0, _dist_point_to_obb(goal, obj_corners) - radius)
                             if c_dist < best_dist:
                                 best_dist = c_dist
                                 best_target_name = f"the doorway '{op.id}'"
