@@ -2234,3 +2234,15 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-23T06:20:01Z · vedang-123-ai · `s11-3-hazard-qa` @ `f4b09c8`
+
+**Commits this session**
+  - f4b09c8 Docs: S11.3 handoff — note, decisions rows, tools-used, BLOCKERS
+  - c742856 Docs: the object-detection scoping decision (folds in the cut S10.2)
+  - fc30597 Spec: say what the engine now does, and admit the one gap it leaves
+  - e9148c4 Tests: pin the two defects that were live on stock fixtures
+  - 87182e8 BUG-03, BUG-04, BUG-05: one finding per water heater, and R1 narrates what it found
+  - e56360b BUG-02: an object belongs to the room its centre is in
+  - c9285b3 BUG-01: a stove beside a stove is not a clearance violation
+  - 6dd8489 Tests: the S10.1 reproductions, red
+

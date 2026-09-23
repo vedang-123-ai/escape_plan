@@ -119,6 +119,10 @@ Severity vocabulary is the existing one: `high` caps the composite score while u
   caller — the route corridor itself.
 - **Severity.** `high` when the band reaches a bed or the room's *only* egress approach;
   `info` otherwise.
+  **Corrected 2026-09-22 (S11.3, BUG-05):** the engine set `high` for *any* object in a
+  single-exit room before testing whether the band reached that exit, so the score was
+  capped on geometry nothing had checked. Severity is now decided after the reach test,
+  and over every target reached — not over whichever one happens to be nearest.
 - **Cites.** `shakeout-guidance` (secure top-heavy furniture to wall studs; move it away from
   where people sit and sleep before fastening it; the UCLA Northridge finding that 55% of
   injuries came from falling furniture and 1% from building damage).
@@ -131,7 +135,15 @@ Severity vocabulary is the existing one: `high` caps the composite score while u
 - **Detail sentence pattern.** "The bookcase (1.9 m tall, unsecured) can reach the bed 1.1 m
   away if it topples. Secure it to wall studs; if you rent and cannot drill, move it away from
   where people sit and sleep."
-- **`secured == true` suppresses R1 entirely.**
+- **`secured == true` suppresses R1 entirely.** So does R5: an unsecured water heater is
+  reported once, by R5, which absorbs this rule's measured reach (S11.3, BUG-03 — see R5).
+- **Room membership** is point-in-polygon on the object's centre, so an object belongs to
+  exactly one room. Before S11.3 it was a bounding circle against the room's axis-aligned
+  bounding box, which let a bed in the next room become a topple target through the wall
+  (BUG-02), duplicated findings across rooms, and on a non-convex room covered floor the
+  room does not have. Every rule below reads that same membership.
+- **Detail sentence names the opening by its kind** — "the window 'win1'", not "the
+  doorway 'win1'" (S11.3, BUG-04). The `target` field is `egress` for either.
 
 ### R2 — `overhead` (earthquake)
 
@@ -151,6 +163,11 @@ Severity vocabulary is the existing one: `high` caps the composite score while u
   distance is under the cited clearance (0.9 m / 3 ft — NFPA portable-heater rule, from
   S7.2's new corpus source). Only movable objects trigger it; walls and counters do not
   (RoomPlan doesn't model counters, and telling someone to move their kitchen wall is noise).
+  **Another `heat_source` does not trigger it either** — clarified 2026-09-22 (S11.3,
+  BUG-01). The rule asks whether something that can burn sits in the clearance zone; a
+  stove beside a stove fired twice and told the user to move each away from the other,
+  which is advice addressed at neither. The original spec text did not exclude it and the
+  engine did not either.
 - **Severity.** `high` when the encroaching object is a `bed` or `sofa` (bedding and
   upholstery are the classic heater-fire fuels — cited); `info` otherwise.
 - **Cites.** S7.2's heating-fire source (NFPA/USFA). No rule text ships until that source is
@@ -174,12 +191,27 @@ Severity vocabulary is the existing one: `high` caps the composite score while u
 
 ### R5 — `water_heater_unsecured` (earthquake → fire)
 
-- **Trigger.** `category == water_heater` and `secured == false`. No geometry.
+- **Trigger.** `category == water_heater` and `secured == false`.
 - **Severity.** `high`.
-- **Cites.** `fema-earthquake` (already in corpus: strap to wall studs; tipping ruptures gas
-  lines).
-- **Detail pattern.** "The water heater isn't strapped. An earthquake can tip it and rupture
-  the gas line — strap it to wall studs at the top and bottom."
+- **Subsumes R1.** One heater, one strap-it finding (S11.3, BUG-03): both rules used to fire
+  for the same object, putting two cards in the checklist for one action. R5 is the more
+  specific rule and wins — and takes R1's geometry with it, so when the heater's topple band
+  reaches a bed, a sofa or an egress approach, the R5 finding carries that `target` and
+  `reach_m`, and `threshold_m` carries the topple-band radius (the object's height), exactly as
+  R1 sets it. Unlike R1, R5 does **not** require `elevation_m == 0` — a water heater on a stand
+  still topples, and R1's elevation gate is there to separate floor-standing furniture from a
+  wall shelf (R2's job), which a raised heater is neither. Deleting the R1 finding alone would
+  have left the user the only rule in the set with no measured value, which §2 forbids.
+- **Cites.** `shakeout-guidance`. **Corrected 2026-09-21 (S11.2):** was `fema-earthquake` with
+  "an earthquake can tip it and rupture the gas line … at the top and bottom". Ready.gov lists
+  water heaters among the heavy items to secure, so the *action* was covered, but the rupture
+  mechanism is on no page fetched and the sources say two metal straps, not top and bottom.
+- **Detail pattern.** "The water heater isn't strapped. It can reach the doorway 'd_back' 0.7 m
+  away if it topples. Secure it to wall studs with two metal straps." The middle sentence is
+  present only when the topple band reaches something.
+- **Known §2 gap.** When the topple band reaches *nothing at all*, the finding states no number
+  — the trigger is categorical, not a measurement. That case is logged in `BLOCKERS.md` under
+  S11.3 and left open rather than closed by inventing a measurement the engine did not take.
 
 ### R6 — exit-path obstruction (fire) — already shipped, documented here as part of the feature
 

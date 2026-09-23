@@ -82,6 +82,20 @@ Added S11.1 (2026-09-21): Earthquake Country Alliance, FEMA Building Science and
 |------|---------|--------------------|---------|
 | `backend/corpus/check_urls.py` | in-repo, stdlib + `curl` | S11.1 source verification: re-fetches every URL in `sources.json`, confirms 200, and greps per-source `verify_keywords` so a page that stops saying what we cite it for is detectable. Network-dependent and **opt-in — deliberately not part of `validate.py` or the gate** | own work |
 
+### Object-hazard detection (2026-09-22, S11.3 — arc shipped S7)
+
+**No new dependencies.** Recorded explicitly because "detects hazards in your home" is the
+single claim in this project most likely to be read as a bought-in model, and it is not one.
+The reasoning behind that is `docs/decisions-object-detection-future.md`.
+
+| Capability | Where it comes from | Note |
+|---|---|---|
+| Object recognition | **Apple RoomPlan**, on device, shipped with iOS | ~16 furniture/appliance classes with 3D oriented bounding boxes. Apple's model, not ours, not trained by us, and mapped to the schema by a table in the spec (§7) |
+| The facts no sensor can see | The hazard hunt — a guided editor flow, zero network calls | `secured` is the field that gates R1 and R5, and a strap behind a wardrobe is occluded by the wardrobe. It is a question, not a detection |
+| Every finding | `backend/app/routing/object_hazards.py` — pure Python, `math` from the stdlib | Oriented-bounding-box distance, ray-cast point-in-polygon and segment geometry, ~400 lines, no geometry library (no Shapely, no numpy, no scipy). Pure and deterministic, so the agent's `check_object_hazards` tool and the score read the identical implementation |
+| The thresholds | `backend/corpus/object_hazard_thresholds.json` | Cited values carry a `source_doc_id` resolving in `sources.json`; our own geometric judgment calls are segregated under `engineering_constants` with a written `basis` and are never shown to the user as a safety standard |
+| Vision photo-assist | **cut** | The S7.9 feasibility spike returned NO-GO (1 of 5 target classes usable, 2026-09-10). Listed here because a cancelled dependency is still part of the originality story |
+
 ### iOS cloud sync (2026-09-16, S8.4)
 
 **No new dependencies.** Recorded explicitly because "syncs across devices" is the kind of
