@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from app.models import HomeModel, FloorObject, Opening, Room, Point, ObjectCategory
+from app.models import HomeModel, FloorObject, Opening, OpeningKind, Room, Point, ObjectCategory
 from app.routing.graph import opening_midpoint
 
 @dataclass(frozen=True)
@@ -159,6 +159,110 @@ class ObjectHazardThresholds(BaseModel):
     engineering_constants: EngineeringSection
 
 
+@dataclass(frozen=True)
+class _ToppleTarget:
+    """What an unsecured object's topple band reaches, and how far away it is."""
+    kind: Literal["bed", "sofa", "egress"]
+    name: str
+    dist_m: float
+    is_high: bool
+
+
+def _topple_target(
+    obj: FloorObject,
+    room_objects: list[FloorObject],
+    openings: list[Opening],
+    polygons: dict[str, list[Point]],
+    door_approach_radius_m: float,
+) -> _ToppleTarget | None:
+    """The nearest thing the object's topple band reaches, or None.
+
+    The band is the footprint pushed out by `height_m` on each face — a falling
+    cabinet sweeps roughly its own height. Extracted from R1 in S11.3 so R5 can
+    reuse it: an unsecured water heater emits one finding (BUG-03), and that
+    finding should still carry the measurement R1 was the only one computing.
+
+    Severity, per spec sec 4 R1: high when the band reaches a bed, or reaches the
+    approach of the room's ONLY egress.
+    """
+    band_corners = _obb_corners(obj, obj.height_m, obj.height_m)
+    obj_corners = _obb_corners(obj)
+
+    best: _ToppleTarget | None = None
+    best_dist = float('inf')
+    reaches_bed = False
+
+    for other in room_objects:
+        if other.id == obj.id:
+            continue
+        ocat = other.category.value if hasattr(other.category, "value") else str(other.category)
+        if ocat not in {"bed", "sofa"}:
+            continue
+        other_corners = _obb_corners(other)
+        if _obb_distance(band_corners, other_corners) != 0:
+            continue
+        if ocat == "bed":
+            reaches_bed = True
+        d = _obb_distance(obj_corners, other_corners)
+        if d < best_dist:
+            best_dist = d
+            best = _ToppleTarget(
+                kind="bed" if ocat == "bed" else "sofa",
+                name="the bed" if ocat == "bed" else "the sofa",
+                dist_m=d,
+                is_high=False,
+            )
+
+    reaches_sole_egress = False
+    for op in openings:
+        host_polygon = polygons.get(op.wall_segment.room_id)
+        if not host_polygon:
+            continue
+        goal = opening_midpoint(
+            host_polygon,
+            op.wall_segment.edge_index,
+            op.wall_segment.t0,
+            op.wall_segment.t1,
+        )
+        radius = max(op.width_m / 2, door_approach_radius_m)
+        if not _obb_intersects_circle(band_corners, goal, radius):
+            continue
+        # BUG-05 (found S11.3): `is_high = True` used to be set at the TOP of this
+        # loop, for any room with one opening, before the intersection test had said
+        # anything. So every unsecured tall object in a one-door room came out high
+        # and capped the composite score on geometry the engine never checked. The
+        # flag belongs here, after the band is known to reach the approach.
+        if len(openings) == 1:
+            reaches_sole_egress = True
+        # BUG-04 (S10.1 QA): this said "the doorway" for every Opening, so an egress
+        # WINDOW — the only topple target in a garage or a hallway — was narrated as
+        # a doorway. The label now comes from op.kind.
+        label = "window" if op.kind == OpeningKind.window else "doorway"
+        # 0.0 bounds exact geometric distance to be non-negative
+        c_dist = max(0.0, _dist_point_to_obb(goal, obj_corners) - radius)
+        if c_dist < best_dist:
+            best_dist = c_dist
+            best = _ToppleTarget(
+                kind="egress",
+                name=f"the {label} '{op.id}'",
+                dist_m=c_dist,
+                is_high=False,
+            )
+
+    if best is None:
+        return None
+    # `kind` is the nearest target; severity asks whether ANY reached target is
+    # serious, so it is computed over the whole sweep, not over the winner.
+    # Deriving it from the detail string (the pre-S11.3 code sniffed for "door")
+    # is what made BUG-04's rename silently retarget the finding to "sofa".
+    return _ToppleTarget(
+        kind=best.kind,
+        name=best.name,
+        dist_m=best.dist_m,
+        is_high=reaches_bed or reaches_sole_egress,
+    )
+
+
 def analyze_object_hazards(home: HomeModel, thresholds: ObjectHazardThresholds) -> list[ObjectHazard]:
     hazards = []
     
@@ -199,8 +303,40 @@ def analyze_object_hazards(home: HomeModel, thresholds: ObjectHazardThresholds) 
             for obj in room_objects:
                 cat = obj.category.value if hasattr(obj.category, "value") else str(obj.category)
                 
-                # R5: water heater unsecured
-                if cat == "water_heater" and not obj.secured:
+                # R1's geometry, computed once. R5 borrows it (BUG-03).
+                topple_cat = cat in {"wardrobe", "bookcase", "storage", "water_heater"}
+                min_h = thresholds.engineering_constants.topple_min_height_m.value
+                slenderness = thresholds.engineering_constants.topple_slenderness_ratio.value
+                is_topple_prone = topple_cat or (obj.height_m >= min_h and (obj.height_m / min(obj.size_m)) >= slenderness)
+
+                topple_applies = not obj.secured and obj.elevation_m == 0 and is_topple_prone
+                target = (
+                    _topple_target(
+                        obj,
+                        room_objects,
+                        openings,
+                        polygons,
+                        thresholds.engineering_constants.door_approach_radius_m.value,
+                    )
+                    if topple_applies
+                    else None
+                )
+
+                # R5: water heater unsecured.
+                #
+                # BUG-03 (S10.1 QA, fixed S11.3): R5 and R1 both fired for the same
+                # heater, so the checklist showed two strap-it cards for one object
+                # (`hazard.water_heater_unsecured.wh1` AND `hazard.topple.wh1`).
+                # R5 is the more specific rule and wins — but simply deleting the R1
+                # finding would have cost the user the only measured number either
+                # rule produced, which spec sec 2 forbids. So R5 absorbs the reach:
+                # one finding, one action, and the measurement survives.
+                fires_r5 = cat == "water_heater" and not obj.secured
+                if fires_r5:
+                    detail = "The water heater isn't strapped."
+                    if target is not None:
+                        detail += f" It can reach {target.name} {target.dist_m:.1f} m away if it topples."
+                    detail += " Secure it to wall studs with two metal straps."
                     hazards.append(ObjectHazard(
                         rule_id="water_heater_unsecured",
                         severity="high",
@@ -209,8 +345,11 @@ def analyze_object_hazards(home: HomeModel, thresholds: ObjectHazardThresholds) 
                         room_name=room.name,
                         object_id=obj.id,
                         object_category=cat,
-                        target=None,
-                        reach_m=None, gap_m=None, clearance_m=None, threshold_m=None,
+                        target=target.kind if target else None,
+                        reach_m=target.dist_m if target else None,
+                        gap_m=None,
+                        clearance_m=None,
+                        threshold_m=obj.height_m if target else None,
                         # Was fema-earthquake with "an earthquake can tip it and
                         # rupture the gas line ... at the top and bottom". Ready.gov
                         # lists water heaters among the heavy items to secure, so the
@@ -220,92 +359,34 @@ def analyze_object_hazards(home: HomeModel, thresholds: ObjectHazardThresholds) 
                         # not top and bottom — the CPC's strap positions were
                         # unreachable behind a paywall (decisions.md 2026-09-21).
                         citation="shakeout-guidance",
-                        detail="The water heater isn't strapped. Secure it to wall studs with two metal straps."
+                        detail=detail
                     ))
-                
-                # R1: topple
-                topple_cat = cat in {"wardrobe", "bookcase", "storage", "water_heater"}
-                min_h = thresholds.engineering_constants.topple_min_height_m.value
-                slenderness = thresholds.engineering_constants.topple_slenderness_ratio.value
-                
-                is_topple_prone = topple_cat or (obj.height_m >= min_h and (obj.height_m / min(obj.size_m)) >= slenderness)
-                
-                if not obj.secured and obj.elevation_m == 0 and is_topple_prone:
-                    # check targets
-                    # topple band is obj footprint inflated by height_m
-                    band_corners = _obb_corners(obj, obj.height_m, obj.height_m)
-                    obj_corners = _obb_corners(obj)
-                    
-                    best_target_name = None
-                    best_dist = float('inf')
-                    is_high = False
-                    
-                    for other in room_objects:
-                        if other.id == obj.id: continue
-                        ocat = other.category.value if hasattr(other.category, "value") else str(other.category)
-                        if ocat in {"bed", "sofa"}:
-                            other_corners = _obb_corners(other)
-                            if _obb_distance(band_corners, other_corners) == 0:
-                                d = _obb_distance(obj_corners, other_corners)
-                                if d < best_dist:
-                                    best_dist = d
-                                    best_target_name = "the bed" if ocat == "bed" else "the sofa"
-                                    if ocat == "bed":
-                                        is_high = True
-                                        
-                    for op in openings:
-                        if len(openings) == 1:
-                            is_high = True
-                        
-                        host_polygon = polygons.get(op.wall_segment.room_id)
-                        if not host_polygon: continue
-                        goal = opening_midpoint(
-                            host_polygon,
-                            op.wall_segment.edge_index,
-                            op.wall_segment.t0,
-                            op.wall_segment.t1
-                        )
-                        min_radius = thresholds.engineering_constants.door_approach_radius_m.value
-                        radius = max(op.width_m / 2, min_radius)
-                        if _obb_intersects_circle(band_corners, goal, radius):
-                            # compute distance from object to goal minus radius
-                            d = float('inf')
-                            # exact distance from OBB to circle is dist(OBB, center) - radius
-                            # We'll just approximate dist as dist to center
-                            # or _dist_sq_point_segment to the corners.
-                            # We can just say "the doorway 'op-id'"
-                            pass
-                            # Actually let's calculate proper distance
-                            # 0.0 bounds exact geometric distance to be non-negative
-                            c_dist = max(0.0, _dist_point_to_obb(goal, obj_corners) - radius)
-                            if c_dist < best_dist:
-                                best_dist = c_dist
-                                best_target_name = f"the doorway '{op.id}'"
-                                
-                    if best_target_name:
-                        cat_str = cat.replace('_', ' ')
-                        # "adhesive strap kits work for renters" was deleted from
-                        # the corpus on 2026-09-21 as unsourced (see
-                        # earthquake-securing-home.md, "What this corpus does not
-                        # claim"), but survived here under a shakeout-guidance
-                        # cite that resolves. Removed in S11.2: this is the text a
-                        # renter actually sees, because mitigation_items suppresses
-                        # its own item for any object that produced a topple hazard.
-                        detail = f"The {cat_str} ({obj.height_m:.1f} m tall, unsecured) can reach {best_target_name} {best_dist:.1f} m away if it topples. Secure it to wall studs; if you rent and cannot drill, move it away from where people sit and sleep."
-                        hazards.append(ObjectHazard(
-                            rule_id="topple",
-                            severity="high" if is_high else "info",
-                            floor_id=floor.id,
-                            room_id=room.id,
-                            room_name=room.name,
-                            object_id=obj.id,
-                            object_category=cat,
-                            target="egress" if "door" in best_target_name else "bed" if "bed" in best_target_name else "sofa",
-                            reach_m=best_dist, gap_m=None, clearance_m=None, threshold_m=obj.height_m,
-                            citation="shakeout-guidance",
-                            detail=detail
-                        ))
-                
+
+                # R1: topple. Suppressed for anything R5 already reported.
+                if target is not None and not fires_r5:
+                    cat_str = cat.replace('_', ' ')
+                    # "adhesive strap kits work for renters" was deleted from
+                    # the corpus on 2026-09-21 as unsourced (see
+                    # earthquake-securing-home.md, "What this corpus does not
+                    # claim"), but survived here under a shakeout-guidance
+                    # cite that resolves. Removed in S11.2: this is the text a
+                    # renter actually sees, because mitigation_items suppresses
+                    # its own item for any object that produced a topple hazard.
+                    detail = f"The {cat_str} ({obj.height_m:.1f} m tall, unsecured) can reach {target.name} {target.dist_m:.1f} m away if it topples. Secure it to wall studs; if you rent and cannot drill, move it away from where people sit and sleep."
+                    hazards.append(ObjectHazard(
+                        rule_id="topple",
+                        severity="high" if target.is_high else "info",
+                        floor_id=floor.id,
+                        room_id=room.id,
+                        room_name=room.name,
+                        object_id=obj.id,
+                        object_category=cat,
+                        target=target.kind,
+                        reach_m=target.dist_m, gap_m=None, clearance_m=None, threshold_m=obj.height_m,
+                        citation="shakeout-guidance",
+                        detail=detail
+                    ))
+
                 # R2: overhead
                 min_elev = thresholds.engineering_constants.overhead_min_elevation_m.value
                 if obj.elevation_m >= min_elev:
