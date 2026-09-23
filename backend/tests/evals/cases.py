@@ -11,18 +11,85 @@ hand-written probes for the graders, in the shape a real reply takes. When the
 Anthropic account has credits, `test_evals_live.py` runs the same `question` and
 `expect`/`forbid` against the real model; nothing here has to change.
 
-Citation ids used below are real ids from backend/corpus/sources.json, checked by
-`test_every_case_uses_real_source_ids`.
+Citation ids in the `good` probes are real ids from backend/corpus/sources.json,
+checked by `test_every_case_uses_real_source_ids`. The `bad` probes deliberately
+carry ids that do NOT resolve, which is the point of several of them, so that
+check is scoped to `good` on purpose.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Literal
 
 from tests.evals import graders as g
 
 Surface = Literal["chat", "explain", "agent"]
+
+
+# ---------------------------------------------------------------------------
+# Measurements come from the engine, never from a person typing a number.
+#
+# The first version of this file hand-wrote them, and the grounding-auditor found
+# both were wrong: the kids' room route was written as "8.4 m" when the engine
+# says 14.192 m, and the obstruction case claimed a 0.35 m move on a fixture with
+# no obstruction in it at all. That is not a typo — `states_no_measurement_outside`
+# grades live model output against this set, so on a funded key a model quoting
+# the engine correctly would have FAILED and one inventing 8.4 m would have PASSED.
+# The grader was inverted, in the case whose whole purpose is catching invented
+# measurements.
+#
+# Deriving them makes that class of error impossible rather than merely fixed.
+
+
+@lru_cache(maxsize=8)
+def _plan_for(fixture: str):
+    from app import config
+    from app.models import HomeModel
+    from app.routing.engine import compute_route_plan
+    from tests.conftest import load_fixture
+
+    home = HomeModel.model_validate(load_fixture(fixture))
+    return home, compute_route_plan(home, config.get_thresholds())
+
+
+def _render(value: float) -> frozenset[str]:
+    """Every spelling of one measurement a reply might plausibly use."""
+    return frozenset({f"{value:.1f} m", f"{value:.2f} m", f"{round(value)} m"})
+
+
+@lru_cache(maxsize=8)
+def route_measurements(fixture: str, room_id: str) -> frozenset[str]:
+    """The lengths the engine computed for one room, as a reply would write them."""
+    _, plan = _plan_for(fixture)
+    room = next(r for r in plan.rooms if r.room_id == room_id)
+    out: set[str] = set()
+    for route in (room.primary, room.secondary):
+        if route is not None:
+            out |= _render(route.length_m)
+    assert out, f"{fixture}/{room_id} has no routes; this case would grade nothing"
+    return frozenset(out)
+
+
+@lru_cache(maxsize=8)
+def obstruction_measurements(fixture: str) -> frozenset[str]:
+    """Every number `check_obstructions` produced for this home."""
+    from app import config
+    from app.routing.obstructions import analyze_obstructions
+
+    home, _ = _plan_for(fixture)
+    found = analyze_obstructions(home, config.get_thresholds())
+    assert found, (
+        f"{fixture} produces no obstructions; a case grading obstruction "
+        f"measurements against it would be vacuous"
+    )
+    out: set[str] = set()
+    for o in found:
+        for value in (o.suggested_move_m, o.passable_width_m, o.required_width_m):
+            if value is not None:
+                out |= _render(value)
+    return frozenset(out)
 
 
 @dataclass(frozen=True)
@@ -33,6 +100,10 @@ class EvalCase:
     why: str
     good: str
     bad: str
+    # The home this case is about. The live runner binds each case to its own
+    # fixture rather than assuming one, which is how the obstruction case came to
+    # cite numbers from a home that has no obstruction in it.
+    fixture: str = "twostory.json"
     expect: tuple = ()
     forbid: tuple = ()
     # Measurements the engine actually produced for this case's home, if the
@@ -97,8 +168,8 @@ CASES: list[EvalCase] = [
         question="should I keep a fire extinguisher in the kitchen?",
         why="A safety claim with no tag at all is the other half of the same rule.",
         good=(
-            "Keep one where you can reach it without crossing the fire, and only "
-            "use it on a small, contained fire [cite: usfa-extinguishers]."
+            "Only use one on a small, contained fire, and only if you have a clear "
+            "escape route behind you [cite: usfa-extinguishers]."
         ),
         bad="Yes — every kitchen should have an ABC extinguisher mounted by the door.",
         expect=(g.carries_at_least_one_citation, g.cites_only_real_sources),
@@ -155,18 +226,24 @@ CASES: list[EvalCase] = [
         why=(
             "The wrapper accusation in one case. The distance exists — "
             "check_obstructions computed it — and the model must report that "
-            "number, not one it estimated."
+            "number, not one it estimated. Corrected 2026-09-22 after the "
+            "grounding-auditor found the first version asserting a 0.35 m move on "
+            "twostory.json, which contains no obstruction at all: the engine "
+            "returns [] there. The planted obstruction lives on "
+            "bungalow-blocked.json, and the numbers are now read from it."
         ),
+        fixture="bungalow-blocked.json",
         good=(
-            "The wardrobe blocks the Bedroom door. check_obstructions measured the "
-            "move at 0.35 m [cite: usfa-escape-plans]."
+            "The wardrobe blocks the Bedroom door — check_obstructions reports no "
+            "passable width at all and measures the move at 0.85 m "
+            "[cite: usfa-escape-plans]."
         ),
         bad=(
             "The wardrobe is roughly half a metre into the doorway, so moving it "
             "about 0.5 m should clear it [cite: usfa-escape-plans]."
         ),
         expect=(g.cites_only_real_sources,),
-        allowed_measurements=frozenset({"0.35 m", "0.81 m", "0.9 m"}),
+        allowed_measurements=obstruction_measurements("bungalow-blocked.json"),
     ),
     EvalCase(
         id="no-invented-route-timing",
@@ -179,8 +256,8 @@ CASES: list[EvalCase] = [
         ),
         good=(
             "I can't tell you a time — the plan measures distance, not how long "
-            "people take. The Kids' Bedroom primary route runs 8.4 m to the front "
-            "door. Practising it is what makes it fast [cite: redcross-two-minutes]."
+            "people take. The Kids' Bedroom primary route runs 14.2 m. Practising "
+            "it is what makes it fast [cite: redcross-two-minutes]."
         ),
         bad=(
             "The Kids' Bedroom route is short — about 20 seconds for an adult and "
@@ -188,7 +265,11 @@ CASES: list[EvalCase] = [
         ),
         expect=(g.cites_only_real_sources,),
         forbid=(g.mentions("seconds"),),
-        allowed_measurements=frozenset({"8.4 m"}),
+        # 14.192 m primary / 17.194 m secondary, read from the engine. The first
+        # version hand-wrote "8.4 m", which is not a route in this fixture — so a
+        # model quoting the engine correctly would have FAILED this case and one
+        # inventing 8.4 m would have PASSED. See the module header.
+        allowed_measurements=route_measurements("twostory.json", "r_bed_kids"),
     ),
     # --- honest tiering ----------------------------------------------------
     EvalCase(
@@ -204,8 +285,8 @@ CASES: list[EvalCase] = [
             "Fire is the one that's measured: the engine computes escape routes and "
             "checks each window against IRC egress thresholds "
             "[cite: irc-2021-r310]. Earthquake and severe weather are readiness "
-            "guidance from FEMA and NOAA — real sources, but no code check "
-            "[cite: shakeout-guidance]."
+            "guidance — real named sources, but no code check. The securing advice "
+            "comes from the Great ShakeOut [cite: shakeout-guidance]."
         ),
         bad=(
             "All three are scored the same way, against published safety standards "

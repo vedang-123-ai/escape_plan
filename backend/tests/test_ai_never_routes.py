@@ -72,9 +72,21 @@ def test_every_registered_tool_is_accounted_for() -> None:
 
 
 def test_the_agent_module_imports_its_engines_rather_than_reimplementing_them() -> None:
+    """Bound names only.
+
+    This used to accept `or callable_name in AGENT_SRC.read_text()`, which a
+    comment mentioning the name satisfies — the assertion could pass on a module
+    that had deleted the import (grounding-auditor, N7).
+    """
+    tree = ast.parse(AGENT_SRC.read_text())
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            imported |= {a.asname or a.name for a in node.names}
     for callable_name in DELEGATING_TOOLS.values():
-        assert hasattr(agent, callable_name) or callable_name in AGENT_SRC.read_text(), (
-            f"{callable_name} is not reachable from agent.py"
+        assert callable_name in imported or hasattr(agent, callable_name), (
+            f"{callable_name} is not imported into agent.py — a tool claiming to "
+            f"delegate to it cannot be doing so"
         )
 
 
@@ -85,19 +97,21 @@ def test_no_tool_dispatch_branch_does_its_own_geometry() -> None:
     test and a real call does.
     """
     tree = ast.parse(AGENT_SRC.read_text())
-    dispatch = next(
-        n for n in ast.walk(tree)
-        if isinstance(n, ast.FunctionDef) and n.name == "_dispatch_tool"
-    )
     banned = {"sqrt", "hypot", "dist", "atan2", "cos", "sin", "radians"}
-    for node in ast.walk(dispatch):
-        if isinstance(node, ast.Call):
-            func = node.func
-            name = getattr(func, "attr", None) or getattr(func, "id", None)
-            assert name not in banned, (
-                f"_dispatch_tool calls {name}() — geometry belongs in app.routing, "
-                f"not in the layer that talks to the model"
-            )
+    # Every function in the module, not only `_dispatch_tool`: geometry moved one
+    # call deeper into a private helper would otherwise escape the check
+    # (grounding-auditor, N7). The module has no legitimate reason to do
+    # trigonometry anywhere — that is what app.routing is for.
+    for func in ast.walk(tree):
+        if not isinstance(func, ast.FunctionDef):
+            continue
+        for node in ast.walk(func):
+            if isinstance(node, ast.Call):
+                called = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
+                assert called not in banned, (
+                    f"agent.{func.name}() calls {called}() — geometry belongs in "
+                    f"app.routing, not in the layer that talks to the model"
+                )
 
 
 def test_compute_routes_returns_exactly_what_the_engine_returns(twostory, thresholds):

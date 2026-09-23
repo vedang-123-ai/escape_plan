@@ -28,6 +28,7 @@ from app.models import HomeModel
 from app.routing.engine import compute_route_plan
 from tests.conftest import load_fixture
 from tests.evals import graders as g
+from tests.evals import cases as cases_module
 from tests.evals.cases import CASES, EvalCase
 
 CASE_IDS = [c.id for c in CASES]
@@ -123,6 +124,51 @@ def test_every_case_uses_real_source_ids(case: EvalCase) -> None:
     valid = valid_source_ids()
     bogus = sorted(set(CITE_RE.findall(case.good)) - valid)
     assert not bogus, f"{case.id}: `good` cites non-existent source ids {bogus}"
+
+
+MEASURING_CASES = [c for c in CASES if c.allowed_measurements]
+
+
+@pytest.mark.parametrize(
+    "case", MEASURING_CASES, ids=[c.id for c in MEASURING_CASES]
+)
+def test_allowed_measurements_come_from_the_engine(case: EvalCase) -> None:
+    """The guard for the defect the grounding-auditor found in this file.
+
+    `states_no_measurement_outside` grades real model output against this set, so
+    a hand-typed number here INVERTS the case: the model is failed for quoting the
+    engine and passed for inventing. Both measuring cases shipped that way in the
+    first draft ("8.4 m" for a 14.192 m route; a 0.35 m move on a fixture with no
+    obstruction). Every entry must now be reproducible from the engine.
+    """
+    from tests.evals.cases import obstruction_measurements, route_measurements
+
+    derived: set[str] = set()
+    _, plan = cases_module._plan_for(case.fixture)
+    for room in plan.rooms:
+        derived |= route_measurements(case.fixture, room.room_id)
+    try:
+        derived |= obstruction_measurements(case.fixture)
+    except AssertionError:
+        pass  # this fixture has no obstructions; routes alone must cover the case
+
+    unexplained = sorted(set(case.allowed_measurements) - derived)
+    assert not unexplained, (
+        f"{case.id}: {unexplained} is not a measurement the engine produced for "
+        f"{case.fixture} — a literal typed here inverts the grader"
+    )
+    assert case.allowed_measurements, f"{case.id}: empty allowed set grades nothing"
+
+
+@pytest.mark.parametrize("case", CASES, ids=CASE_IDS)
+def test_the_good_probe_quotes_only_engine_measurements(case: EvalCase) -> None:
+    """The probe text and the allowed set must agree, or the case teaches a lie."""
+    if not case.allowed_measurements:
+        return
+    grader = g.states_no_measurement_outside(set(case.allowed_measurements))
+    assert grader(case.good) is None, (
+        f"{case.id}: the passing probe quotes a number the engine did not produce"
+    )
 
 
 @pytest.mark.parametrize("case", CASES, ids=CASE_IDS)

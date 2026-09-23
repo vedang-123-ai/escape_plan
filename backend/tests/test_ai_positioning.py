@@ -162,7 +162,7 @@ def test_every_guidance_prompt_is_honest_about_what_is_quantified(name: str) -> 
     S11.2 made the same distinction load-bearing in the score (`sub_scores` and
     the `basis` map). The prompts were the half that still said nothing.
     """
-    text = " ".join(PROMPTS[name].lower().split())
+    text = " ".join(GUIDANCE_PROMPTS[name].lower().split())
     assert "guidance" in text, f"{name} never says the non-fire perils are guidance"
     assert re.search(r"code[- ]?(?:quantified|checked)|codified", text), (
         f"{name} never says fire is the code-quantified one"
