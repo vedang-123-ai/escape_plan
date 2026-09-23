@@ -359,10 +359,13 @@ def analyze_object_hazards(home: HomeModel, thresholds: ObjectHazardThresholds) 
                     for other in room_objects:
                         if other.id == obj.id: continue
                         ocat = other.category.value if hasattr(other.category, "value") else str(other.category)
-                        # "Only movable objects trigger it; walls and counters do not"
-                        # All RoomPlan mapped objects are movable except perhaps heat_source itself
-                        # We'll trigger for anything that isn't a heat_source or whatever
-                        # Wait, what if they have two heat sources? Let's just trigger for all other objects.
+                        # BUG-01 (S10.1 QA, fixed S11.3): another heat source is not a
+                        # thing that can burn. R3 asks whether combustible contents sit
+                        # inside a heater's clearance zone; a stove beside a stove fired
+                        # twice and told the user to move each away from the other, which
+                        # is advice addressed at neither. Spec sec 4 R3 now says so.
+                        if ocat == "heat_source":
+                            continue
                         other_corners = _obb_corners(other)
                         dist = _obb_distance(obj_corners, other_corners)
                         if dist < clearance:
