@@ -310,17 +310,26 @@ def analyze_object_hazards(home: HomeModel, thresholds: ObjectHazardThresholds) 
                 is_topple_prone = topple_cat or (obj.height_m >= min_h and (obj.height_m / min(obj.size_m)) >= slenderness)
 
                 topple_applies = not obj.secured and obj.elevation_m == 0 and is_topple_prone
-                target = (
-                    _topple_target(
+                fires_r5 = cat == "water_heater" and not obj.secured
+
+                # R5 does NOT inherit R1's `elevation_m == 0` gate.
+                #
+                # N1 (grounding-auditor, S11.3): it did at first, and a water heater on
+                # a stand — common in a garage, and required outright where the ignition
+                # source must be raised — came out with no target, no reach and no
+                # threshold even with a bed inside its topple band. R1's elevation gate
+                # exists to separate floor-standing furniture from a wall shelf (R2's
+                # job); a raised water heater is neither, and it still topples.
+                if topple_applies or fires_r5:
+                    target = _topple_target(
                         obj,
                         room_objects,
                         openings,
                         polygons,
                         thresholds.engineering_constants.door_approach_radius_m.value,
                     )
-                    if topple_applies
-                    else None
-                )
+                else:
+                    target = None
 
                 # R5: water heater unsecured.
                 #
@@ -331,7 +340,6 @@ def analyze_object_hazards(home: HomeModel, thresholds: ObjectHazardThresholds) 
                 # finding would have cost the user the only measured number either
                 # rule produced, which spec sec 2 forbids. So R5 absorbs the reach:
                 # one finding, one action, and the measurement survives.
-                fires_r5 = cat == "water_heater" and not obj.secured
                 if fires_r5:
                     detail = "The water heater isn't strapped."
                     if target is not None:

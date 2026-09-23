@@ -465,12 +465,28 @@ def test_every_fixture_finding_carries_a_citation_and_an_action(name, real_thres
         (Path(__file__).resolve().parents[1] / "corpus" / "sources.json").read_text()
     )
     valid = {s["id"] for s in sources["sources"]}
+    # Which field carries the MEASURED value for each rule — the thing the engine
+    # actually observed about this home, as opposed to the constant it compared
+    # against. `any(field is not None)` is not good enough: it passes a finding whose
+    # only number is the threshold, which is exactly R2's gap (N4, logged in BLOCKERS
+    # for whoever revisits it — R2's measured elevation lives only in the prose).
+    measured_field = {
+        "topple": "reach_m",
+        "heat_clearance": "clearance_m",
+        "water_heater_unsecured": "reach_m",  # None only when nothing is in reach
+        "overhead": None,  # N4: no structured measured value today
+    }
     for h in _fixture_hazards(name, real_thresholds):
         assert h.citation in valid, f"{name}: {h.citation} does not resolve"
         assert h.detail.rstrip().endswith("."), f"{name}: {h.object_id} detail is not a sentence"
-        assert any(
-            n is not None for n in (h.reach_m, h.gap_m, h.clearance_m, h.threshold_m)
-        ), f"{name}: {h.rule_id} on {h.object_id} states no measured value"
+        assert h.threshold_m is not None or h.clearance_m is not None, (
+            f"{name}: {h.rule_id} on {h.object_id} states nothing to compare against"
+        )
+        field = measured_field[h.rule_id]
+        if field is not None:
+            assert getattr(h, field) is not None, (
+                f"{name}: {h.rule_id} on {h.object_id} states no measured {field}"
+            )
 
 
 def test_jagged_narrates_its_egress_window_as_a_window(real_thresholds):
@@ -524,3 +540,43 @@ def test_an_object_whose_centre_is_in_no_room_is_analysed_by_no_rule(thresholds)
         ],
     )
     assert analyze_object_hazards(home, thresholds) == []
+
+
+def test_a_raised_water_heater_still_measures_what_it_can_fall_on(thresholds):
+    """N1 (grounding-auditor, S11.3): R5 borrowed R1's `elevation_m == 0` gate.
+
+    A water heater on a stand — common in a garage, and required outright where the
+    ignition source must be raised — therefore produced a finding with no `target`,
+    no `reach_m` and no `threshold_m`, even with a bed squarely inside its topple
+    band. Spec sec 2 says every finding states a measured value; this one stated
+    none. A raised heater still topples, so R5 computes the reach regardless of
+    elevation.
+    """
+    home = _one_room(
+        [
+            FloorObject(source="manual", id="wh1", category=ObjectCategory.water_heater,
+                        center=(1, 1), size_m=(0.5, 0.5), height_m=1.5,
+                        elevation_m=0.4, secured=False),
+            FloorObject(source="manual", id="bed1", category=ObjectCategory.bed,
+                        center=(2.6, 1), size_m=(2, 2), height_m=0.5),
+        ]
+    )
+    (h,) = analyze_object_hazards(home, thresholds)
+    assert h.rule_id == "water_heater_unsecured"
+    assert h.target == "bed"
+    assert h.reach_m is not None and h.threshold_m is not None
+    assert "can reach the bed" in h.detail
+
+
+def test_r1_is_still_gated_on_elevation_for_everything_else(thresholds):
+    """Relaxing the gate is R5's alone. A shelf 0.4 m up does not topple; R2 owns it."""
+    home = _one_room(
+        [
+            FloorObject(source="manual", id="store1", category=ObjectCategory.storage,
+                        center=(1, 1), size_m=(0.5, 0.5), height_m=1.5,
+                        elevation_m=0.4, secured=False),
+            FloorObject(source="manual", id="bed1", category=ObjectCategory.bed,
+                        center=(2.6, 1), size_m=(2, 2), height_m=0.5),
+        ]
+    )
+    assert [h.rule_id for h in analyze_object_hazards(home, thresholds)] == []
