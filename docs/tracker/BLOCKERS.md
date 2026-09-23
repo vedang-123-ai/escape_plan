@@ -61,7 +61,7 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
 | §2 device checklist 2.4-2.6, 2.9, real-scan verification, AR Drill on device | S11.10 |
 | S8 auth screens, Keychain, sync criteria that need a simulator or two devices | S11.7 (signed-out proof, privacy, delete) and S11.8 |
 | S8.4 "do local homes belong to whoever signs in" (ruled 2026-09-16: first account adopts, second never) | S11.7 confirms the ruling in the UI |
-| §3 hazard-engine defects BUG-01..04 | S11.3 |
+| ~~§3 hazard-engine defects BUG-01..04~~ **all four fixed + a fifth (BUG-05) found, 2026-09-22** | S11.3 — done |
 | §3 `RouteFinding.citation`, earthquake/tornado depth | S11.2, S11.1 |
 | §4 flake, console undercount | S11.8 |
 | §5 submission path (script, table-read, film, submit) | S11.12, S11.13 |
@@ -120,7 +120,7 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
 
 ### S11.1 to S11.13: session findings (append under your heading)
 
-_S11.1_ **see below** · _S11.2_ **see below** · _S11.3_ none yet · _S11.4_ none yet · _S11.5_ none yet · _S11.6_ none yet ·
+_S11.1_ **see below** · _S11.2_ **see below** · _S11.3_ **see below** · _S11.4_ none yet · _S11.5_ none yet · _S11.6_ none yet ·
 _S11.7_ none yet · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
 _S11.13_ none yet
 
