@@ -237,6 +237,54 @@ final class AuthSession {
         persistenceWarning = nil
     }
 
+    /// Delete the account and everything the server holds for it, then end the session.
+    ///
+    /// Returns `true` only when the server confirmed. The caller shows a failure otherwise:
+    /// this is the one operation where "it probably worked" is not good enough, because the
+    /// user is being told their data is gone.
+    ///
+    /// **Nothing local is deleted.** The homes on this device predate the account and outlive
+    /// it — the app is local-first, they are readable signed out, and quietly erasing a user's
+    /// floor plans because they closed an account they only ever used for backup would be the
+    /// worst failure this layer could have. `AccountPrivacy.deletionSummary` says so on screen
+    /// so the promise and the behaviour are the same sentence.
+    ///
+    /// Bumps `generation` the way `signOut()` does, and for the same reason: this is a
+    /// deliberate user-driven end to the session, so no reply still in flight may be adopted
+    /// afterwards. Measured honestly, it is defence in depth rather than the only thing
+    /// holding that line — `refresh()`'s post-await `state.isSignedIn` re-check already
+    /// rejects a late reply on its own. It is here so the three session-ending paths have one
+    /// shape, not because a test can distinguish it.
+    @discardableResult
+    func deleteAccount() async -> Bool {
+        guard !isWorking, let token else { return false }
+        generation += 1
+
+        isWorking = true
+        failure = nil
+        persistenceWarning = nil
+        defer { isWorking = false }
+
+        do {
+            try await client.deleteAccount(token: token)
+        } catch let authFailure as AuthFailure {
+            // A 401 means the account is already gone — someone deleted it from another
+            // device, or the token aged out. Either way there is nothing left to delete, so
+            // ending the session locally is the correct outcome rather than an error the user
+            // can do nothing about.
+            guard authFailure.kind == .invalidCredentials else {
+                failure = authFailure
+                return false
+            }
+        } catch {
+            failure = AuthFailure(transport: error)
+            return false
+        }
+
+        endSession()
+        return true
+    }
+
     /// "Continue without an account". Remembered, so the gate does not nag on every launch.
     func continueWithoutAccount() {
         generation += 1

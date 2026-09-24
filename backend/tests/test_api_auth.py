@@ -302,3 +302,145 @@ class TestWireContract:
         ).json()
 
         assert updated["created_at"] == created["created_at"]
+
+
+def other_header(client: TestClient, email: str = "other@example.com") -> dict:
+    """Register a SECOND account and return its auth header.
+
+    Every cross-account assertion below needs one, and writing it inline three
+    times is how one of them quietly ends up reusing the first account's token
+    and passing for the wrong reason.
+    """
+    register(client, email=email)
+    token = login(client, email=email).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+class TestDeleteHome:
+    """S11.7: `DELETE /homes/{id}`. Before this the backend had no delete
+    endpoint at all, which is why the iOS sync layer carries tombstones."""
+
+    def test_deleting_your_own_home_is_204_and_it_is_gone(self, client, bungalow):
+        register(client)
+        headers = auth_header(client)
+        home_id = client.post(
+            "/homes", json={"home": bungalow}, headers=headers
+        ).json()["id"]
+
+        assert client.delete(f"/homes/{home_id}", headers=headers).status_code == 204
+        assert client.get("/homes", headers=headers).json() == []
+
+    def test_deleting_without_a_token_is_401(self, client, bungalow):
+        register(client)
+        home_id = client.post(
+            "/homes", json={"home": bungalow}, headers=auth_header(client)
+        ).json()["id"]
+
+        assert client.delete(f"/homes/{home_id}").status_code == 401
+        # And the home survived the attempt.
+        assert len(client.get("/homes", headers=auth_header(client)).json()) == 1
+
+    def test_deleting_another_users_home_is_404_and_leaves_it_alone(
+        self, client, bungalow
+    ):
+        """404 not 403 — confirming the id exists would leak it. The second
+        assertion is the one that matters: the answer must not merely be wrong,
+        the home must still be there."""
+        register(client)
+        mine = auth_header(client)
+        home_id = client.post("/homes", json={"home": bungalow}, headers=mine).json()["id"]
+
+        assert client.delete(f"/homes/{home_id}", headers=other_header(client)).status_code == 404
+        assert len(client.get("/homes", headers=mine).json()) == 1
+
+    def test_deleting_an_unknown_home_is_404(self, client):
+        register(client)
+        resp = client.delete("/homes/no-such-home", headers=auth_header(client))
+        assert resp.status_code == 404
+
+    def test_deleting_twice_is_404_the_second_time(self, client, bungalow):
+        register(client)
+        headers = auth_header(client)
+        home_id = client.post(
+            "/homes", json={"home": bungalow}, headers=headers
+        ).json()["id"]
+
+        assert client.delete(f"/homes/{home_id}", headers=headers).status_code == 204
+        assert client.delete(f"/homes/{home_id}", headers=headers).status_code == 404
+
+
+class TestDeleteAccount:
+    """S11.7: `DELETE /auth/me`. Apple requires in-app account deletion wherever
+    accounts exist, and it has to take the homes with it — a home carries the
+    floor plan, the household members' names and the optional address."""
+
+    def test_deleting_the_account_is_204(self, client):
+        register(client)
+        assert client.delete("/auth/me", headers=auth_header(client)).status_code == 204
+
+    def test_the_token_stops_working_immediately(self, client):
+        """`get_current_user` re-reads the user per request, so deletion revokes
+        every outstanding JWT rather than waiting for it to expire."""
+        register(client)
+        headers = auth_header(client)
+        client.delete("/auth/me", headers=headers)
+
+        assert client.get("/auth/me", headers=headers).status_code == 401
+        assert client.get("/homes", headers=headers).status_code == 401
+
+    def test_the_email_is_free_to_register_again(self, client):
+        register(client)
+        client.delete("/auth/me", headers=auth_header(client))
+        assert register(client).status_code == 201
+
+    def test_every_home_goes_with_the_account(self, client, cloud, bungalow):
+        """Asserted against STORAGE, not against `GET /homes` — which answers
+        401 after deletion and would pass just as well if the documents were
+        still sitting in the collection."""
+        register(client)
+        headers = auth_header(client)
+        client.post("/homes", json={"home": bungalow}, headers=headers)
+        client.post("/homes", json={"home": bungalow}, headers=headers)
+        assert len(cloud["homes"].documents) == 2
+
+        client.delete("/auth/me", headers=headers)
+        assert cloud["homes"].documents == {}
+        assert cloud["users"].documents == {}
+
+    def test_another_accounts_homes_survive(self, client, cloud, bungalow):
+        """The whole point of `delete_many({"user_id": ...})` being scoped. A
+        missing filter would erase the collection and every test above would
+        still pass."""
+        register(client)
+        mine = auth_header(client)
+        client.post("/homes", json={"home": bungalow}, headers=mine)
+
+        theirs = other_header(client)
+        client.post("/homes", json={"home": bungalow}, headers=theirs)
+
+        client.delete("/auth/me", headers=mine)
+
+        assert len(cloud["homes"].documents) == 1
+        assert len(client.get("/homes", headers=theirs).json()) == 1
+        assert client.get("/auth/me", headers=theirs).status_code == 200
+
+    def test_deleting_without_a_token_is_401(self, client, cloud):
+        register(client)
+        assert client.delete("/auth/me").status_code == 401
+        assert len(cloud["users"].documents) == 1
+
+    def test_a_second_account_never_sees_the_first_accounts_homes(
+        self, client, bungalow
+    ):
+        """The S8.4 ruling, re-pinned here because deletion is the operation
+        most likely to break it: a home belongs to the account that synced it,
+        and a different account signing in never receives it."""
+        register(client)
+        client.post("/homes", json={"home": bungalow}, headers=auth_header(client))
+
+        theirs = other_header(client)
+        assert client.get("/homes", headers=theirs).json() == []
+
+        # And after the second account deletes itself, the first still has its home.
+        client.delete("/auth/me", headers=theirs)
+        assert len(client.get("/homes", headers=auth_header(client)).json()) == 1

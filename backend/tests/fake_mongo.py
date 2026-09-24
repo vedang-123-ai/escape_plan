@@ -91,6 +91,19 @@ class FakeCollection:
         self.documents[doc["_id"]] = dict(doc)
         return type("Result", (), {"matched_count": 0, "upserted_id": doc["_id"]})()
 
+    async def delete_one(self, query: dict) -> Any:
+        for existing_id, existing in list(self.documents.items()):
+            if self._matches(existing, query):
+                del self.documents[existing_id]
+                return type("Result", (), {"deleted_count": 1})()
+        return type("Result", (), {"deleted_count": 0})()
+
+    async def delete_many(self, query: dict) -> Any:
+        doomed = [i for i, d in self.documents.items() if self._matches(d, query)]
+        for existing_id in doomed:
+            del self.documents[existing_id]
+        return type("Result", (), {"deleted_count": len(doomed)})()
+
     async def count_documents(self, query: dict) -> int:
         return sum(1 for d in self.documents.values() if self._matches(d, query))
 

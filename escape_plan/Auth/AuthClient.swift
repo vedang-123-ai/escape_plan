@@ -1,7 +1,8 @@
 //  AuthClient.swift
 //  escape_plan — S8.3 auth
 //
-//  The three S8.2 endpoints: POST /auth/register, POST /auth/login, GET /auth/me.
+//  The S8.2 endpoints: POST /auth/register, POST /auth/login, GET /auth/me — plus S11.7's
+//  DELETE /auth/me, the in-app account deletion Apple requires wherever accounts exist.
 //
 //  Two things about this client are different from the `APIClient+*` extensions next door, and
 //  both are deliberate:
@@ -100,6 +101,22 @@ final class AuthClient {
         return try decode(UserPublicResponse.self, from: data).asUser
     }
 
+    /// `DELETE /auth/me` → 204, no body.
+    ///
+    /// Erases the account and every home stored under it, server-side. Apple requires an
+    /// in-app way to do this wherever accounts exist, and "my data" has to include the homes —
+    /// the account document is an email address, but a home carries the floor plan, every
+    /// household member's name and the optional address.
+    ///
+    /// Nothing is decoded: 204 means there is nothing left to describe. `perform` already
+    /// accepts any 2xx, so the empty body is never handed to a decoder that would reject it.
+    func deleteAccount(token: AccessToken) async throws {
+        var request = URLRequest(url: baseURL.appendingPathComponent("auth/me"))
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token.raw)", forHTTPHeaderField: "Authorization")
+        _ = try await perform(request)
+    }
+
     // MARK: - Plumbing
 
     private func jsonRequest(path: String) -> URLRequest {
@@ -123,7 +140,7 @@ final class AuthClient {
         guard let http = response as? HTTPURLResponse else {
             throw AuthFailure(statusCode: -1)
         }
-        // 201 from register, 200 from login and me.
+        // 201 from register, 200 from login and me, 204 from deleteAccount.
         guard (200..<300).contains(http.statusCode) else {
             throw AuthFailure(statusCode: http.statusCode, body: data)
         }

@@ -44,6 +44,9 @@ struct SyncOutcome: Equatable, Sendable {
     var unchanged: Int = 0
     /// Homes on the server that this device deleted, and therefore did not download again.
     var skipped: Int = 0
+    /// Homes whose server copy was erased because this device had deleted them (S11.7). A
+    /// subset of `skipped`: the skip is the decision not to download, this is the cleanup.
+    var deletedRemotely: Int = 0
     /// Homes on this device that belong to a different account, and so were neither uploaded
     /// into the signed-in one nor overwritten by it. Counted separately because it is the one
     /// skip the user may be surprised by and should be told about.
@@ -94,6 +97,11 @@ final class SyncManager {
     /// Guards against concurrent runs — see property 3 in the header.
     private var isSyncing = false
 
+    /// An account deleted while a sync was in flight. Read by `persist` so the running loop
+    /// cannot write its pre-deletion copy of the sidecar back over the wipe. See
+    /// `forgetAccount`.
+    private var forgottenAccountID: String?
+
     /// A sync was asked for while one was already running. Render's free tier has been
     /// measured at a 42 s cold start, which is plenty of time for a user to finish an edit
     /// and tap the badge; dropping that request silently means their edit does not go up and
@@ -137,6 +145,33 @@ final class SyncManager {
         await sync()
     }
 
+    /// Forget everything this device recorded about an account that no longer exists.
+    ///
+    /// Called after `AuthSession.deleteAccount()` succeeds. Without it the sidecar keeps
+    /// ownership claims naming a user id that can never sign in again, so `ownership(of:)`
+    /// answers `.anotherAccount` forever and the next person to sign in on this phone can
+    /// never back up a single home — with nothing on screen to explain why.
+    ///
+    /// **Touches the sidecar only.** Not one home document is read, written or removed: the
+    /// homes on this device predate the account and outlive it, which is exactly what
+    /// `AccountPrivacy.deletionSummary` promises the user on the way in.
+    ///
+    /// `forgottenAccountID` rather than a straight write, because a sync may be in flight.
+    /// `sync()` holds its own `state` across every `await` and persists it after each action,
+    /// so a deletion confirmed during a launch sync — up to 90s of it, against a Render
+    /// instance that has to wake up — would be wiped here and then written straight back by
+    /// the running loop's next `persist`, restoring exactly the dangling ownership claims this
+    /// function exists to remove. Both are `@MainActor`, so they cannot interleave mid-
+    /// statement; they interleave at suspension points, which is enough. The flag makes the
+    /// running loop apply the same forgetting to its own copy before it writes. Found in
+    /// review, 2026-09-24.
+    func forgetAccount(_ userID: String) {
+        forgottenAccountID = userID
+        persist(stateStore.load().forgettingAccount(userID))
+        needsReauthentication = false
+        status = .signedOut
+    }
+
     /// Reconcile this device with the server. Safe to call at any time; concurrent calls
     /// after the first return immediately rather than queueing.
     func sync() async {
@@ -153,6 +188,12 @@ final class SyncManager {
         wasAskedAgainWhileRunning = false
         defer { isSyncing = false }
         status = .syncing
+
+        // A new sync under a DIFFERENT account means the deleted one is history: keeping the
+        // flag would silently forget the new account's records on every write.
+        if let forgotten = forgottenAccountID, forgotten != token.subject {
+            forgottenAccountID = nil
+        }
 
         let local: [LocalHome]
         do {
@@ -251,6 +292,45 @@ final class SyncManager {
                 outcome.skippedOtherAccount += 1
             } else {
                 outcome.skipped += 1
+                // The server still holds a home this device deleted. Until S11.7 there was no
+                // delete endpoint, so all the reconciler could do was refuse to download it
+                // again, forever, on the strength of a tombstone — and the home stayed in the
+                // account, reachable from a second device and from any future sign-in.
+                //
+                // Now the server copy can actually go. Done HERE rather than as a new
+                // `SyncAction.Operation` on purpose: the reconciler's answer is unchanged
+                // ("do not download this"), and the plan stays a pure decision about the
+                // library. This is the I/O that decision implies, which is what this type is
+                // for.
+                //
+                // Self-limiting: once the DELETE succeeds the home is gone from `GET /homes`,
+                // so the next sync produces no action for it at all and nothing is retried.
+                // The tombstone STAYS — it is what suppresses the home on a second device,
+                // which may still be holding its own copy.
+                //
+                // ─── THE GATE: only a tombstone THIS ACCOUNT made may delete from the server.
+                //
+                // `.deletedOnThisDevice` is NOT specific enough to authorise a delete.
+                // `SyncReconciler` emits it via `state.isDeletedLocally`, which deliberately
+                // also matches an OWNERLESS tombstone — one made before anybody signed in —
+                // for whichever account is looking. As a reason not to download, that is
+                // correct and harmless. As a reason to erase somebody's cloud copy it is
+                // catastrophic, and it is reachable from this repo's own facts: the starter
+                // homes keep FIXED `home_id`s across installs, so a fresh install where the
+                // user deletes the seeded Bungalow BEFORE signing in produces exactly such a
+                // tombstone — and the first sign-in would erase their other device's real
+                // Bungalow from the account. Found in review, reproduced, and pinned by
+                // `testAnOwnerlessTombstoneNeverDeletesTheAccountsServerCopy`.
+                //
+                // So this reads the tombstone itself and requires a non-nil owner equal to the
+                // signed-in subject. The ownerless case stays the pure skip it was before.
+                if action.reason == .deletedOnThisDevice,
+                   let owner = state.deletions[action.localHomeID]?.ownerUserID,
+                   owner == token.subject {
+                    try await deleteRemoteCopies(ofLocalHomeID: action.localHomeID,
+                                                 in: remoteByRecordID,
+                                                 token: token, outcome: &outcome)
+                }
             }
 
         case .createRemote:
@@ -299,6 +379,38 @@ final class SyncManager {
         }
     }
 
+    /// Delete EVERY server record for one deleted home, tolerating the failure that means
+    /// success.
+    ///
+    /// All of them, not the first match: the server can hold duplicate records for one
+    /// `home_id` — two devices racing to create it, which is the whole reason
+    /// `SyncReconciler.collapseDuplicates` exists — and the reconciler collapses those to a
+    /// single action. Deleting one per sync would leave the home in the account until the user
+    /// happened to sync again, and `Dictionary.values.first` would pick which survivor in
+    /// unspecified order.
+    ///
+    /// A 404 is `.homeMissing`, which for a delete is the outcome we wanted — another device
+    /// got there first. Anything else is recorded as a per-home failure like any other, so a
+    /// server that refuses the delete does not take the rest of the sync down with it.
+    private func deleteRemoteCopies(ofLocalHomeID localHomeID: String,
+                                    in remoteByRecordID: [String: StoredHome],
+                                    token: AccessToken,
+                                    outcome: inout SyncOutcome) async throws {
+        // Sorted so a sync is deterministic, which matters when one of several deletes fails.
+        let doomed = remoteByRecordID.values
+            .filter { $0.localHomeID == localHomeID }
+            .map(\.id)
+            .sorted()
+        for remoteID in doomed {
+            do {
+                try await client.delete(remoteID: remoteID, token: token)
+            } catch let failure as SyncFailure where failure.kind == .homeMissing {
+                continue
+            }
+            outcome.deletedRemotely += 1
+        }
+    }
+
     private func remember(_ stored: StoredHome, fingerprintOf home: HomeModel, in state: inout SyncState) {
         state.remember(HomeSyncRecord(
             localHomeID: stored.localHomeID,
@@ -310,7 +422,12 @@ final class SyncManager {
 
     /// A sidecar that cannot be written is not worth failing a sync over — the work already
     /// landed on the server. The cost is one redundant upload next launch.
+    /// The single write path for the sidecar, which is what makes the deleted-account guard
+    /// possible: a sync that was already running when the account was deleted still holds a
+    /// `state` describing it, and applying the same forgetting on the way out is cheaper and
+    /// safer than trying to cancel the loop mid-flight.
     private func persist(_ state: SyncState) {
+        let state = forgottenAccountID.map(state.forgettingAccount) ?? state
         try? stateStore.save(state)
     }
 

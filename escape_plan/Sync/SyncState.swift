@@ -202,6 +202,34 @@ struct SyncState: Codable, Equatable, Sendable {
         deletions.removeValue(forKey: localHomeID)
     }
 
+    /// Erase every trace of one account from the sidecar, after it has been deleted.
+    ///
+    /// Stronger than `scoped(to:)`, which only drops the server ids: the account no longer
+    /// exists, so its ownership claims must go too. Leaving them behind would mark the
+    /// device's homes as belonging to an account that can never sign in again, and
+    /// `ownership(of:)` would report `.anotherAccount` forever — the next person to sign in on
+    /// this phone would never be able to back up a single home, with nothing on screen to
+    /// explain why.
+    ///
+    /// Tombstones from that account go for the same reason. They are scoped to the owner who
+    /// made them, so once the owner is gone they can never match again, and a deletion cannot
+    /// be undone by a server copy that has also been deleted.
+    ///
+    /// Homes owned by a DIFFERENT account are untouched: deleting my account is not a licence
+    /// to rewrite what this device knows about somebody else's.
+    func forgettingAccount(_ userID: String) -> SyncState {
+        let isCurrent = self.userID == userID
+        return SyncState(
+            version: version,
+            userID: isCurrent ? nil : self.userID,
+            // `records` describe whichever account the sidecar is scoped to, so they are only
+            // this account's when it IS that account. Clearing them unconditionally would
+            // throw away a different signed-in account's sync history for no reason.
+            records: isCurrent ? [:] : records,
+            deletions: deletions.filter { $0.value.ownerUserID != userID },
+            homeOwners: homeOwners.filter { $0.value != userID })
+    }
+
     /// A copy scoped to one account.
     ///
     /// `records` are server ids and mean nothing to a different account, so they go. Ownership

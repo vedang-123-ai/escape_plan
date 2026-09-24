@@ -95,6 +95,16 @@ class UserRepository:
         doc = await self._collection.find_one({"_id": user_id})
         return User.model_validate(doc) if doc else None
 
+    async def delete(self, user_id: str) -> bool:
+        """Erase the account record. True if a document was actually removed.
+
+        Deleting the user is what revokes every outstanding JWT for it:
+        `get_current_user` re-reads the user on every request, so a token for a
+        deleted account is rejected immediately rather than at its expiry.
+        """
+        result = await self._collection.delete_one({"_id": user_id})
+        return bool(getattr(result, "deleted_count", 0))
+
 
 class HomeRepository:
     def __init__(self, db: Any) -> None:
@@ -132,3 +142,28 @@ class HomeRepository:
     ) -> StoredHomeModel | None:
         doc = await self._collection.find_one({"_id": home_id, "user_id": user_id})
         return StoredHomeModel.model_validate(doc) if doc else None
+
+    async def delete_for_user(self, home_id: str, user_id: str) -> bool:
+        """Remove one home, scoped to its owner. True if it existed and was ours.
+
+        `user_id` is in the FILTER, not checked beforehand, for the same reason
+        `upsert`'s is: a read-then-delete has a window in which ownership can
+        change, and a caller who forgets the second step deletes anyone's home.
+        A miss is indistinguishable from "no such home", which is what lets the
+        route answer 404 without leaking that the id belongs to someone else.
+        """
+        result = await self._collection.delete_one(
+            {"_id": home_id, "user_id": user_id}
+        )
+        return bool(getattr(result, "deleted_count", 0))
+
+    async def delete_all_for_user(self, user_id: str) -> int:
+        """Remove every home belonging to one user. Returns how many went.
+
+        Used by account deletion, where "delete my data" has to mean the homes
+        as well — the account document alone is an email address, and the homes
+        are the floor plan, the household members' names and the optional
+        address.
+        """
+        result = await self._collection.delete_many({"user_id": user_id})
+        return int(getattr(result, "deleted_count", 0))
