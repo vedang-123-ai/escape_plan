@@ -83,14 +83,19 @@ struct ShareWithFireDepartmentCard: View {
             }
             .buttonStyle(DSPressStyle())
             .disabled(isGenerating)
+            .minimumTapTarget()
+            .accessibilityLabel(isGenerating ? "Sharing" : "Share")
             .accessibilityHint("Asks what to include, then opens the share sheet with a PDF and a JSON file for your department.")
+            .accessibilityIdentifier("shareWithFireDepartment.share")
 
             Button("Clear my snapshot") {
                 ResponderSnapshotStore().clearSnapshots()
             }
             .font(.footnote.weight(.medium))
             .foregroundStyle(Theme.supporting)
+            .minimumTapTarget()
             .accessibilityHint("Deletes any Responder Snapshot files saved on this device.")
+            .accessibilityIdentifier("shareWithFireDepartment.clearSnapshot")
         }
         .dsCard()
         .sheet(isPresented: $showingConsent) {
