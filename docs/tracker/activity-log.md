@@ -2364,3 +2364,10 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - d3f9804 Auth: delete my account and data, and say what is uploaded
   - 62b79a8 Backend: delete-my-data — DELETE /auth/me and DELETE /homes/{id}
 
+## 2026-09-24T18:45:14Z · vedang-123-ai · `main` @ `103b1a7`
+
+**Commits this session**
+  - 103b1a7 Merge branch 's11-7-accounts-demoted'
+  - c8e5189 Docs: record the review findings and the lesson from the one that mattered
+  - 66ab52d Review fixes: an ownerless tombstone must never delete from the server
+
