@@ -215,9 +215,12 @@ enum EscapePlanPDF {
             text: ResponderSnapshotJSON.fixedTacticalDisclaimer,
             font: .italicSystemFont(ofSize: 9), gray: 0.15, spacingBefore: 2))
 
+        // document.generatedAt, not Date(): the JSON's isStale is computed from this same
+        // stamped time (ResponderSnapshotExtractor), so the printed page and the file can
+        // never disagree about a document rendered later than it was stamped.
         var isStale = true
         if let lastScanned = home.meta.last_scanned {
-            isStale = Date().timeIntervalSince(lastScanned) > ResponderSnapshotExtractor.staleWindow
+            isStale = document.generatedAt.timeIntervalSince(lastScanned) > ResponderSnapshotExtractor.staleWindow
         }
 
         if isStale {
