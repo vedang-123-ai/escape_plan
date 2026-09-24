@@ -2300,3 +2300,38 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - M docs/tracker/activity-log.md
   - ?? docs/tracker/notes/2026-09-22-s11-4-ai-layer.md
 
+## 2026-09-24T06:41:45Z · vedang-123-ai · `main` @ `8e7d45e`
+
+**Commits this session**
+  - 8e7d45e Docs: S11.5 + S11.6 tracker, STEP 0 for S11.7, retire shipped playbook files
+  - 7cb248e Integration: surface the fire-department share card in the family plan
+  - 0bfebb3 Merge branch 's11-5-readiness-home'
+  - c2fad5b Merge branch 's11-6-responder-snapshot'
+  - 16c77b6 Docs: fold swift-scenekit-reviewer findings into the S11.6 note
+  - ba898d1 Screens: distinct copy for the enable-gate vs. per-share ConsentSheet
+  - 21b88c0 Docs: S11.5 session note — status, decisions, BLOCKERS block for handoff
+  - d19cf7f Export: PDF staleness reads document.generatedAt, not the wall clock
+  - 746ec8e Docs: log the S11.5 freshness threshold and cite-stays-a-string ruling
+  - 4bc1406 HomeScreen: reframe around readiness, prevent, family plan, homes (S11.5)
+  - d5d9419 Export: accessibility identifiers/labels on the card's two actions
+  - 62ea764 Docs: S11.6 session note, with BLOCKERS block for the orchestrator
+  - 2a1483c Docs: S11.6 decisions — no aggregate clutter score, narrow Settings exception
+  - 555ab3f Tests: ResponderSnapshotTests cover as_of/disclaimer/consent, names opt-in
+  - b47541f Export: ShareWithFireDepartmentCard, the self-contained headline entry point
+  - cb54a78 Export: PDF prints as-of, staleness and tactical-disclaimer lines
+  - a35635b ScoreScreen: render the per-peril evidence-tier label (S11.5)
+
+## 2026-09-24T06:57:58Z · vedang-123-ai · `main` @ `8e7d45e`
+
+**Commits this session**
+  - 8e7d45e Docs: S11.5 + S11.6 tracker, STEP 0 for S11.7, retire shipped playbook files
+  - 7cb248e Integration: surface the fire-department share card in the family plan
+  - 0bfebb3 Merge branch 's11-5-readiness-home'
+  - c2fad5b Merge branch 's11-6-responder-snapshot'
+  - 16c77b6 Docs: fold swift-scenekit-reviewer findings into the S11.6 note
+  - ba898d1 Screens: distinct copy for the enable-gate vs. per-share ConsentSheet
+  - 21b88c0 Docs: S11.5 session note — status, decisions, BLOCKERS block for handoff
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
