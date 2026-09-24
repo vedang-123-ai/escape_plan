@@ -150,3 +150,82 @@ struct AuthSubmitButton: View {
         .accessibilityAction { if !isWorking { action() } }
     }
 }
+
+/// What signing in uploads, and what it never does — the S11.7 privacy disclosure.
+///
+/// Shown on the gate, in the sign-in sheet and in Settings, from ONE source: the copy lives in
+/// `AccountPrivacy` (Foundation-only, so it is testable without a simulator) and is pinned by
+/// test against a real encode of a `HomeModel`. A disclosure repeated in three hand-written
+/// places is a disclosure that will be true in two of them after the next schema change.
+///
+/// Collapsed by default. Expanded, it is eight lines of text on a screen whose job is to let
+/// someone decide about an account — but the summary above it is the fact that actually
+/// decides most of it, and the detail has to be one tap away, not a link to a web page the
+/// user has to leave the app to read.
+struct AccountPrivacyDisclosure: View {
+    @State private var isExpanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(AccountPrivacy.signedOutSummary)
+                .font(.footnote)
+                .foregroundStyle(DS.supporting)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { isExpanded.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(isExpanded ? "Hide what an account uploads"
+                                    : "What does an account upload?")
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.accentText)
+            }
+            .buttonStyle(.plain)
+            .minimumTapTarget(44)
+            .accessibilityHint("Lists exactly what leaves this iPhone after you sign in.")
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 12) {
+                    disclosureList("Signing in uploads",
+                                   AccountPrivacy.uploaded.map(\.text),
+                                   symbol: "arrow.up.circle")
+                    disclosureList("It never uploads",
+                                   AccountPrivacy.notUploaded,
+                                   symbol: "xmark.circle")
+                }
+                .padding(12)
+                .background(DS.inset, in: RoundedRectangle(cornerRadius: DS.buttonRadius,
+                                                           style: .continuous))
+                .transition(.opacity)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func disclosureList(_ title: String, _ lines: [String], symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(title, systemImage: symbol)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(DS.ink)
+            ForEach(lines, id: \.self) { line in
+                // A real bullet rather than a Label per line: eight icons down the side reads
+                // as eight warnings, and none of these is a warning.
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("•").font(.footnote).foregroundStyle(DS.supporting)
+                    Text(line)
+                        .font(.footnote)
+                        .foregroundStyle(DS.bodyInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): " + lines.joined(separator: ". "))
+    }
+}

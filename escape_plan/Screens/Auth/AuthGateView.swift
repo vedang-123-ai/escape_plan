@@ -22,6 +22,13 @@ struct AuthGateView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
+            // Scrollable since S11.7: expanded, the privacy disclosure is taller than an SE's
+            // screen below three buttons, and a "Continue without an account" the user cannot
+            // reach is the soft gate failing in the one way it must not. The `minHeight` keeps
+            // the collapsed layout exactly as it was — the Spacers still distribute a full
+            // screen's worth of space, and the scroll only engages once the content exceeds it.
+            GeometryReader { proxy in
+            ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Spacer(minLength: 24)
 
@@ -60,10 +67,20 @@ struct AuthGateView: View {
                                      + "You can create an account later in Settings.")
                 }
 
+                // S11.7. Below the buttons, not above them: the choice is the point of this
+                // screen, and someone who does not want an account should not have to read a
+                // privacy disclosure to find the way past. Someone who is weighing it up
+                // finds the answer without leaving the app.
+                AccountPrivacyDisclosure()
+                    .padding(.top, 20)
+
                 Spacer(minLength: 12)
             }
             .padding(DS.pagePadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .leading)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            }
             .dsPage()
             .navigationDestination(for: Destination.self) { destination in
                 switch destination {

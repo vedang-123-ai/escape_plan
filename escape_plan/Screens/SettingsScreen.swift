@@ -29,6 +29,8 @@ struct SettingsScreen: View {
     @State private var showSaved = false
     @State private var showingHowRoutes = false
     @State private var isPresentingAuth = false
+    @State private var isConfirmingDeletion = false
+    @State private var isDeletingAccount = false
     
     @AppStorage("snapshot_enabled") private var isSnapshotEnabled = false
     @State private var showingConsent = false
@@ -204,6 +206,16 @@ struct SettingsScreen: View {
             .sheet(isPresented: $isPresentingAuth) {
                 AuthSheetView()
             }
+            // An alert, not a sheet: deletion is irreversible and the confirmation must be
+            // something the user cannot dismiss by swiping past it without reading.
+            .alert("Delete your account?", isPresented: $isConfirmingDeletion) {
+                Button("Delete account", role: .destructive) {
+                    Task { await deleteAccount() }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text(AccountPrivacy.deletionConfirmation)
+            }
             .sheet(isPresented: $showingHowRoutes) { HowRoutesAreComputedSheet() }
             .sheet(isPresented: $showingConsent) {
                 // isEnablingOnly: true — this accepts nothing being shared, only reveals the
@@ -246,6 +258,30 @@ struct SettingsScreen: View {
         }
     }
 
+    /// Delete the account server-side, then make this device forget it.
+    ///
+    /// The sync sidecar has to be cleaned up too, and only after the server confirms: it holds
+    /// ownership claims naming the account's user id, and leaving them would mark this
+    /// device's homes as belonging to an account that can never sign in again — so the next
+    /// person to sign in on this phone could never back up a single home.
+    ///
+    /// The user id is read BEFORE the deletion, because the session is empty afterwards. It is
+    /// the same id the sidecar stores: the backend mints the JWT with `sub = user.id` and
+    /// `/auth/me` returns that same id, so `AuthenticatedUser.id` and `AccessToken.subject`
+    /// are one value.
+    ///
+    /// No home document is touched, which is what `AccountPrivacy.deletionSummary` promises on
+    /// the way in. `AuthSession` surfaces any failure; the row above renders it.
+    private func deleteAccount() async {
+        guard let userID = authSession.state.user?.id else { return }
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+
+        if await authSession.deleteAccount() {
+            syncManager.forgetAccount(userID)
+        }
+    }
+
     // MARK: - Account (S8.3)
 
     /// Signing in from here, rather than only from the launch gate, is the whole reason the
@@ -265,6 +301,13 @@ struct SettingsScreen: View {
                         .padding(.horizontal, 18)
                         .padding(.top, 14)
                 }
+                // A failed deletion leaves the user signed in and needs somewhere to say so.
+                // The same slot serves any other account-level failure.
+                if let failure = authSession.failure {
+                    AuthFailureNote(failure: failure)
+                        .padding(.horizontal, 18)
+                        .padding(.top, 14)
+                }
                 row("Signed in as") {
                     Text(user.email)
                         .font(.subheadline)
@@ -275,11 +318,14 @@ struct SettingsScreen: View {
                 divider
                 actionRow("Sign out") { authSession.signOut() }
                     .accessibilityHint("Signs out on this iPhone. Your homes stay on this device.")
+                divider
+                deleteAccountRow
             }
             // True, and worth saying at the moment someone is deciding: nothing local is lost
             // by signing out, because the app keeps its own copy either way.
             footnote("Your homes are saved on this iPhone as well as your account. "
                    + "Signing out doesn't remove them from this device.")
+            privacyDisclosureBlock
         } else {
             section("Account") {
                 actionRow("Sign in or create an account") { isPresentingAuth = true }
@@ -287,7 +333,42 @@ struct SettingsScreen: View {
             }
             footnote("An account backs up your homes and lets you open them on another device. "
                    + "Everything in Escape Plan works without one.")
+            privacyDisclosureBlock
         }
+    }
+
+    /// The S11.7 disclosure, in both states. Signed out it answers "what would I be agreeing
+    /// to?"; signed in it answers "what did I agree to?" — which is the question someone
+    /// deciding whether to delete their account is actually asking.
+    private var privacyDisclosureBlock: some View {
+        AccountPrivacyDisclosure()
+            .padding(.horizontal, DS.pagePadding + 16)
+            .padding(.top, 12)
+    }
+
+    /// Apple requires an in-app way to delete an account wherever accounts exist.
+    ///
+    /// `Theme.warning` rather than the accent, because this is the one row on the screen that
+    /// destroys something. Not `Theme.danger`-red-on-white as a filled button: it sits in a
+    /// list of ordinary rows, and a filled destructive button in that position reads as the
+    /// section's primary action.
+    private var deleteAccountRow: some View {
+        Button { isConfirmingDeletion = true } label: {
+            HStack {
+                Text("Delete account and data")
+                    .font(.body)
+                    .foregroundStyle(Theme.warning)
+                Spacer()
+                if isDeletingAccount { ProgressView() }
+            }
+            .padding(.horizontal, 18)
+            .frame(minHeight: 60)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(HapticPlainButtonStyle())
+        .disabled(isDeletingAccount)
+        .accessibilityHint("Permanently erases your account and the homes backed up to it. "
+                         + "The homes on this iPhone are not deleted.")
     }
 
     // MARK: - Layout pieces
