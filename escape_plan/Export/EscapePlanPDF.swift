@@ -205,12 +205,24 @@ enum EscapePlanPDF {
         blocks.append(Block(
             text: "This is an automatically generated offline snapshot. Names are excluded by design.",
             font: .italicSystemFont(ofSize: 9), gray: 0.15, spacingBefore: 2))
-            
+        // Fixed, on every responder-snapshot page — never conditional on whether the home
+        // happens to be stale right now. Same wording as the JSON (ResponderSnapshotJSON),
+        // so the paper and the file can never disagree.
+        blocks.append(Block(
+            text: ResponderSnapshotJSON.fixedStalenessNote,
+            font: .italicSystemFont(ofSize: 9), gray: 0.15, spacingBefore: 2))
+        blocks.append(Block(
+            text: ResponderSnapshotJSON.fixedTacticalDisclaimer,
+            font: .italicSystemFont(ofSize: 9), gray: 0.15, spacingBefore: 2))
+
+        // document.generatedAt, not Date(): the JSON's isStale is computed from this same
+        // stamped time (ResponderSnapshotExtractor), so the printed page and the file can
+        // never disagree about a document rendered later than it was stamped.
         var isStale = true
         if let lastScanned = home.meta.last_scanned {
-            isStale = Date().timeIntervalSince(lastScanned) > (30 * 24 * 3600)
+            isStale = document.generatedAt.timeIntervalSince(lastScanned) > ResponderSnapshotExtractor.staleWindow
         }
-        
+
         if isStale {
             blocks.append(Block(
                 text: "WARNING: Home scan is missing or over 30 days old. Layout and occupant data may be inaccurate.",
@@ -277,10 +289,25 @@ enum EscapePlanPDF {
             if let name = safeRoomName {
                 blocks.append(Block(text: "Computed Storm Safe Room: \(name)", font: .systemFont(ofSize: 10), gray: 0.1, spacingBefore: 2))
             }
+
+            let hazardSummary = SnapshotHazardSummary.summarize(checklist: document.scoreResponse?.checklist ?? [])
+            if !hazardSummary.isEmpty {
+                blocks.append(Block(text: "Hazard Summary (engine findings, whole home):", font: .systemFont(ofSize: 10.5, weight: .bold), gray: 0, spacingBefore: 8, keepWithNext: true))
+                for entry in hazardSummary {
+                    let citation = entry.citation.map { " [cite: \($0)]" } ?? ""
+                    blocks.append(Block(
+                        text: "• \(entry.category).\(entry.ruleID): \(entry.count)\(citation)",
+                        font: .systemFont(ofSize: 10), gray: 0.1, indent: 6, spacingBefore: 2))
+                }
+            }
+
             let df = DateFormatter()
             df.dateStyle = .medium
             df.timeStyle = .short
-            blocks.append(Block(text: "Generated At: \(df.string(from: document.generatedAt))", font: .systemFont(ofSize: 9), gray: 0.2, spacingBefore: 4))
+            let asOfText = home.meta.last_scanned.map { "As of (last scan): \(df.string(from: $0))" }
+                ?? "As of: no scan on record"
+            blocks.append(Block(text: asOfText, font: .systemFont(ofSize: 9), gray: 0.2, spacingBefore: 4))
+            blocks.append(Block(text: "Generated At: \(df.string(from: document.generatedAt))", font: .systemFont(ofSize: 9), gray: 0.2, spacingBefore: 2))
         }
         
         return blocks

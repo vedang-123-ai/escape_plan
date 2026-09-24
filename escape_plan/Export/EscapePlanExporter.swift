@@ -94,8 +94,11 @@ struct EscapePlanExporter {
         return "\(base) escape plan.pdf"
     }
 
-    /// Renders the Responder Snapshot (PDF + JSON) and writes it to disk.
+    /// Renders the Responder Snapshot (PDF + JSON) and writes it to disk. `consent` is the
+    /// decision the resident made on THIS share (see `ConsentSheet`) — required, not
+    /// defaulted, so a caller cannot generate a snapshot without going through consent.
     func writeResponderSnapshot(preview: Preview,
+                                consent: SnapshotConsentDecision,
                                 now: Date = Date(),
                                 fileManager: FileManager = .default) throws -> [URL] {
         var document = EscapePlanDocument(home: preview.home,
@@ -117,7 +120,7 @@ struct EscapePlanExporter {
         try output.data.write(to: pdfURL, options: Data.WritingOptions.atomic)
 
         // Generate JSON
-        let jsonPayload = ResponderSnapshotExtractor.extract(from: document)
+        let jsonPayload = ResponderSnapshotExtractor.extract(from: document, consent: consent)
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         let jsonData = try encoder.encode(jsonPayload)
