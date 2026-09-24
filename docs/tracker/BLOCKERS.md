@@ -124,6 +124,43 @@ _S11.1_ **see below** · _S11.2_ **see below** · _S11.3_ **see below** · _S11.
 _S11.7_ none yet · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
 _S11.13_ none yet
 
+#### S11.6 follow-up · the never-executed tests, and the bug they caught (2026-09-24, branch `s11-6-followup-testable-snapshot`)
+
+S11.6's first acceptance criterion — "snapshot JSON always contains `as_of`, the disclaimer and
+consent flags; names are absent by default" — was asserted by five tests in the **app test
+target**, which needs a simulator this machine does not have. They were written, typechecked,
+and **had never executed once**. Root cause: `EscapePlanDocument`, the input type to the whole
+export path, was declared inside `EscapePlanPDF.swift`, which imports UIKit — so nothing
+downstream of it could compile in the Foundation-only package.
+
+Fixed by extracting `EscapePlanDocument` into its own Foundation-only file and symlinking the
+snapshot path into `tools/editorcore`. **EditorCore 555 → 558**, `scripts/typecheck-ios.sh` ok
+on all four targets (169 app files).
+
+- [x] **A real defect was found the moment those tests ran.** `asOf` is `Date?`, and the
+      synthesized encoder uses `encodeIfPresent`, so a never-scanned home produced a snapshot
+      with **no `as_of` key at all** — exactly what the criterion forbids. `ResponderSnapshotJSON`
+      now has a hand-written `encode(to:)` that emits an explicit `null`. An absent key is
+      ambiguous to whatever software a department reads the JSON with; a null is not.
+- [ ] **No package test can load a `schema/fixtures` home.** `FixtureLoader` resolves its bundle
+      with `Bundle(for:)`, which finds nothing in a SwiftPM test bundle — the two pre-existing
+      `FixtureLoader` users in `escape_planTests/EditorCore/` are both `#if !SWIFT_PACKAGE`, so
+      this has never worked and was never noticed. Two S11.6 tests
+      (`testHazardSummaryMatchesEngineChecklistOnStockFixtures`, `testTwostoryFixtureAnonymity`)
+      are gated the same way as a result. Fixing it means adding a `resources:` rule to
+      `tools/editorcore/Package.swift` AND a `#if SWIFT_PACKAGE` bundle switch in the symlinked
+      `Models/FixtureLoader.swift` — both shared files, so not done here. Next action: whoever
+      owns EditorCore next. Unlocks fixture-based coverage for every future package test, not
+      just these two.
+- [ ] **The PDF assertions are still simulator-gated** and are now explicitly `#if !SWIFT_PACKAGE`
+      rather than silently dead. Owned by S11.8.
+- [ ] **`docs/playbook/S11-5.md` and `S11-6.md` were deleted on ship, then restored.**
+      `.claude/rules/paths/docs.md` says a shipped playbook file is deleted; the authoritative
+      `end-of-session-handoff` skill says to re-read it, and S11.1–S11.4 all shipped with theirs
+      intact. Deleting only these two left four shipped files present and two gone. Restored to
+      match practice; the README keeps the DONE markers. Next action: someone rules which is
+      right and makes the two documents agree.
+
 #### Integration · S11.5 + S11.6 merged and gated (2026-09-23, on `main`)
 
 Both sessions ran as parallel worktrees with disjoint OWNED FILES; the only shared file was

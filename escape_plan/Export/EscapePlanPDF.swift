@@ -21,20 +21,8 @@ import CoreGraphics
 import Foundation
 import UIKit
 
-/// Everything the printable plan is rendered from.
-struct EscapePlanDocument {
-    var home: HomeModel
-    /// The engine's routes. Nil is a supported, honest state.
-    var plan: RoutePlan?
-    /// When `plan` was fetched from the engine (from the offline route cache), if known.
-    var routesComputedAt: Date?
-    var meetingPoint: String = ""
-    var generatedAt: Date = Date()
-    var scoreResponse: ScoreBreakdown?
-    var isResponderSnapshot: Bool = false
-
-    var hasRoutes: Bool { plan != nil }
-}
+// `EscapePlanDocument` — the input to everything below — now lives in its own Foundation-only
+// file so the snapshot extractor can be tested outside the simulator. See EscapePlanDocument.swift.
 
 enum EscapePlanPDF {
 

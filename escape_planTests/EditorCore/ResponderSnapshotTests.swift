@@ -1,13 +1,22 @@
 // ResponderSnapshotTests.swift — S11.6: "Share with your fire department".
 //
-// NOTE ON WHAT THIS FILE CAN VERIFY HERE: these are XCTest cases in the escape_planTests
-// target, which needs `xcodebuild test` on a simulator to actually run. This machine has none
-// and the user has explicitly forbidden booting one, so these are typechecked only
-// (`scripts/typecheck-ios.sh`) — never claimed as an executed test run. See the session note's
-// BLOCKERS block.
+// THESE NOW ACTUALLY RUN. They used to sit in the app test target, which needs `xcodebuild
+// test` on a simulator — so the assertions that carry this feature's privacy promises (names
+// absent unless consent opts in; every snapshot carries as_of and the disclaimer) were
+// written, typechecked, and never once executed. Moved into the shared EditorCore folder on
+// 2026-09-24, which required lifting `EscapePlanDocument` out of the UIKit-importing
+// `EscapePlanPDF.swift` so the extractor could compile in the Foundation-only package.
+//
+// Keep the whole snapshot path Foundation-only or this coverage silently disappears again.
 
+import Foundation
 import XCTest
+
+#if SWIFT_PACKAGE
+@testable import EditorCore
+#else
 @testable import escape_plan
+#endif
 
 final class ResponderSnapshotTests: XCTestCase {
     func testAnonymityOfSnapshot() throws {
@@ -47,13 +56,17 @@ final class ResponderSnapshotTests: XCTestCase {
         XCTAssertTrue(jsonString.contains("count\":2"), "JSON must have count of 2 for the room")
         XCTAssertNil(json.vulnerableOccupants.first?.names, "names must be nil, not [], when not opted in")
 
-        // Test PDF generation
+        // The PDF half needs UIGraphicsPDFRenderer, so it compiles only in the app target and
+        // still waits on a simulator. The JSON assertions above — the ones carrying the
+        // privacy promise — now run in the package on every commit.
+        #if !SWIFT_PACKAGE
         let pdfOutput = EscapePlanPDF.render(plan)
         guard let pdfString = String(data: pdfOutput.data, encoding: .utf8) ?? String(data: pdfOutput.data, encoding: .ascii) else {
             return
         }
         XCTAssertFalse(pdfString.contains("Alice"), "PDF must not contain the name Alice")
         XCTAssertFalse(pdfString.contains("Bob"), "PDF must not contain the name Bob")
+        #endif
     }
 
     /// The one privacy escape hatch: a resident who explicitly opts in gets names next to
@@ -79,9 +92,11 @@ final class ResponderSnapshotTests: XCTestCase {
 
         // The PDF never shows names, regardless of the JSON's consent — it stays anonymous
         // by construction rather than by threading consent through the renderer too.
+        #if !SWIFT_PACKAGE
         let pdfOutput = EscapePlanPDF.render(plan)
         let pdfString = String(data: pdfOutput.data, encoding: .utf8) ?? String(data: pdfOutput.data, encoding: .ascii) ?? ""
         XCTAssertFalse(pdfString.contains("Alice"))
+        #endif
     }
 
     /// Acceptance: "the snapshot JSON always contains as_of, the disclaimer and consent
@@ -110,6 +125,12 @@ final class ResponderSnapshotTests: XCTestCase {
         }
     }
 
+    // FIXTURE-GATED: FixtureLoader resolves its bundle with Bundle(for:), which finds the
+    // fixtures in the app test bundle but not in the SwiftPM package (no package test has
+    // ever loaded a fixture — the other two FixtureLoader users here are !SWIFT_PACKAGE too).
+    // Making fixtures a package resource means editing Package.swift AND the symlinked
+    // FixtureLoader.swift; logged in BLOCKERS instead of risking it here.
+    #if !SWIFT_PACKAGE
     /// Acceptance: "the hazard summary equals the engine's findings for the stock fixtures."
     /// There is no local Python venv on this machine (BLOCKERS §4) to run the live engine
     /// against `bungalow`/`apartment`/`twostory`, so this pins the contract that actually
@@ -148,9 +169,16 @@ final class ResponderSnapshotTests: XCTestCase {
             XCTAssertEqual(json.hazardSummary.count, 3, "\(fixture.rawValue): the mitigation.secure.* item must be excluded")
         }
     }
+    #endif
 }
 
 extension ResponderSnapshotTests {
+    // FIXTURE-GATED: FixtureLoader resolves its bundle with Bundle(for:), which finds the
+    // fixtures in the app test bundle but not in the SwiftPM package (no package test has
+    // ever loaded a fixture — the other two FixtureLoader users here are !SWIFT_PACKAGE too).
+    // Making fixtures a package resource means editing Package.swift AND the symlinked
+    // FixtureLoader.swift; logged in BLOCKERS instead of risking it here.
+    #if !SWIFT_PACKAGE
     func testTwostoryFixtureAnonymity() throws {
         var home = try FixtureLoader.load(.twostory)
 
@@ -188,4 +216,5 @@ extension ResponderSnapshotTests {
         }
         XCTAssertFalse(pdfString.contains("Grandpa Joe"), "PDF bytes must not contain the name")
     }
+    #endif
 }
