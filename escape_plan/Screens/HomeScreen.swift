@@ -44,7 +44,13 @@ struct HomeScreen: View {
     @State private var scanFailure: BackendFailure?
     @State private var lastScanArtifacts: ScanArtifacts?
 
+    // S11.5: Prevent section, family plan, scan freshness
+    @State private var preventionTips: [PreventionTip] = []
+    @State private var lastPracticed: Date?
+    @State private var showingExportSheet = false
+
     private let stateStore = ChecklistStateStore()
+    private let freshnessStore = ScanFreshnessStore()
 
     init() {
         _library = StateObject(wrappedValue: HomeLibrary(store: try! HomeDocumentStore()))
@@ -91,7 +97,8 @@ struct HomeScreen: View {
                 if activeHomeID == nil {
                     activeHomeID = library.homes.first?.id
                 }
-                await initialLoad() 
+                loadPreventionTipsIfNeeded()
+                await initialLoad()
             }
             .onChange(of: sync.status) { _, status in
                 // A home that arrived from another device is on disk but not in this screen's
@@ -149,6 +156,11 @@ struct HomeScreen: View {
                 BuildFromPlanView { homeID in
                     library.refresh()
                     switchActiveHome(to: homeID)
+                }
+            }
+            .sheet(isPresented: $showingExportSheet) {
+                if let activeHomeID {
+                    ExportPlanSheet(homeID: activeHomeID, store: library.store)
                 }
             }
             .fullScreenCover(isPresented: $showingScan) {
@@ -222,7 +234,9 @@ struct HomeScreen: View {
         ContentUnavailableView {
             Label("Let's map your home", systemImage: "house")
         } description: {
-            Text("Map it once. We'll build a readiness checklist and an escape route for every person who lives here.")
+            // Prevention and readiness first, matching the onboarding welcome copy — never a
+            // claim that firefighters use this app (S11.5, CLAUDE.md).
+            Text("Map it once. We'll show cited prevention basics, a readiness checklist, and an escape route for every person who lives here.")
         } actions: {
             Button("Scan My Home") { showingScan = true }
                 .buttonStyle(.borderedProminent)
@@ -268,10 +282,20 @@ struct HomeScreen: View {
                     readinessCard(score: breakdown.score)
                         .padding(.horizontal, DS.pagePadding)
                         .padding(.top, 18)
+                    if let activeHome {
+                        scanAgeCaption(activeHome)
+                            .padding(.horizontal, DS.pagePadding)
+                            .padding(.top, 6)
+                    }
                     statTiles(items)
                         .padding(.horizontal, DS.pagePadding)
                         .padding(.top, 14)
                     detailedChecklist(items, critical: critical)
+                }
+                if let activeHome {
+                    preventSection
+                    familyPlanSection(activeHome)
+                    homesSection
                 }
             }
             .padding(.bottom, 24)
@@ -423,6 +447,17 @@ struct HomeScreen: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// "Scanned 12 days ago." — the firefighter's "remodels make stored layouts stale"
+    /// warning, made visible everywhere a home is shown, not just when it's stale enough to
+    /// nudge (ScanFreshness.scanAgeText, S11.5).
+    private func scanAgeCaption(_ home: HomeModel) -> some View {
+        Label(ScanFreshness.scanAgeText(lastScanned: home.meta.last_scanned, modified: home.meta.modified),
+              systemImage: "clock")
+            .font(.caption)
+            .foregroundStyle(DS.supporting)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private struct Tile {
         let key: String
         let value: String
@@ -525,9 +560,9 @@ struct HomeScreen: View {
             let other = regular.filter {
                 $0.category == .other || $0.category == .supply_kit || $0.category == .alerts
             }
-            if let home = activeHome, isStale(home) {
+            if let home = activeHome, let reason = nudgeReason(for: home) {
                 sectionLabel("Stay ready")
-                rescanNudge.dsCard()
+                rescanNudge(reason).dsCard()
                     .padding(.horizontal, DS.pagePadding)
                     .padding(.bottom, other.isEmpty ? 0 : 10)
                 if !other.isEmpty { checklistCard(other) }
@@ -679,12 +714,16 @@ struct HomeScreen: View {
             .foregroundStyle(DS.supporting)
     }
 
-    private var rescanNudge: some View {
+    /// `reason` distinguishes "it's just been a while" from "a wall actually changed" — the
+    /// wording (ScanFreshness.nudgeMessage) always says the plan is resident-maintained, not
+    /// verified, whichever reason fired.
+    private func rescanNudge(_ reason: ScanFreshness.NudgeReason) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label("Stale floor plan", systemImage: "clock.arrow.circlepath")
+            Label(reason == .wallsEdited ? "Layout changed since the last scan" : "Stale floor plan",
+                  systemImage: "clock.arrow.circlepath")
                 .font(.headline)
                 .foregroundStyle(DS.ink)
-            Text("It's been over 6 months since this home was scanned. Have you rearranged furniture or added a pet?")
+            Text(ScanFreshness.nudgeMessage(reason))
                 .font(.subheadline)
                 .foregroundStyle(DS.bodyInk)
             Button("Scan now") { showingScan = true }
@@ -719,9 +758,15 @@ struct HomeScreen: View {
         }
     }
 
-    private func isStale(_ home: HomeModel) -> Bool {
-        guard let scanned = home.meta.last_scanned else { return false }
-        return Date().timeIntervalSince(scanned) > 180 * 24 * 3600
+    /// Whichever of the two S11.5 triggers applies to this home right now — a wall added or
+    /// removed since the last scan, or the age threshold passed — or nil if the plan is fresh.
+    /// Pure decision lives in ScanFreshness; this just supplies the model's own state.
+    private func nudgeReason(for home: HomeModel) -> ScanFreshness.NudgeReason? {
+        let days = ScanFreshness.daysSince(lastScanned: home.meta.last_scanned, modified: home.meta.modified)
+        let changed = ScanFreshness.wallsChanged(
+            currentEdgeCount: ScanFreshness.wallEdgeCount(home),
+            recordedEdgeCount: freshnessStore.recordedWallEdgeCount(homeID: home.id))
+        return ScanFreshness.nudgeReason(daysSinceScan: days, wallsChanged: changed)
     }
 
     // MARK: - Row Handling
@@ -788,10 +833,20 @@ struct HomeScreen: View {
         }
     }
     
-    // MARK: - Scoring
-    
-    
+    // MARK: - Prevent
 
+    /// Loads the bundled corpus copy once per screen lifetime. A missing or corrupt resource
+    /// just leaves `preventionTips` empty — `preventSection` renders nothing rather than
+    /// crashing or showing a failure banner over what is, at worst, a missing nice-to-have.
+    private func loadPreventionTipsIfNeeded() {
+        guard preventionTips.isEmpty else { return }
+        guard let url = Bundle.main.url(forResource: "prevention_tips", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let tips = try? PreventionTips.decode(from: data) else { return }
+        preventionTips = tips
+    }
+
+    // MARK: - Scoring
 
     private func initialLoad() async {
         guard let activeHomeID else { return }
@@ -799,7 +854,17 @@ struct HomeScreen: View {
         isScoring = true
         defer { isScoring = false }
         do {
-            activeHome = try HomeDocumentStore().load(homeID: activeHomeID, as: HomeModel.self)
+            let home = try HomeDocumentStore().load(homeID: activeHomeID, as: HomeModel.self)
+            activeHome = home
+            // A home scanned before this feature shipped (or seeded by FixtureSeeder) has no
+            // recorded baseline. Seed it to the CURRENT count rather than leaving it nil —
+            // nil already reads as "no change" (ScanFreshness.wallsChanged), so this is only
+            // to make the very next real edit detectable, not a correction of anything now.
+            if home.meta.last_scanned != nil,
+               freshnessStore.recordedWallEdgeCount(homeID: activeHomeID) == nil {
+                freshnessStore.recordWallEdgeCount(ScanFreshness.wallEdgeCount(home), homeID: activeHomeID)
+            }
+            lastPracticed = (try? DrillLogStore())?.lastPracticed(homeID: activeHomeID)
         } catch {
             scoreFailure = BackendFailure(error, while: .score)
             return
@@ -857,6 +922,9 @@ struct HomeScreen: View {
             let name = "Scanned Home \(Date().formatted(date: .abbreviated, time: .shortened))"
             let model = try await apiClient.convertScan(at: artifacts.rawJSON, homeName: name)
             let summary = try library.store.save(model: model)
+            // Baseline for the "a wall was added or removed since the last scan" nudge —
+            // recorded at the moment of the scan that made the model current.
+            freshnessStore.recordWallEdgeCount(ScanFreshness.wallEdgeCount(model), homeID: summary.id)
             library.refresh()
             scanFailure = nil
             lastScanArtifacts = nil
@@ -889,6 +957,148 @@ struct HomeScreen: View {
     private func retryScanImport() {
         guard let artifacts = lastScanArtifacts else { return }
         Task { await importScan(artifacts) }
+    }
+
+    // MARK: - Prevent section
+
+    /// S11.5 reframe: readiness score/checklist (above), then Prevent, then the family plan,
+    /// then homes (01-product-spec.md §2 — "a cited in-app prevention layer").
+    @ViewBuilder
+    private var preventSection: some View {
+        if !preventionTips.isEmpty {
+            sectionLabel("Prevent")
+            VStack(spacing: 10) {
+                ForEach(PreventionTipsFilter.spotlight(preventionTips)) { tip in
+                    PreventionTipCard(tip: tip)
+                }
+            }
+            .padding(.horizontal, DS.pagePadding)
+        }
+    }
+
+    // MARK: - Family plan section
+
+    @ViewBuilder
+    private func familyPlanSection(_ home: HomeModel) -> some View {
+        sectionLabel("Family plan")
+        VStack(spacing: 14) {
+            meetingPointCard(home)
+            PracticeReminderCard(homeID: home.id, homeName: home.name, lastPracticed: lastPracticed)
+                .dsCard(padding: 16)
+            // INTEGRATION POINT (S11.6): ShareWithFireDepartmentCard goes here.
+        }
+        .padding(.horizontal, DS.pagePadding)
+    }
+
+    /// Read-only display: the meeting place is edited in the real export flow
+    /// (Export/ExportPlanSheet.swift, S11.6's territory), not duplicated here. Tapping opens
+    /// that same sheet rather than a second editor for the same UserDefaults-backed value.
+    private func meetingPointCard(_ home: HomeModel) -> some View {
+        let point = MeetingPointStore().meetingPoint(forHomeID: home.id)
+        return Button { showingExportSheet = true } label: {
+            HStack(spacing: 14) {
+                DSIconBadge(systemImage: "mappin.and.ellipse", fill: Theme.accent, size: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Meeting point").font(.subheadline.weight(.semibold)).foregroundStyle(DS.ink)
+                    Text(point.isEmpty ? "Not set yet — tap to add one" : point)
+                        .font(.footnote)
+                        .foregroundStyle(DS.supporting)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color(.tertiaryLabel))
+            }
+        }
+        .buttonStyle(HapticPlainButtonStyle())
+        .dsCard(padding: 14)
+        .accessibilityLabel("Meeting point: \(point.isEmpty ? "not set" : point)")
+        .accessibilityHint("Opens the export sheet to set your outside meeting place.")
+    }
+
+    // MARK: - Homes section
+
+    /// Only shown once there is a choice to make — a single-home library already names its
+    /// home in the navigation title, so a one-row list here would be pure repetition.
+    @ViewBuilder
+    private var homesSection: some View {
+        if library.homes.count > 1 {
+            sectionLabel("Homes")
+            VStack(spacing: 0) {
+                ForEach(Array(library.homes.enumerated()), id: \.element.id) { index, home in
+                    if index > 0 { Divider().padding(.leading, 52) }
+                    Button { switchActiveHome(to: home.id) } label: {
+                        HStack(spacing: 12) {
+                            DSIconBadge(systemImage: "house.fill",
+                                       fill: home.id == activeHomeID ? Theme.accent : DS.supporting,
+                                       size: 36)
+                            Text(home.name)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(DS.ink)
+                            Spacer()
+                            if home.id == activeHomeID {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Theme.accent)
+                            }
+                        }
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 16)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(HapticPlainButtonStyle())
+                    .accessibilityLabel(home.name)
+                    .accessibilityAddTraits(home.id == activeHomeID ? [.isSelected] : [])
+                }
+            }
+            .dsCard(padding: nil)
+            .padding(.horizontal, DS.pagePadding)
+        }
+    }
+}
+
+/// One card in the "Prevent" section — a tip and its tappable source label. `cite` is never
+/// omitted from a PreventionTip (see PreventionTip.swift), so this view has no "no citation"
+/// branch to fall into by construction.
+private struct PreventionTipCard: View {
+    let tip: PreventionTip
+    @State private var showingSource = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(perilLabel)
+                .font(.caption.weight(.bold))
+                .textCase(.uppercase)
+                .kerning(0.5)
+                .foregroundStyle(DS.supporting)
+            Text(tip.text)
+                .font(.subheadline)
+                .foregroundStyle(DS.bodyInk)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                withAnimation(reduceMotion ? nil : .snappy) { showingSource.toggle() }
+            } label: {
+                Label(showingSource ? "Source: \(tip.cite)" : "Source", systemImage: "doc.text")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.accentText)
+            }
+            .buttonStyle(.plain)
+            .hapticTap()
+            .accessibilityHint("Shows which cited guidance this tip comes from.")
+        }
+        .dsCard(radius: DS.cardRadiusLarge, padding: 16)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// "Severe weather" rather than the corpus's own "tornado" tag, matching HazardTag's
+    /// label everywhere else in the app (ScoreModels.swift / HomeScreen's own hazardLabel).
+    private var perilLabel: String {
+        switch tip.peril {
+        case .fire: return "Fire"
+        case .earthquake: return "Earthquake"
+        case .tornado: return "Severe weather"
+        }
     }
 }
 

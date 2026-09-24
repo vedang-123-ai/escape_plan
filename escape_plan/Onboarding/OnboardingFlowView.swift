@@ -103,7 +103,10 @@ struct OnboardingFlowView: View {
                     .accessibilityHidden(true)
                 title("Let's map your home")
                     .multilineTextAlignment(.center)
-                Text("Map it once. We'll build a readiness checklist and an escape route for every person who lives here.")
+                // Prevention and readiness lead; the escape route follows. Never a claim
+                // that firefighters use this app (CLAUDE.md — "not a tool for firefighters
+                // to use mid-fire"; the firefighter we talked to reacted best to prevention).
+                Text("Map it once. We'll show cited prevention basics, a readiness checklist, and an escape route for every person who lives here.")
                     .font(.body)
                     .foregroundStyle(DS.supporting)
                     .multilineTextAlignment(.center)

@@ -158,11 +158,25 @@ struct ScoreScreen: View {
             bandLabel(breakdown.score)
 
             HStack(spacing: 24) {
-                subScoreView(label: "Fire", score: breakdown.sub_scores["fire"] ?? 0)
-                subScoreView(label: "Earthquake", score: breakdown.sub_scores["earthquake"] ?? 0)
-                subScoreView(label: "Severe Weather", score: breakdown.sub_scores["severe_weather"] ?? 0)
+                subScoreView(label: "Fire", score: breakdown.sub_scores["fire"] ?? 0,
+                            basis: ScoreBasisLabel.label(for: "fire", basis: breakdown.basis))
+                subScoreView(label: "Earthquake", score: breakdown.sub_scores["earthquake"] ?? 0,
+                            basis: ScoreBasisLabel.label(for: "earthquake", basis: breakdown.basis))
+                subScoreView(label: "Severe Weather", score: breakdown.sub_scores["severe_weather"] ?? 0,
+                            basis: ScoreBasisLabel.label(for: "severe_weather", basis: breakdown.basis))
             }
             .padding(.top, 8)
+            // Honest tiering, never blurred (CLAUDE.md "Scope lock"): fire is fully
+            // code-quantified; earthquake and tornado are FEMA/NOAA-grounded readiness
+            // modules. Omitted, not a placeholder, when a server predates S11.2.
+            if breakdown.basis != nil {
+                Text("Fire is measured against code thresholds. Earthquake and severe weather are FEMA/NOAA-grounded guidance.")
+                    .font(.caption2)
+                    .foregroundStyle(DS.supporting)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 320)
+                    .padding(.top, 2)
+            }
 
             if isUpdating {
                 ProgressView()
@@ -246,8 +260,11 @@ struct ScoreScreen: View {
         }
     }
 
-    /// One of the three S6.7 peril sub-scores, shown under the composite ring.
-    private func subScoreView(label: String, score: Int) -> some View {
+    /// One of the three S6.7 peril sub-scores, shown under the composite ring. `basis` is
+    /// S11.2's evidence tier (ScoreBasisLabel maps it from `ScoreBreakdown.basis`) — nil on a
+    /// server that predates it, in which case the row just omits the line rather than
+    /// guessing.
+    private func subScoreView(label: String, score: Int, basis: String? = nil) -> some View {
         VStack(spacing: 4) {
             Text("\(score)")
                 .font(.headline)
@@ -257,9 +274,18 @@ struct ScoreScreen: View {
                 .foregroundStyle(DS.supporting)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 80)
+            if let basis {
+                Text(basis)
+                    .font(.system(size: 9, weight: .semibold))
+                    .textCase(.uppercase)
+                    .kerning(0.3)
+                    .foregroundStyle(DS.supporting)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 80)
+            }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label) sub-score is \(score)")
+        .accessibilityLabel("\(label) sub-score is \(score)" + (basis.map { ", \($0)" } ?? ""))
     }
 
     // MARK: - Breakdown
