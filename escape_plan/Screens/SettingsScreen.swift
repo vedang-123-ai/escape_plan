@@ -32,6 +32,9 @@ struct SettingsScreen: View {
     
     @AppStorage("snapshot_enabled") private var isSnapshotEnabled = false
     @State private var showingConsent = false
+    // S11.6: consent is explicit, per share — a separate sheet from the one-time "enable
+    // the feature" gate above, shown fresh every time a snapshot is about to go out.
+    @State private var showingShareConsent = false
     @State private var isGeneratingSnapshot = false
     @State private var shareURLs: [URL]?
 
@@ -117,8 +120,8 @@ struct SettingsScreen: View {
                     footnote("Debug builds only. The local option expects `uvicorn app.main:app --port 8000` running on this Mac.")
                     #endif
 
-                    section("Responder Snapshot") {
-                        let toggle = Toggle("Enable Export", isOn: Binding(
+                    section("Share with your fire department") {
+                        let toggle = Toggle("Enable", isOn: Binding(
                             get: { isSnapshotEnabled },
                             set: { newValue in
                                 if newValue {
@@ -139,10 +142,12 @@ struct SettingsScreen: View {
                                 toggle
                                 divider
                                 Button {
-                                    Task { await generateSnapshot() }
+                                    // Explicit, per share: re-confirm every time, even
+                                    // though the feature itself was already enabled above.
+                                    showingShareConsent = true
                                 } label: {
                                     HStack {
-                                        Text("Generate Snapshot")
+                                        Text("Share with fire department")
                                             .font(.body)
                                             .foregroundStyle(Theme.accentText)
                                         Spacer()
@@ -161,7 +166,7 @@ struct SettingsScreen: View {
                             toggle
                         }
                     }
-                    footnote("Generate a strictly anonymous PDF and JSON package of floor plans, safety hazards, and vulnerable occupants to hand to first responders. Never transmitted automatically.")
+                    footnote("Generate a PDF and JSON package of floor plans, hazard findings and occupant counts by room — never names unless you opt in per share — to hand to first responders. Never transmitted automatically; every share asks first.")
 
                     section("About") {
                         row("Version") {
@@ -201,15 +206,22 @@ struct SettingsScreen: View {
             }
             .sheet(isPresented: $showingHowRoutes) { HowRoutesAreComputedSheet() }
             .sheet(isPresented: $showingConsent) {
-                ConsentSheet {
+                // Enabling the feature at all is its own acknowledgement; the names opt-in
+                // in this instance of the sheet is unused until an actual share happens.
+                ConsentSheet { _ in
                     isSnapshotEnabled = true
+                }
+            }
+            .sheet(isPresented: $showingShareConsent) {
+                ConsentSheet { decision in
+                    Task { await generateSnapshot(consent: decision) }
                 }
             }
             .background(ShareSheet(urls: $shareURLs))
         }
     }
 
-    private func generateSnapshot() async {
+    private func generateSnapshot(consent: SnapshotConsentDecision) async {
         isGeneratingSnapshot = true
         defer { isGeneratingSnapshot = false }
 
@@ -225,7 +237,7 @@ struct SettingsScreen: View {
         try? await Task.sleep(for: .seconds(0.1))
 
         do {
-            let urls = try exporter.writeResponderSnapshot(preview: preview)
+            let urls = try exporter.writeResponderSnapshot(preview: preview, consent: consent)
             shareURLs = urls
         } catch {
             print("Failed to generate snapshot: \(error)")
