@@ -17,7 +17,7 @@ physical iPhone 17 Pro.** Assign people to lanes however you like; run a session
 | [S11.4](S11-4.md) | AI layer: positioning, evals, credit-independent tests | A | `s11-4-ai-layer` | baseline |
 | ~~S11.5~~ | ~~Readiness Home and the prevention layer~~ **DONE 2026-09-23** | B | `s11-5-readiness-home` | baseline (tips: S11.1) |
 | ~~S11.6~~ | ~~Responder Snapshot v2, "Share with your fire department"~~ **DONE 2026-09-23** | B | `s11-6-responder-snapshot` | baseline |
-| [S11.7](S11-7.md) | Accounts demoted: signed-out proof, privacy, delete-my-data | B | `s11-7-accounts-demoted` | baseline |
+| ~~S11.7~~ | ~~Accounts demoted: signed-out proof, privacy, delete-my-data~~ **DONE 2026-09-24** | B | `s11-7-accounts-demoted` | baseline |
 | [S11.8](S11-8.md) | iOS verification: first full simulator run in nine days | C | `s11-8-ios-verify` | baseline |
 | [S11.9](S11-9.md) | Device pass I: camera, frame rate, framing, floors | C | `s11-9-device-camera` | S11.8 |
 | [S11.10](S11-10.md) | Device pass II: real scan, AR Drill, haptics, VoiceOver, print | C | `s11-10-device-drill` | S11.9 |
