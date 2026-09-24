@@ -2352,3 +2352,15 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Commits this session**
   - 87c6ef4 Docs: activity log (Stop hook)
 
+## 2026-09-24T17:57:50Z · vedang-123-ai · `s11-7-accounts-demoted` @ `aa9fc5b`
+
+**Commits this session**
+  - aa9fc5b Docs: mark S11.7 done in the playbook README
+  - f3e156e Docs: S11.7 blockers section, six decision rows, session note
+  - 80c9658 Gate: the skip is a peer of the sign-in button, and the headline stops implying
+  - 29bf660 Signed-out proof: no token means no request, and every tab still opens
+  - ef7d9a7 Settings + gate: say what an account uploads, and let people delete it
+  - 4d243dc Sync: the server copy of a deleted home actually goes away
+  - d3f9804 Auth: delete my account and data, and say what is uploaded
+  - 62b79a8 Backend: delete-my-data — DELETE /auth/me and DELETE /homes/{id}
+

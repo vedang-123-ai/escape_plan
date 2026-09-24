@@ -54,7 +54,7 @@ and one `.alert`.
 | Suite | Result | Baseline at session start |
 | --- | --- | --- |
 | backend `-m "not live and not mongo"` | **788** passed, 1 skipped, 26 deselected | 768 |
-| `swift test --package-path tools/editorcore` | **594** passed, 0 failed | 558 |
+| `swift test --package-path tools/editorcore` | **598** passed, 0 failed | 558 |
 | `scripts/typecheck-ios.sh` | ok, all four targets, iOS 17.0 (app 170 files ×2, tests 82, UITests 10) | ok |
 | `xcodebuild test` | **NOT RUN** — this machine cannot | — |
 | backend `-m mongo` | **NOT RUN** — no Mongo server here | — |
@@ -89,6 +89,38 @@ MEDIUM issues. The same line appears in other playbook files and should be corre
 counts stamped at the top of `BLOCKERS.md` (556 backend, 516 EditorCore) are stale by several
 sessions — the real baselines at my branch point were 768 and 558. I recorded mine against what I
 measured and left the header alone rather than guessing which session added what.
+
+## The review caught a bug I shipped, and it was the serious kind
+
+`swift-scenekit-reviewer` found that the remote-delete wiring keyed off
+`SyncAction.Reason.deletedOnThisDevice`, which `SyncReconciler` emits via
+`SyncState.isDeletedLocally` — and that predicate **deliberately** also matches an *ownerless*
+tombstone for whichever account happens to be signed in. For the question it was written to
+answer ("should I download this?") that is correct and harmless. For the question I started
+asking with it ("may I erase this from the cloud?") it is irreversible data loss, and the path
+is built from this repo's own facts: starter homes keep fixed `home_id`s, so a fresh install
+where the user deletes the seeded Bungalow *before* signing in makes exactly that tombstone, and
+the first sign-in would erase their other device's real Bungalow from the account.
+
+I reproduced it before fixing it. The fix reads the tombstone's own `ownerUserID` and requires it
+non-nil and equal to the token subject.
+
+**The lesson, because I expect to make this mistake again in a different shape:** I reused an
+existing predicate for a more destructive decision than it was written for, and I checked the
+call site rather than the predicate. The blast radius of a condition is set by the *new* thing it
+authorises, not by the old one. `SyncState`'s own doc comment (lines 38–43) says a deletion must
+only affect the account it happened in — the invariant was written down, and I still walked past
+it, because I was reading the reconciler's output instead of the state's contract.
+
+Five more findings from the same review are fixed: duplicate server records are all deleted
+rather than one arbitrary one per sync; `forgetAccount` is no longer undone by an in-flight sync;
+the delete alert can no longer be a silent no-op; the two new UI-test assertions on the
+disclosure could never have matched (`.combine` removes the visible strings from the
+accessibility tree) and are queried by identifier now; and the failed-deletion note is
+dismissable. Plus three nits, including a comment that invented a `Theme.danger` token.
+
+The two guards that are *not* merely self-consistent were mutation-checked: removing the
+ownerless gate and removing the in-flight-sync guard each turn their tests red.
 
 ## Questions for teammates
 

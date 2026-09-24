@@ -127,8 +127,8 @@ _S11.13_ none yet
 #### S11.7 · Accounts demoted: signed-out proof, privacy copy, delete-my-data (2026-09-24, branch `s11-7-accounts-demoted`)
 
 **Verified green on this branch, 2026-09-24:** backend **788** passed, 1 skipped, 26 deselected
-(**768** measured on `origin/main` at the start of this session; **+20** here). EditorCore **594**
-passed, 0 failed (**558** measured at the start; **+36** here). Note both baselines are far above
+(**768** measured on `origin/main` at the start of this session; **+20** here). EditorCore **598**
+passed, 0 failed (**558** measured at the start; **+40** here). Note both baselines are far above
 the numbers stamped at the top of this file (**556** backend, **516** EditorCore) — that header is
 stale by several sessions and should be re-stamped by whoever clears §0, not by me guessing which
 session added what. `scripts/typecheck-ios.sh` ok on all four targets against
@@ -142,6 +142,30 @@ the privacy disclosure, rendered on the auth gate and in Settings; the remote co
 tombstoned home now actually deleted on the next sync; and the gate's "Continue without an
 account" promoted from a grey subheadline to a peer of the sign-in button.
 
+- [x] **`swift-scenekit-reviewer` found an irreversible-data-loss defect introduced by this
+      session, and it is fixed.** The remote-delete wiring keyed off `.deletedOnThisDevice`,
+      which `SyncReconciler` emits via `isDeletedLocally` — a predicate that deliberately also
+      matches an OWNERLESS tombstone for whichever account is signed in. Harmless as "do not
+      download"; catastrophic as "DELETE from the server". Reachable from the repo's own facts:
+      starter homes keep fixed `home_id`s, so a fresh install where the user deletes the seeded
+      Bungalow BEFORE signing in makes exactly that tombstone, and the first sign-in would erase
+      their other device's real Bungalow from the account. Reproduced, fixed by requiring a
+      non-nil tombstone owner equal to the token subject, and pinned by
+      `testAnOwnerlessTombstoneNeverDeletesTheAccountsServerCopy`. **The lesson is the one this
+      repo keeps relearning:** the escalation was in the manager, but the predicate that
+      authorised it lives two files away and was written for a weaker purpose.
+- [x] **Five more review findings fixed in the same pass:** duplicate server records of a deleted
+      home are all deleted rather than an arbitrary one per sync; `forgetAccount` can no longer be
+      undone by an in-flight sync persisting its pre-deletion sidecar (confirmed to fail without
+      the guard); confirming the delete alert during any in-flight auth request is no longer a
+      silent no-op; the two new UI-test assertions on the disclosure are queried by identifier,
+      because `.combine` had taken the visible strings out of the accessibility tree and they
+      could never have matched; and a failed deletion's error note is dismissable.
+- [ ] **The gate's "collapsed layout is unchanged" claim is a layout claim with no test.**
+      `minHeight: proxy.size.height` should make the ScrollView's nil height proposal clamp to the
+      screen so the `Spacer(minLength:)`s still distribute — but nothing asserts it, and only a
+      rendered SE-class screen can. Next action: eyeball it in the same simulator pass as the
+      UI tests below.
 - [ ] **Nothing in this session has been rendered on a screen.** `AccountPrivacyDisclosure`, the
       delete row, the confirmation alert, the scrollable gate and the promoted skip button all
       type-check and none has ever been drawn. The disclosure's expanded state is eight lines of
