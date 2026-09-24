@@ -120,9 +120,134 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
 
 ### S11.1 to S11.13: session findings (append under your heading)
 
-_S11.1_ **see below** · _S11.2_ **see below** · _S11.3_ **see below** · _S11.4_ **see below** · _S11.5_ none yet · _S11.6_ none yet ·
+_S11.1_ **see below** · _S11.2_ **see below** · _S11.3_ **see below** · _S11.4_ **see below** · _S11.5_ **see below** · _S11.6_ **see below** ·
 _S11.7_ none yet · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
 _S11.13_ none yet
+
+#### Integration · S11.5 + S11.6 merged and gated (2026-09-23, on `main`)
+
+Both sessions ran as parallel worktrees with disjoint OWNED FILES; the only shared file was
+`docs/decisions.md` (`merge=union`). Both merged to `main` with **no conflicts**.
+
+**Gate on the combined tree, run 2026-09-23 after both merges:** EditorCore **555 passing, 0
+failures** (516 baseline + 6 from S11.6 + 33 from S11.5 — exactly additive, no test lost to
+the merge). `scripts/typecheck-ios.sh` ok on all four targets at iOS 17.0 (168 app files in
+both `-DDEBUG` and release, `escape_planTests` 78, `escape_planUITests` 9). Corpus valid: 36
+sources, 13 files, 2 threshold files, 44 prevention tips, 1 orphan exception.
+`python3 scripts/check-tips-sync.py` exits 0, negative case verified. **`xcodebuild test` NOT
+run** — no simulator; see §0.
+
+- [x] **The cross-session wiring neither branch could do is done** (`7cb248e`).
+      `HomeScreen.swift` is S11.5's and `ShareWithFireDepartmentCard` is S11.6's, so the card
+      was wired into `familyPlanSection` on `main` after both merged, and the typecheck re-run.
+- [ ] **`escape_plan/Screens/SettingsScreen.swift` was edited by S11.6 under a narrow logged
+      exception, but it is S11.7's OWNED FILE.** S11.6 needed it because the entire Responder
+      Snapshot UI lives there; it touched only the share section, its two `ConsentSheet`
+      presentations and `generateSnapshot()`, and left Account/auth/sync alone. Recorded in
+      `docs/decisions.md` (2026-09-23) and as STEP 0 in `docs/playbook/S11-7.md`. Next action
+      (S11.7): read that STEP 0 before editing the file, and do not revert the rename.
+- [ ] **Neither session was verified on a simulator or device.** Two more bodies of Swift now
+      sit behind the §0 gate: S11.5's Home tab reframe and S11.6's share flow have never been
+      rendered or tapped. Next action: **S11.8**, which now has more to cover than when it was
+      written.
+
+#### S11.5 · Readiness Home and the prevention layer (2026-09-23, branch `s11-5-readiness-home`)
+
+Verified this session: EditorCore **516 → 549 passing, 0 failures** (33 new tests, all in
+`escape_plan/Readiness/` + `escape_planTests/EditorCore/Readiness*Tests.swift`).
+`scripts/typecheck-ios.sh` ok on all four targets at iOS 17.0. `python3
+scripts/check-tips-sync.py` exits 0; verified the negative case too (a deliberate
+perturbation of the bundled copy produces exit 1 with a useful message), then restored.
+swift-scenekit-reviewer ran over the full diff: zero blocking findings. **`xcodebuild test`
+NOT run — no simulator on this machine**, per the standing rule; nothing in this session was
+verified on-device or in-simulator.
+
+**Closed by this session:**
+
+- [x] Home tab reframed: readiness score/checklist → Prevent → family plan → homes
+      (`HomeScreen.swift`).
+- [x] Prevention tips bundled and kept in sync (`escape_plan/Resources/prevention_tips.json`,
+      `scripts/check-tips-sync.py`); every tip shows a tappable, citation-carrying source
+      label; no tip can decode without a `cite`.
+- [x] Scan freshness: age display with `meta.modified` fallback, plus a wall-edit trigger
+      (`ScanFreshness`, `ScanFreshnessStore`), both honestly worded as resident-maintained.
+- [x] `basis` (S11.2) rendered on `ScoreScreen`'s per-peril sub-scores — CODE-QUANTIFIED /
+      GUIDANCE-BASED, nil-safe for a server predating the field.
+- [x] Onboarding + empty-state copy leads with prevention/readiness; confirmed no string
+      anywhere in `Onboarding/` or `Screens/` claims firefighters use the app.
+
+**Found and NOT closed:**
+
+- [ ] **Nothing in this session was verified on a simulator or device.** Every acceptance
+      item above is typecheck- or unit-test-level. The new UI (`PreventionTipCard`,
+      `scanAgeCaption`, the reworked `rescanNudge`, `meetingPointCard` opening
+      `ExportPlanSheet`, `homesSection`) has never been rendered or tapped through. Next
+      action: a device-acceptance pass (see the `device-acceptance` skill) once a simulator
+      or a physical device is available — walk the Home tab end to end, confirm the Prevent
+      cards, the scan-age caption, both re-scan-nudge wordings (stale vs. walls-edited, which
+      needs a scanned home with a wall actually added/removed to trigger), and the meeting-
+      point card opening the real export sheet.
+- [ ] **`prevention_tips.json`'s composite/under-attributed tips are still under-attributed**
+      (`BLOCKERS.md:494` — `tornado-pick-the-room-now`, `tornado-more-than-one-alert`).
+      S11.5 ruled `cite` stays a single `String` (logged in `docs/decisions.md`,
+      2026-09-23) because fixing this is a `backend/corpus/prevention_tips.json` +
+      `backend/corpus/validate.py` change, neither of which this session owns. Next action:
+      whoever next owns the corpus decides whether `cite` becomes a list (and updates
+      `validate.py` check 7 to accept both shapes) or the two tips get split into
+      single-source tips instead.
+- [ ] **The "Source" tap in `PreventionTipCard` shows the raw corpus id** (e.g.
+      `nfpa-escape-planning`), not a looked-up title/org. Not a citation-rule violation — the
+      id resolves server-side and nothing false is shown — but a rougher string than a
+      `sources.json` title lookup would give. Flagged by swift-scenekit-reviewer as a
+      cosmetic nit, not a blocker. Next action: whoever next touches this card, or bundles
+      `sources.json` client-side for another reason, can upgrade it then.
+- [ ] **The "walls changed" nudge trigger has no end-to-end verification.** Unit-tested at
+      the `ScanFreshness`/`ScanFreshnessStore` level (33 new tests), but the full path —
+      scan a home, edit a wall in the editor, return to Home, see the nudge — has never run,
+      because it needs both a simulator (blocked above) and a real RoomPlan scan or an
+      editor session. Next action: part of the device-acceptance pass above.
+
+#### S11.6 · Responder Snapshot v2, "Share with your fire department" (2026-09-23, branch `s11-6-responder-snapshot`)
+
+Verified this session: EditorCore **516 → 522 passing, 0 failures** (6 new tests). `scripts/typecheck-ios.sh` ok on all four targets at iOS 17.0. swift-scenekit-reviewer: no must-fix findings, two should-fix findings both fixed (below). **`xcodebuild test` NOT run — no simulator on this machine.**
+
+- **Device/simulator-gated, unverified:** exporting an actual PDF from the `twostory` fixture
+  and eyeballing the as-of/staleness/disclaimer lines and hazard-summary block on the printed
+  page. `EscapePlanPDF.swift` imports UIKit and renders through `UIGraphicsPDFRenderer`/
+  `UIFont` — this cannot run without a simulator, and the user has forbidden booting one on
+  this machine. The PDF *content* changes were made and typechecked
+  (`scripts/typecheck-ios.sh` green, 163 app files) but never visually verified. Owned by
+  S11.8 per the orchestrator's instruction, or whoever next has simulator access.
+- **`escape_planTests/ResponderSnapshotTests.swift` (mine, updated this session) and the rest
+  of `escape_planTests`/`escape_planUITests` were never executed**, only typechecked
+  (`ok escape_planTests (74 files)`, `ok escape_planUITests (9 files)`). No simulator on this
+  machine. Whoever has one should run `xcodebuild test -only-testing:escape_planTests/
+  ResponderSnapshotTests` at minimum before trusting these assertions.
+- **Backend/Python side of the hazard summary was never run.** There is no local venv on this
+  machine (BLOCKERS §4, pre-existing). `SnapshotHazardSummaryTests.swift` and
+  `ResponderSnapshotTests.testHazardSummaryMatchesEngineChecklistOnStockFixtures` pin the
+  id-shape contract against a reading of `backend/app/scoring/checklist.py`, not against a
+  live `build_checklist()` run on the stock fixtures. If checklist.py's id format ever changes
+  without a corresponding Swift-side update, these tests would not catch it — they'd need the
+  venv to run `pytest backend/tests/test_checklist_hazards.py` alongside them.
+- **Design call needing review, not yet cross-checked with anyone:** the PDF never prints
+  occupant names even when the resident opts in via consent — only the JSON does. This was my
+  own conservative reading of mission #5 ("counts by room, never names, unless the resident
+  explicitly opts in"), not something the session file pinned down explicitly. Worth a second
+  look before demo/pitch material references it.
+- **swift-scenekit-reviewer findings (both addressed):**
+  1. *Must fix: none.*
+  2. *Should fix, fixed:* `EscapePlanPDF.swift`'s staleness check read `Date()` instead of
+     `document.generatedAt`, so a document rendered later than it was stamped could show
+     "not stale" in the JSON and "WARNING: stale" on the printed page for the same snapshot.
+     Now both read `document.generatedAt`.
+  3. *Should fix, fixed:* the enable-gate `ConsentSheet` (Settings' "Enable" toggle) and the
+     real per-share `ConsentSheet` showed identical "Share" copy, so accepting the gate could
+     read as "I just shared my data" when nothing was generated or sent. Added
+     `ConsentSheet(isEnablingOnly:)`: the gate now says "Turn On" and explains a real share
+     still asks again; the names opt-in toggle is hidden there since no share happens yet.
+  Full review text is in this session's chat transcript (Agent tool call "Review S11.6 Swift
+  diff against project rules"), not reproduced here in full.
 
 #### S11.4 · AI layer positioning, evals, credit-independent tests (2026-09-22/23, branch `s11-4-ai-layer`)
 
