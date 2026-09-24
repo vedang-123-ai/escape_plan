@@ -162,6 +162,45 @@ async def me(user: CurrentUser) -> UserPublic:
     return UserPublic.from_user(user)
 
 
+@router.delete("/auth/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_me(user: CurrentUser) -> None:
+    """Delete the account and everything stored under it.
+
+    Apple requires an in-app way to delete an account wherever accounts exist,
+    and "delete my data" has to mean the homes as well: the user document is an
+    email address, but a home carries the floor plan, every household member's
+    name and the optional street address.
+
+    **Homes first, then the user.** The other order leaves the homes orphaned
+    under a user id nothing can authenticate as, so nobody — not even their
+    owner — could ever ask for them to be removed. This way a failure between
+    the two steps leaves an account whose data is already gone and which the
+    user can delete again; the retry is idempotent because both steps are.
+
+    No response body. There is nothing left to describe, and 204 is what a
+    client can check without parsing anything.
+    """
+    await _homes().delete_all_for_user(user.id)
+    await _users().delete(user.id)
+
+
+@router.delete("/homes/{home_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_home(home_id: str, user: CurrentUser) -> None:
+    """Delete one home belonging to the authenticated user.
+
+    404 for a home that does not exist AND for one that belongs to somebody
+    else, matching `sync_home` — a 403 would confirm that an id is real, which
+    is exactly what a caller guessing ids is trying to find out.
+
+    Deliberately not idempotent-silent: deleting the same home twice answers
+    404 the second time. A client that has already forgotten the record does not
+    call this at all (the id came from `GET /homes`), so a 404 here means the
+    caller's picture of the account is stale and it should re-list.
+    """
+    if not await _homes().delete_for_user(home_id, user.id):
+        raise HTTPException(status_code=404, detail="No such home.")
+
+
 # `response_model_by_alias=False` on both /homes routes, deliberately.
 # `StoredHomeModel.id` is aliased to `_id` so `to_document()` writes Mongo's
 # primary key — a STORAGE concern. FastAPI serialises response models by alias

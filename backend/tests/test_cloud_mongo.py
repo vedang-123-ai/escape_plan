@@ -409,3 +409,47 @@ class TestUnreachableDatabase:
         finally:
             await dead.close()
             config.get_settings.cache_clear()
+
+
+class TestDeletionAgainstRealMongo:
+    """S11.7 — delete-my-data against the real driver.
+
+    The fake's `delete_one` / `delete_many` are twenty hand-written lines, and
+    the one thing they cannot prove is that `delete_many({"user_id": ...})`
+    scopes the way `find` does on a real server. Getting that wrong erases every
+    account's homes, and the fake would agree with it.
+    """
+
+    async def test_delete_all_for_user_leaves_other_owners_alone(
+        self, mongo_db, bungalow
+    ):
+        repo = HomeRepository(mongo_db)
+        home = HomeModel.model_validate(bungalow)
+        await repo.upsert(StoredHomeModel(id="h1", user_id="u1", home=home))
+        await repo.upsert(StoredHomeModel(id="h2", user_id="u1", home=home))
+        await repo.upsert(StoredHomeModel(id="h3", user_id="u2", home=home))
+
+        assert await repo.delete_all_for_user("u1") == 2
+        assert await repo.list_for_user("u1") == []
+        assert len(await repo.list_for_user("u2")) == 1
+
+    async def test_delete_for_user_refuses_across_owners(self, mongo_db, bungalow):
+        repo = HomeRepository(mongo_db)
+        await repo.upsert(
+            StoredHomeModel(
+                id="h1", user_id="u1", home=HomeModel.model_validate(bungalow)
+            )
+        )
+        assert await repo.delete_for_user("h1", "u2") is False
+        assert await repo.find_for_user("h1", "u1") is not None
+
+    async def test_deleting_a_user_frees_the_unique_email_index(self, mongo_db):
+        """The index is the server's, not the fake's. If deletion left a
+        tombstone the re-registration below would raise EmailAlreadyRegistered.
+        """
+        repo = UserRepository(mongo_db)
+        user = await repo.create(User(email="a@b.com", hashed_password="h"))
+        assert await repo.delete(user.id) is True
+
+        again = await repo.create(User(email="a@b.com", hashed_password="h2"))
+        assert again.id != user.id
