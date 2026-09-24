@@ -985,7 +985,10 @@ struct HomeScreen: View {
             meetingPointCard(home)
             PracticeReminderCard(homeID: home.id, homeName: home.name, lastPracticed: lastPracticed)
                 .dsCard(padding: 16)
-            // INTEGRATION POINT (S11.6): ShareWithFireDepartmentCard goes here.
+            // S11.6's opt-in share, wired at integration: the firefighter's own best idea,
+            // so it sits in the family plan rather than buried in Settings. The card owns its
+            // consent sheet and share state — nothing to bind from here.
+            ShareWithFireDepartmentCard(homeID: home.id, store: library.store)
         }
         .padding(.horizontal, DS.pagePadding)
     }
