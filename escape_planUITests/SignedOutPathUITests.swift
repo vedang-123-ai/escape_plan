@@ -67,8 +67,12 @@ final class SignedOutPathUITests: XCTestCase {
                       "the gate asks for an account without saying what it uploads")
         disclose.tap()
 
-        XCTAssertTrue(app.staticTexts["Signing in uploads"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["It never uploads"].exists)
+        // By identifier, not by visible string: the two lists are `.combine`d for VoiceOver,
+        // which replaces their descendant Texts with one element whose label is the whole
+        // paragraph. Queried by string these never resolve — caught in review before they had
+        // ever run, which is exactly the failure mode an unrun test has.
+        XCTAssertTrue(app.otherElements["privacy.uploads"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["privacy.neverUploads"].exists)
     }
 
     // MARK: - Every tab opens
@@ -124,6 +128,6 @@ final class SignedOutPathUITests: XCTestCase {
         let disclose = app.buttons["What does an account upload?"]
         XCTAssertTrue(disclose.waitForExistence(timeout: 20))
         disclose.tap()
-        XCTAssertTrue(app.staticTexts["It never uploads"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["privacy.neverUploads"].waitForExistence(timeout: 5))
     }
 }

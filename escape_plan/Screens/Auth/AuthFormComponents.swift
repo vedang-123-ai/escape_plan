@@ -163,6 +163,13 @@ struct AuthSubmitButton: View {
 /// decides most of it, and the detail has to be one tap away, not a link to a web page the
 /// user has to leave the app to read.
 struct AccountPrivacyDisclosure: View {
+
+    /// Queried by `SignedOutPathUITests`. The two lists are `.combine`d for VoiceOver, which
+    /// takes their visible strings out of the accessibility tree, so an identifier is the only
+    /// handle a UI test has on them.
+    static let uploadsIdentifier = "privacy.uploads"
+    static let neverUploadsIdentifier = "privacy.neverUploads"
+
     @State private var isExpanded = false
 
     var body: some View {
@@ -193,10 +200,12 @@ struct AccountPrivacyDisclosure: View {
                 VStack(alignment: .leading, spacing: 12) {
                     disclosureList("Signing in uploads",
                                    AccountPrivacy.uploaded.map(\.text),
-                                   symbol: "arrow.up.circle")
+                                   symbol: "arrow.up.circle",
+                                   identifier: AccountPrivacyDisclosure.uploadsIdentifier)
                     disclosureList("It never uploads",
                                    AccountPrivacy.notUploaded,
-                                   symbol: "xmark.circle")
+                                   symbol: "xmark.circle",
+                                   identifier: AccountPrivacyDisclosure.neverUploadsIdentifier)
                 }
                 .padding(12)
                 .background(DS.inset, in: RoundedRectangle(cornerRadius: DS.buttonRadius,
@@ -207,7 +216,10 @@ struct AccountPrivacyDisclosure: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func disclosureList(_ title: String, _ lines: [String], symbol: String) -> some View {
+    private func disclosureList(_ title: String,
+                               _ lines: [String],
+                               symbol: String,
+                               identifier: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Label(title, systemImage: symbol)
                 .font(.footnote.weight(.semibold))
@@ -225,7 +237,13 @@ struct AccountPrivacyDisclosure: View {
                 }
             }
         }
+        // `.combine` is right for VoiceOver — one announcement beats eight orphan bullets —
+        // but it REMOVES the descendant Texts from the accessibility tree, so nothing can be
+        // queried by its visible string. The identifier is what gives a UI test a handle on
+        // the combined element. Found in review, 2026-09-24: `SignedOutPathUITests` asserted
+        // on `staticTexts["Signing in uploads"]`, which could never have resolved.
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
         .accessibilityLabel("\(title): " + lines.joined(separator: ". "))
     }
 }

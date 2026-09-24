@@ -307,6 +307,12 @@ struct SettingsScreen: View {
                     AuthFailureNote(failure: failure)
                         .padding(.horizontal, 18)
                         .padding(.top, 14)
+                        // Tap to dismiss. Nothing else on this screen clears it — `failure` is
+                        // only reset by the next auth operation — so a single failed deletion
+                        // would otherwise leave a red note in the Account section for the rest
+                        // of the launch, across every tab switch.
+                        .onTapGesture { authSession.failure = nil }
+                        .accessibilityAction(named: "Dismiss") { authSession.failure = nil }
                 }
                 row("Signed in as") {
                     Text(user.email)
@@ -348,10 +354,10 @@ struct SettingsScreen: View {
 
     /// Apple requires an in-app way to delete an account wherever accounts exist.
     ///
-    /// `Theme.warning` rather than the accent, because this is the one row on the screen that
-    /// destroys something. Not `Theme.danger`-red-on-white as a filled button: it sits in a
-    /// list of ordinary rows, and a filled destructive button in that position reads as the
-    /// section's primary action.
+    /// `Theme.warning` — the semantic scale's red — rather than the accent, because this is the
+    /// one row on the screen that destroys something. Deliberately NOT a filled red button: it
+    /// sits in a list of ordinary rows, and a filled destructive button in that position reads
+    /// as the section's primary action.
     private var deleteAccountRow: some View {
         Button { isConfirmingDeletion = true } label: {
             HStack {
@@ -366,7 +372,12 @@ struct SettingsScreen: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(HapticPlainButtonStyle())
-        .disabled(isDeletingAccount)
+        // Disabled while ANY auth request is in flight, not just this one. `deleteAccount()`
+        // drops a call made while `isWorking` — so without this the user could confirm an
+        // irreversible alert during a launch `refresh()` and get no spinner, no error and no
+        // change: a silent no-op, on the one operation where "it probably worked" is least
+        // acceptable. Found in review, 2026-09-24.
+        .disabled(isDeletingAccount || authSession.isWorking)
         .accessibilityHint("Permanently erases your account and the homes backed up to it. "
                          + "The homes on this iPhone are not deleted.")
     }

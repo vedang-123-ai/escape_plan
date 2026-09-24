@@ -156,6 +156,55 @@ final class SyncDeletionTests: XCTestCase {
         XCTAssertTrue(repository.writes.isEmpty, "and it still was not downloaded")
     }
 
+    /// ─── THE ONE THAT MUST NOT REGRESS ───────────────────────────────────────────────────
+    ///
+    /// An OWNERLESS tombstone must never delete anything from the server.
+    ///
+    /// `isDeletedLocally` matches a tombstone whose `ownerUserID` is nil for ANY signed-in
+    /// account, by design — before S11.7 that meant "do not download this", which is harmless.
+    /// S11.7 escalated the same branch to `DELETE /homes/{id}`, which is not.
+    ///
+    /// The path is real, not theoretical, and it is built out of this repo's own facts: the
+    /// starter homes keep FIXED `home_id`s across installs (`FixtureSeeder`). Fresh install,
+    /// user deletes the seeded Bungalow BEFORE signing in (so the tombstone has no owner),
+    /// then signs in — and their other device's real Bungalow is erased from the account.
+    func testAnOwnerlessTombstoneNeverDeletesTheAccountsServerCopy() async throws {
+        // Deleted before anyone signed in: no owner on the tombstone.
+        var state = SyncState.empty
+        state.markDeleted(localHomeID: base.home_id, at: Date())
+        try stateStore.save(state)
+        repository = InMemoryHomeRepository()
+
+        // The account already holds a real copy, synced from another device.
+        var fromOtherDevice = base!
+        fromOtherDevice.name = "The one I actually want"
+        backend.seed(fromOtherDevice, revision: 4, userID: "u-1")
+
+        let manager = makeManager()
+        await manager.sync()
+
+        XCTAssertNotNil(backend.record(withLocalHomeID: base.home_id),
+                        "an ownerless tombstone erased a home from the user's account")
+        XCTAssertEqual(try outcome(manager.status).deletedRemotely, 0)
+        XCTAssertEqual(try outcome(manager.status).skipped, 1,
+                       "it must still be the pure skip it was before S11.7")
+    }
+
+    /// The server may hold DUPLICATE records for one `home_id` — two devices racing to create
+    /// it, which is why `SyncReconciler.collapseDuplicates` exists. Deleting one per sync
+    /// leaves the home in the account until the user happens to sync again.
+    func testEveryDuplicateServerRecordOfADeletedHomeGoes() async throws {
+        try await syncThenDeleteLocally()
+        // A second record for the same home, as a racing device would have minted.
+        backend.seed(base, revision: 1, userID: "u-1")
+        XCTAssertEqual(backend.storedHomes.filter { $0.home.home_id == base.home_id }.count, 2)
+
+        await makeManager().sync()
+
+        XCTAssertTrue(backend.storedHomes.filter { $0.home.home_id == base.home_id }.isEmpty,
+                      "a duplicate server record outlived the deletion")
+    }
+
     // MARK: - Forgetting a deleted account
 
     func testForgettingAnAccountClearsItsRecordsAndOwnership() async throws {
@@ -190,6 +239,49 @@ final class SyncDeletionTests: XCTestCase {
 
         XCTAssertEqual(try outcome(second.status).pushed, 1)
         XCTAssertEqual(backend.storedHomes.filter { $0.userID == "bob" }.count, 1)
+    }
+
+    /// A sync already in flight must not write its pre-deletion sidecar back over the wipe.
+    ///
+    /// `sync()` holds its own `state` across every `await` and persists after each action, so
+    /// a deletion confirmed during a launch sync — up to 90s of it against a cold Render
+    /// instance — would otherwise restore exactly the dangling ownership claims
+    /// `forgetAccount` exists to remove. Found in review, 2026-09-24.
+    func testASyncInFlightCannotUndoTheAccountDeletion() async throws {
+        repository = InMemoryHomeRepository([base])
+        token = makeTestToken(subject: "alice")
+        let manager = makeManager()
+
+        // Delete the account while the sync is suspended on its first request, then let the
+        // sync run to completion and write its own copy of the sidecar.
+        async let syncing: Void = manager.sync()
+        manager.forgetAccount("alice")
+        await syncing
+
+        let state = stateStore.load()
+        XCTAssertNil(state.homeOwners[base.home_id],
+                     "the in-flight sync restored a deleted account's ownership claim")
+        XCTAssertTrue(state.records.isEmpty,
+                      "the in-flight sync restored a deleted account's sync records")
+        XCTAssertEqual(state.ownership(of: base.home_id), .unclaimed)
+    }
+
+    /// And the guard must not outlive the account it was for: a different account signing in
+    /// afterwards has to be able to record its own homes.
+    func testTheNextAccountsRecordsAreNotForgotten() async throws {
+        repository = InMemoryHomeRepository([base])
+        token = makeTestToken(subject: "alice")
+        let first = makeManager()
+        await first.sync()
+        first.forgetAccount("alice")
+
+        token = makeTestToken(subject: "bob")
+        let second = makeManager()
+        await second.sync()
+
+        let state = stateStore.load()
+        XCTAssertFalse(state.records.isEmpty, "Bob's sync recorded nothing")
+        XCTAssertEqual(state.ownership(of: base.home_id), .mine)
     }
 
     /// Forgetting my account must not rewrite what this device knows about somebody else's.

@@ -39,7 +39,8 @@ enum AccountPrivacy {
             keys: ["profiles"]),
         Disclosure(
             text: "Your home's address — only if you typed one in. It is optional everywhere "
-                + "in the app and blank until you fill it in.",
+                + "in the app and blank until you fill it in, and its created, edited and "
+                + "last-scanned dates.",
             keys: ["meta"]),
         Disclosure(
             text: "Whether you rent or own, and which safety equipment you said you already "
@@ -49,8 +50,12 @@ enum AccountPrivacy {
             text: "The floor plan itself: room shapes and names, walls, doors, windows, "
                 + "stairs, and the objects you tagged or a scan found.",
             keys: ["floors", "stairs"]),
+        // The dates belong to `meta` and are described on that line; this one is only the
+        // home's name and the two ids that identify the document. Corrected in review — the
+        // key-coverage test still passed with the dates claimed here, because `meta` was
+        // covered anyway, so the mapping was wrong on its own terms without failing anything.
         Disclosure(
-            text: "The home's name and its created, edited and last-scanned dates.",
+            text: "The home's name, and the identifiers that tell one saved home from another.",
             keys: ["home_id", "name", "schema_version"]),
         Disclosure(
             text: "Your email address, which is what the account is.",
