@@ -125,7 +125,16 @@ Built, in order:
   own conservative reading of mission #5 ("counts by room, never names, unless the resident
   explicitly opts in"), not something the session file pinned down explicitly. Worth a second
   look before demo/pitch material references it.
-- **swift-scenekit-reviewer findings:** see the session note body above / decisions.md if any
-  follow-up landed after this note was written — the review was launched but its results are
-  not folded into this note's text (written before the review returned; check the session's
-  final chat report for what it said and what was changed in response).
+- **swift-scenekit-reviewer findings (both addressed):**
+  1. *Must fix: none.*
+  2. *Should fix, fixed:* `EscapePlanPDF.swift`'s staleness check read `Date()` instead of
+     `document.generatedAt`, so a document rendered later than it was stamped could show
+     "not stale" in the JSON and "WARNING: stale" on the printed page for the same snapshot.
+     Now both read `document.generatedAt`.
+  3. *Should fix, fixed:* the enable-gate `ConsentSheet` (Settings' "Enable" toggle) and the
+     real per-share `ConsentSheet` showed identical "Share" copy, so accepting the gate could
+     read as "I just shared my data" when nothing was generated or sent. Added
+     `ConsentSheet(isEnablingOnly:)`: the gate now says "Turn On" and explains a real share
+     still asks again; the names opt-in toggle is hidden there since no share happens yet.
+  Full review text is in this session's chat transcript (Agent tool call "Review S11.6 Swift
+  diff against project rules"), not reproduced here in full.
