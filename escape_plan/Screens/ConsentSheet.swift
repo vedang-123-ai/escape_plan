@@ -7,6 +7,13 @@ import SwiftUI
 struct ConsentSheet: View {
     @Environment(\.dismiss) private var dismiss
     let onAccept: (SnapshotConsentDecision) -> Void
+    /// True ONLY for the one-time "turn the feature on" gate in Settings. Accepting there
+    /// does NOT generate or share anything — it just reveals the "Share" action, which shows
+    /// this same sheet again (with this `false`) before every actual share. Kept as one view
+    /// rather than two so the two moments can never drift apart in wording, but the CTA and
+    /// intro differ so accepting the gate is never mistaken for having shared something
+    /// (swift-scenekit-reviewer, S11.6).
+    var isEnablingOnly: Bool = false
 
     @State private var includeOccupantNames = false
 
@@ -18,12 +25,14 @@ struct ConsentSheet: View {
                         .font(.largeTitle.weight(.bold))
                         .foregroundStyle(DS.ink)
 
-                    Text("This creates an offline snapshot of your home for first responders — a floor plan, utility shutoffs, and a count of anyone who may need help evacuating. You choose when to send it; nothing leaves this device on its own.")
+                    Text(isEnablingOnly
+                         ? "Turning this on adds a \"Share\" action to this screen. Nothing is generated or sent yet — every actual share asks again, right before it happens, and lets you choose what's included."
+                         : "This creates an offline snapshot of your home for first responders — a floor plan, utility shutoffs, and a count of anyone who may need help evacuating. You choose when to send it; nothing leaves this device on its own.")
                         .font(.body)
                         .foregroundStyle(DS.bodyInk)
 
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("What is included:")
+                        Text("What a share includes:")
                             .font(.headline)
                             .foregroundStyle(DS.ink)
                         bullet("Floor plan diagrams with exits marked")
@@ -42,11 +51,13 @@ struct ConsentSheet: View {
                         bullet("Device identifiers")
                     }
 
-                    Toggle("Include occupant names", isOn: $includeOccupantNames)
-                        .tint(Theme.accent)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(DS.ink)
-                        .accessibilityHint("Off by default. Turning this on adds the names of occupants needing assistance next to their room, instead of just a count.")
+                    if !isEnablingOnly {
+                        Toggle("Include occupant names", isOn: $includeOccupantNames)
+                            .tint(Theme.accent)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(DS.ink)
+                            .accessibilityHint("Off by default. Turning this on adds the names of occupants needing assistance next to their room, instead of just a count.")
+                    }
 
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Not for use in an emergency")
@@ -61,7 +72,9 @@ struct ConsentSheet: View {
                         onAccept(SnapshotConsentDecision.acknowledgedNow(includeOccupantNames: includeOccupantNames))
                         dismiss()
                     } label: {
-                        Text("Share")
+                        // "Turn On" here never claims a share happened — only the per-share
+                        // sheet's button says "Share", and only that one actually shares.
+                        Text(isEnablingOnly ? "Turn On" : "Share")
                             .font(.headline)
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)

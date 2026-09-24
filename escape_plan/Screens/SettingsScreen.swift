@@ -206,9 +206,11 @@ struct SettingsScreen: View {
             }
             .sheet(isPresented: $showingHowRoutes) { HowRoutesAreComputedSheet() }
             .sheet(isPresented: $showingConsent) {
-                // Enabling the feature at all is its own acknowledgement; the names opt-in
-                // in this instance of the sheet is unused until an actual share happens.
-                ConsentSheet { _ in
+                // isEnablingOnly: true — this accepts nothing being shared, only reveals the
+                // "Share" action below. Its own CTA reads "Turn On", never "Share", so
+                // accepting it is never mistaken for having shared something
+                // (swift-scenekit-reviewer, S11.6).
+                ConsentSheet(isEnablingOnly: true) { _ in
                     isSnapshotEnabled = true
                 }
             }
