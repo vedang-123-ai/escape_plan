@@ -222,7 +222,9 @@ struct HomeScreen: View {
         ContentUnavailableView {
             Label("Let's map your home", systemImage: "house")
         } description: {
-            Text("Map it once. We'll build a readiness checklist and an escape route for every person who lives here.")
+            // Prevention and readiness first, matching the onboarding welcome copy — never a
+            // claim that firefighters use this app (S11.5, CLAUDE.md).
+            Text("Map it once. We'll show cited prevention basics, a readiness checklist, and an escape route for every person who lives here.")
         } actions: {
             Button("Scan My Home") { showingScan = true }
                 .buttonStyle(.borderedProminent)
