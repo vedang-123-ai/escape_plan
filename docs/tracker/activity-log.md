@@ -2335,3 +2335,15 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-24T07:19:48Z · vedang-123-ai · `main` @ `b4c99b3`
+
+**Commits this session**
+  - b4c99b3 Merge branch 's11-6-followup-testable-snapshot'
+  - 402f31f Docs: log the as_of defect, the fixture gap, and the playbook-rule conflict
+  - 09eb4dc Tests: move the snapshot tests where they actually run
+  - 0044e04 Export: as_of survives being nil, so the snapshot always carries the key
+  - 89e2ee4 Export: lift EscapePlanDocument out of the UIKit file so it can be tested
+  - b0c9d4b Docs: restore the S11.5/S11.6 session files, and say why the rule is contested
+  - 8e7d45e Docs: S11.5 + S11.6 tracker, STEP 0 for S11.7, retire shipped playbook files
+  - 7cb248e Integration: surface the fire-department share card in the family plan
+
