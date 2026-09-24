@@ -50,6 +50,32 @@ struct ResponderSnapshotJSON: Codable {
         case readinessScore, safeRoomName, vulnerableOccupants, safetyPoints, hazards, hazardSummary
     }
 
+    /// Hand-written ONLY so `as_of` survives being nil. The synthesized encoder uses
+    /// `encodeIfPresent` for optionals, which drops the key entirely for a home that has
+    /// never been scanned — and the S11.6 acceptance criterion is that the snapshot ALWAYS
+    /// carries `as_of`. For a document a fire department may read with software that never
+    /// saw this app, an absent key is ambiguous (old exporter? bug? no scan?) while an
+    /// explicit `null` says "we know, and there is no scan date" — which is the same honesty
+    /// `stalenessNote` is there to state in words.
+    ///
+    /// Caught 2026-09-24 by `testSnapshotAlwaysCarriesAsOfDisclaimerAndConsent`, which had
+    /// been written but never executed until these tests moved into the EditorCore package.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(generatedAt, forKey: .generatedAt)
+        try c.encode(asOf, forKey: .asOf)          // NOT encodeIfPresent — see above.
+        try c.encode(isStale, forKey: .isStale)
+        try c.encode(stalenessNote, forKey: .stalenessNote)
+        try c.encode(tacticalDisclaimer, forKey: .tacticalDisclaimer)
+        try c.encode(consent, forKey: .consent)
+        try c.encodeIfPresent(readinessScore, forKey: .readinessScore)
+        try c.encodeIfPresent(safeRoomName, forKey: .safeRoomName)
+        try c.encode(vulnerableOccupants, forKey: .vulnerableOccupants)
+        try c.encode(safetyPoints, forKey: .safetyPoints)
+        try c.encode(hazards, forKey: .hazards)
+        try c.encode(hazardSummary, forKey: .hazardSummary)
+    }
+
     /// Fixed strings, factored out as static so `EscapePlanPDF` can print the identical
     /// wording on every responder-snapshot page rather than a second, drifting copy.
     static let fixedStalenessNote =
