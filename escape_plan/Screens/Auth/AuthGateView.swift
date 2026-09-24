@@ -36,7 +36,11 @@ struct AuthGateView: View {
                     .accessibilityHidden(true)
                     .padding(.bottom, 20)
 
-                Text("Keep your plan safe")
+                // A question, not a promise. "Keep your plan safe" (the S8.3 wording) reads
+                // as "without an account your plan is not safe", which is false — the plan
+                // lives on this phone and works there with no server at all. S11.7's copy
+                // check: nothing on this screen may imply the app needs an account.
+                Text("Back up your homes?")
                     .font(.largeTitle.weight(.bold))
                     .foregroundStyle(DS.ink)
 
@@ -53,16 +57,18 @@ struct AuthGateView: View {
                     DSPrimaryButton(title: "Create an account") { path.append(.signUp) }
                     DSSecondaryButton(title: "I already have an account") { path.append(.signIn) }
 
-                    // A real button, weighted below the other two but not hidden. Someone who
-                    // does not want an account must not have to hunt for the way past.
-                    Button("Continue without an account") {
+                    // A peer of "I already have an account", not a footnote under it.
+                    //
+                    // S8.3 shipped this as a grey subheadline with no chrome, which is
+                    // subordinate by every visual measure even though the decision behind it
+                    // (docs/decisions.md 2026-09-15) called it first-class. S11.7's brief is
+                    // explicit that the skip must be VISUALLY EQUAL, so it is the same
+                    // component at the same height and weight as the sign-in button. The
+                    // filled primary still marks the recommended path; these two are peers,
+                    // and ordering is what makes this the third option rather than shrinking it.
+                    DSSecondaryButton(title: "Continue without an account") {
                         session.continueWithoutAccount()
                     }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(DS.supporting)
-                    .frame(maxWidth: .infinity)
-                    .minimumTapTarget(44)
-                    .padding(.top, 4)
                     .accessibilityHint("Use Escape Plan on this device only. "
                                      + "You can create an account later in Settings.")
                 }
