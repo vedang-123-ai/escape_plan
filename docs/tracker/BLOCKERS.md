@@ -121,8 +121,77 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
 ### S11.1 to S11.13: session findings (append under your heading)
 
 _S11.1_ **see below** · _S11.2_ **see below** · _S11.3_ **see below** · _S11.4_ **see below** · _S11.5_ **see below** · _S11.6_ **see below** ·
-_S11.7_ none yet · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
+_S11.7_ **see below** · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
 _S11.13_ none yet
+
+#### S11.7 · Accounts demoted: signed-out proof, privacy copy, delete-my-data (2026-09-24, branch `s11-7-accounts-demoted`)
+
+**Verified green on this branch, 2026-09-24:** backend **788** passed, 1 skipped, 26 deselected
+(**768** measured on `origin/main` at the start of this session; **+20** here). EditorCore **594**
+passed, 0 failed (**558** measured at the start; **+36** here). Note both baselines are far above
+the numbers stamped at the top of this file (**556** backend, **516** EditorCore) — that header is
+stale by several sessions and should be re-stamped by whoever clears §0, not by me guessing which
+session added what. `scripts/typecheck-ios.sh` ok on all four targets against
+iOS 17.0 — app **170** files in both `-DDEBUG` and release, `escape_planTests` **82**,
+`escape_planUITests` **10**. **`xcodebuild test` NOT run** — this machine still cannot; see §0.
+
+What shipped: `DELETE /auth/me` and `DELETE /homes/{home_id}` (the S8 cloud layer could create
+and update but never delete); `AuthSession.deleteAccount()` and a "Delete account and data" row
+in Settings behind a confirmation alert; `AccountPrivacy` as the single, test-pinned source of
+the privacy disclosure, rendered on the auth gate and in Settings; the remote copy of a
+tombstoned home now actually deleted on the next sync; and the gate's "Continue without an
+account" promoted from a grey subheadline to a peer of the sign-in button.
+
+- [ ] **Nothing in this session has been rendered on a screen.** `AccountPrivacyDisclosure`, the
+      delete row, the confirmation alert, the scrollable gate and the promoted skip button all
+      type-check and none has ever been drawn. The disclosure's expanded state is eight lines of
+      text below three 56pt buttons; the `GeometryReader` + `ScrollView` + `minHeight` restructure
+      of `AuthGateView` is there to keep "Continue without an account" reachable on an SE, and
+      **that is exactly the claim a typecheck cannot make**. Next action (S11.8, or anyone with a
+      simulator): run `SignedOutPathUITests` — it asserts the skip button `isHittable`, which is
+      the one that would catch it.
+- [ ] **`SignedOutPathUITests` (6 tests, new) has never executed.** It is the UI half of the
+      signed-out proof — every tab opens, the library seeds, Settings offers rather than requires
+      an account, the disclosure expands. Written backend-free on purpose (base URL points at port
+      1) so it needs no server, only a simulator. Next action: S11.8.
+- [ ] **The three `mongo`-marked deletion tests have never run.** `test_cloud_mongo.py` gains
+      `TestDeletionAgainstRealMongo`: that `delete_many({"user_id": ...})` scopes on a real server,
+      that a cross-owner delete misses, and that deleting a user frees the unique email index. The
+      fake's `delete_one`/`delete_many` are twenty hand-written lines and cannot prove any of it —
+      getting the scope wrong erases every account's homes and the fake would agree. Next action
+      (anyone with `MONGODB_URI` set): `backend/.venv/bin/python -m pytest backend/tests/ -m mongo`.
+- [ ] **No endpoint of this session has been exercised against the deployed backend.** Both
+      DELETEs are tested against `tests/fake_mongo.py` and, on the Swift side, against
+      `FakeCloudBackend`. S8's own history says that is not enough: the `_id`-on-the-wire and
+      `created_at` defects were both found only against live Atlas. Next action: once Render has
+      this merge, `curl -X DELETE` a throwaway account and confirm 204 plus an empty `GET /homes`.
+- [ ] **The ACCEPTANCE line names an `ecc:security-reviewer` agent that does not exist** in this
+      environment's agent list. The `security-review` skill was run in its place and found no HIGH
+      or MEDIUM issues. Next action (owner): either add that agent or correct the acceptance line
+      in the remaining playbook files that cite it.
+- [ ] **`DELETE /auth/me` requires only the JWT — no password re-entry.** Deliberate, not an
+      oversight: Apple does not require re-auth, and a stolen token already reaches every home in
+      the account, so the escalation is marginal. Recorded because it is a product decision
+      somebody may want to revisit before submission, not a defect.
+- [ ] **The tombstone → remote-delete path is one-directional by design.** A home deleted on this
+      device now removes the server copy, but a home deleted on ANOTHER device still does not
+      delete here — the reconciler reads an absent server record as "stale record, re-create",
+      because it cannot tell deletion from a lost record. Closing that needs a server-side
+      tombstone and a `schema_version` conversation. Not in this session's scope. Owner:
+      unassigned — see `TODO.md` if it is not picked up.
+- [x] **S11.6's edit to `SettingsScreen.swift` was respected.** STEP 0 read before touching the
+      file; the "Share with your fire department" rename, the two `ConsentSheet` presentations and
+      `generateSnapshot(consent:)` are all untouched. This session's edits are confined to the
+      ACCOUNT section plus three new `@State` properties and one `.alert`.
+- [x] **S8.4's "first account adopts local homes, a second never does" ruling is confirmed in the
+      UI**, and extended: `SyncState.forgettingAccount` clears a deleted account's ownership
+      claims, because leaving them would make `ownership(of:)` answer `.anotherAccount` forever and
+      the next person to sign in on that phone could never back up a single home. Four tests.
+- [x] **The signed-out audit is done and nothing quietly needs the network.** The only two places
+      in the whole app that read `AuthSession` are `RootView` (the gate) and `SettingsScreen`.
+      `/routes`, `/score`, `/convert`, `/evacuate`, `/diff_obstructions` and `/chat` need a
+      connection signed in or out — that is the shared bearer token, a different axis — and not one
+      of them needs an account. The editor, persistence, drill, export and hazard hunt are local.
 
 #### S11.6 follow-up · the never-executed tests, and the bug they caught (2026-09-24, branch `s11-6-followup-testable-snapshot`)
 
