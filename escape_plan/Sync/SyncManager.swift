@@ -44,6 +44,9 @@ struct SyncOutcome: Equatable, Sendable {
     var unchanged: Int = 0
     /// Homes on the server that this device deleted, and therefore did not download again.
     var skipped: Int = 0
+    /// Homes whose server copy was erased because this device had deleted them (S11.7). A
+    /// subset of `skipped`: the skip is the decision not to download, this is the cleanup.
+    var deletedRemotely: Int = 0
     /// Homes on this device that belong to a different account, and so were neither uploaded
     /// into the signed-in one nor overwritten by it. Counted separately because it is the one
     /// skip the user may be surprised by and should be told about.
@@ -135,6 +138,22 @@ final class SyncManager {
             return
         }
         await sync()
+    }
+
+    /// Forget everything this device recorded about an account that no longer exists.
+    ///
+    /// Called after `AuthSession.deleteAccount()` succeeds. Without it the sidecar keeps
+    /// ownership claims naming a user id that can never sign in again, so `ownership(of:)`
+    /// answers `.anotherAccount` forever and the next person to sign in on this phone can
+    /// never back up a single home — with nothing on screen to explain why.
+    ///
+    /// **Touches the sidecar only.** Not one home document is read, written or removed: the
+    /// homes on this device predate the account and outlive it, which is exactly what
+    /// `AccountPrivacy.deletionSummary` promises the user on the way in.
+    func forgetAccount(_ userID: String) {
+        persist(stateStore.load().forgettingAccount(userID))
+        needsReauthentication = false
+        status = .signedOut
     }
 
     /// Reconcile this device with the server. Safe to call at any time; concurrent calls
@@ -251,6 +270,27 @@ final class SyncManager {
                 outcome.skippedOtherAccount += 1
             } else {
                 outcome.skipped += 1
+                // The server still holds a home this device deleted. Until S11.7 there was no
+                // delete endpoint, so all the reconciler could do was refuse to download it
+                // again, forever, on the strength of a tombstone — and the home stayed in the
+                // account, reachable from a second device and from any future sign-in.
+                //
+                // Now the server copy can actually go. Done HERE rather than as a new
+                // `SyncAction.Operation` on purpose: the reconciler's answer is unchanged
+                // ("do not download this"), and the plan stays a pure decision about the
+                // library. This is the I/O that decision implies, which is what this type is
+                // for.
+                //
+                // Self-limiting: once the DELETE succeeds the home is gone from `GET /homes`,
+                // so the next sync produces no action for it at all and nothing is retried.
+                // The tombstone STAYS — it is what suppresses the home on a second device,
+                // which may still be holding its own copy.
+                if action.reason == .deletedOnThisDevice,
+                   let remoteID = remoteRecordID(forLocalHomeID: action.localHomeID,
+                                                 in: remoteByRecordID) {
+                    try await deleteRemoteCopy(remoteID: remoteID, token: token,
+                                               outcome: &outcome)
+                }
             }
 
         case .createRemote:
@@ -297,6 +337,31 @@ final class SyncManager {
             remember(stored, fingerprintOf: stored.home, in: &state)
             outcome.pulled += 1
         }
+    }
+
+    /// The server's record id for a home identified by its schema `home_id`.
+    ///
+    /// A `.skip` action only names the local home, and `remoteByRecordID` is keyed the other
+    /// way, so this is the bridge. Linear over the account's homes, which is a handful.
+    private func remoteRecordID(forLocalHomeID localHomeID: String,
+                                in remoteByRecordID: [String: StoredHome]) -> String? {
+        remoteByRecordID.values.first { $0.home.home_id == localHomeID }?.id
+    }
+
+    /// Delete one home from the account, tolerating the one failure that means success.
+    ///
+    /// A 404 is `.homeMissing`, which for a delete is the outcome we wanted — another device
+    /// got there first. Anything else is recorded as a per-home failure like any other, so a
+    /// server that refuses the delete does not take the rest of the sync down with it.
+    private func deleteRemoteCopy(remoteID: String,
+                                  token: AccessToken,
+                                  outcome: inout SyncOutcome) async throws {
+        do {
+            try await client.delete(remoteID: remoteID, token: token)
+        } catch let failure as SyncFailure where failure.kind == .homeMissing {
+            return
+        }
+        outcome.deletedRemotely += 1
     }
 
     private func remember(_ stored: StoredHome, fingerprintOf home: HomeModel, in state: inout SyncState) {

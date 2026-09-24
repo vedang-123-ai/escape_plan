@@ -41,6 +41,7 @@ final class FakeCloudBackend: @unchecked Sendable {
     private var nextID = 1
     private var _failNextRequest: Int?
     private var _failNextPost: Int?
+    private var _failNextDelete: Int?
     private var _failEveryRequest: Int?
     private var _requestCount = 0
     private var _authorizationHeaders: [String?] = []
@@ -57,6 +58,13 @@ final class FakeCloudBackend: @unchecked Sendable {
     var failNextPost: Int? {
         get { lock.lock(); defer { lock.unlock() }; return _failNextPost }
         set { lock.lock(); defer { lock.unlock() }; _failNextPost = newValue }
+    }
+
+    /// Fail the next DELETE with this status, then clear. Lets a test prove that a refused
+    /// deletion is a per-home failure rather than one that takes the whole run down.
+    var failNextDelete: Int? {
+        get { lock.lock(); defer { lock.unlock() }; return _failNextDelete }
+        set { lock.lock(); defer { lock.unlock() }; _failNextDelete = newValue }
     }
 
     /// Fail EVERY request with this status — the dead-session case.
@@ -138,24 +146,44 @@ final class FakeCloudBackend: @unchecked Sendable {
             forcedPost = status
             _failNextPost = nil
         }
+        if request.httpMethod == "DELETE", let status = _failNextDelete {
+            forcedPost = status
+            _failNextDelete = nil
+        }
         lock.unlock()
 
         if let status = forcedEvery { return json(status: status, #"{"detail":"forced"}"#) }
         if let status = forcedOnce { return json(status: status, #"{"detail":"forced"}"#) }
         if let status = forcedPost { return json(status: status, #"{"detail":"forced"}"#) }
 
-        guard request.url?.path == "/homes" else {
+        let path = request.url?.path ?? ""
+        // `/homes` and `/homes/{id}`, and nothing else. Matching a prefix loosely would let a
+        // typo'd URL in the client under test route to the right handler and pass.
+        let recordID = path.hasPrefix("/homes/") ? String(path.dropFirst("/homes/".count)) : nil
+        guard path == "/homes" || (recordID.map { !$0.isEmpty && !$0.contains("/") } ?? false) else {
             return json(status: 404, #"{"detail":"no such route"}"#)
         }
         // No usable token is a 401, exactly as `_UNAUTHORIZED` in `api_auth.py`.
         guard let userID = subject(of: request) else {
             return json(status: 401, #"{"detail":"Could not validate credentials"}"#)
         }
-        switch request.httpMethod {
-        case "GET": return list(for: userID)
-        case "POST": return upsert(AuthStubURLProtocol.capturedBody(request), userID: userID)
+        switch (request.httpMethod, recordID) {
+        case ("GET", nil): return list(for: userID)
+        case ("POST", nil): return upsert(AuthStubURLProtocol.capturedBody(request), userID: userID)
+        case ("DELETE", .some(let id)): return delete(id, userID: userID)
         default: return json(status: 405, #"{"detail":"method not allowed"}"#)
         }
+    }
+
+    /// `DELETE /homes/{id}` — 204, or 404 for a home that is not ours. Same-answer-for-both
+    /// is the behaviour `api_auth.py` defines: a 403 would confirm the id is real.
+    private func delete(_ recordID: String, userID: String) -> AuthStubURLProtocol.Exchange {
+        lock.lock(); defer { lock.unlock() }
+        guard let existing = records[recordID], existing.userID == userID else {
+            return json(status: 404, #"{"detail":"No such home."}"#)
+        }
+        records.removeValue(forKey: recordID)
+        return AuthStubURLProtocol.Exchange(statusCode: 204, body: Data(), error: nil)
     }
 
     /// Only this user's homes. The user id comes from the token, never from a parameter —

@@ -1,7 +1,7 @@
 //  CloudHomesClient.swift
 //  escape_plan — S8.4 cloud sync
 //
-//  The two cloud endpoints: `GET /homes` and `POST /homes`.
+//  The cloud endpoints: `GET /homes`, `POST /homes` and (S11.7) `DELETE /homes/{id}`.
 //
 //  ─── THE JWT GOES ON /homes AND NOWHERE ELSE ──────────────────────────────────────────────
 //  S8.4's brief says "attach the JWT Bearer token to all requests". That is wrong as written,
@@ -72,6 +72,24 @@ final class CloudHomesClient {
         return try decode(StoredHome.self, from: try await perform(request))
     }
 
+    /// `DELETE /homes/{id}` → 204.
+    ///
+    /// Added in S11.7. Before it existed the server kept a home forever once uploaded, which
+    /// is the entire reason `SyncState` carries tombstones: a home deleted on this device came
+    /// straight back from `GET /homes` on the next sync, so the reconciler had to remember to
+    /// keep ignoring it. The tombstones stay — they are what suppresses the home between the
+    /// deletion and the next successful sync, and on a second device — but the server copy can
+    /// now actually go.
+    ///
+    /// A 404 is `.homeMissing`, matching `push`. It means the record is already gone, which
+    /// for a delete is the outcome the caller wanted.
+    func delete(remoteID: String, token: AccessToken) async throws {
+        var request = URLRequest(url: homesURL.appendingPathComponent(remoteID))
+        request.httpMethod = "DELETE"
+        authorize(&request, with: token)
+        _ = try await perform(request)
+    }
+
     // MARK: - Plumbing
 
     private var homesURL: URL { baseURL.appendingPathComponent("homes") }
@@ -93,7 +111,7 @@ final class CloudHomesClient {
         guard let http = response as? HTTPURLResponse else {
             throw SyncFailure(statusCode: -1)
         }
-        // 200 from list, 201 from push.
+        // 200 from list, 201 from push, 204 from delete.
         guard (200..<300).contains(http.statusCode) else {
             throw SyncFailure(statusCode: http.statusCode)
         }
