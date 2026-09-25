@@ -22,7 +22,9 @@ Read the root `CLAUDE.md` first; run, deploy and curl docs are in `README.md`. C
 - `app/main.py` + `app/config.py` — the FastAPI app. Compute and AI routes are bearer-token gated (fails closed without
   `BACKEND_BEARER_TOKEN`); `/auth/me` and `/homes*` take the per-user JWT instead; open are only `/health`, `/health/db`,
   `/auth/register` and `/auth/login`. `tests/test_route_guards.py` walks `app.routes` and fails any route outside that
-  allow-list that answers without credentials. Deploy blueprint: `render.yaml`.
+  allow-list that answers without credentials. `app/rate_limit.py` is the AI cost guard on the four AI routes
+  (per-IP token bucket + global in-flight cap, 429 + `Retry-After`; `AI_RATE_PER_MIN`, `AI_RATE_BURST`,
+  `AI_MAX_CONCURRENT`). Deploy blueprint: `render.yaml`.
 - `app/api_auth.py`, `app/auth/`, `app/cloud_models.py`, `app/cloud_repo.py`, `app/database.py` — optional accounts and sync
   (`/auth/register`, `/auth/login`, `/auth/me`, `/homes`). JWT and Argon2id; MongoDB on `pymongo.AsyncMongoClient`,
   disabled when `MONGODB_URI` is unset. `tests/test_cloud_mongo.py` is marked `mongo` and skipped by default.

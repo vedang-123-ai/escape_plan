@@ -10,7 +10,7 @@ import json
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -37,6 +37,12 @@ class Settings(BaseModel):
     mongodb_db_name: str
     jwt_secret: str | None = Field(default=None, repr=False)
     jwt_access_ttl_minutes: int
+    # AI cost guard (app/rate_limit.py). Every /explain /analyze /build /chat
+    # call spends Anthropic credit; these bound what one client, and everyone
+    # together, can spend. Defaults suit a one-family demo — tune on Render.
+    ai_rate_per_min: float = 6.0
+    ai_rate_burst: int = 3
+    ai_max_concurrent: int = 4
 
     @property
     def auth_enabled(self) -> bool:
@@ -122,7 +128,27 @@ def get_settings() -> Settings:
         # flaky login. Absent secret = auth disabled, loudly.
         jwt_secret=_validated_jwt_secret(os.environ.get("JWT_SECRET_KEY") or None),
         jwt_access_ttl_minutes=int(os.environ.get("JWT_ACCESS_TTL_MINUTES", "60")),
+        ai_rate_per_min=_positive_number("AI_RATE_PER_MIN", "6", float),
+        ai_rate_burst=_positive_number("AI_RATE_BURST", "3", int),
+        ai_max_concurrent=_positive_number("AI_MAX_CONCURRENT", "4", int),
     )
+
+
+def _positive_number(name: str, default: str, kind: type[int] | type[float]) -> Any:
+    """Read a positive int/float env var, failing at startup on nonsense.
+
+    A zero or negative limit would silently turn every AI route into a 429 (or,
+    for the semaphore, a crash on the first request), so refuse it up front the
+    way a short JWT secret is refused.
+    """
+    raw = os.environ.get(name) or default
+    try:
+        value = kind(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"{name}={raw!r} is not a number") from exc
+    if value <= 0:
+        raise RuntimeError(f"{name} must be positive, got {raw!r}")
+    return value
 
 
 @lru_cache(maxsize=1)
