@@ -34,38 +34,41 @@ struct ChatResponse: Decodable, Equatable {
     var citations: [String]
 }
 
-enum ChatError: LocalizedError {
-    /// 5xx from the backend — most likely ANTHROPIC_API_KEY isn't configured on the server
-    /// (surfaces as 500; citation-grounding failure surfaces as 502).
+/// What `chat(home:messages:)` throws on a non-200. It keeps the server's 422 `detail` for
+/// logs and tests; what the user is told comes from `BackendFailure(error, while: .assistant)`,
+/// the same classifier every other endpoint uses, so the assistant's 401/429/502/503 copy
+/// cannot drift from the rest of the app's (audit 2026-09-25).
+enum ChatError: LocalizedError, Equatable {
+    /// 5xx from the backend. 502 is the deliberate "the server's AI needs an operator" answer
+    /// (no key, no credit, grounding failed after retries); 503 is "busy, retry".
     case aiUnavailable(statusCode: Int)
     /// 401 — bearer token missing/wrong (Settings tab).
     case unauthorized
-    /// 422 or any other unexpected status.
+    /// 422, 429 or any other unexpected status.
     case unexpectedStatus(statusCode: Int, detail: String?)
 
-    var errorDescription: String? {
+    var statusCode: Int {
         switch self {
-        case .aiUnavailable:
-            return "The assistant is unavailable right now — the server's AI isn't configured yet. Your escape routes on the House tab still work."
-        case .unauthorized:
-            return "The server didn't accept the access token — check it in Settings."
-        case .unexpectedStatus(let code, let detail):
-            return "The assistant request failed (HTTP \(code))\(detail.map { ": \($0)" } ?? "")."
+        case .aiUnavailable(let code): return code
+        case .unauthorized: return 401
+        case .unexpectedStatus(let code, _): return code
         }
+    }
+
+    var errorDescription: String? {
+        BackendFailure(self, while: .assistant).message
     }
 }
 
 extension APIClient {
     /// Sends the full conversation (ending with the user's latest message) grounded in `home`.
-    /// Uses `URLSession.shared` directly — `APIClient.session` is private and this session's
-    /// scope forbids editing APIClient.swift; the client's default session is `.shared` anyway.
     /// Generous timeout: the free-tier Render deploy cold-starts in multi-second territory.
     func chat(home: HomeModel, messages: [ChatMessage]) async throws -> ChatResponse {
         var request = try authenticatedRequest(path: "chat", method: "POST")
         request.timeoutInterval = 60
         request.httpBody = try HomeModel.encoder().encode(ChatRequest(home: home, messages: messages))
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIClientError.unexpectedResponse(statusCode: -1)
         }

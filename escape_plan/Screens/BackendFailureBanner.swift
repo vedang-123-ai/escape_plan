@@ -67,7 +67,7 @@ struct BackendFailureBanner: View {
     private var tint: Color {
         switch failure.kind {
         case .offline: return .secondary
-        case .unauthorized, .rejectedInput: return Color(DollhousePalette.warningBadge)
+        case .unauthorized, .rejectedInput, .localData: return Color(DollhousePalette.warningBadge)
         case .aiUnavailable, .serverBusy, .server: return Color(DollhousePalette.warningBadge)
         }
     }

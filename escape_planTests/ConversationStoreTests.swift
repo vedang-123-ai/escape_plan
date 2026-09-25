@@ -121,19 +121,38 @@ final class ConversationStoreTests: XCTestCase {
 
     // MARK: - ChatError → user-facing message mapping
 
-    func testChatErrorMessagesMatchWhatTheScreenShows() {
-        XCTAssertEqual(ChatError.unauthorized.errorDescription,
-                       "The server didn't accept the access token — check it in Settings.")
+    /// Audit 2026-09-25: the chat client had its own copy of every failure message, which had
+    /// drifted from `BackendFailure` (a 502 told the user "the server's AI isn't configured
+    /// yet" where every other screen said an operator must act). Chat errors now bridge into
+    /// the shared classifier, so the assistant says exactly what the rest of the app says.
+    func testChatErrorsReadExactlyAsTheSharedClassifierSaysForTheAssistant() {
+        let cases: [(ChatError, Int)] = [
+            (.unauthorized, 401),
+            (.aiUnavailable(statusCode: 502), 502),
+            (.aiUnavailable(statusCode: 503), 503),
+            (.unexpectedStatus(statusCode: 422, detail: "history must end with a user message"), 422),
+            (.unexpectedStatus(statusCode: 429, detail: nil), 429),
+        ]
+        for (error, status) in cases {
+            let direct = BackendFailure(APIClientError.unexpectedResponse(statusCode: status),
+                                        while: .assistant)
+            XCTAssertEqual(BackendFailure(error, while: .assistant), direct, "HTTP \(status)")
+            XCTAssertEqual(error.errorDescription, direct.message, "HTTP \(status)")
+        }
+    }
 
-        let unavailable = ChatError.aiUnavailable(statusCode: 500).errorDescription ?? ""
-        XCTAssertTrue(unavailable.contains("assistant is unavailable"),
-                      "5xx must read as 'assistant down', not a raw status code: \(unavailable)")
-        XCTAssertTrue(unavailable.contains("House tab still work"),
-                      "the message must reassure that deterministic routes are unaffected")
+    func testA502FromChatIsNotRetryableAndSaysRoutesStillWork() {
+        let failure = BackendFailure(ChatError.aiUnavailable(statusCode: 502), while: .assistant)
+        XCTAssertEqual(failure.kind, .aiUnavailable)
+        XCTAssertFalse(failure.isRetryable, "a Retry button cannot fix an operator problem")
+        XCTAssertTrue(failure.message.contains("escape routes still work"), failure.message)
+    }
 
-        XCTAssertEqual(ChatError.unexpectedStatus(statusCode: 422, detail: "history must end with a user message").errorDescription,
-                       "The assistant request failed (HTTP 422): history must end with a user message.")
-        XCTAssertEqual(ChatError.unexpectedStatus(statusCode: 418, detail: nil).errorDescription,
-                       "The assistant request failed (HTTP 418).")
+    /// The backend's AI cost guard answers 429; that is "busy, wait a moment", not an error.
+    func testA429FromChatReadsAsBusyAndOffersRetry() {
+        let failure = BackendFailure(ChatError.unexpectedStatus(statusCode: 429, detail: nil),
+                                     while: .assistant)
+        XCTAssertEqual(failure.kind, .serverBusy)
+        XCTAssertTrue(failure.isRetryable)
     }
 }

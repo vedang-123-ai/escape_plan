@@ -7,9 +7,6 @@
 // export format is the converter's contract (backend/app/convert/README.md), and re-declaring
 // it in Swift would create a second copy that drifts. The app's job is to hand the bytes over
 // untouched — the backend is the only thing that interprets them.
-//
-// Uses URLSession.shared for the same reason APIClient+Score.swift does: `session` is private
-// to APIClient.swift, and the default init uses `.shared` anyway.
 
 import Foundation
 
@@ -32,8 +29,12 @@ extension APIClient {
         request.httpBody = try HomeModel.encoder().encode(
             ConvertRequest(scan: scan, home_name: homeName)
         )
+        // A scan upload is usually the first request after the phone has been busy scanning
+        // for minutes, i.e. against a Render instance that has gone back to sleep. 90 s
+        // matches /routes rather than URLSession's 60 s default.
+        request.timeoutInterval = 90
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIClientError.unexpectedResponse(statusCode: -1)
         }
@@ -89,11 +90,17 @@ extension APIClient {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         req.httpBody = try encoder.encode(request)
-        
-        let (data, response) = try await URLSession.shared.data(for: req)
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw URLError(.badServerResponse)
+        // Same cold-start margin as /convert, which it immediately follows in a re-check.
+        req.timeoutInterval = 90
+
+        let (data, response) = try await session.data(for: req)
+        // The status code, not a bare URLError: `BackendFailure` reads a URLError as "couldn't
+        // reach the server", which is wrong for a 401 or a 422 the server did send.
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIClientError.unexpectedResponse(statusCode: -1)
+        }
+        guard httpResponse.statusCode == 200 else {
+            throw APIClientError.unexpectedResponse(statusCode: httpResponse.statusCode)
         }
         
         let decoder = JSONDecoder()

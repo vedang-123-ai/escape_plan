@@ -29,7 +29,10 @@ final class APIClient {
     /// Local dev server, one tap away in Settings' developer section (DEBUG builds only).
     static let localDevBaseURL = URL(string: "http://localhost:8000")!
 
-    private let session: URLSession
+    /// Internal, not private: the per-endpoint `APIClient+*.swift` extensions send through it,
+    /// so a client built with an injected session (a test's `URLProtocol` stub) really is used
+    /// for every call. They used to reach for `URLSession.shared` because this was private.
+    let session: URLSession
     private let defaults: UserDefaults
 
     var baseURL: URL {

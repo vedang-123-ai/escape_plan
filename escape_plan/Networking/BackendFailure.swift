@@ -28,9 +28,14 @@ struct BackendFailure: Equatable {
         /// 502 — the server reached the AI and the AI refused: no credit, bad key,
         /// misconfiguration. **Retrying cannot help**; a human has to change something.
         case aiUnavailable
-        /// 503 — rate limited, overloaded, or a transient network fault upstream.
-        /// Retrying is exactly the right move.
+        /// 503 or 429 — rate limited, overloaded, or a transient network fault upstream.
+        /// Retrying is exactly the right move. 429 is the backend's own AI cost guard
+        /// (backend/app/rate_limit.py, 2026-09-25): too many assistant calls from this device, or
+        /// every AI slot busy. Same advice either way — wait a moment.
         case serverBusy
+        /// This device could not read its own saved copy of the home. Nothing was sent to the
+        /// server, so "couldn't reach the server" would be a lie; the fix, if any, is local.
+        case localData
         /// 422 — we sent something the server could not use. Usually a scan too incomplete
         /// to convert; retrying the same input will fail the same way.
         case rejectedInput
@@ -107,6 +112,14 @@ struct BackendFailure: Equatable {
     init(_ error: Error, while operation: Operation) {
         let fallback = operation.fallback.map { " " + $0 } ?? ""
 
+        // The chat client throws its own error type (it keeps the server's 422 detail); the
+        // user-facing meaning is decided here, once, like every other endpoint's.
+        if let chatError = error as? ChatError {
+            self.init(APIClientError.unexpectedResponse(statusCode: chatError.statusCode),
+                      while: operation)
+            return
+        }
+
         if error is CancellationError {
             // Callers should filter these out before constructing a failure; treat as busy
             // rather than inventing an alarming message.
@@ -167,7 +180,7 @@ struct BackendFailure: Equatable {
                       isRetryable: false, suggestsSettings: false,
                       symbol: "sparkles.slash")
 
-        case 503:
+        case 429, 503:
             self.init(kind: .serverBusy,
                       message: "The server is busy. Try again in a moment.",
                       isRetryable: true, suggestsSettings: false,
@@ -188,6 +201,18 @@ struct BackendFailure: Equatable {
         self.isRetryable = isRetryable
         self.suggestsSettings = suggestsSettings
         self.symbol = symbol
+    }
+
+    /// A home document on this device that would not load or decode. Deliberately not routed
+    /// through `init(_:while:)`: that classifier reads any non-HTTP error as a connection
+    /// problem, which told people with a corrupt file to check their Wi-Fi (audit 2026-09-25).
+    static func localLoad(_ error: Error) -> BackendFailure {
+        BackendFailure(
+            kind: .localData,
+            message: "Couldn't open this home's saved file on this device. Your other homes "
+                   + "are unaffected; try choosing it again, or re-create it from a scan.",
+            isRetryable: false, suggestsSettings: false,
+            symbol: "doc.badge.exclamationmark")
     }
 
     /// Not a failure: routes are being shown from the offline cache. Same banner treatment so
