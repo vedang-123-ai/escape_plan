@@ -60,6 +60,13 @@ Object findings inherit that caveat and never claim to describe the home *now*.
 (verified by grep: nothing on cords, outlets, heaters, cooking clearance). S7.2 adds real,
 named sources before S7.4 writes the rule that cites them. This ordering is a hard dependency,
 not a preference.
+**Corrected 2026-09-24 (S11.1 follow-up):** "zero corpus coverage today" was true of `388cf37`
+and has been false since 2026-09-09. S7.2 added the sources and `backend/corpus/heating-electrical-fire-safety.md`
+now carries them (landed in `2bf41c4`): space-heater 3-ft / 0.9 m clearance and plug-direct-to-the-wall
+(`nfpa-heating-safety`), extension cords, overloaded outlets and power strips (`nfpa-electrical-safety`),
+keeping combustibles away from the stovetop (`nfpa-cooking-safety`), and dryer lint (`usfa-dryer-safety`).
+The dependency above was met in that order. The cooking guidance gives no numeric clearance; the 0.9 m
+figure is `nfpa-heating-safety`'s rule for heating equipment.
 
 **The geometry prioritizes; it never excuses.** ShakeOut says secure tall/heavy furniture,
 full stop. The topple rule (R1) tells you *which* item to strap first because its arc reaches
