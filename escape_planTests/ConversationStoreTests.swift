@@ -119,6 +119,26 @@ final class ConversationStoreTests: XCTestCase {
         XCTAssertEqual(decoded, message, "persisted messages keep id + citations (unlike wireMessage)")
     }
 
+    // MARK: - A thread belongs to one home (audit 2026-09-25)
+
+    func testAThreadResumesOnlyForTheHomeItWasAbout() throws {
+        let thread = ConversationDocument(homeID: "home-a",
+                                          messages: [AssistantMessage(role: .user, content: "hi")])
+        try store.save(thread)
+
+        XCTAssertEqual(store.load(forHomeID: "home-a"), thread)
+        XCTAssertNil(store.load(forHomeID: "home-b"),
+                     "a thread about one house must not resume as if it were about another")
+        XCTAssertNil(store.load(forHomeID: nil))
+    }
+
+    func testAThreadWithNoRecordedHomeIsNotAssumedToMatch() throws {
+        try store.save(ConversationDocument(homeID: nil,
+                                            messages: [AssistantMessage(role: .user, content: "hi")]))
+        XCTAssertNil(store.load(forHomeID: "home-a"))
+        XCTAssertNotNil(store.load(), "the plain load still reads it")
+    }
+
     // MARK: - ChatError → user-facing message mapping
 
     /// Audit 2026-09-25: the chat client had its own copy of every failure message, which had
