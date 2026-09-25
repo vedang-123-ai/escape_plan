@@ -39,6 +39,7 @@ struct DrillScreen: View {
     @State private var homeModel: HomeModel?
     @State private var built: DollhouseSceneBuilder.Result?
     @State private var loadError: String?
+    @State private var preventionTips: [PreventionTip] = []
 
     @State private var routePlan: RoutePlan?
     /// The classified backend failure. Was a bare `String`, which discarded `isRetryable` —
@@ -186,7 +187,7 @@ struct DrillScreen: View {
                 .scrollBounceBehavior(.basedOnSize)
             }
         } else {
-            ProgressView("Loading…")
+            LoadingTipView(label: "Loading…", tips: preventionTips)
         }
     }
 
@@ -717,6 +718,7 @@ struct DrillScreen: View {
         // onAppear re-fires on tab switches; rebuilding would replace the overlay a live
         // drill session is drawn on. Load once per push.
         guard homeModel == nil else { return }
+        loadPreventionTipsIfNeeded()
         do {
             let model = try HomeDocumentStore().load(homeID: homeID, as: HomeModel.self)
             homeModel = model
@@ -731,6 +733,14 @@ struct DrillScreen: View {
         } catch {
             loadError = "\(error)"
         }
+    }
+
+    private func loadPreventionTipsIfNeeded() {
+        guard preventionTips.isEmpty,
+              let url = Bundle.main.url(forResource: "prevention_tips", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let tips = try? PreventionTips.decode(from: data) else { return }
+        preventionTips = tips
     }
 
     // MARK: - Timing
