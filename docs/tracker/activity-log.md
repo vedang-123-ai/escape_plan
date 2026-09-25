@@ -2371,3 +2371,38 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - c8e5189 Docs: record the review findings and the lesson from the one that mattered
   - 66ab52d Review fixes: an ownerless tombstone must never delete from the server
 
+## 2026-09-25T19:37:20Z · Claude · `ui-revamp-1-foundation` @ `e64f343`
+
+**Commits this session**
+  - e64f343 Merge branch 'audit-ios-fixes' (audit remediation Part B) into ui-revamp-1-foundation
+  - 6ad8eb9 Audit remediation docs (Part B/C): colour guardrails in CLAUDE.md, decisions, BLOCKERS, note
+  - 6965462 Merge origin/main (audit remediation Part A, CI gate) into audit-ios-fixes
+  - 348f66c Accessibility: announce failure banners; contrast tests for the dark-only palette; drop BetaScreen docs
+  - 5dea784 Assistant grounds on the active home and follows it
+  - efdb9a6 Onboarding: the interview always runs and writes to the active home
+  - fdcfb86 House tab follows the active home; one launch store without try!; early health ping
+  - 87c0610 One score, one source, one set of bands; deduction row; freshness gaps
+  - 733bc62 Networking: one session, 90 s cold-start timeouts, 429 and local-load failures, chat errors bridged
+  - 02988ea Merge branch 'audit-backend-fixes' (audit remediation Part A)
+  - bfd1b35 Audit remediation docs (Part A); wire the branch guard hook
+  - ac42ef9 CI gate workflow and a pinned requirements.lock for Render
+
+## 2026-09-25T19:37:24Z · Claude · `ui-revamp-1-foundation` @ `e64f343`
+
+**Commits this session**
+  - e64f343 Merge branch 'audit-ios-fixes' (audit remediation Part B) into ui-revamp-1-foundation
+  - 6ad8eb9 Audit remediation docs (Part B/C): colour guardrails in CLAUDE.md, decisions, BLOCKERS, note
+  - 6965462 Merge origin/main (audit remediation Part A, CI gate) into audit-ios-fixes
+  - 348f66c Accessibility: announce failure banners; contrast tests for the dark-only palette; drop BetaScreen docs
+  - 5dea784 Assistant grounds on the active home and follows it
+  - efdb9a6 Onboarding: the interview always runs and writes to the active home
+  - fdcfb86 House tab follows the active home; one launch store without try!; early health ping
+  - 87c0610 One score, one source, one set of bands; deduction row; freshness gaps
+  - 733bc62 Networking: one session, 90 s cold-start timeouts, 429 and local-load failures, chat errors bridged
+  - 02988ea Merge branch 'audit-backend-fixes' (audit remediation Part A)
+  - bfd1b35 Audit remediation docs (Part A); wire the branch guard hook
+  - ac42ef9 CI gate workflow and a pinned requirements.lock for Render
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
