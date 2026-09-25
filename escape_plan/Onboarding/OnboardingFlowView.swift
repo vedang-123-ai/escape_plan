@@ -2,7 +2,7 @@
 //  escape_plan
 //
 //  The household interview (S6.5), in the Claude Design language (2026-09-07): step dots, a
-//  hero mark on the welcome step, 28pt titles, card-wrapped fields, one 56pt primary action
+//  hero mark on the welcome step, `.title` titles (fixed 28pt until the 2026-09-25 audit), card-wrapped fields, one 56pt primary action
 //  and a quiet "I'll do this later" under it. Every step still writes to `OnboardingState`
 //  exactly as before — this pass changes how the interview looks, not what it captures.
 
@@ -55,7 +55,7 @@ struct OnboardingFlowView: View {
 
     private func title(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 28, weight: .bold))
+            .font(.title.bold())
             .kerning(-0.3)
             .foregroundStyle(DS.ink)
             .fixedSize(horizontal: false, vertical: true)
@@ -121,12 +121,11 @@ struct OnboardingFlowView: View {
                     .padding(.bottom, 12)
             }
             footer(primary: "Get started", action: {
+                // Library state decides only whether a demo home is seeded. The interview always
+                // runs: starter homes are seeded at launch, so "the library isn't empty" was true
+                // on every fresh install and this used to skip straight past it.
                 state.seedIfNeeded()
-                if state.seededHome != nil {
-                    state.step = .whoLivesHere
-                } else if state.hasExistingLibrary {
-                    onFinished()
-                }
+                state.step = .whoLivesHere
             }, later: {
                 state.seedIfNeeded()
                 if state.seededHome != nil { state.commitAndFinish() }
@@ -248,16 +247,26 @@ struct OnboardingFlowView: View {
                                    symbol: "house") { state.tenure = .own }
                     }
                     .padding(.top, 8)
+                    if let commitError = state.commitError {
+                        Label(commitError, systemImage: "exclamationmark.triangle")
+                            .font(.footnote)
+                            .foregroundStyle(Theme.warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 4)
+                    }
                 }
                 .padding(.horizontal, 28)
                 .padding(.top, 16)
                 .padding(.bottom, 20)
             }
             footer(primary: "Finish", action: {
-                state.commitAndFinish()
-                onFinished()
+                // Close only over a household that was actually saved; on failure the reason
+                // stays on screen and "I'll do this later" still leaves.
+                if state.commitAndFinish() { onFinished() }
             }, later: {
-                state.commitAndFinish()
+                // Leaving is the user's call, so a failed save does not hold them here; what
+                // they did answer is still written if it can be.
+                _ = state.commitAndFinish()
                 onFinished()
             })
         }
