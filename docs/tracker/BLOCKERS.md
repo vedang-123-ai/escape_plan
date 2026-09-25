@@ -772,8 +772,9 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
       the exact failure this item exists to remove. The other two claims on the card ("evaluate your
       surroundings", "be cautious of aftershocks") ARE supported by `shakeout-guidance-after`. So the cite
       was not changed. Next action (**owner: S11.10, which owns `escape_plan/DrillMode/**`, with the
-      owner**): change the clause to the source's condition ("...if the building is damaged or the area
-      around it is unsafe") in the same commit that sets the tag to `[cite: shakeout-guidance-after]` alone,
+      owner**): change the clause to the source's condition — damage to the building or an unsafe
+      surrounding area, and **keep the source's "outside a tsunami zone" scope** (`earthquake-after-shaking.md`
+      "When to evacuate"), or drop "only", so the card does not say more than ShakeOut — in the same commit that sets the tag to `[cite: shakeout-guidance-after]` alone,
       then delete `usgs-earthquake` from `sources.json` and its `ORPHAN_SOURCE_EXCEPTIONS` entry — it is the
       last caller (grep of backend/, escape_plan/, escape_planTests/, schema/, tools/, scripts/ for the exact
       id). No Swift test pins these cite strings; `DrillModeTests` only checks they resolve.
@@ -789,7 +790,12 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
       gives no distance. A scanned kitchen table 0.5 m from a range would get "under the 0.9 m (3 ft)
       clearance NFPA recommends" about a source that does not say it of ranges. Not confirmed on a real scan.
       Next action (**owner: S11.3 / hazard QA**): decide whether R3 excludes cooking appliances or cites a
-      source that covers them.
+      source that covers them. That overturns the reasoning in `decisions.md` 2026-09-09 (S7.1, one
+      `heat_source` category because "the clearance rule that reads it is identical for all of them"), so
+      record the change as a new dated row that says what it corrects.
+- [ ] **`docs/corpus-summary.md:72` still says `usgs-earthquake` stays until "the two callers" are
+      re-pointed.** There is one (the aftershock card). Outside this follow-up's owned files. Next action:
+      whoever closes the aftershock item above deletes that sentence with the source.
 - [x] **`docs/object-hazard-spec.md` §2 "zero corpus coverage" is corrected** in place with a dated note
       naming `heating-electrical-fire-safety.md` and its four sources (verified by reading the file). The
       matching open line in the **S11.4** section above ("§2 is stale about the corpus") is the same item;

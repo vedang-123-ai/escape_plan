@@ -30,11 +30,12 @@
   rule and calls them "the heater". The corpus gives that rule for heating equipment only. Logged for S11.3.
 
 ## Questions for teammates
-- @owner / S11.10: OK to change the card to "...if the building is damaged or the area around it is unsafe"?
-  That is the source's condition; then the tag and the source deletion can land in one commit.
+- @owner / S11.10: OK to change the card to the source's condition (building damaged or surrounding area
+  unsafe, outside a tsunami zone — or drop "only")? Then the tag and the source deletion can land in one commit.
 
 ## Next steps
 - S11.10: fix the copy + cite together, delete `usgs-earthquake` and its exception entry, re-run validate.py.
+- Also stale: `docs/corpus-summary.md:72` ("two callers"); logged in BLOCKERS.
 - Tick the S11.4-section BLOCKERS line "object-hazard-spec.md §2 is stale" (same item, now fixed here).
 
 Gate run 2026-09-24 on this branch: validate.py green (36 sources, 1 orphan exception); backend 788 passed,
