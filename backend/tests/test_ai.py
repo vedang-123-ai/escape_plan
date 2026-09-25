@@ -4,6 +4,7 @@ loop, and the /explain endpoint — no network, the Anthropic client is faked.""
 from __future__ import annotations
 
 import json
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -220,7 +221,24 @@ def test_corpus_block_matches_sources_json() -> None:
     assert grounded.CORPUS_FILE_ORDER == declared
     assert agent.CORPUS_DOC_FILES == declared
 
-    # Every id the server will accept must appear in the block the model is shown.
+    # Every id the server will accept must appear in the block the model is shown,
+    # as a whole id. This was `i not in block`, a substring test, so an id that is a
+    # prefix of another read as shown: `usgs-earthquake` "appeared" only inside
+    # `usgs-earthquake-during` and `usgs-earthquake-donts`. Ids are kebab-case, so
+    # an exact match is one not continued by another id character on either side.
     block = grounded.corpus_text()
-    unseen = sorted(i for i in grounded.valid_source_ids() if i not in block)
+    unseen = sorted(
+        i
+        for i in grounded.valid_source_ids()
+        if not re.search(rf"(?<![A-Za-z0-9_-]){re.escape(i)}(?![A-Za-z0-9_-])", block)
+    )
+    # TEMPORARY, one id only. `usgs-earthquake` is a known orphan: sources.json still
+    # lists it, no corpus document shows it, and branch `s11-1-followup-orphan-cites`
+    # removes it from sources.json (BLOCKERS, S11.1). It is exempted here rather than
+    # deleted because that source is corpus content this branch does not own. Remove
+    # this exemption once that branch lands; the test must then pass without it.
+    known_orphans = {"usgs-earthquake"}
+    stale = sorted(known_orphans - grounded.valid_source_ids())
+    assert not stale, f"{stale} left sources.json; delete this exemption now"
+    unseen = [i for i in unseen if i not in known_orphans]
     assert not unseen, f"ids validate but are never shown to the model: {unseen}"
