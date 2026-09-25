@@ -23,19 +23,24 @@ enum DollhousePalette {
 
     // MARK: - Environment
 
-    /// Studio cyc — neutral-warm light gray, a touch darker than the model so the white object
-    /// reads bright against it.
-    static let background = UIColor(hex: 0xE9E8E6)
+    /// Studio cyc. Since the Linear revamp (2026-09-25) the app is dark only, so the white model
+    /// floats on a near-black stage matching `Theme.canvas`: the bright object against a dark
+    /// ground is the strongest figure/ground split available, and the routes on its white floors
+    /// keep every luminance contract `RouteEncodingTests` holds.
+    static let background = UIColor(hex: 0x0E0F11)
     /// Bottom of the background gradient.
-    static let backgroundLower = UIColor(hex: 0xE0DEDB)
-    /// The "table" the house sits on.
-    static let basePlate = UIColor(hex: 0xDFDDD9)
+    static let backgroundLower = UIColor(hex: 0x08090A)
+    /// The light the ambient fill is tinted from. It used to be derived from `background`; a
+    /// dark stage must not darken the model, so it is its own (the pre-revamp cyc) value.
+    static let ambientTint = UIColor(hex: 0xE9E8E6)
+    /// The "table" the house sits on: one step up from the stage, so the model has a ground.
+    static let basePlate = UIColor(hex: 0x1A1B1E)
     /// Soft radial shadow under the whole model. Used at `contactShadowAlpha` or below.
-    static let contactShadow = UIColor(hex: 0xB9B5AF)
+    static let contactShadow = UIColor(hex: 0x000000)
     /// Kept low on purpose: the key light's shadow map already draws the shaped shadow, and this
     /// is only the soft ambient darkening under the model. Any stronger and the radial falloff
     /// reads as a smudge on the plate wherever the house doesn't actually sit.
-    static let contactShadowAlpha: CGFloat = 0.18
+    static let contactShadowAlpha: CGFloat = 0.35
 
     // MARK: - The white family (every structural surface)
 
@@ -163,11 +168,13 @@ enum DollhousePalette {
 
     /// Room labels: a quiet warm gray, not black.
     static let labelInk = UIColor(hex: 0x6B6862)
-    /// Selection outline / highlight ring — the app accent (deep safety green). It reads as
-    /// neither route nor hazard: it is greener than the cool route blues and far off the warm
-    /// hazard family, and it only ever appears as an outline on a selected object in the editor,
-    /// where no route is drawn.
-    static let selectionTint = UIColor(hex: 0x0E8A3E)
+    /// Selection outline / highlight ring — the app accent (indigo, since the 2026-09-25 revamp).
+    /// It only ever appears as an outline on a selected object in the editor, where no route is
+    /// drawn, so its closeness to the route blues never puts the two on screen together.
+    static let selectionTint = UIColor(hex: 0x5E6AD2)
+    /// The walking person in drills and playback: the pre-revamp safety green, kept because an
+    /// indigo figure walking a cobalt route would blur into it.
+    static let personTint = UIColor(hex: 0x0E8A3E)
 }
 
 extension UIColor {

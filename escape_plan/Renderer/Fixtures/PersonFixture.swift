@@ -160,7 +160,7 @@ nonisolated enum PersonFixture {
     )
     @MainActor
     private static let selectedGeometry = GeometrySet(
-        material: FixtureStyle.white(DollhousePalette.selectionTint, roughness: 0.55)
+        material: FixtureStyle.white(DollhousePalette.personTint, roughness: 0.55)
     )
 
     /// Backwards-compatible entry point used by `PeopleLayer`.  New playback code should retain

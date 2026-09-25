@@ -31,6 +31,7 @@ struct escape_planApp: App {
     @State private var syncManager: SyncManager
 
     init() {
+        AppAppearance.install()
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-TEST_SEED_DEMO_HOME") {
             if let store = try? HomeDocumentStore(), var model = try? FixtureLoader.load(.twostory) {
@@ -98,6 +99,10 @@ struct escape_planApp: App {
                 .environment(authSession)
                 .environment(syncManager)
                 .environment(syncRepository)
+                // Dark only (the Linear revamp, 2026-09-25). Set at the root so every sheet
+                // and cover inherits it.
+                .preferredColorScheme(.dark)
+                .tint(Theme.accent)
         }
     }
 }

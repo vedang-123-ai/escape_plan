@@ -279,17 +279,14 @@ struct HomeScreen: View {
                     if !critical.isEmpty {
                         criticalSection(critical)
                     }
-                    readinessCard(score: breakdown.score)
-                        .padding(.horizontal, DS.pagePadding)
-                        .padding(.top, 18)
                     if let activeHome {
                         scanAgeCaption(activeHome)
                             .padding(.horizontal, DS.pagePadding)
-                            .padding(.top, 6)
+                            .padding(.top, 10)
                     }
+                    sectionLabel("Overview")
                     statTiles(items)
                         .padding(.horizontal, DS.pagePadding)
-                        .padding(.top, 14)
                     detailedChecklist(items, critical: critical)
                 }
                 if let activeHome {
@@ -317,11 +314,13 @@ struct HomeScreen: View {
     private var scoreHeader: some View {
         if let breakdown {
             Button { scoreHomeID = activeHomeID } label: {
-                DSScoreGauge(score: breakdown.score)
+                scoreHero(breakdown.score)
             }
-            .buttonStyle(HapticPlainButtonStyle())
-            .padding(.top, 10)
-            .accessibilityLabel("Composite score \(breakdown.score) out of 100. Tap for the breakdown.")
+            .buttonStyle(DSPressStyle())
+            .padding(.horizontal, DS.pagePadding)
+            .padding(.top, 12)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Preparedness score \(breakdown.score) out of 100, \(readinessLabel(breakdown.score)). Tap for the breakdown.")
         } else if isScoring {
             HStack(spacing: 10) {
                 ProgressView()
@@ -349,57 +348,130 @@ struct HomeScreen: View {
         }
     }
 
+    /// The score, its band, and the next milestone, in one card. The gauge counts up on arrival.
+    private func scoreHero(_ score: Int) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Preparedness")
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(DS.supporting)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text("\(score)")
+                            .font(.system(size: 48, weight: .semibold))
+                            .monospacedDigit()
+                            .kerning(-1.5)
+                            .foregroundStyle(DS.ink)
+                            .contentTransition(.numericText())
+                        Text("/ 100")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(DS.supporting)
+                    }
+                    DSStatusPill(text: readinessLabel(score), tint: scoreTint(score))
+                }
+                Spacer(minLength: 8)
+                DSScoreGauge(score: score)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Next milestone")
+                    Spacer()
+                    Text("\(nextMilestone(score))").monospacedDigit().foregroundStyle(DS.ink)
+                }
+                .font(.caption.weight(.medium))
+                .foregroundStyle(DS.supporting)
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(DS.track)
+                        Capsule().fill(Theme.accent)
+                            .frame(width: max(4, geo.size.width * CGFloat(score) / CGFloat(max(1, nextMilestone(score)))))
+                    }
+                }
+                .frame(height: 4)
+                HStack(spacing: 4) {
+                    Text("View breakdown")
+                    Image(systemName: "arrow.right").font(.caption2.weight(.bold))
+                }
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(Theme.accentText)
+                .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .dsCard(padding: 16)
+    }
+
+    /// Band colour for the score: the same three bands the breakdown uses.
+    private func scoreTint(_ score: Int) -> Color {
+        score >= 85 ? Theme.success : score >= 60 ? Theme.caution : Theme.warning
+    }
+
     @ViewBuilder
     private func criticalSection(_ items: [ChecklistItem]) -> some View {
-        Text("Critical")
-            .font(.subheadline.weight(.semibold))
-            .textCase(.uppercase)
-            .kerning(0.6)
-            .foregroundStyle(Theme.warning)
+        HStack(spacing: 6) {
+            Circle().fill(Theme.warning).frame(width: 6, height: 6)
+            Text("Critical")
+            Text("\(items.count)").foregroundStyle(DS.supporting).monospacedDigit()
+        }
+            .font(Theme.sectionHeader)
+            .foregroundStyle(DS.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, DS.pagePadding)
-            .padding(.top, 28)
-            .padding(.bottom, 10)
+            .padding(.top, 24)
+            .padding(.bottom, 8)
             .accessibilityAddTraits(.isHeader)
             .accessibilityIdentifier("CRITICAL_Header")
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             ForEach(items) { item in
-                HStack(alignment: .top, spacing: 14) {
-                    DSIconBadge(systemImage: "exclamationmark.triangle",
-                                fill: DS.criticalFill, glyph: Theme.warning, size: 36)
+                HStack(alignment: .top, spacing: 12) {
+                    DSIconBadge(systemImage: "exclamationmark.triangle.fill", fill: Theme.warning, size: 28)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(item.title).font(.body.weight(.semibold)).foregroundStyle(DS.ink)
-                        if let hazard = item.hazard {
-                            Text(hazardLabel(hazard)).font(.subheadline).foregroundStyle(DS.supporting)
-                        }
+                        Text(item.title)
+                            .font(Theme.rowTitle.weight(.semibold))
+                            .foregroundStyle(DS.ink)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text(item.detail)
-                            .font(.subheadline)
-                            .foregroundStyle(DS.bodyInk)
-                            .padding(.top, 2)
-                        HStack(spacing: 10) {
+                            .font(.footnote)
+                            .foregroundStyle(DS.supporting)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let hazard = item.hazard {
+                            hazardChip(hazard).padding(.top, 2)
+                        }
+                        HStack(spacing: 8) {
                             Button { handleRowTap(item) } label: {
-                                Text("Show me where")
-                                    .font(.subheadline.weight(.semibold))
+                                Label("Show me where", systemImage: "scope")
+                                    .font(.footnote.weight(.semibold))
                                     .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 44)
-                                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .padding(.horizontal, 12)
+                                    .frame(minHeight: 36)
+                                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .frame(minHeight: 44)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(DSPressStyle())
                             Button { scoreHomeID = activeHomeID } label: {
                                 Text("Why it matters")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(Theme.accentText)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 44)
-                                    .background(DS.inset, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .font(.footnote.weight(.medium))
+                                    .foregroundStyle(DS.ink)
+                                    .padding(.horizontal, 12)
+                                    .frame(minHeight: 36)
+                                    .background(DS.inset, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .strokeBorder(DS.border, lineWidth: 1))
+                                    .frame(minHeight: 44)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(DSPressStyle())
+                            Spacer(minLength: 0)
                         }
-                        .padding(.top, 12)
+                        .padding(.top, 6)
                     }
                 }
-                .dsCard(radius: 18, padding: 18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(DS.card, in: RoundedRectangle(cornerRadius: DS.cardRadius, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: DS.cardRadius, style: .continuous)
+                    .strokeBorder(Theme.warning.opacity(0.35), lineWidth: 1))
             }
         }
         .padding(.horizontal, DS.pagePadding)
@@ -494,42 +566,43 @@ struct HomeScreen: View {
                  done: findingsOpen == 0,
                  action: { openHomeID = activeHomeID }),
             Tile(key: "drills", value: "\(drillsDone)", unit: drillsDone == 1 ? "drill" : "drills", sub: "practised",
-                 icon: "play.fill", fill: Theme.accent,
+                 icon: "play.fill", fill: Theme.accentText,
                  done: drillsDone > 0,
                  action: { drillHomeID = activeHomeID }),
         ]
     }
 
     private func statTiles(_ items: [ChecklistItem]) -> some View {
-        let cols = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
-        return LazyVGrid(columns: cols, spacing: 14) {
+        let cols = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
+        return LazyVGrid(columns: cols, spacing: 8) {
             ForEach(tiles(from: items), id: \.key) { tile in
                 Button(action: tile.action) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(alignment: .top) {
-                            DSIconBadge(systemImage: tile.icon, fill: tile.fill, size: 52)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .center) {
+                            DSIconBadge(systemImage: tile.icon, fill: tile.fill, size: 26)
                             Spacer()
+                            Circle()
+                                .fill(tile.done ? Theme.success : Theme.caution)
+                                .frame(width: 6, height: 6)
                             Text(tile.done ? "Done" : "To do")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(tile.done ? Theme.accentText : Theme.caution)
-                                .padding(.horizontal, 10)
-                                .frame(height: 26)
-                                .background(tile.done ? DS.accentFill : DS.cautionFill, in: Capsule())
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(DS.supporting)
                         }
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 1) {
                             HStack(alignment: .firstTextBaseline, spacing: 4) {
                                 Text(tile.value)
-                                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                                    .font(.system(.title2, weight: .semibold))
+                                    .monospacedDigit()
                                     .foregroundStyle(DS.ink)
                                 Text(tile.unit)
-                                    .font(.subheadline.weight(.semibold))
+                                    .font(.caption.weight(.medium))
                                     .foregroundStyle(DS.supporting)
                             }
-                            Text(tile.sub).font(.subheadline).foregroundStyle(DS.supporting)
+                            Text(tile.sub).font(.caption).foregroundStyle(DS.supporting)
                         }
                     }
-                    .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
-                    .dsCard(radius: DS.cardRadiusLarge, padding: 18)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .dsCard(padding: 12)
                 }
                 .buttonStyle(DSPressStyle())
                 .accessibilityLabel("\(tile.value) \(tile.unit) \(tile.sub). \(tile.done ? "Done" : "To do").")
@@ -589,20 +662,17 @@ struct HomeScreen: View {
                         .font(.caption.weight(.bold))
                         .rotationEffect(.degrees(showAllDetails ? 180 : 0))
                 }
-                .font(.subheadline.weight(.semibold))
+                .font(.footnote.weight(.medium))
                 .foregroundStyle(Theme.accentText)
-                .padding(.horizontal, 13)
-                .frame(height: 34)
-                .background(DS.card, in: Capsule())
-                .shadow(color: DS.shadowColor, radius: 9, y: 6)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(DSPressStyle())
             .accessibilityHint(showAllDetails ? "Hides every item's detail line."
                                               : "Shows every item's detail line under its title.")
         }
         .padding(.horizontal, DS.pagePadding)
-        .padding(.top, 30)
-        .padding(.bottom, 2)
+        .padding(.top, 16)
     }
 
     private func sectionLabel(_ title: String) -> some View {
@@ -610,8 +680,8 @@ struct HomeScreen: View {
             .sectionHeaderStyle()
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, DS.pagePadding)
-            .padding(.top, 26)
-            .padding(.bottom, 10)
+            .padding(.top, 22)
+            .padding(.bottom, 8)
     }
 
     @ViewBuilder
@@ -625,10 +695,10 @@ struct HomeScreen: View {
     private func checklistCard(_ items: [ChecklistItem]) -> some View {
         VStack(spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                if index > 0 { Divider().padding(.leading, 52) }
+                if index > 0 { Rectangle().fill(DS.border).frame(height: 1).padding(.leading, 48) }
                 checklistRow(item, isHighSeverity: false)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 12)
             }
         }
         .dsCard(padding: nil)
@@ -650,7 +720,7 @@ struct HomeScreen: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(item.title)
-                                .font(.subheadline.weight(isHighSeverity ? .bold : .medium))
+                                .font(.subheadline.weight(isHighSeverity ? .semibold : .regular))
                                 .strikethrough(done)
                                 .foregroundStyle(done ? DS.supporting : DS.ink)
                                 .multilineTextAlignment(.leading)
@@ -666,8 +736,8 @@ struct HomeScreen: View {
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Color(.tertiaryLabel))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Theme.tertiary)
                         .padding(.top, 3)
                 }
                 .contentShape(Rectangle())
@@ -686,9 +756,9 @@ struct HomeScreen: View {
         let glyph = Image(systemName: item.scoring
                           ? (done ? "checkmark.circle.fill" : "circle")
                           : (done ? "checkmark.square.fill" : "square"))
-            .foregroundStyle(done ? Theme.accent : DS.supporting)
-            .font(.title3)
-            .frame(width: 28, height: 28)
+            .foregroundStyle(done ? Theme.success : Theme.tertiary)
+            .font(.body)
+            .frame(width: 24, height: 24)
         if primaryAction(for: item).navigates {
             glyph.accessibilityHidden(true)
         } else {
@@ -707,10 +777,11 @@ struct HomeScreen: View {
     @ViewBuilder
     private func hazardChip(_ hazard: HazardTag) -> some View {
         Text(hazardLabel(hazard))
-            .font(.system(size: 10, weight: .bold))
+            .font(.caption2.weight(.medium))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(DS.inset, in: Capsule())
+            .background(DS.inset, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(DS.border, lineWidth: 1))
             .foregroundStyle(DS.supporting)
     }
 
@@ -738,19 +809,16 @@ struct HomeScreen: View {
     private var drillCTA: some View {
         if breakdown != nil {
             Button { drillHomeID = activeHomeID } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     Image(systemName: "play.fill")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Theme.accent)
-                        .frame(width: 32, height: 32)
-                        .background(.white, in: Circle())
-                    Text("Run a fire drill").font(.headline)
+                        .font(.footnote.weight(.bold))
+                    Text("Run a fire drill").font(.body.weight(.semibold))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 58)
-                .background(Theme.accent, in: Capsule())
-                .shadow(color: Color(red: 27/255, green: 35/255, blue: 64/255).opacity(0.16), radius: 13, y: 10)
+                .frame(minHeight: 48)
+                .background(Theme.accent, in: RoundedRectangle(cornerRadius: DS.buttonRadius, style: .continuous))
+                .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
             }
             .buttonStyle(DSPressStyle())
             .padding(.horizontal, DS.pagePadding)
@@ -1000,7 +1068,7 @@ struct HomeScreen: View {
         let point = MeetingPointStore().meetingPoint(forHomeID: home.id)
         return Button { showingExportSheet = true } label: {
             HStack(spacing: 14) {
-                DSIconBadge(systemImage: "mappin.and.ellipse", fill: Theme.accent, size: 44)
+                DSIconBadge(systemImage: "mappin.and.ellipse", fill: Theme.accentText, size: 32)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Meeting point").font(.subheadline.weight(.semibold)).foregroundStyle(DS.ink)
                     Text(point.isEmpty ? "Not set yet — tap to add one" : point)
@@ -1010,12 +1078,12 @@ struct HomeScreen: View {
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color(.tertiaryLabel))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.tertiary)
             }
         }
         .buttonStyle(HapticPlainButtonStyle())
-        .dsCard(padding: 14)
+        .dsCard(padding: 12)
         .accessibilityLabel("Meeting point: \(point.isEmpty ? "not set" : point)")
         .accessibilityHint("Opens the export sheet to set your outside meeting place.")
     }
@@ -1030,19 +1098,20 @@ struct HomeScreen: View {
             sectionLabel("Homes")
             VStack(spacing: 0) {
                 ForEach(Array(library.homes.enumerated()), id: \.element.id) { index, home in
-                    if index > 0 { Divider().padding(.leading, 52) }
+                    if index > 0 { Rectangle().fill(DS.border).frame(height: 1).padding(.leading, 52) }
                     Button { switchActiveHome(to: home.id) } label: {
                         HStack(spacing: 12) {
                             DSIconBadge(systemImage: "house.fill",
-                                       fill: home.id == activeHomeID ? Theme.accent : DS.supporting,
-                                       size: 36)
+                                       fill: home.id == activeHomeID ? Theme.accentText : DS.supporting,
+                                       size: 28)
                             Text(home.name)
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(DS.ink)
                             Spacer()
                             if home.id == activeHomeID {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(Theme.accent)
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(Theme.accentText)
                             }
                         }
                         .padding(.vertical, 10)
@@ -1070,10 +1139,11 @@ private struct PreventionTipCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(perilLabel)
-                .font(.caption.weight(.bold))
-                .textCase(.uppercase)
-                .kerning(0.5)
+            HStack(spacing: 6) {
+                Image(systemName: perilSymbol).font(.caption2.weight(.semibold))
+                Text(perilLabel)
+            }
+                .font(.caption.weight(.medium))
                 .foregroundStyle(DS.supporting)
             Text(tip.text)
                 .font(.subheadline)
@@ -1090,8 +1160,17 @@ private struct PreventionTipCard: View {
             .hapticTap()
             .accessibilityHint("Shows which cited guidance this tip comes from.")
         }
-        .dsCard(radius: DS.cardRadiusLarge, padding: 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .dsCard(padding: 14)
         .accessibilityElement(children: .combine)
+    }
+
+    private var perilSymbol: String {
+        switch tip.peril {
+        case .fire: return "flame"
+        case .earthquake: return "waveform.path.ecg"
+        case .tornado: return "tornado"
+        }
     }
 
     /// "Severe weather" rather than the corpus's own "tornado" tag, matching HazardTag's
@@ -1123,11 +1202,9 @@ struct ScoreRing: View {
 
 // MARK: - Score gauge (the design's 240° arc)
 
-/// 240° arc gauge opening at the bottom, tick ring, score inside, "Tap for breakdown" pill.
-/// Geometry from the design: r = 100, stroke 14, 25 ticks every 10° from 150°.
-/// The design's 240° arc. It sweeps up from zero when a score arrives — the arc fills, the
-/// notches light one by one under the finger, the number counts — and lands with a firm stop
-/// (and the success flourish at 85+). Reduce Motion shows the final value at once, one tick.
+/// A segmented progress ring. It sweeps up from zero when a score arrives — the segments light
+/// one by one under the finger — and lands with a firm stop (and the success flourish at 85+).
+/// Reduce Motion shows the final value at once, one tick.
 struct DSScoreGauge: View {
     let score: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1135,61 +1212,28 @@ struct DSScoreGauge: View {
     @State private var displayed: Double = 0
     @State private var sweepTask: Task<Void, Never>?
 
-    private let arcFraction = 240.0 / 360.0
-    private static let notchCount = 25
-    private let gradient = LinearGradient(
-        colors: [Color(red: 0.545, green: 0.878, blue: 0.675),
-                 Color(red: 0.133, green: 0.706, blue: 0.361),
-                 Theme.accent],
-        startPoint: .bottomLeading, endPoint: .topTrailing)
+    private static let notchCount = 24
+    private let size: CGFloat = 84
 
     var body: some View {
         let fraction = displayed / 100
-        ZStack(alignment: .top) {
-            ZStack {
+        ZStack {
+            // Segmented ring: 24 short arcs, lit up to the score — Linear's progress glyph, scaled up.
+            ForEach(0..<Self.notchCount, id: \.self) { i in
+                let start = Double(i) / Double(Self.notchCount)
+                let lit = start < fraction - 0.0001
                 Circle()
-                    .trim(from: 0, to: arcFraction)
-                    .stroke(DS.track, style: StrokeStyle(lineWidth: 14, lineCap: .round))
-                    .rotationEffect(.degrees(150))
-                Circle()
-                    .trim(from: 0, to: arcFraction * fraction)
-                    .stroke(gradient, style: StrokeStyle(lineWidth: 14, lineCap: .round))
-                    .rotationEffect(.degrees(150))
-                    .shadow(color: Theme.accent.opacity(0.20), radius: 12, y: 12)
-                ForEach(0..<Self.notchCount, id: \.self) { i in
-                    Capsule()
-                        .fill(Double(i) / Double(Self.notchCount - 1) <= fraction + 0.0001
-                              ? Theme.accent : DS.track)
-                        .frame(width: 2.5, height: 8)
-                        .offset(y: -80)
-                        .rotationEffect(.degrees(240 + Double(i) * 10))
-                }
-                VStack(spacing: 4) {
-                    Text("\(Int(displayed.rounded()))")
-                        .font(.system(size: 64, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .kerning(-2)
-                        .foregroundStyle(DS.ink)
-                    Text("of 100")
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(DS.supporting)
-                }
-                .offset(y: -6)
+                    .trim(from: start + 0.006, to: start + 1 / Double(Self.notchCount) - 0.006)
+                    .stroke(lit ? Theme.accent : DS.track,
+                            style: StrokeStyle(lineWidth: 6, lineCap: .butt))
+                    .rotationEffect(.degrees(-90))
             }
-            .frame(width: 200, height: 200)
-            .padding(.top, 25)
-
-            Text("Tap for breakdown")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.accentText)
-                .padding(.horizontal, 14)
-                .frame(height: 34)
-                .background(DS.card, in: Capsule())
-                .shadow(color: DS.shadowColor, radius: 9, y: 6)
-                .padding(.top, 192)
+            Image(systemName: "shield.lefthalf.filled")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(fraction > 0 ? Theme.accentText : DS.supporting)
         }
-        .frame(width: 260, height: 232)
-        .accessibilityElement(children: .ignore)
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
         .onChange(of: score, initial: true) { _, target in sweep(to: target) }
         .onDisappear { sweepTask?.cancel() }
     }
@@ -1313,12 +1357,7 @@ private struct ChecklistItemSheet: View {
     }
 
     private var statusPill: some View {
-        Text(isDone ? "Done" : "To do")
-            .font(.caption.weight(.bold))
-            .foregroundStyle(isDone ? Theme.accentText : Theme.caution)
-            .padding(.horizontal, 10)
-            .frame(height: 26)
-            .background(isDone ? DS.accentFill : DS.cautionFill, in: Capsule())
+        DSStatusPill(text: isDone ? "Done" : "To do", tint: isDone ? Theme.success : Theme.caution)
     }
 
     private func chip(_ text: String) -> some View {
