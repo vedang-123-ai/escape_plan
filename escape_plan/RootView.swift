@@ -11,6 +11,10 @@
 import SwiftUI
 
 struct RootView: View {
+    /// Handed down from the app entry point, which creates the one store per launch.
+    let homeStore: HomeDocumentStore
+    var storageUnavailable = false
+
     @Environment(AuthSession.self) private var session
     @Environment(SyncManager.self) private var sync
     @Environment(\.scenePhase) private var scenePhase
@@ -23,7 +27,7 @@ struct RootView: View {
                     // animating it as a push would imply a back button that does not exist.
                     .transition(.opacity)
             } else {
-                ContentView()
+                ContentView(store: homeStore, storageUnavailable: storageUnavailable)
                     .transition(.opacity)
             }
         }
@@ -64,7 +68,7 @@ struct RootView: View {
 // touch the real Keychain or the standard UserDefaults.
 #if DEBUG
 #Preview {
-    RootView()
+    RootView(homeStore: HomeDocumentStore.launchStore().store)
         .environment(AuthSession(client: AuthClient(baseURL: APIClient.deployedDefaultBaseURL),
                                  store: InMemoryTokenStore(),
                                  defaults: UserDefaults(suiteName: "preview.\(UUID().uuidString)")!))

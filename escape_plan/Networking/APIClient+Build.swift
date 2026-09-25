@@ -48,7 +48,7 @@ extension APIClient {
             image_media_type: imageMediaType
         ))
         request.timeoutInterval = 180
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIClientError.unexpectedResponse(statusCode: -1)
         }

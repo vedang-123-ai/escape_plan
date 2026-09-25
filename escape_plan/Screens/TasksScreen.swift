@@ -30,7 +30,9 @@ struct TasksScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     header
-                    if readiness.breakdown == nil {
+                    if readiness.activeHomeID == nil {
+                        noHome
+                    } else if readiness.breakdown == nil {
                         placeholder
                     } else {
                         filterBar
@@ -54,7 +56,11 @@ struct TasksScreen: View {
             .sheet(isPresented: $showingExportSheet) {
                 if let id = readiness.activeHomeID { ExportPlanSheet(homeID: id, store: library.store) }
             }
-            .navigationDestination(item: $drillHomeID) { DrillScreen(homeID: $0) }
+            .navigationDestination(item: $drillHomeID) { homeID in
+                // The drill writes its own log; refresh the "last practised" the Home tab shows.
+                DrillScreen(homeID: homeID)
+                    .onDisappear { readiness.refreshLastPracticed() }
+            }
         }
     }
 
@@ -112,6 +118,27 @@ struct TasksScreen: View {
         .padding(.horizontal, DS.pagePadding)
         .padding(.top, 12)
         .padding(.bottom, 14)
+    }
+
+    /// With no home in the library there is nothing to score, and no request will ever finish:
+    /// this used to be "Loading your tasks…" forever (audit 2026-09-25).
+    private var noHome: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("No home yet")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Theme.text)
+                .accessibilityAddTraits(.isHeader)
+            Text("Your tasks come from your home's layout. Scan it or build it, and the checklist appears here.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.supporting)
+                .fixedSize(horizontal: false, vertical: true)
+            DSPrimaryButton(title: "Scan my home", systemImage: "camera.viewfinder") {
+                router.go(home: .scan)
+            }
+            .padding(.top, 4)
+        }
+        .padding(.horizontal, DS.pagePadding)
+        .padding(.top, 40)
     }
 
     @ViewBuilder

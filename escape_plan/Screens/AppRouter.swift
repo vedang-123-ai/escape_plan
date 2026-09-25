@@ -22,6 +22,14 @@ struct HouseRequest: Equatable {
     let homeID: String?
     let focusItemID: String?
     let token = UUID()
+
+    /// The request the House tab should act on: `request` only while it is for the active
+    /// home. A request is about one home; once another is active it is stale, whether or not
+    /// anyone remembered to clear it.
+    static func honoured(_ request: HouseRequest?, activeHomeID: String?) -> HouseRequest? {
+        guard let request, request.homeID == activeHomeID else { return nil }
+        return request
+    }
 }
 
 @MainActor
@@ -34,6 +42,14 @@ final class AppRouter {
     func openHouse(homeID: String?, focusItemID: String? = nil) {
         houseRequest = HouseRequest(homeID: homeID, focusItemID: focusItemID)
         selectedTab = .house
+    }
+
+    /// Forget the last "show me in the house" request. Called whenever the active home changes:
+    /// a request is for one home, and a stale one used to pin the House tab to the old home
+    /// after switching on the Home tab (audit 2026-09-25). `HouseTab` also ignores a request
+    /// for a home that is no longer active, so a missed call cannot strand it either.
+    func clearHouseRequest() {
+        houseRequest = nil
     }
 
     func go(home intent: HomeIntent) {

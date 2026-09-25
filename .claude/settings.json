@@ -47,6 +47,10 @@
           },
           {
             "type": "command",
+            "command": ".claude/hooks/pre-commit/branch-guard.sh"
+          },
+          {
+            "type": "command",
             "command": ".claude/hooks/pre-commit/tracker-warn.sh"
           }
         ]

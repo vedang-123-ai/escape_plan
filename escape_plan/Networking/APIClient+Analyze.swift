@@ -1,8 +1,7 @@
 // APIClient+Analyze.swift
 // POST /analyze (S3.2, wired in S4.1's onboarding flow). Follows the APIClient+<Endpoint>.swift
 // pattern: APIClient.swift stays a thin core, endpoint methods live in per-endpoint extensions,
-// and URLSession.shared stands in for the file-private injected session (the default init uses
-// .shared anyway, so runtime behavior is identical).
+// all sending through the client's injected `session`.
 
 import Foundation
 
@@ -18,7 +17,7 @@ extension APIClient {
         request.httpBody = try HomeModel.encoder().encode(AnalyzeRequest(home: home))
         // Render cold start plus the full agent tool-use loop; 90 s matches /routes' margin.
         request.timeoutInterval = 90
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIClientError.unexpectedResponse(statusCode: -1)
         }

@@ -7,10 +7,6 @@
 // fire, never re-times an escape, and never fabricates a timeline when the network is down —
 // an offline ignition fails honestly through `BackendFailure` instead. Faking one would be
 // exactly the invented-safety-claim failure the whole architecture exists to prevent.
-//
-// Uses URLSession.shared rather than APIClient's injected session, for the reason documented
-// in APIClient+Score.swift: `session` is file-private inside APIClient.swift and the default
-// init uses `.shared` anyway, so runtime behavior is identical.
 
 import Foundation
 
@@ -58,7 +54,7 @@ extension APIClient {
         // Same 90 s as /routes: Render's free tier spins the service down when idle and a cold
         // start comfortably exceeds URLSession's 60 s default.
         request.timeoutInterval = 90
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIClientError.unexpectedResponse(statusCode: -1)
         }

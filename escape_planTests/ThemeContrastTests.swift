@@ -1,22 +1,26 @@
 //  ThemeContrastTests.swift
 //  escape_planTests
 //
-//  WCAG 2.2 AA contrast gate for the chrome palette (lane D1 accessibility pass).
+//  WCAG 2.2 AA contrast gate for the chrome palette, rewritten for the Linear dark-only revamp
+//  (2026-09-25). The app has ONE appearance now: every `AppearancePair` in `Theme.swift` is built
+//  with `both:`, and every foreground is measured against all four real surfaces it can land on —
+//  canvas #08090A, card #111214, raised #1A1B1E, hover #232428 — against the target its role
+//  demands:
 //
-//  This exists because "the amber looks fine" is not a measurement. Every foreground/background
-//  pair the screens actually use is asserted here in BOTH appearances, against the target the
-//  pair's role demands:
+//    SC 1.4.3 Contrast (Minimum) — 4.5:1 for text (every token here is used at caption size)
+//    SC 1.4.11 Non-text Contrast — 3:1 for inks, fills and state indicators
 //
-//    SC 1.4.3 Contrast (Minimum) — 4.5:1 body text, 3:1 large text (>=18pt or >=14pt bold)
-//    SC 1.4.11 Non-text Contrast — 3:1 for meaningful non-text components and state indicators
+//  `Theme.tertiary` is placeholder/disabled-only, so it is held to 3:1, not 4.5:1.
 //
-//  The maths lives in `Theme.swift` (`WCAG.relativeLuminance` / `WCAG.contrastRatio`) rather
-//  than here, so the app and the test can never disagree about what a ratio is.
+//  The earlier version of this file encoded the light/dark system-colour rules (the retired
+//  route orange, the "chrome ink must equal the renderer colour" bridge, iOS's secondaryLabel on
+//  white). Those rules were retired with the revamp (docs/decisions.md, 2026-09-25); what is kept
+//  is the safety-colour guardrail: routes are cool, hazard is warm, exits are green — asserted by
+//  hue family below, since the chrome inks are deliberately lightened for the dark canvas and can
+//  no longer be byte-equal to the renderer's.
 //
-//  Surfaces are the real iOS system background values: systemBackground (#FFFFFF / #000000),
-//  secondarySystemBackground (#F2F2F7 / #1C1C1E) and tertiarySystemBackground
-//  (#FFFFFF / #2C2C2E). A grouped List draws its ROWS in systemBackground and its PAGE in
-//  systemGroupedBackground, so any text colour used inside a List has to clear both.
+//  The maths lives in `Theme.swift` (`WCAG.relativeLuminance` / `WCAG.contrastRatio`) so the app
+//  and the test can never disagree about what a ratio is.
 
 import UIKit
 import XCTest
@@ -53,7 +57,7 @@ final class ThemeContrastTests: XCTestCase {
         XCTAssertEqual(byHex.b, 0x99 / 255.0, accuracy: 0.0001)
     }
 
-    // MARK: - Helper
+    // MARK: - Helpers
 
     /// Asserts and reports the real number, so a failure tells you how far off it is.
     private func assertContrast(_ foreground: SRGB,
@@ -69,229 +73,178 @@ final class ThemeContrastTests: XCTestCase {
             file: file, line: line)
     }
 
-    /// Every surface a foreground can land on in a given appearance. A colour used in a grouped
-    /// List has to survive the row fill AND the page fill, so both are checked.
-    private func surfaces(dark: Bool) -> [(String, SRGB)] {
-        dark
-            ? [("systemBackground(dark) #000000", Theme.surface.dark),
-               ("secondarySystemBackground(dark) #1C1C1E", Theme.surfaceSecondary.dark),
-               ("tertiarySystemBackground(dark) #2C2C2E", Theme.surfaceTertiary.dark)]
-            : [("systemBackground(light) #FFFFFF", Theme.surface.light),
-               ("secondarySystemBackground(light) #F2F2F7", Theme.surfaceSecondary.light)]
-    }
+    /// The four dark surfaces, darkest first. Every foreground can land on any of them.
+    private let surfaces: [(String, SRGB)] = [
+        ("canvas #08090A", Theme.canvasComponents.dark),
+        ("card #111214", Theme.cardComponents.dark),
+        ("raised #1A1B1E", Theme.raisedComponents.dark),
+        ("hover #232428", Theme.hoverComponents.dark),
+    ]
 
-    private func assertTextColor(_ pair: AppearancePair,
-                                 named name: String,
-                                 target: Double = WCAG.Target.bodyText,
-                                 file: StaticString = #filePath,
-                                 line: UInt = #line) {
-        for (surfaceName, surface) in surfaces(dark: false) {
-            assertContrast(pair.light, on: surface, atLeast: target,
-                           "\(name) (light) on \(surfaceName)", file: file, line: line)
-        }
-        for (surfaceName, surface) in surfaces(dark: true) {
+    private func assertOnEverySurface(_ pair: AppearancePair, named name: String,
+                                      atLeast target: Double,
+                                      file: StaticString = #filePath, line: UInt = #line) {
+        for (surfaceName, surface) in surfaces {
             assertContrast(pair.dark, on: surface, atLeast: target,
-                           "\(name) (dark) on \(surfaceName)", file: file, line: line)
+                           "\(name) on \(surfaceName)", file: file, line: line)
         }
     }
 
-    // MARK: - Text colours (SC 1.4.3, 4.5:1 — these are all used at caption size)
-
-    func testWarningTextMeetsAAInBothAppearances() {
-        assertTextColor(Theme.warningComponents, named: "Theme.warning")
+    /// HSL hue in degrees, 0..<360. Grey (no chroma) reads as 0, which no test below relies on.
+    private func hue(_ c: SRGB) -> Double {
+        let maxC = max(c.r, c.g, c.b), minC = min(c.r, c.g, c.b)
+        let delta = maxC - minC
+        guard delta > 0 else { return 0 }
+        var h: Double
+        if maxC == c.r { h = ((c.g - c.b) / delta).truncatingRemainder(dividingBy: 6) }
+        else if maxC == c.g { h = (c.b - c.r) / delta + 2 }
+        else { h = (c.r - c.g) / delta + 4 }
+        h *= 60
+        return h < 0 ? h + 360 : h
     }
 
-    func testCautionTextMeetsAAInBothAppearances() {
-        assertTextColor(Theme.cautionComponents, named: "Theme.caution")
-    }
+    /// The hue families the safety guardrail talks about. Bounds are generous on purpose: they
+    /// are there to catch a route drawn in orange, not to police a shade of blue.
+    private func isWarm(_ c: SRGB) -> Bool { let h = hue(c); return h < 60 || h >= 330 }
+    private func isCool(_ c: SRGB) -> Bool { let h = hue(c); return h >= 170 && h < 300 }
+    private func isBlue(_ c: SRGB) -> Bool { let h = hue(c); return h >= 190 && h < 260 }
+    private func isGreen(_ c: SRGB) -> Bool { let h = hue(c); return h >= 90 && h < 170 }
 
-    func testSupportingTextMeetsAAInBothAppearances() {
-        assertTextColor(Theme.supportingComponents, named: "Theme.supporting")
-    }
-
-    func testAccentTextMeetsAAInBothAppearances() {
-        assertTextColor(Theme.accentTextComponents, named: "Theme.accentText")
-    }
-
-    /// The regression this whole file exists for: iOS's own `secondaryLabel` does NOT clear AA
-    /// on white, which is why `Theme.supporting` stopped being `Color.secondary`. If this ever
-    /// starts passing, Apple changed the value and `Theme.supporting` can be revisited.
-    func testSystemSecondaryLabelWouldHaveFailedAA() {
-        // secondaryLabel is #3C3C43 at 60% alpha; over white that composites to #8A8A8E.
-        let composited = SRGB(hex: 0x8A8A8E)
-        let ratio = WCAG.contrastRatio(composited, Theme.surface.light)
-        XCTAssertLessThan(ratio, WCAG.Target.bodyText,
-                          String(format: "system secondaryLabel measured %.2f:1 on white", ratio))
-    }
-
-    // MARK: - Text on a coloured fill
-
-    func testWhiteChatBubbleTextMeetsAA() {
-        // The user's bubble draws white text on Theme.bubbleUser in BOTH appearances.
-        assertContrast(SRGB(hex: 0xFFFFFF), on: Theme.bubbleUserComponents.light,
-                       atLeast: WCAG.Target.bodyText, "white on Theme.bubbleUser")
-    }
-
-    func testChatBubbleFillIsDistinguishableFromThePage() {
-        // SC 1.4.11: the bubble fill is a meaningful non-text component (it carries "who said
-        // this"), so it needs 3:1 against the page it floats on, in both appearances.
-        assertContrast(Theme.bubbleUserComponents.light, on: Theme.surface.light,
-                       atLeast: WCAG.Target.component, "Theme.bubbleUser on light page")
-        assertContrast(Theme.bubbleUserComponents.dark, on: Theme.surface.dark,
-                       atLeast: WCAG.Target.component, "Theme.bubbleUser on dark page")
-        assertContrast(Theme.bubbleUserComponents.dark, on: Theme.surfaceSecondary.dark,
-                       atLeast: WCAG.Target.component, "Theme.bubbleUser on dark grouped page")
-    }
-
-    /// White-on-accent is what the bubble used to do. Locked in as a test so nobody
-    /// re-introduces it: the dark-mode accent is far too light to carry white text.
-    func testWhiteOnRawAccentWouldHaveFailed() {
-        let ratio = WCAG.contrastRatio(SRGB(hex: 0xFFFFFF), Theme.accentComponents.dark)
-        XCTAssertLessThan(ratio, WCAG.Target.bodyText,
-                          String(format: "white on dark AccentColor measured %.2f:1", ratio))
-    }
-
-    // MARK: - Non-text components (SC 1.4.11, 3:1)
-
-    func testAccentFillIsDistinguishableAsAComponent() {
-        assertContrast(Theme.accentComponents.light, on: Theme.surface.light,
-                       atLeast: WCAG.Target.component, "AccentColor (light) on white")
-        assertContrast(Theme.accentComponents.dark, on: Theme.surface.dark,
-                       atLeast: WCAG.Target.component, "AccentColor (dark) on black")
-        assertContrast(Theme.accentComponents.dark, on: Theme.surfaceSecondary.dark,
-                       atLeast: WCAG.Target.component, "AccentColor (dark) on #1C1C1E")
-    }
-
-    /// The route/exit/hazard legend swatches are the one place chrome is allowed to show the
-    /// 3D systems' colour. They're swatches, not text, so 3:1 is the bar — but they still have
-    /// to clear it, or the legend that explains the route is itself unreadable.
-    ///
-    /// Measured (light on #FFFFFF / #F2F2F7, dark on #000000 / #1C1C1E):
-    ///   routeInk           8.88 / 7.96  ·  8.60 / 6.96
-    ///   routeSecondaryInk  3.99 / 3.58  ·  6.92 / 5.60
-    ///   exitInk            4.96 / 4.44  ·  7.71 / 6.24
-    ///   hazardInk          5.18 / 4.64  ·  4.06 / 3.29
-    func testRouteExitAndHazardLegendSwatchesMeetNonTextContrast() {
-        for (name, pair) in [("Theme.routeInk", Theme.routeInkComponents),
-                             ("Theme.routeSecondaryInk", Theme.routeSecondaryInkComponents),
-                             ("Theme.exitInk", Theme.exitInkComponents),
-                             ("Theme.hazardInk", Theme.hazardInkComponents)] {
-            assertContrast(pair.light, on: Theme.surface.light,
-                           atLeast: WCAG.Target.component, "\(name) (light) on white")
-            assertContrast(pair.light, on: Theme.surfaceSecondary.light,
-                           atLeast: WCAG.Target.component, "\(name) (light) on #F2F2F7")
-            assertContrast(pair.dark, on: Theme.surface.dark,
-                           atLeast: WCAG.Target.component, "\(name) (dark) on black")
-            assertContrast(pair.dark, on: Theme.surfaceSecondary.dark,
-                           atLeast: WCAG.Target.component, "\(name) (dark) on #1C1C1E")
-        }
-    }
-
-    // MARK: - The legend inks say what the 3D actually draws (the bug this file missed)
-
-    /// The regression that started this: `routeInkComponents` was pinned to the RETIRED orange
-    /// #FF5A1F long after `DollhousePalette` re-keyed routes to cool. Every legend claiming to
-    /// show "the route colour" showed a colour no route used. The bridge is asserted, not
-    /// commented, so it cannot silently rot again.
-    func testLegendInksBridgeTheRendererPalette() {
-        XCTAssertEqual(Theme.routeInkComponents.light, srgb(DollhousePalette.routePrimary),
-                       "Theme.routeInk (light) must BE DollhousePalette.routePrimary")
-        XCTAssertEqual(Theme.routeSecondaryInkComponents.light,
-                       srgb(DollhousePalette.routeSecondary),
-                       "Theme.routeSecondaryInk (light) must BE DollhousePalette.routeSecondary")
-        XCTAssertEqual(Theme.exitInkComponents.light, srgb(DollhousePalette.exitGreen),
-                       "Theme.exitInk (light) must BE DollhousePalette.exitGreen")
-    }
-
-    /// The retired orange, locked out. If this ever equals a route ink again, the re-key was
-    /// undone without anyone noticing.
-    func testRetiredRouteOrangeIsGone() {
-        let retired = SRGB(hex: 0xFF5A1F)
-        XCTAssertNotEqual(Theme.routeInkComponents.light, retired)
-        XCTAssertNotEqual(Theme.routeInkComponents.dark, retired)
-        // And it would not have passed anyway: 3.12:1 on white is fine for a swatch, but the
-        // whole point is that no route is drawn in it.
-        XCTAssertLessThan(WCAG.contrastRatio(retired, Theme.surfaceSecondary.light),
-                          WCAG.Target.component,
-                          "the retired orange measured under 3:1 on the grouped page fill too")
-    }
-
-    /// The two renderer colours that CANNOT be used directly in chrome, with the numbers that
-    /// say why. These are the reason `routeInk` and `hazardInk` are not straight bridges.
-    func testRendererColoursThatCannotBeChromeInk() {
-        let routePrimaryOnBlack = WCAG.contrastRatio(srgb(DollhousePalette.routePrimary),
-                                                     Theme.surface.dark)
-        XCTAssertLessThan(routePrimaryOnBlack, WCAG.Target.component,
-                          String(format: "routePrimary #123FB0 measured %.2f:1 on black — it "
-                                 + "cannot be the dark-appearance route ink",
-                                 routePrimaryOnBlack))
-
-        let hazardCoreOnWhite = WCAG.contrastRatio(srgb(DollhousePalette.hazardCore),
-                                                   Theme.surface.light)
-        XCTAssertLessThan(hazardCoreOnWhite, WCAG.Target.component,
-                          String(format: "hazardCore #F97316 measured %.2f:1 on white — it "
-                                 + "cannot be a light-mode legend swatch or text",
-                                 hazardCoreOnWhite))
-
-        // …and `hazardInk` is the value that fixes it, in both appearances.
-        assertContrast(Theme.hazardInkComponents.light, on: Theme.surface.light,
-                       atLeast: WCAG.Target.bodyText, "Theme.hazardInk on white (text-grade)")
-        assertContrast(Theme.hazardInkComponents.dark, on: Theme.surface.dark,
-                       atLeast: WCAG.Target.component, "Theme.hazardInk on black")
-    }
-
-    /// The primary must stay the stronger ink in BOTH appearances — otherwise a legend showing
-    /// both swatches inverts its own hierarchy when the user switches to dark mode.
-    func testPrimaryRouteInkOutranksTheBackupInBothAppearances() {
-        let lightPrimary = WCAG.contrastRatio(Theme.routeInkComponents.light, Theme.surface.light)
-        let lightBackup = WCAG.contrastRatio(Theme.routeSecondaryInkComponents.light,
-                                             Theme.surface.light)
-        XCTAssertGreaterThan(lightPrimary, lightBackup,
-                             String(format: "light: primary %.2f:1 vs backup %.2f:1",
-                                    lightPrimary, lightBackup))
-
-        let darkPrimary = WCAG.contrastRatio(Theme.routeInkComponents.dark, Theme.surface.dark)
-        let darkBackup = WCAG.contrastRatio(Theme.routeSecondaryInkComponents.dark,
-                                            Theme.surface.dark)
-        XCTAssertGreaterThan(darkPrimary, darkBackup,
-                             String(format: "dark: primary %.2f:1 vs backup %.2f:1",
-                                    darkPrimary, darkBackup))
-    }
-
-    /// `SRGB` from a `UIColor`, so the assertions above compare the REAL renderer values rather
-    /// than a hex literal retyped into the test.
+    /// `SRGB` from a `UIColor`, so hue checks compare the REAL renderer values rather than a hex
+    /// literal retyped into the test.
     private func srgb(_ color: UIColor) -> SRGB {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
         return SRGB(r: Double(r), g: Double(g), b: Double(b))
     }
 
-    /// The score ring's three bands are the app's most colour-dependent surface. Each band's
-    /// stroke is a non-text state indicator (SC 1.4.11) and must clear 3:1 on both pages.
-    func testScoreRingBandsMeetNonTextContrast() {
-        let bands: [(String, AppearancePair)] = [
-            ("score >= 80 (accent)", Theme.accentComponents),
-            ("score 50..<80 (caution)", Theme.cautionComponents),
-            ("score < 50 (warning)", Theme.warningComponents),
+    // MARK: - One appearance
+
+    /// Dark only: a pair whose halves differ would mean some screen still has a light value.
+    func testEveryTokenIsSingleAppearance() {
+        let pairs: [(String, AppearancePair)] = [
+            ("canvas", Theme.canvasComponents), ("card", Theme.cardComponents),
+            ("raised", Theme.raisedComponents), ("hover", Theme.hoverComponents),
+            ("text", Theme.textComponents), ("supporting", Theme.supportingComponents),
+            ("tertiary", Theme.tertiaryComponents), ("accent", Theme.accentComponents),
+            ("accentText", Theme.accentTextComponents), ("success", Theme.successComponents),
+            ("warning", Theme.warningComponents), ("caution", Theme.cautionComponents),
+            ("routeInk", Theme.routeInkComponents),
+            ("routeSecondaryInk", Theme.routeSecondaryInkComponents),
+            ("exitInk", Theme.exitInkComponents), ("hazardInk", Theme.hazardInkComponents),
         ]
-        for (name, pair) in bands {
-            assertContrast(pair.light, on: Theme.surface.light,
-                           atLeast: WCAG.Target.component, "\(name) on white")
-            assertContrast(pair.dark, on: Theme.surface.dark,
-                           atLeast: WCAG.Target.component, "\(name) on black")
-            assertContrast(pair.dark, on: Theme.surfaceSecondary.dark,
-                           atLeast: WCAG.Target.component, "\(name) on #1C1C1E")
+        for (name, pair) in pairs {
+            XCTAssertEqual(pair.light, pair.dark, "Theme.\(name) has two appearances")
         }
     }
 
-    /// The big score number is drawn in the band colour at >=34pt bold, i.e. "large text", so
-    /// 3:1 is its floor — but it also has to work when Dynamic Type is small, so hold it to the
-    /// body-text bar on the page fills it actually sits on.
-    func testScoreNumberMeetsBodyTextContrast() {
-        for (name, pair) in [("accent", Theme.accentTextComponents),
-                             ("caution", Theme.cautionComponents),
-                             ("warning", Theme.warningComponents)] {
-            assertTextColor(pair, named: "score number (\(name))")
+    // MARK: - Text (SC 1.4.3, 4.5:1 on every surface)
+
+    func testEveryTextTokenClearsAAOnEverySurface() {
+        let text: [(String, AppearancePair)] = [
+            ("Theme.text", Theme.textComponents),
+            ("Theme.supporting", Theme.supportingComponents),
+            ("Theme.accentText", Theme.accentTextComponents),
+            // State colours are also drawn as text: band captions, "−5 points", warnings.
+            ("Theme.success", Theme.successComponents),
+            ("Theme.warning", Theme.warningComponents),
+            ("Theme.caution", Theme.cautionComponents),
+        ]
+        for (name, pair) in text {
+            assertOnEverySurface(pair, named: name, atLeast: WCAG.Target.bodyText)
+        }
+    }
+
+    /// Placeholder and disabled text only — it never carries meaning a reader needs, so the
+    /// component floor is its bar, and it must still clear that.
+    func testTertiaryIsPlaceholderGradeOnly() {
+        assertOnEverySurface(Theme.tertiaryComponents, named: "Theme.tertiary",
+                             atLeast: WCAG.Target.component)
+    }
+
+    // MARK: - Text on a coloured fill
+
+    /// The primary button and the user's chat bubble draw white text on the accent. It used to
+    /// fail (the old dark-mode accent measured 2.71:1); indigo #5E6AD2 carries it at 4.70:1.
+    func testWhiteOnTheAccentClearsAA() {
+        assertContrast(SRGB(hex: 0xFFFFFF), on: Theme.accentComponents.dark,
+                       atLeast: WCAG.Target.bodyText, "white on Theme.accent")
+        assertContrast(SRGB(hex: 0xFFFFFF), on: Theme.bubbleUserComponents.dark,
+                       atLeast: WCAG.Target.bodyText, "white on Theme.bubbleUser")
+    }
+
+    // MARK: - Inks and state indicators (SC 1.4.11, 3:1 on every surface)
+
+    func testEveryInkAndStateColourClearsNonTextContrastOnEverySurface() {
+        let components: [(String, AppearancePair)] = [
+            ("Theme.accent", Theme.accentComponents),
+            ("Theme.success", Theme.successComponents),
+            ("Theme.warning", Theme.warningComponents),
+            ("Theme.caution", Theme.cautionComponents),
+            ("Theme.routeInk", Theme.routeInkComponents),
+            ("Theme.routeSecondaryInk", Theme.routeSecondaryInkComponents),
+            ("Theme.exitInk", Theme.exitInkComponents),
+            ("Theme.hazardInk", Theme.hazardInkComponents),
+        ]
+        for (name, pair) in components {
+            assertOnEverySurface(pair, named: name, atLeast: WCAG.Target.component)
+        }
+    }
+
+    /// The score bands (`Readiness/ScoreBand.swift`) colour the gauge, the pill and the band
+    /// caption. As fills they need 3:1; as the caption they need 4.5:1 — on every surface.
+    func testScoreBandColoursClearTextContrast() {
+        for band in ScoreBand.allCases {
+            let pair: AppearancePair
+            switch band {
+            case .wellPrepared: pair = Theme.successComponents
+            case .someGaps: pair = Theme.cautionComponents
+            case .needsWork: pair = Theme.warningComponents
+            }
+            assertOnEverySurface(pair, named: "band \(band.title)", atLeast: WCAG.Target.bodyText)
+        }
+    }
+
+    // MARK: - Safety colours: cool = routes, warm = hazard, green = exits
+
+    /// The chrome inks are lightened versions of the renderer's colours (tuned for a white model
+    /// under a key light), so they can no longer be byte-equal. They must stay in the same hue
+    /// family, or a legend would explain the 3D in colours it does not use.
+    func testLegendInksStayInTheRendererHueFamilies() {
+        XCTAssertTrue(isBlue(Theme.routeInkComponents.dark), "routeInk hue \(hue(Theme.routeInkComponents.dark))")
+        XCTAssertTrue(isBlue(Theme.routeSecondaryInkComponents.dark),
+                      "routeSecondaryInk hue \(hue(Theme.routeSecondaryInkComponents.dark))")
+        XCTAssertTrue(isBlue(srgb(DollhousePalette.routePrimary)), "renderer routePrimary")
+        XCTAssertTrue(isBlue(srgb(DollhousePalette.routeSecondary)), "renderer routeSecondary")
+
+        XCTAssertTrue(isGreen(Theme.exitInkComponents.dark), "exitInk hue \(hue(Theme.exitInkComponents.dark))")
+        XCTAssertTrue(isGreen(srgb(DollhousePalette.exitGreen)), "renderer exitGreen")
+
+        XCTAssertTrue(isWarm(Theme.hazardInkComponents.dark), "hazardInk hue \(hue(Theme.hazardInkComponents.dark))")
+        XCTAssertTrue(isWarm(srgb(DollhousePalette.hazardCore)), "renderer hazardCore")
+    }
+
+    /// The colour-blind-safe split the whole palette rests on: no route is ever drawn warm (the
+    /// retired route orange is the precedent), and hazard is never drawn cool.
+    func testNoRouteInkIsWarmAndHazardIsNotCool() {
+        for (name, pair) in [("routeInk", Theme.routeInkComponents),
+                             ("routeSecondaryInk", Theme.routeSecondaryInkComponents)] {
+            XCTAssertFalse(isWarm(pair.dark), "\(name) is in the warm (hazard) family")
+            XCTAssertTrue(isCool(pair.dark), "\(name) left the cool family")
+        }
+        XCTAssertFalse(isCool(Theme.hazardInkComponents.dark), "hazardInk is in the cool (route) family")
+        XCTAssertFalse(isWarm(Theme.exitInkComponents.dark), "exitInk reads as hazard")
+    }
+
+    /// The primary must stay the stronger ink, or a legend showing both swatches inverts its own
+    /// hierarchy.
+    func testPrimaryRouteInkOutranksTheBackup() {
+        for (surfaceName, surface) in surfaces {
+            let primary = WCAG.contrastRatio(Theme.routeInkComponents.dark, surface)
+            let backup = WCAG.contrastRatio(Theme.routeSecondaryInkComponents.dark, surface)
+            XCTAssertGreaterThan(primary, backup,
+                                 String(format: "%@: primary %.2f:1 vs backup %.2f:1",
+                                        surfaceName, primary, backup))
         }
     }
 

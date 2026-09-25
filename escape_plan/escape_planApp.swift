@@ -30,35 +30,47 @@ struct escape_planApp: App {
     @State private var syncRepository: HomeDocumentSyncRepository
     @State private var syncManager: SyncManager
 
+    /// The one home store for this launch, shared by the library, sync and every tab.
+    private let homeStore: HomeDocumentStore
+    /// True when Documents could not be opened and `homeStore` is a temporary stand-in:
+    /// ContentView then says, permanently, that changes will not be saved.
+    private let storageUnavailable: Bool
+
     init() {
         AppAppearance.install()
+
+        // Created ONCE, here, without a `try!` (audit 2026-09-25). There used to be two
+        // instances and two force-tries (here and in ContentView), so an unreachable Documents
+        // directory crashed the app before its first frame instead of degrading.
+        let launch = HomeDocumentStore.launchStore()
+        let homeStore = launch.store
+        self.homeStore = homeStore
+        self.storageUnavailable = launch.isFallback
+
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-TEST_SEED_DEMO_HOME") {
-            if let store = try? HomeDocumentStore(), var model = try? FixtureLoader.load(.twostory) {
-                model.home_id = "TEST-DEMO-HOME-1234"
-                try? store.save(model: model)
-            }
+        if ProcessInfo.processInfo.arguments.contains("-TEST_SEED_DEMO_HOME"),
+           var model = try? FixtureLoader.load(.twostory) {
+            model.home_id = "TEST-DEMO-HOME-1234"
+            try? homeStore.save(model: model)
         }
 #endif
-        
+
         // Install the three starter homes before any screen reads the library.
         // At launch rather than inside onboarding on purpose: skipping the tour
         // ("I'll map my own home") must not leave the demo path with nothing to
-        // demo. Guarded by a defaults flag, so it happens exactly once.
-        do {
-            try FixtureSeeder.seedStarterHomes(into: try HomeDocumentStore())
-        } catch {
-            // A missing bundled fixture must not stop the app from launching —
-            // the library simply starts empty, exactly as it did before.
-            print("Starter-home seeding skipped: \(error)")
+        // demo. Guarded by a defaults flag, so it happens exactly once — which is also why it
+        // is skipped on the temporary fallback store: seeding there would spend the flag on
+        // homes that vanish, and the real library would never get them.
+        if !launch.isFallback {
+            do {
+                try FixtureSeeder.seedStarterHomes(into: homeStore)
+            } catch {
+                // A missing bundled fixture must not stop the app from launching —
+                // the library simply starts empty, exactly as it did before.
+                print("Starter-home seeding skipped: \(error)")
+            }
         }
 
-        // `try!` matches the existing convention for this call (`HomeScreen.init` and
-        // `BetaScreen.init` both do it): `HomeDocumentStore()` fails only when the Documents
-        // directory is unreachable, in which case the app has no persistence at all and the
-        // Home tab would crash a moment later regardless. This adds no failure mode that was
-        // not already there.
-        let homeStore = try! HomeDocumentStore()
         // One sidecar, shared: the repository writes deletion tombstones into it and the
         // manager reads and writes sync records. Two instances over the same file would
         // last-write-wins each other's updates.
@@ -94,7 +106,7 @@ struct escape_planApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            RootView(homeStore: homeStore, storageUnavailable: storageUnavailable)
                 .environment(apiClient)
                 .environment(authSession)
                 .environment(syncManager)

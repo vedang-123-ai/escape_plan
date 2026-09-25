@@ -50,6 +50,10 @@ final class ReadinessStore {
         return open.sorted { rank($0) < rank($1) }
     }
 
+    /// The one definition of a score's band, for every screen that shows a score (Home's card
+    /// and the Score screen used to disagree). Thresholds: `Readiness/ScoreBand.swift`.
+    static func band(for score: Int) -> ScoreBand { ScoreBand(score: score) }
+
     private func rank(_ item: ChecklistItem) -> Int {
         if item.severity == .high { return 0 }
         return item.scoring ? 1 : 2
@@ -94,6 +98,7 @@ final class ReadinessStore {
         guard let activeHomeID else {
             activeHome = nil
             breakdown = nil
+            scoreFailure = nil
             return
         }
         checklistState = stateStore.load(homeID: activeHomeID)
@@ -109,12 +114,26 @@ final class ReadinessStore {
                freshnessStore.recordedWallEdgeCount(homeID: activeHomeID) == nil {
                 freshnessStore.recordWallEdgeCount(ScanFreshness.wallEdgeCount(home), homeID: activeHomeID)
             }
-            lastPracticed = (try? DrillLogStore())?.lastPracticed(homeID: activeHomeID)
+            refreshLastPracticed()
         } catch {
-            scoreFailure = BackendFailure(error, while: .score)
+            // A document on THIS device that won't load. It used to be reported as a backend
+            // failure — "couldn't reach the server" — for a file that never left the phone.
+            // Nothing stale is left standing either: the previous home's model and a cached
+            // score would otherwise sit under the new home's id.
+            activeHome = nil
+            breakdown = nil
+            scoreFailure = .localLoad(error)
             return
         }
         await fetchScore(api: api)
+    }
+
+    /// Re-reads the drill log. A drill is run in a pushed `DrillScreen` that writes the log
+    /// itself, so whoever pushed it calls this when it goes away — otherwise Home keeps saying
+    /// "Never practised" until the next full load.
+    func refreshLastPracticed() {
+        guard let activeHomeID else { lastPracticed = nil; return }
+        lastPracticed = (try? DrillLogStore())?.lastPracticed(homeID: activeHomeID)
     }
 
     func rescore(api: APIClient) {
@@ -158,6 +177,24 @@ final class ReadinessStore {
               let tips = try? PreventionTips.decode(from: data) else { return [] }
         return tips
     }
+}
+
+// MARK: - Score band colours
+
+extension ScoreBand {
+    /// Fill colour (gauge, bar, pill dot), held to the 3:1 non-text floor on every surface.
+    var tint: Color {
+        switch self {
+        case .wellPrepared: return Theme.success
+        case .someGaps: return Theme.caution
+        case .needsWork: return Theme.warning
+        }
+    }
+
+    /// Text colour for the band's words and numbers. The three state colours clear 4.5:1 on
+    /// every dark surface (ThemeContrastTests), so today this is `tint`; it stays a separate
+    /// name so a future fill that fails text contrast has somewhere to diverge.
+    var textTint: Color { tint }
 }
 
 // MARK: - Where a task takes you

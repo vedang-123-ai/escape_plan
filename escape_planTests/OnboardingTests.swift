@@ -78,7 +78,7 @@ final class OnboardingTests: XCTestCase {
     }
 
     @MainActor
-    func testOnboardingSkipsTheDemoAndExitsCleanlyForAnExistingLibrary() throws {
+    func testOnboardingSeedsNoDemoCopyIntoAnExistingLibrary() throws {
         let store = try HomeDocumentStore(directory: scratch)
         _ = try XCTUnwrap(FixtureSeeder.seedDemoHome(into: store))
         let state = OnboardingState(documentStore: store)
@@ -87,8 +87,72 @@ final class OnboardingTests: XCTestCase {
 
         XCTAssertNil(state.seededHome)
         XCTAssertTrue(state.hasExistingLibrary)
-        XCTAssertNotNil(state.seedError)
+        XCTAssertNil(state.seedError, "a library that already has homes is not an error")
         XCTAssertEqual(store.list().count, 1)
+    }
+
+    // MARK: - The interview on a library that already has homes (audit 2026-09-25)
+
+    /// The app seeds starter homes at launch, before onboarding shows, so on a fresh install
+    /// the library is never empty. "Get started" used to see that and skip the whole
+    /// interview. Library state now decides only whether a demo home is seeded.
+    @MainActor
+    func testTheInterviewIsReachableWithAPreSeededLibrary() throws {
+        let store = try HomeDocumentStore(directory: scratch)
+        _ = try XCTUnwrap(FixtureSeeder.seedDemoHome(into: store))
+        let state = OnboardingState(documentStore: store)
+
+        // What "Get started" does.
+        state.seedIfNeeded()
+        state.step = .whoLivesHere
+
+        XCTAssertEqual(state.step, .whoLivesHere)
+        XCTAssertTrue(state.hasExistingLibrary)
+        // And there is somewhere for the answers to go.
+        state.persons = [OnboardingState.Person(name: "Maya", age: "7")]
+        XCTAssertTrue(state.commitAndFinish(), state.commitError ?? "")
+    }
+
+    /// The answers land on the ACTIVE home — the first home in the library, which is the one
+    /// `ReadinessStore` shows — not on a demo copy nobody is looking at, and not nowhere.
+    @MainActor
+    func testProfilesAndTenureLandOnTheActiveHome() throws {
+        let store = try HomeDocumentStore(directory: scratch)
+        var existing = try FixtureLoader.load(.bungalow)
+        existing.home_id = "existing-home"
+        existing.profiles = []
+        try store.save(model: existing)
+        let activeID = try XCTUnwrap(store.list().first?.id)
+        XCTAssertEqual(activeID, "existing-home")
+
+        let state = OnboardingState(documentStore: store)
+        state.seedIfNeeded()
+        state.persons = [
+            OnboardingState.Person(name: "Grandpa", age: "80", mobilityLimited: true),
+            OnboardingState.Person(name: "Maya", age: "7"),
+        ]
+        state.tenure = .rent
+
+        XCTAssertTrue(state.commitAndFinish(), state.commitError ?? "")
+        XCTAssertEqual(state.committedHomeID, activeID)
+        XCTAssertNil(state.commitError)
+
+        let saved = try store.load(homeID: activeID, as: HomeModel.self)
+        XCTAssertEqual(saved.profiles.map(\.name).sorted(), ["Grandpa", "Maya"])
+        let grandpa = try XCTUnwrap(saved.profiles.first { $0.name == "Grandpa" })
+        XCTAssertTrue(grandpa.tags.contains(.elderly))
+        XCTAssertTrue(grandpa.tags.contains(.mobility_limited))
+        XCTAssertEqual(saved.household?.tenure, .rent)
+        XCTAssertEqual(store.list().count, 1, "no demo copy was added alongside the user's home")
+    }
+
+    @MainActor
+    func testCommittingWithNoHomeAtAllFailsVisibly() throws {
+        // A store whose directory exists but holds nothing, and no demo seeded yet.
+        let state = OnboardingState(documentStore: try HomeDocumentStore(directory: scratch))
+        XCTAssertFalse(state.commitAndFinish())
+        XCTAssertNotNil(state.commitError, "a failed save must say so, not print and carry on")
+        XCTAssertNil(state.committedHomeID)
     }
 
     // MARK: - RoutePlanCache

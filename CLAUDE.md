@@ -81,8 +81,11 @@ sign-off.** Invariants:
   `xcrun xcresulttool get test-results summary --path <bundle>`, never the console tail.
 - **Never re-enable `allowsCameraControl`**, and keep `CameraRigModel` pure (no SceneKit, no UIKit): it is
   symlinked into a Foundation-only package, as are `Auth/`, `Sync/` and `SemanticMatcher.swift`.
-- **Never introduce a new colour.** `escape_plan/Screens/Theme.swift` is the semantic scale. Route orange is for
-  lit routes and exits only; advisory chrome uses dark amber.
+- **Colour follows three guardrails, not "no new colour"** (retired by the Linear dark-only revamp, 2026-09-25;
+  `escape_plan/Screens/Theme.swift` is still the only place a colour is defined): (1) safety colours stay distinct and
+  colour-blind-safe: cool is routes, warm is hazard, green is exits; (2) accessibility floors: 4.5:1 text, 3:1
+  components, 44pt targets, Dynamic Type, VoiceOver, asserted in `ThemeContrastTests`; (3) `CameraRigModel` stays pure
+  and `allowsCameraControl` stays off.
 - **No keys or tokens in source.** `ANTHROPIC_API_KEY` is a server-side env var; a pre-commit hook blocks
   Anthropic key material. `escape_plan/BackendConfig.local.json` is gitignored.
 - **Don't trust a clean merge.** A textually clean merge of `origin/main` once combined a flipped rotation with
