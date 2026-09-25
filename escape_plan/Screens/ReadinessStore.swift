@@ -219,6 +219,14 @@ extension HazardTag {
         }
     }
 
+    /// The short form for a row chip, so the chip never squeezes the task title onto three lines.
+    var shortLabel: String {
+        switch self {
+        case .severe_weather: return "Weather"
+        default: return label
+        }
+    }
+
     /// The dot on a peril chip. Fire takes the hazard ember (it labels the fire system);
     /// the others take state colours that are not route or exit inks.
     var tint: Color {

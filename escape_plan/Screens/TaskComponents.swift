@@ -83,7 +83,7 @@ struct TaskRow: View {
                     }
                     Spacer(minLength: 6)
                     if let hazard = item.hazard, hazard != .general {
-                        TaskChip(text: hazard.label, tint: hazard.tint)
+                        TaskChip(text: hazard.shortLabel, tint: hazard.tint)
                     }
                     if let symbol = destination.symbol {
                         Image(systemName: symbol)
