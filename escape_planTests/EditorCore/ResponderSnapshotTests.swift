@@ -125,19 +125,14 @@ final class ResponderSnapshotTests: XCTestCase {
         }
     }
 
-    // FIXTURE-GATED: FixtureLoader resolves its bundle with Bundle(for:), which finds the
-    // fixtures in the app test bundle but not in the SwiftPM package (no package test has
-    // ever loaded a fixture — the other two FixtureLoader users here are !SWIFT_PACKAGE too).
-    // Making fixtures a package resource means editing Package.swift AND the symlinked
-    // FixtureLoader.swift; logged in BLOCKERS instead of risking it here.
-    #if !SWIFT_PACKAGE
     /// Acceptance: "the hazard summary equals the engine's findings for the stock fixtures."
     /// There is no local Python venv on this machine (BLOCKERS §4) to run the live engine
     /// against `bungalow`/`apartment`/`twostory`, so this pins the contract that actually
     /// matters here instead: the extractor's `hazardSummary` is exactly
     /// `SnapshotHazardSummary.summarize` applied to whatever checklist the engine produced
-    /// (via the cached `ScoreBreakdown`) — it never re-derives or edits the rollup. Flagged
-    /// as simulator/venv-gated in the session note.
+    /// (via the cached `ScoreBreakdown`) — it never re-derives or edits the rollup. Runs in
+    /// the package since 2026-09-24 (fixtures became an EditorCore resource); the comparison
+    /// against a LIVE engine run is still venv-gated.
     func testHazardSummaryMatchesEngineChecklistOnStockFixtures() throws {
         let engineChecklist = [
             ChecklistItem(id: "routes.no_secondary_egress.room_1", category: .routes,
@@ -169,16 +164,9 @@ final class ResponderSnapshotTests: XCTestCase {
             XCTAssertEqual(json.hazardSummary.count, 3, "\(fixture.rawValue): the mitigation.secure.* item must be excluded")
         }
     }
-    #endif
 }
 
 extension ResponderSnapshotTests {
-    // FIXTURE-GATED: FixtureLoader resolves its bundle with Bundle(for:), which finds the
-    // fixtures in the app test bundle but not in the SwiftPM package (no package test has
-    // ever loaded a fixture — the other two FixtureLoader users here are !SWIFT_PACKAGE too).
-    // Making fixtures a package resource means editing Package.swift AND the symlinked
-    // FixtureLoader.swift; logged in BLOCKERS instead of risking it here.
-    #if !SWIFT_PACKAGE
     func testTwostoryFixtureAnonymity() throws {
         var home = try FixtureLoader.load(.twostory)
 
@@ -208,6 +196,8 @@ extension ResponderSnapshotTests {
         // The twostory fixture might have multiple profiles, but at least 1 is mobility_limited now.
         XCTAssertTrue(json.vulnerableOccupants.count > 0, "Should have at least 1 vulnerable occupant count")
 
+        // PDF half needs UIGraphicsPDFRenderer: app target only, still simulator-gated (S11.8).
+        #if !SWIFT_PACKAGE
         let pdfOutput = EscapePlanPDF.render(plan)
         XCTAssertTrue(pdfOutput.data.count > 0, "PDF renders without error and produces data")
 
@@ -215,6 +205,6 @@ extension ResponderSnapshotTests {
             return
         }
         XCTAssertFalse(pdfString.contains("Grandpa Joe"), "PDF bytes must not contain the name")
+        #endif
     }
-    #endif
 }

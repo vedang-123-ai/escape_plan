@@ -22,11 +22,19 @@ enum FixtureLoaderError: Error {
 }
 
 enum FixtureLoader {
+    #if SWIFT_PACKAGE
+    /// In the Foundation-only EditorCore package (tools/editorcore) this file is compiled into
+    /// the `EditorCore` module, whose `Package.swift` declares `escape_plan/Fixtures` as a
+    /// processed resource. `Bundle(for:)` would return the xctest bundle there and find
+    /// nothing, which is why no package test could load a fixture before 2026-09-24.
+    static let bundle = Bundle.module
+    #else
     /// Resolves to the app bundle even when called from the test target, since
     /// escape_planTests does `@testable import escape_plan` and this type is compiled
     /// into the app module.
     private final class BundleToken {}
     static let bundle = Bundle(for: BundleToken.self)
+    #endif
 
     static func data(for fixture: HomeFixture) throws -> Data {
         guard let url = bundle.url(forResource: fixture.rawValue, withExtension: "json") else {

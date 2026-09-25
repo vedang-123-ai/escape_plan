@@ -30,6 +30,12 @@ let package = Package(
         .target(
             name: "EditorCore",
             path: "Sources/EditorCore",
+            // `Fixtures` is a symlink to escape_plan/Fixtures — the SAME bytes the app bundles
+            // (byte-equality with schema/fixtures is enforced by a backend test). `.process`
+            // flattens the JSON into the bundle root, which is where the app's copy-resources
+            // phase puts them too, so FixtureLoader's lookup is identical in both runners; the
+            // loader switches `Bundle(for:)` → `Bundle.module` under SWIFT_PACKAGE.
+            resources: [.process("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v5)]  // matches the Xcode target's SWIFT_VERSION
         ),
         .testTarget(
