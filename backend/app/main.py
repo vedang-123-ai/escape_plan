@@ -517,6 +517,10 @@ def score(request: ScoreRequest) -> ScoreBreakdown:
     tags=["Routing"],
     summary="Diff a partial scan against a stored room",
     description="Finds new objects and re-evaluates egress obstructions.",
+    # Was the one compute route left open (audit 2026-09-25). The iOS caller
+    # already sends the token (APIClient+Convert.swift); tests/test_route_guards.py
+    # now fails any future route that forgets this.
+    dependencies=[Depends(require_token)],
 )
 def diff_obstructions(
     req: DiffRequest,
