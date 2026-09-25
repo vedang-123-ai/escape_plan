@@ -6,7 +6,9 @@ services:
     runtime: python
     plan: free
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
+    # requirements.lock is the exact-pinned freeze of requirements.txt, so a
+    # deploy installs the versions CI tested rather than whatever is newest.
+    buildCommand: pip install -r requirements.lock
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
