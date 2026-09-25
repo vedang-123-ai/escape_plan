@@ -34,13 +34,9 @@ services:
         generateValue: true
       - key: JWT_ACCESS_TTL_MINUTES
         value: "60"
-      # AI cost guard (backend/app/rate_limit.py). Per client IP: a burst of
-      # AI_RATE_BURST calls to /explain /analyze /build /chat, refilling at
-      # AI_RATE_PER_MIN; plus at most AI_MAX_CONCURRENT AI calls in flight for
-      # everyone. Over either limit is 429 + Retry-After. Tune here, not in code.
-      - key: AI_RATE_PER_MIN
-        value: "6"
-      - key: AI_RATE_BURST
-        value: "3"
-      - key: AI_MAX_CONCURRENT
-        value: "4"
+      # AI cost guard (backend/app/rate_limit.py): AI_RATE_PER_MIN (default 6),
+      # AI_RATE_BURST (3) and AI_MAX_CONCURRENT (4) bound calls to /explain
+      # /analyze /build /chat — per client IP, and in flight for everyone. Over
+      # either limit is 429 + Retry-After. Deliberately not set here: the code
+      # defaults apply until someone tunes them in the Render dashboard, and a
+      # value in this file would overwrite that tuning on the next blueprint sync.
