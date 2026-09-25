@@ -51,8 +51,7 @@ struct ScoreScreen: View {
         if let breakdown {
             scoreList(breakdown)
         } else if isLoading {
-            ProgressView("Scoring…")
-                .accessibilityLabel("Working out your preparedness score.")
+            LoadingTipView(label: "Scoring…", accessibilityText: "Working out your preparedness score.")
         } else if let loadErrorMessage {
             ContentUnavailableView {
                 Label("Couldn't open this home", systemImage: "exclamationmark.triangle")

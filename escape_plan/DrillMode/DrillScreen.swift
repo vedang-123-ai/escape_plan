@@ -186,7 +186,7 @@ struct DrillScreen: View {
                 .scrollBounceBehavior(.basedOnSize)
             }
         } else {
-            ProgressView("Loading…")
+            LoadingTipView(label: "Loading…")
         }
     }
 

@@ -54,7 +54,7 @@ struct ExportPlanSheet: View {
                 } else if let preview {
                     form(preview)
                 } else {
-                    ProgressView("Reading your home…")
+                    LoadingTipView(label: "Reading your home…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
