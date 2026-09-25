@@ -2371,3 +2371,19 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - c8e5189 Docs: record the review findings and the lesson from the one that mattered
   - 66ab52d Review fixes: an ownerless tombstone must never delete from the server
 
+## 2026-09-25T19:34:02Z · Claude · `audit-backend-fixes` @ `bfd1b35`
+
+**Commits this session**
+  - bfd1b35 Audit remediation docs (Part A); wire the branch guard hook
+  - ac42ef9 CI gate workflow and a pinned requirements.lock for Render
+  - 01c3b12 cloud_repo: recognise DuplicateKeyError by isinstance, name match as fallback
+
+## 2026-09-25T19:34:14Z · Claude · `audit-backend-fixes` @ `bfd1b35`
+
+**Commits this session**
+  - bfd1b35 Audit remediation docs (Part A); wire the branch guard hook
+  - ac42ef9 CI gate workflow and a pinned requirements.lock for Render
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
