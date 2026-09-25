@@ -4,6 +4,7 @@ loop, and the /explain endpoint — no network, the Anthropic client is faked.""
 from __future__ import annotations
 
 import json
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -220,7 +221,35 @@ def test_corpus_block_matches_sources_json() -> None:
     assert grounded.CORPUS_FILE_ORDER == declared
     assert agent.CORPUS_DOC_FILES == declared
 
-    # Every id the server will accept must appear in the block the model is shown.
+    # Every id the server will accept must appear in the block the model is shown,
+    # as a whole id. This was `i not in block`, a substring test, so an id that is a
+    # prefix of another read as shown: `usgs-earthquake` "appeared" only inside
+    # `usgs-earthquake-during` and `usgs-earthquake-donts`. Ids are kebab-case, so
+    # an exact match is one not continued by another id character on either side.
+    # `.` and `/` count as continuations too, so an id seen only inside a filename
+    # (`usgs-earthquake.md`) or a URL path does not read as shown.
     block = grounded.corpus_text()
-    unseen = sorted(i for i in grounded.valid_source_ids() if i not in block)
+    unseen = sorted(
+        i
+        for i in grounded.valid_source_ids()
+        if not re.search(rf"(?<![A-Za-z0-9_./-]){re.escape(i)}(?![A-Za-z0-9_./-])", block)
+    )
+    # Known orphans (ids kept in sources.json that no corpus document shows, each
+    # with a named owner) are exempt here by exactly the list the corpus validator
+    # already keeps, `ORPHAN_SOURCE_EXCEPTIONS` in backend/corpus/validate.py, so the
+    # two cannot disagree. Today that is `usgs-earthquake`, held until S11.10
+    # re-points the Drill aftershock card (BLOCKERS, S11.1). The exemption goes when
+    # that entry does; an entry whose id has already left sources.json fails here.
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("corpus_validate", CORPUS_DIR / "validate.py")
+    assert spec is not None and spec.loader is not None
+    corpus_validate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(corpus_validate)
+    known_orphans = set(corpus_validate.ORPHAN_SOURCE_EXCEPTIONS)
+    stale = sorted(known_orphans - grounded.valid_source_ids())
+    assert not stale, (
+        f"{stale} left sources.json; remove it from ORPHAN_SOURCE_EXCEPTIONS in validate.py"
+    )
+    unseen = [i for i in unseen if i not in known_orphans]
     assert not unseen, f"ids validate but are never shown to the model: {unseen}"

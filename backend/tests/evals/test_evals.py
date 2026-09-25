@@ -1,6 +1,6 @@
 """Run the S11.4 eval set deterministically — no API key, no network.
 
-Three things are asserted:
+Four things are asserted:
 
 1. Every grader discriminates. For each case the `good` reply must pass and the
    `bad` reply must fail. A grader that accepts everything (the usual way an eval
@@ -10,6 +10,9 @@ Three things are asserted:
 3. The graders survive the real plumbing. The `chat()` service is driven with a
    stub Anthropic client replaying each case's reply, so the citation validator,
    the retry loop and the response shape are exercised exactly as in production.
+4. The /build cases discriminate through the real builder loop. /build returns a
+   BuildResult and no prose, so those probes are scripted tool calls replayed
+   through `run_builder`, and the graders read the BuildResult.
 
 When the account has credits, `test_evals_live.py` runs the same cases against
 the real model with the same graders.
@@ -279,3 +282,105 @@ def test_the_corpus_block_is_the_cache_breakpoint(home_and_plan):
     assert any("<corpus_doc" in b["text"] for b in cached), (
         "the corpus block is not the cached one"
     )
+
+
+# ---------------------------------------------------------------------------
+# 4. The /build surface, through the real builder loop
+
+from app.ai.builder import BuildResult, run_builder  # noqa: E402
+from tests.evals.cases import BUILD_CASES, BuildEvalCase  # noqa: E402
+
+BUILD_IDS = [c.id for c in BUILD_CASES]
+
+
+class ScriptedBuilder:
+    """Replays a BuildEvalCase script as `messages.create` responses.
+
+    Each scripted turn becomes one response: tool calls become `tool_use` blocks
+    with fresh ids, a str becomes a text-only turn (which ends the loop).
+    """
+
+    def __init__(self, script):
+        self._turns = list(script)
+        self._n = 0
+        self.messages = SimpleNamespace(create=self._create)
+
+    def _create(self, **kwargs):
+        if not self._turns:
+            raise AssertionError("the script ran out before the builder stopped")
+        turn = self._turns.pop(0)
+        if isinstance(turn, str):
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=turn)])
+        blocks = []
+        for name, tool_input in turn:
+            self._n += 1
+            blocks.append(
+                SimpleNamespace(type="tool_use", id=f"toolu_{self._n}", name=name, input=tool_input)
+            )
+        return SimpleNamespace(content=blocks)
+
+
+def _build(case: BuildEvalCase, script) -> BuildResult:
+    return run_builder(
+        description=case.question,
+        client=ScriptedBuilder(script),
+        home_id="11111111-2222-3333-4444-555555555555",
+        now_iso="2026-09-24T12:00:00Z",
+    )
+
+
+def _grade_build(case: BuildEvalCase, result: BuildResult) -> list[str]:
+    return [p for grader in case.expect if (p := grader(result)) is not None]
+
+
+@pytest.mark.parametrize("case", BUILD_CASES, ids=BUILD_IDS)
+def test_the_good_build_script_passes_every_grader(case: BuildEvalCase) -> None:
+    problems = _grade_build(case, _build(case, case.good))
+    assert problems == [], f"{case.id}: the passing probe was rejected: {problems}"
+
+
+@pytest.mark.parametrize("case", BUILD_CASES, ids=BUILD_IDS)
+def test_the_bad_build_script_is_caught(case: BuildEvalCase) -> None:
+    """The bad script must survive the real plumbing and still be failed.
+
+    It is asserted to build a valid home first: a bad probe that only failed
+    because the action layer rejected it would be testing the validator, not the
+    grader, and the case would be decorative on a model that builds cleanly.
+    """
+    result = _build(case, case.bad)
+    assert result.home is not None and not result.truncated, (
+        f"{case.id}: the bad probe did not even build ({result.issues}); fix the script"
+    )
+    assert _grade_build(case, result), f"{case.id}: the failing probe passed every grader"
+
+
+@pytest.mark.parametrize("case", BUILD_CASES, ids=BUILD_IDS)
+def test_every_build_case_says_why_it_exists(case: BuildEvalCase) -> None:
+    assert len(case.why) > 40 and case.expect, case.id
+
+
+def test_build_case_ids_are_unique_across_the_whole_set() -> None:
+    every = CASE_IDS + BUILD_IDS
+    assert len(every) == len(set(every))
+
+
+def test_the_builder_draft_is_still_stamped_ai_plan() -> None:
+    """What makes the builder a draft-only fallback: its output cannot skip review."""
+    case = next(c for c in BUILD_CASES if c.id == "build-uses-the-stated-dimensions")
+    home = _build(case, case.good).home
+    assert home is not None
+    entities = [e for f in home.floors for e in (*f.rooms, *f.openings, *f.objects)]
+    assert entities and all(e.source.value == "ai_plan" for e in entities)
+
+
+def test_the_size_grader_rejects_an_l_shape_inside_the_stated_box() -> None:
+    """Found by the grounding-auditor: bounding box alone passed an L-shaped room."""
+    case = next(c for c in BUILD_CASES if c.id == "build-uses-the-stated-dimensions")
+    l_shape = [[0, 0], [4, 0], [4, 1.5], [2, 1.5], [2, 3], [0, 3]]
+    script = list(case.good)
+    script[2] = (("add_room", {
+        "floor_id": "floor_1", "name": "Bedroom", "type": "bedroom", "polygon": l_shape,
+    }),)
+    result = _build(case, script)
+    assert result.home is not None, result.issues
+    assert g.has_a_room_measuring(4.0, 3.0)(result) is not None

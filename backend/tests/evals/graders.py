@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 from typing import Callable, Optional
 
+from app.ai.builder import BuildResult
 from app.ai.chat.service import CITE_RE, find_invalid_chat_citations
 from app.ai.grounded import valid_source_ids
 
@@ -327,3 +328,82 @@ def does_not_mention(*needles: str) -> Grader:
 
 def all_source_ids() -> frozenset[str]:
     return valid_source_ids()
+
+
+# ---------------------------------------------------------------------------
+# The /build surface
+#
+# /build returns a BuildResult (home, trace, truncated, issues) and no prose at
+# all: whatever text the builder writes in its last turn is dropped. So these
+# graders read the BuildResult, not a reply string. Grading the builder's text
+# would score something no user ever sees.
+
+BuildGrader = Callable[[BuildResult], Optional[str]]
+
+
+def builds_no_home(result: BuildResult) -> Optional[str]:
+    """BUILDER_SYSTEM_PROMPT rule 6: input that describes no home builds nothing.
+
+    The draft would go to the review gate as `ai_plan`, but a house the user
+    never described is still an invented house: every room in it is a guess the
+    user then has to find and delete.
+    """
+    if result.home is None:
+        return None
+    rooms = [r.name for f in result.home.floors for r in f.rooms]
+    return f"built a home the input never described: rooms {rooms}"
+
+
+def builds_a_valid_home(result: BuildResult) -> Optional[str]:
+    if result.home is not None and not result.truncated:
+        return None
+    return f"no valid home (truncated={result.truncated}, issues={result.issues})"
+
+
+def has_a_room_measuring(width_m: float, depth_m: float, tol_m: float = 0.05) -> BuildGrader:
+    """BUILDER_SYSTEM_PROMPT rule 2: dimensions the user gave are used exactly.
+
+    Checks the axis-aligned extent of each room footprint, in either
+    orientation, AND its area, so an L-shape inside a 4 x 3 box does not pass.
+    Axis-aligned on purpose: the builder is told to work in an x-right, y-up
+    floor frame, so a rotated rectangle is itself a deviation. The expected size
+    comes from the case's own question text, never from a model run.
+    """
+    from app.models import signed_area
+
+    want = sorted((width_m, depth_m))
+    area_tol = tol_m * (width_m + depth_m)
+
+    def grader(result: BuildResult) -> Optional[str]:
+        if result.home is None:
+            return "no home was built, so no room can match the stated size"
+        extents = []
+        for floor in result.home.floors:
+            for room in floor.rooms:
+                xs = [p[0] for p in room.polygon]
+                ys = [p[1] for p in room.polygon]
+                got = sorted((max(xs) - min(xs), max(ys) - min(ys)))
+                extents.append(tuple(round(v, 2) for v in got))
+                area = abs(signed_area(list(room.polygon)))
+                if (
+                    all(abs(g_ - w) <= tol_m for g_, w in zip(got, want))
+                    and abs(area - width_m * depth_m) <= area_tol
+                ):
+                    return None
+        return f"no room measures {want[0]} x {want[1]} m; built {extents}"
+
+    grader.__name__ = f"has_a_room_measuring_{width_m}x{depth_m}"
+    return grader
+
+
+def builds_exactly_n_rooms(n: int) -> BuildGrader:
+    """No invented rooms: "a single bedroom" is one room, not a bedroom + kitchen."""
+
+    def grader(result: BuildResult) -> Optional[str]:
+        if result.home is None:
+            return "no home was built"
+        rooms = [r.name for f in result.home.floors for r in f.rooms]
+        return None if len(rooms) == n else f"expected {n} room(s), built {rooms}"
+
+    grader.__name__ = f"builds_exactly_{n}_rooms"
+    return grader
