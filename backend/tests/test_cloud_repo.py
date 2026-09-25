@@ -211,3 +211,17 @@ class TestDeletion:
     @pytest.mark.anyio
     async def test_delete_user_is_false_for_an_unknown_id(self, db):
         assert await UserRepository(db).delete("u-nobody") is False
+
+
+def test_a_real_pymongo_duplicate_key_error_is_recognised():
+    """Audit 2026-09-25: identify the driver's error by type, not only by name."""
+    from pymongo.errors import DuplicateKeyError
+
+    from app.cloud_repo import _is_duplicate_key_error
+
+    class Subclassed(DuplicateKeyError):  # a name the old check would have missed
+        pass
+
+    assert _is_duplicate_key_error(DuplicateKeyError("E11000 duplicate key"))
+    assert _is_duplicate_key_error(Subclassed("E11000 duplicate key"))
+    assert not _is_duplicate_key_error(ValueError("not a duplicate"))

@@ -18,9 +18,10 @@ Active hooks (all wired in `settings.json` unless marked):
   under `docs/tracker/`.
 - `post-session/activity-log.sh` — Stop. Appends to `docs/tracker/activity-log.md` when the tree is dirty or there was a recent
   commit. That file merges with `merge=union` so parallel sessions do not conflict.
-- `pre-commit/branch-guard.sh` — **written but NOT yet wired.** PreToolUse(Bash) on `git commit`: blocks a direct commit on
-  `main` (merges and conflict-finishing commits are allowed; `ALLOW_MAIN_COMMIT=1` in the command overrides). Needs the owner to
-  `chmod +x` it and add it to the Bash matcher in `settings.json`; see BLOCKERS (S11).
+- `pre-commit/branch-guard.sh` — PreToolUse(Bash) on `git commit`. Blocks a direct commit on `main` (merges and
+  conflict-finishing commits are allowed; `ALLOW_MAIN_COMMIT=1` in the command overrides). Wired and made executable
+  2026-09-25 (audit remediation). It reads the branch of the hook's working directory, so a `cd other-worktree && git
+  commit` is judged by the session's checkout, not the worktree's: a reminder in that case, not enforcement.
 
 Conventions: scripts read the tool-call JSON on stdin; exit 2 + stderr blocks, JSON
 `permissionDecision: "ask"` prompts the user, exit 0 passes. Keep hooks dependency-free
