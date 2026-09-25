@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.ai.model_support import DEFAULT_MODEL, unsupported_model_reason
 from app.routing.egress import EgressThresholds
 
 if TYPE_CHECKING:
@@ -84,6 +85,20 @@ def _validated_jwt_secret(secret: str | None) -> str | None:
     return secret
 
 
+def _validated_anthropic_model(model: str) -> str:
+    """Refuse a model the AI layer's requests would 400 on, at startup.
+
+    Every not-live test injects a stub client, so `ANTHROPIC_MODEL=claude-fable-5-1`
+    used to pass the whole suite and then break /explain on the first real call
+    (forced tool_choice is rejected there). The supported set and the reasons live
+    next to the code that sends those parameters, in app/ai/model_support.py.
+    """
+    reason = unsupported_model_reason(model)
+    if reason is not None:
+        raise RuntimeError(reason)
+    return model
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Load settings once per process. `BACKEND_BEARER_TOKEN` is required so the
@@ -96,7 +111,9 @@ def get_settings() -> Settings:
     return Settings(
         bearer_token=token,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
-        anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5"),
+        anthropic_model=_validated_anthropic_model(
+            os.environ.get("ANTHROPIC_MODEL") or DEFAULT_MODEL
+        ),
         mongodb_uri=os.environ.get("MONGODB_URI") or None,
         mongodb_db_name=os.environ.get("MONGODB_DB_NAME", "escape_plan"),
         # No default and no generated fallback, on purpose. A per-process random
