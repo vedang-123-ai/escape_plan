@@ -87,6 +87,54 @@ EditorCore **609 passed, 0 failed** on `macos-26`). `ios-tests` skipped (manual 
 - [ ] **GitHub Actions warns that `actions/checkout@v4` / `setup-python@v5` target Node 20** and are being forced onto
       Node 24. Harmless today; bump the major versions when convenient.
 
+### Part B · iOS (branch `audit-ios-fixes`, merged into `ui-revamp-1-foundation`, NOT `main`)
+
+CI evidence for this branch: see "Part B CI" at the end of this subsection.
+
+- [x] **B1 Assistant ignored the active home.** Grounds on `ReadinessStore.activeHome`, follows `activeHomeID`, resumes a
+      thread only for its own home, errors through `BackendFailure` + `BackendFailureBanner`, and says when chat history
+      can't be saved. **Unverified on a simulator**: the switch-homes-then-ask path has never been walked.
+- [x] **B2 One score, one source.** ScoreScreen reads `ReadinessStore`; one `ScoreBand` (85/60) for Home and Score,
+      tested in EditorCore (`ReadinessScoreBandTests`). **Visual check owed**: Score's top band is now `success` green
+      (was the indigo accent) so the two screens agree.
+- [x] **B3 House tab stuck on an old home.** `clearHouseRequest()` on switch + `HouseRequest.honoured`; `AppRouterTests`.
+- [x] **B4 Onboarding interview unreachable on a fresh install.** Always runs; writes to the active home; reports
+      failures; ContentView reloads on finish. Two new `OnboardingTests` (+1 for the no-home failure).
+- [x] **B5 Freshness gaps.** `refreshLastPracticed()` after a drill; `BackendFailure.localLoad` for a local file;
+      Tasks "No home yet" with a Scan button. Home's own no-home state (`library.homes.isEmpty` → "Map your home") was
+      checked and is sensible.
+- [x] **B6 Largest-deduction row** is title + "−X points", no bar.
+- [x] **B7 Cold start.** 90 s on `/score`, `/convert`, `/diff_obstructions`; `APIClient.session` internal and used by
+      every extension; fire-and-forget `/health` before the first score.
+- [x] **B8 Startup robustness.** One `HomeDocumentStore.launchStore()` in `escape_planApp.init`, temp fallback + a
+      persistent "Storage unavailable" banner, no `try!`; `ResponderSnapshotStore` falls back to the temp directory.
+      **The fallback path has never been exercised** (it needs an unreadable Documents directory).
+- [x] **B9** `BetaScreen.swift` deleted; `escape_plan/CLAUDE.md` tab list fixed.
+- [x] **B10** failure banners announce themselves to VoiceOver; onboarding titles, Assistant headline, Home score and
+      the Score basis caption use Dynamic Type; "Why: <item>".
+- [x] **B11** `ThemeContrastTests` rewritten for the dark-only palette (ratios computed for every token on all four
+      surfaces before writing it; tightest: `warning` on hover 4.90:1, `tertiary` on hover 3.07:1).
+- [x] **429 from the new backend cost guard** maps to the existing "busy, try again" copy (was "server had a problem (429)").
+
+**Deferred on purpose (do not do in a fix session):**
+- [ ] HouseScreen decomposition (2,726 lines) — split during the upcoming House redesign.
+- [ ] Replace the EditorCore symlinks with a real Swift package.
+- [ ] Sync last-write-wins clock-skew tie-break.
+- [ ] `profile_id` on `/score` (the score is household-level by design).
+- [ ] Put the drill log in the schema (needs a `schema_version` bump and `schema-contract-guardian`).
+- [ ] Move `HomeDocumentStore.list()` off the main thread.
+- [ ] Onboarding step-dot labels.
+
+**Found while doing this (not in the audit list):**
+- [ ] **`DrillScreen` still builds its own `HomeDocumentStore()`** (`DrillMode/DrillScreen.swift:721`), as do
+      `ProfilesScreen`, `SettingsScreen`, `BuildFromPlanView`, `HouseScreen` — all `try?`/`try`, none a `try!`, so not a
+      launch crash, but they bypass the launch store and so ignore the temp fallback. Next action: pass the library's
+      store down when those screens are next touched.
+- [ ] **`RouteRedrawAfterEditUITests` contradiction is NOT resolved.** The header stamp says red, §3 says fixed, and
+      the CI `ios-tests` job cannot settle it: the test `XCTSkip`s unless `TEST_RUNNER_ROUTE_REDRAW=1` and a live
+      local backend are present, so it is one of the 8 skipped. Next action (owner, on a Mac with the backend running):
+      run it live and record the result.
+
 ### Owner-only (cannot be done from a session)
 
 - [ ] Top up the Anthropic credits (§1).
