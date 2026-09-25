@@ -235,16 +235,35 @@ on all four targets (169 app files).
       with **no `as_of` key at all** — exactly what the criterion forbids. `ResponderSnapshotJSON`
       now has a hand-written `encode(to:)` that emits an explicit `null`. An absent key is
       ambiguous to whatever software a department reads the JSON with; a null is not.
-- [ ] **No package test can load a `schema/fixtures` home.** `FixtureLoader` resolves its bundle
-      with `Bundle(for:)`, which finds nothing in a SwiftPM test bundle — the two pre-existing
-      `FixtureLoader` users in `escape_planTests/EditorCore/` are both `#if !SWIFT_PACKAGE`, so
-      this has never worked and was never noticed. Two S11.6 tests
-      (`testHazardSummaryMatchesEngineChecklistOnStockFixtures`, `testTwostoryFixtureAnonymity`)
-      are gated the same way as a result. Fixing it means adding a `resources:` rule to
-      `tools/editorcore/Package.swift` AND a `#if SWIFT_PACKAGE` bundle switch in the symlinked
-      `Models/FixtureLoader.swift` — both shared files, so not done here. Next action: whoever
-      owns EditorCore next. Unlocks fixture-based coverage for every future package test, not
-      just these two.
+- [x] ~~**No package test can load a `schema/fixtures` home.**~~ **FIXED 2026-09-24** on branch
+      `s11-6-followup-package-fixtures`. `tools/editorcore/Sources/EditorCore/Fixtures` is now a
+      symlink to `escape_plan/Fixtures`, declared as `resources: [.process("Fixtures")]`, and
+      `FixtureLoader.bundle` is `Bundle.module` under `#if SWIFT_PACKAGE`. The app branch is
+      unchanged. Both S11.6 tests run in the package; the PDF half of
+      `testTwostoryFixtureAnonymity` stays app-only. A new shared `FixtureLoaderTests` checks the
+      loaded bytes against `schema/fixtures`. Verified red-before: revert the switch and the four
+      fixture tests fail. **EditorCore 598 → 602, 0 failures.** On the iPhone 17 simulator all 7
+      affected tests pass (`s11-6f-run2.xcresult`). **Not un-gated, correctly:**
+      `EvacuationSceneLayerTests` and `EvacuationRenderingTests` load fixtures, but they build
+      SceneKit layers from `Renderer/`, which the package cannot compile.
+- [ ] **Found while verifying the line above, and not caused by it: the app unit suite is red,
+      943 passed / 4 failed, and the failing tests are in files this branch did not touch.** Same result on two consecutive runs (iPhone 17,
+      `xcodebuild … -only-testing:escape_planTests CODE_SIGNING_ALLOWED=NO`, bundles
+      `s11-6f-run1`/`run2.xcresult`, counts from `xcresulttool`). Neither failure touches the
+      loader or fixtures:
+      - `EvacuationMockTimelineTests.testGenericFactoryExercisesAllThreeFixturesWithoutInventingPaths`
+        expects **1** apartment track ("Sam") and gets **2**. `apartment.json` gained Biscuit the
+        cat in the 2026-09-16 fixture seeding, and pets get their own evacuation track by design
+        (see the "Fixtures are thinly seeded" line). The test looks stale, not the product, but
+        someone who owns the renderer should confirm and update the expectation. Next action:
+        that owner.
+      - `KeychainTokenStoreTests` (3 tests) fail with `KeychainError(status: -34018)`
+        (`errSecMissingEntitlement`). This is the first time that class has executed (see the S8
+        line "`KeychainTokenStore` has never touched a real Keychain"). Under the documented
+        `CODE_SIGNING_ALLOWED=NO` command the test host has no keychain entitlement, so the
+        gate command itself can never pass this class. Next action: run it with signing
+        enabled, or give the test host a keychain entitlement, before anyone treats the S8.3
+        persistence criterion as verified.
 - [ ] **The PDF assertions are still simulator-gated** and are now explicitly `#if !SWIFT_PACKAGE`
       rather than silently dead. Owned by S11.8.
 - [ ] **`docs/playbook/S11-5.md` and `S11-6.md` were deleted on ship, then restored.**
