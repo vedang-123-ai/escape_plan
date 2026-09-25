@@ -1,167 +1,121 @@
+//  LoadingTipRotatorTests.swift
+//  Runs in both the app test target and tools/editorcore (`swift test`, no simulator).
+
+import XCTest
 #if SWIFT_PACKAGE
 @testable import EditorCore
 #else
 @testable import escape_plan
 #endif
 
-import XCTest
-
 final class LoadingTipRotatorTests: XCTestCase {
 
-    func testNoRepeatUntilExhausted() {
-        let tips = [
-            PreventionTip(id: "tip1", peril: .fire, topic: "t", text: "Fire 1", cite: "s1", audience: .everyone),
-            PreventionTip(id: "tip2", peril: .fire, topic: "t", text: "Fire 2", cite: "s2", audience: .everyone),
-            PreventionTip(id: "tip3", peril: .fire, topic: "t", text: "Fire 3", cite: "s3", audience: .everyone),
-        ]
-
-        var rng = SeededRNG()
-        var rotator = LoadingTipRotator(tips: tips, generator: rng)
-
-        var seen: [String] = []
-        for _ in 0..<10 {
-            if let tip = rotator.next() {
-                seen.append(tip.id)
-            }
-        }
-
-        // In the first 3 calls, each tip should appear exactly once.
-        let firstCycle = Array(seen.prefix(3))
-        XCTAssertEqual(Set(firstCycle).count, 3, "Should see all three tips in first cycle")
+    private func tip(_ id: String, _ peril: PreventionTip.Peril = .fire,
+                     _ audience: PreventionTip.Audience = .everyone) -> PreventionTip {
+        PreventionTip(id: id, peril: peril, topic: "t", text: "Text \(id)", cite: "src-\(id)", audience: audience)
     }
 
-    func testNeverSameTipTwiceInRow() {
-        let tips = [
-            PreventionTip(id: "tip1", peril: .fire, topic: "t", text: "Fire 1", cite: "s1", audience: .everyone),
-            PreventionTip(id: "tip2", peril: .fire, topic: "t", text: "Fire 2", cite: "s2", audience: .everyone),
-            PreventionTip(id: "tip3", peril: .fire, topic: "t", text: "Fire 3", cite: "s3", audience: .everyone),
-        ]
+    private func mixed(fire: Int, other: Int) -> [PreventionTip] {
+        (0..<fire).map { tip("f\($0)") }
+            + (0..<other).map { tip("o\($0)", $0.isMultiple(of: 2) ? .earthquake : .tornado) }
+    }
 
-        var rng = SeededRNG()
-        var rotator = LoadingTipRotator(tips: tips, generator: rng)
-
-        var lastID: String?
-        for _ in 0..<20 {
-            if let tip = rotator.next() {
-                if let last = lastID {
-                    XCTAssertNotEqual(tip.id, last, "Should not repeat the same tip twice in a row")
-                }
-                lastID = tip.id
+    /// The real corpus file, read from the source tree so the package build needs no bundle.
+    /// Walks up because `#filePath` differs per build: the app sees escape_planTests/EditorCore,
+    /// the package sees the symlink under tools/editorcore/Tests.
+    private func realTips() throws -> [PreventionTip] {
+        let relative = "escape_plan/Resources/prevention_tips.json"
+        var dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        while dir.path != "/" {
+            let candidate = dir.appendingPathComponent(relative)
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return try PreventionTips.decode(from: Data(contentsOf: candidate))
             }
+            dir.deleteLastPathComponent()
+        }
+        throw CocoaError(.fileNoSuchFile)
+    }
+
+    func testEachCycleShowsEveryTipExactlyOnce() {
+        let tips = mixed(fire: 9, other: 4)
+        var rotator = LoadingTipRotator(tips: tips, generator: SeededRNG(seed: 7))
+        for cycle in 0..<5 {
+            let ids = (0..<tips.count).compactMap { _ in rotator.next()?.id }
+            XCTAssertEqual(Set(ids), Set(tips.map(\.id)), "cycle \(cycle) missed or repeated a tip")
+            XCTAssertEqual(ids.count, tips.count)
         }
     }
 
-    func testFirePreference() {
-        // Fire tips outnumber other perils, and with weight 75%, fire should dominate the output.
-        let fireTips = (0..<20).map { i in
-            PreventionTip(id: "fire-\(i)", peril: .fire, topic: "t", text: "Fire", cite: "s", audience: .everyone)
-        }
-        let earthquakeTips = (0..<3).map { i in
-            PreventionTip(id: "eq-\(i)", peril: .earthquake, topic: "t", text: "EQ", cite: "s", audience: .everyone)
-        }
-        let tornadoTips = (0..<3).map { i in
-            PreventionTip(id: "tornado-\(i)", peril: .tornado, topic: "t", text: "Tornado", cite: "s", audience: .everyone)
-        }
-        let allTips = fireTips + earthquakeTips + tornadoTips
-
-        var rng = SeededRNG()
-        var rotator = LoadingTipRotator(tips: allTips, generator: rng)
-
-        var fireCounts = 0
-        var otherCounts = 0
-        for _ in 0..<100 {
-            if let tip = rotator.next() {
-                if tip.peril == .fire {
-                    fireCounts += 1
-                } else {
-                    otherCounts += 1
-                }
-            }
-        }
-
-        // With 75% fire preference, expect roughly 75 fire and 25 other (±10 is reasonable given RNG variance).
-        XCTAssertGreaterThan(fireCounts, 60, "Fire should dominate with ~75% preference")
-        XCTAssertLessThan(otherCounts, 40, "Non-fire tips should be minority with ~75% fire preference")
-    }
-
-    func testEveryoneAudienceFilter() {
-        let tips = [
-            PreventionTip(id: "everyone-tip", peril: .fire, topic: "t", text: "For all", cite: "s1", audience: .everyone),
-            PreventionTip(id: "renter-tip", peril: .fire, topic: "t", text: "For renters", cite: "s2", audience: .renters),
-            PreventionTip(id: "ca-tip", peril: .fire, topic: "t", text: "California", cite: "s3", audience: .california),
-        ]
-
-        var rng = SeededRNG()
-        var rotator = LoadingTipRotator(tips: tips, generator: rng)
-
-        // Only .everyone should be returned.
-        for _ in 0..<5 {
-            if let tip = rotator.next() {
-                XCTAssertEqual(tip.audience, .everyone, "Should only return .everyone tips")
+    func testNeverTheSameTipTwiceInARowAcrossCycleBoundaries() {
+        for seed in UInt64(1)...50 {
+            var rotator = LoadingTipRotator(tips: mixed(fire: 2, other: 1), generator: SeededRNG(seed: seed))
+            var last: String?
+            for _ in 0..<30 {
+                let id = rotator.next()?.id
+                XCTAssertNotEqual(id, last, "seed \(seed) repeated \(id ?? "nil")")
+                last = id
             }
         }
     }
 
-    func testEmptyInputReturnsNil() {
-        var rng = SeededRNG()
-        var rotator = LoadingTipRotator(tips: [], generator: rng)
-
-        let tip = rotator.next()
-        XCTAssertNil(tip, "Empty tips should return nil")
-    }
-
-    func testEveryTipHasNonEmptyCite() {
-        let tips = [
-            PreventionTip(id: "tip1", peril: .fire, topic: "t", text: "Fire 1", cite: "source-1", audience: .everyone),
-            PreventionTip(id: "tip2", peril: .earthquake, topic: "t", text: "EQ 1", cite: "source-2", audience: .everyone),
-            PreventionTip(id: "tip3", peril: .tornado, topic: "t", text: "Tornado 1", cite: "source-3", audience: .everyone),
-        ]
-
-        var rng = SeededRNG()
-        var rotator = LoadingTipRotator(tips: tips, generator: rng)
-
-        for _ in 0..<10 {
-            if let tip = rotator.next() {
-                XCTAssertFalse(tip.cite.isEmpty, "Every returned tip must have a non-empty cite")
+    func testFireIsFrontLoadedButOtherPerilsStillAppear() {
+        // Equal counts, so any fire majority early in a cycle comes from the weighting alone.
+        var early = (fire: 0, other: 0)
+        for seed in UInt64(1)...200 {
+            var rotator = LoadingTipRotator(tips: mixed(fire: 10, other: 10), generator: SeededRNG(seed: seed))
+            for _ in 0..<5 {
+                if rotator.next()?.peril == .fire { early.fire += 1 } else { early.other += 1 }
             }
         }
+        XCTAssertGreaterThan(early.fire, early.other * 2, "first draws should favour fire ~3:1")
+        XCTAssertGreaterThan(early.other, 0, "earthquake and tornado must still appear early")
     }
 
-    func testBundledTipsLoad() throws {
-        guard let url = Bundle(for: type(of: self)).url(forResource: "prevention_tips", withExtension: "json"),
-              let data = try Data(contentsOf: url) as Data?,
-              let tips = try? PreventionTips.decode(from: data) else {
-            XCTSkip("prevention_tips.json not found in test bundle")
-            return
-        }
+    func testOnlyEveryoneAudienceTipsAreShown() {
+        let tips = [tip("a"), tip("r", .fire, .renters), tip("c", .fire, .california), tip("b", .tornado)]
+        var rotator = LoadingTipRotator(tips: tips, generator: SeededRNG(seed: 3))
+        XCTAssertEqual(rotator.cycleLength, 2)
+        let ids = Set((0..<10).compactMap { _ in rotator.next()?.id })
+        XCTAssertEqual(ids, ["a", "b"])
+    }
 
-        XCTAssertGreaterThan(tips.count, 0, "Should have loaded some tips")
+    func testNoTipsMeansNil() {
+        var rotator = LoadingTipRotator(tips: [tip("r", .fire, .renters)], generator: SeededRNG(seed: 1))
+        XCTAssertEqual(rotator.cycleLength, 0)
+        XCTAssertNil(rotator.next())
+    }
 
-        // Filter to .everyone tips.
-        let everyoneTips = tips.filter { $0.audience == .everyone }
-        XCTAssertGreaterThan(everyoneTips.count, 0, "Should have at least some .everyone tips")
+    func testSingleTipRepeatsRatherThanStalling() {
+        var rotator = LoadingTipRotator(tips: [tip("only")], generator: SeededRNG(seed: 1))
+        XCTAssertEqual(rotator.next()?.id, "only")
+        XCTAssertEqual(rotator.next()?.id, "only")
+    }
 
-        var rng = SeededRNG()
-        var rotator = LoadingTipRotator(tips: tips, generator: rng)
+    func testRealCorpusTipsRotateVerbatimWithTheirCitations() throws {
+        let all = try realTips()
+        let everyone = all.filter { $0.audience == .everyone }
+        XCTAssertGreaterThan(everyone.count, 10, "the loading screen needs a real pool of general tips")
+        XCTAssertTrue(everyone.contains { $0.peril == .fire })
 
-        // Should be able to rotate through real tips without crash.
-        for _ in 0..<5 {
-            let tip = rotator.next()
-            if let tip = tip {
-                XCTAssertEqual(tip.audience, .everyone, "Should only return .everyone tips")
-                XCTAssertFalse(tip.cite.isEmpty, "Real tips must have citations")
-            }
+        var rotator = LoadingTipRotator(tips: all, generator: SeededRNG(seed: 11))
+        let byID = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
+        for _ in 0..<(everyone.count * 2) {
+            let shown = try XCTUnwrap(rotator.next())
+            XCTAssertEqual(shown, byID[shown.id], "a tip must be shown exactly as the corpus wrote it")
+            XCTAssertFalse(shown.cite.isEmpty)
         }
     }
 }
 
-// MARK: - Seeded RNG for deterministic testing
-
+/// SplitMix64: small, seedable, and good enough that different seeds give different orders.
 private struct SeededRNG: RandomNumberGenerator {
-    private var state: UInt64 = 0x4d595df4d0037a4d // Fixed seed for reproducibility
-
+    private var state: UInt64
+    init(seed: UInt64) { state = seed }
     mutating func next() -> UInt64 {
-        state = state &* 6364136223846793005 &+ 1442695040888963407
-        return state
+        state &+= 0x9E3779B97F4A7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+        z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+        return z ^ (z >> 31)
     }
 }

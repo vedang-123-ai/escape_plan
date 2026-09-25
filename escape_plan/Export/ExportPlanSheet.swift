@@ -30,7 +30,6 @@ struct ExportPlanSheet: View {
     @State private var exportError: String?
     @State private var isGenerating = false
     @State private var shareURLs: [URL]?
-    @State private var preventionTips: [PreventionTip] = []
 
     init(homeID: String, store: HomeDocumentStore) {
         self.homeID = homeID
@@ -55,7 +54,7 @@ struct ExportPlanSheet: View {
                 } else if let preview {
                     form(preview)
                 } else {
-                    LoadingTipView(label: "Reading your home…", tips: preventionTips)
+                    LoadingTipView(label: "Reading your home…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
@@ -180,7 +179,6 @@ struct ExportPlanSheet: View {
     // MARK: - Actions
 
     private func load() {
-        loadPreventionTipsIfNeeded()
         do {
             let preview = try exporter.preview(homeID: homeID)
             self.preview = preview
@@ -188,14 +186,6 @@ struct ExportPlanSheet: View {
         } catch {
             loadError = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
         }
-    }
-
-    private func loadPreventionTipsIfNeeded() {
-        guard preventionTips.isEmpty,
-              let url = Bundle.main.url(forResource: "prevention_tips", withExtension: "json"),
-              let data = try? Data(contentsOf: url),
-              let tips = try? PreventionTips.decode(from: data) else { return }
-        preventionTips = tips
     }
 
     private func generate(_ preview: EscapePlanExporter.Preview) {

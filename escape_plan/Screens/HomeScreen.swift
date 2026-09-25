@@ -62,7 +62,7 @@ struct HomeScreen: View {
                 scanFailureBanner
                 
                 if isConverting {
-                    LoadingTipView(label: "Converting scan…", tips: preventionTips)
+                    LoadingTipView(label: "Converting scan…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if library.homes.isEmpty {
                     emptyState

@@ -25,7 +25,6 @@ struct ScoreScreen: View {
     @State private var home: HomeModel?
     @State private var breakdown: ScoreBreakdown?
     @State private var checklistState: [String: Bool] = [:]
-    @State private var preventionTips: [PreventionTip] = []
     @State private var isLoading = false
     @State private var isUpdating = false
     /// The whole classified failure, not `.message`. Flattening it here was how a 502 ("no
@@ -44,10 +43,7 @@ struct ScoreScreen: View {
             .dsPage()
             .navigationTitle(breakdown?.home_name ?? "Score")
             .navigationBarTitleDisplayMode(.inline)
-            .task {
-                loadPreventionTipsIfNeeded()
-                await initialLoad()
-            }
+            .task { await initialLoad() }
     }
 
     @ViewBuilder
@@ -55,8 +51,7 @@ struct ScoreScreen: View {
         if let breakdown {
             scoreList(breakdown)
         } else if isLoading {
-            LoadingTipView(label: "Scoring…", tips: preventionTips)
-                .accessibilityLabel("Working out your preparedness score.")
+            LoadingTipView(label: "Scoring…")
         } else if let loadErrorMessage {
             ContentUnavailableView {
                 Label("Couldn't open this home", systemImage: "exclamationmark.triangle")
@@ -373,14 +368,6 @@ struct ScoreScreen: View {
             return
         }
         await fetchScore()
-    }
-
-    private func loadPreventionTipsIfNeeded() {
-        guard preventionTips.isEmpty,
-              let url = Bundle.main.url(forResource: "prevention_tips", withExtension: "json"),
-              let data = try? Data(contentsOf: url),
-              let tips = try? PreventionTips.decode(from: data) else { return }
-        preventionTips = tips
     }
 
     /// Cancels any in-flight request and re-POSTs /score with the current checklist state.
