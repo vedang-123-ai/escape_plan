@@ -51,11 +51,13 @@ PERILS = {"fire", "earthquake", "tornado"}
 ORPHAN_SOURCE_EXCEPTIONS = {
     "usgs-earthquake": (
         "S11.1 (2026-09-21): usgs.gov/.../prepare is a link directory carrying none of "
-        "the claims made of it, so no corpus doc cites it any more. Still cited by "
-        "backend/app/scoring/checklist.py and escape_plan/DrillMode/DrillInstructions.swift, "
-        "both misattributions. Owners: S11.2 and Lane B -- see BLOCKERS.md S11.1. "
-        "Re-point those to shakeout-guidance / shakeout-guidance-after, then delete both "
-        "this entry and the source."
+        "the claims made of it, so no corpus doc cites it any more. One caller left "
+        "(checklist.py was re-pointed by S11.2): the aftershock card in "
+        "escape_plan/DrillMode/DrillInstructions.swift, a misattribution. It cannot simply "
+        "be re-pointed to shakeout-guidance-after, because the card's 'or if you are "
+        "instructed to do so' is in no source; the copy must change first. Owner: S11.10 "
+        "(owns escape_plan/DrillMode/) -- see BLOCKERS.md S11.1 (2026-09-24). "
+        "Then delete both this entry and the source."
     ),
 }
 

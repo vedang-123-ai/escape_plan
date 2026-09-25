@@ -776,6 +776,53 @@ green; backend **557 passed, 1 skipped, 13 deselected**. `check_urls.py` over al
       numeric thresholds and that is deliberate** (`decisions.md` 2026-09-21) — build their checklist items
       from the markdown docs and do not go looking for numbers to encode.
 
+**S11.1 follow-up (2026-09-24, branch `s11-1-followup-orphan-cites`).** Re-checked the HIGH item above line
+by line. Verified closed by S11.2/S11.3: `checklist.py` no longer carries the renter adhesive strap, the
+drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cites the Northridge 55% finding);
+`object_hazards.py` carries no adhesive claim; `test_checklist_hazards.py` asserts "adhesive" is absent;
+`object-hazard-spec.md` R1 was corrected 2026-09-22. **The HIGH item stays open for one sub-bullet only:**
+
+- [ ] **BLOCKED ON COPY: `escape_plan/DrillMode/DrillInstructions.swift:74` cannot be re-pointed to
+      `shakeout-guidance-after` as worded.** The card reads "Evacuate only if the building is damaged **or if
+      you are instructed to do so**." ShakeOut Step 6 (live page re-read 2026-09-24, and the corpus
+      paraphrase in `earthquake-after-shaking.md`) says evacuate "only if there is damage to the building or
+      the surrounding area is unsafe" and carries **no** "instructed" condition; Ready.gov's earthquake page
+      does not either. Moving the tag would make a validating cite over a clause the source does not say —
+      the exact failure this item exists to remove. The other two claims on the card ("evaluate your
+      surroundings", "be cautious of aftershocks") ARE supported by `shakeout-guidance-after`. So the cite
+      was not changed. Next action (**owner: S11.10, which owns `escape_plan/DrillMode/**`, with the
+      owner**): change the clause to the source's condition — damage to the building or an unsafe
+      surrounding area, and **keep the source's "outside a tsunami zone" scope** (`earthquake-after-shaking.md`
+      "When to evacuate"), or drop "only", so the card does not say more than ShakeOut — in the same commit that sets the tag to `[cite: shakeout-guidance-after]` alone,
+      then delete `usgs-earthquake` from `sources.json` and its `ORPHAN_SOURCE_EXCEPTIONS` entry — it is the
+      last caller (grep of backend/, escape_plan/, escape_planTests/, schema/, tools/, scripts/ for the exact
+      id). No Swift test pins these cite strings; `DrillModeTests` only checks they resolve.
+- [ ] **The premise "neither page mentions aftershocks" is half wrong.** `ready.gov/earthquakes`
+      (`fema-earthquake`) does say to expect aftershocks (live re-read 2026-09-24); `usgs-earthquake` does
+      not. The corpus, however, records no after-shaking claim from `fema-earthquake`, so it still cannot be
+      cited for this card. Next action: when the copy above is fixed, cite `shakeout-guidance-after` only;
+      add the Ready.gov line to `earthquake-after-shaking.md` if a second source is wanted.
+- [ ] **R3 applies the heating-equipment clearance to kitchen stoves and ovens.** `converter.py:76-78`
+      maps RoomPlan `stove`/`oven`/`fireplace` to `heat_source`, and `object_hazards.py` R3 measures every
+      `heat_source` against the 0.9 m rule from `nfpa-heating-safety` and calls it "the heater". The corpus
+      states that rule for heating equipment and space heaters; the cooking guidance (`nfpa-cooking-safety`)
+      gives no distance. A scanned kitchen table 0.5 m from a range would get "under the 0.9 m (3 ft)
+      clearance NFPA recommends" about a source that does not say it of ranges. Not confirmed on a real scan.
+      Next action (**owner: S11.3 / hazard QA**): decide whether R3 excludes cooking appliances or cites a
+      source that covers them. That overturns the reasoning in `decisions.md` 2026-09-09 (S7.1, one
+      `heat_source` category because "the clearance rule that reads it is identical for all of them"), so
+      record the change as a new dated row that says what it corrects.
+- [ ] **`docs/corpus-summary.md:72` still says `usgs-earthquake` stays until "the two callers" are
+      re-pointed.** There is one (the aftershock card). Outside this follow-up's owned files. Next action:
+      whoever closes the aftershock item above deletes that sentence with the source.
+- [x] **`docs/object-hazard-spec.md` §2 "zero corpus coverage" is corrected** in place with a dated note
+      naming `heating-electrical-fire-safety.md` and its four sources (verified by reading the file). The
+      matching open line in the **S11.4** section above ("§2 is stale about the corpus") is the same item;
+      left for S11.4's section owner to tick rather than editing another session's heading.
+      R1 (lines 123-130) was already corrected on 2026-09-22 and was not touched.
+- [x] **`validate.py` `ORPHAN_SOURCE_EXCEPTIONS` owner text was stale** (named `checklist.py` and S11.2);
+      now names the one remaining caller and why it is blocked.
+
 ---
 
 ## 0 · FIRST PRIORITY — before any other work
