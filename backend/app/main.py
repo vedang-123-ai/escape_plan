@@ -31,6 +31,7 @@ from app.api_chat import router as chat_router
 from app.config import get_settings, get_thresholds, get_object_hazard_thresholds
 from app.convert.converter import convert_scan
 from app.database import CloudSyncDisabled, database
+from app.rate_limit import ai_concurrency, ai_rate_limit
 from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
 from app.routing.hazard import EvacuationTimeline, compute_evacuation_timeline
@@ -222,6 +223,16 @@ def require_token(
         raise HTTPException(status_code=401, detail="Invalid or missing bearer token")
 
 
+# The AI routes spend Anthropic credit, so on top of the token they get the cost
+# guard (app/rate_limit.py): per-client token bucket, then the global in-flight
+# cap. Order matters — no token is a 401 that never touches anyone's budget.
+AI_GUARDS = [
+    Depends(require_token),
+    Depends(ai_rate_limit),
+    Depends(ai_concurrency),
+]
+
+
 class RoutesRequest(BaseModel):
     """(S1.2) Compute primary/secondary routes for every room.
     
@@ -385,7 +396,7 @@ class ExplainRequest(BaseModel):
 @app.post(
     "/explain",
     response_model=ExplainResponse,
-    dependencies=[Depends(require_token)],
+    dependencies=AI_GUARDS,
 )
 def explain(request: ExplainRequest) -> ExplainResponse:
     """Grounded, cited explanation of an already-computed RoutePlan (S3.1)."""
@@ -404,7 +415,7 @@ class AnalyzeRequest(BaseModel):
 @app.post(
     "/analyze",
     response_model=AnalysisResult,
-    dependencies=[Depends(require_token)],
+    dependencies=AI_GUARDS,
 )
 def analyze(request: AnalyzeRequest) -> AnalysisResult:
     """Agentic safety inspection: tool-use loop over the home, evidence-linked
@@ -430,7 +441,7 @@ class BuildRequest(BaseModel):
     # BuildResult contains a HomeModel. As with /convert, omit optional model
     # fields rather than serializing schema-invalid nulls into that document.
     response_model_exclude_none=True,
-    dependencies=[Depends(require_token)],
+    dependencies=AI_GUARDS,
 )
 def build(request: BuildRequest) -> BuildResult:
     """LLM house builder (revamp C1): constructs a DRAFT HomeModel from a text
@@ -517,6 +528,10 @@ def score(request: ScoreRequest) -> ScoreBreakdown:
     tags=["Routing"],
     summary="Diff a partial scan against a stored room",
     description="Finds new objects and re-evaluates egress obstructions.",
+    # Was the one compute route left open (audit 2026-09-25). The iOS caller
+    # already sends the token (APIClient+Convert.swift); tests/test_route_guards.py
+    # now fails any future route that forgets this.
+    dependencies=[Depends(require_token)],
 )
 def diff_obstructions(
     req: DiffRequest,

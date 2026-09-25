@@ -42,12 +42,23 @@ class EmailAlreadyRegistered(Exception):
     """
 
 
-def _is_duplicate_key_error(exc: BaseException) -> bool:
-    """True for pymongo's DuplicateKeyError, identified without importing it.
+try:  # pragma: no branch - which arm runs depends on the environment
+    from pymongo.errors import DuplicateKeyError as _DuplicateKeyError
+except ImportError:  # the driver is optional; the app must still import without it
+    _DuplicateKeyError = None  # type: ignore[assignment,misc]
 
-    `database.py` keeps pymongo out of the import path so the app still imports
-    when the driver is absent; matching on the class name preserves that.
+
+def _is_duplicate_key_error(exc: BaseException) -> bool:
+    """True for pymongo's DuplicateKeyError.
+
+    `isinstance` when the driver is installed, so a subclass or a re-export is
+    still recognised. The class-name match stays as the fallback: `database.py`
+    keeps pymongo out of the import path so the app imports without the driver,
+    and the in-memory fake in `tests/fake_mongo.py` raises its own
+    `DuplicateKeyError`, which only the name identifies.
     """
+    if _DuplicateKeyError is not None and isinstance(exc, _DuplicateKeyError):
+        return True
     return type(exc).__name__ == "DuplicateKeyError"
 
 

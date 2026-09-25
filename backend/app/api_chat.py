@@ -19,6 +19,7 @@ from app.ai.chat.service import ChatGroundingError, ChatMessage, ChatResponse, c
 from app.ai.grounded import GroundingError
 from app.config import get_settings
 from app.models import HomeModel, Profile
+from app.rate_limit import ai_concurrency, ai_rate_limit
 from app.routing.plan import RoutePlan
 
 router = APIRouter()
@@ -50,7 +51,12 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1)
 
 
-@router.post("/chat", response_model=ChatResponse, dependencies=[Depends(require_token)])
+@router.post(
+    "/chat",
+    response_model=ChatResponse,
+    # Token first, then the AI cost guard (app/rate_limit.py), as in app.main.
+    dependencies=[Depends(require_token), Depends(ai_rate_limit), Depends(ai_concurrency)],
+)
 def post_chat(request: ChatRequest) -> ChatResponse:
     """Grounded, house-aware, multi-turn chat (S3.1's corpus + citation rules)."""
     try:

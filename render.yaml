@@ -6,7 +6,9 @@ services:
     runtime: python
     plan: free
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
+    # requirements.lock is the exact-pinned freeze of requirements.txt, so a
+    # deploy installs the versions CI tested rather than whatever is newest.
+    buildCommand: pip install -r requirements.lock
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
@@ -34,3 +36,9 @@ services:
         generateValue: true
       - key: JWT_ACCESS_TTL_MINUTES
         value: "60"
+      # AI cost guard (backend/app/rate_limit.py): AI_RATE_PER_MIN (default 6),
+      # AI_RATE_BURST (3) and AI_MAX_CONCURRENT (4) bound calls to /explain
+      # /analyze /build /chat — per client IP, and in flight for everyone. Over
+      # either limit is 429 + Retry-After. Deliberately not set here: the code
+      # defaults apply until someone tunes them in the Render dashboard, and a
+      # value in this file would overwrite that tuning on the next blueprint sync.

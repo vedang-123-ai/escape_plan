@@ -12,6 +12,27 @@ FIXTURES_DIR = REPO_ROOT / "schema" / "fixtures"
 SCHEMA_PATH = REPO_ROOT / "schema" / "homemodel.schema.json"
 
 
+@pytest.fixture(autouse=True)
+def _ai_cost_guard_relaxed(monkeypatch: pytest.MonkeyPatch):
+    """Keep the AI cost guard (app/rate_limit.py) out of unrelated tests.
+
+    Its production defaults (burst 3) would turn the fourth mocked /explain call
+    in any one test into a 429. Tests of the guard itself set their own limits
+    with monkeypatch and clear the settings cache; the buckets and the semaphore
+    are reset around every test so no state leaks between them.
+    """
+    from app import rate_limit
+
+    monkeypatch.setenv("AI_RATE_PER_MIN", "100000")
+    monkeypatch.setenv("AI_RATE_BURST", "100000")
+    monkeypatch.setenv("AI_MAX_CONCURRENT", "1000")
+    rate_limit.limiter.reset()
+    rate_limit.gate.reset()
+    yield
+    rate_limit.limiter.reset()
+    rate_limit.gate.reset()
+
+
 def load_fixture(name: str) -> dict:
     return json.loads((FIXTURES_DIR / name).read_text())
 
