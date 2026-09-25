@@ -1,7 +1,8 @@
 // FixtureLoader.swift
 // Loads the schema/fixtures/*.json test bed (bundled as app resources into escape_plan/Fixtures/,
 // copied from the project-wide fixtures — see docs/decisions.md for why they're copies and not
-// symlinks). Used by the Home screen (proof-of-decode) and by the round-trip test target.
+// symlinks). Used by the Home screen (proof-of-decode), the round-trip test target, and — via
+// the same folder declared as a package resource — the Foundation-only tools/editorcore tests.
 
 import Foundation
 
