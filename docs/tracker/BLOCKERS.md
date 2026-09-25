@@ -462,11 +462,12 @@ content, no endpoint contract changed. Note: `docs/tracker/notes/2026-09-24-s11-
       nothing unseen; the exact match finds exactly `usgs-earthquake`. **This closes the S11.1 line about the
       substring check**, likewise left for its owner to tick.
 - [x] **`/build` has eval cases** — three in `BUILD_CASES`, graded on the `BuildResult` (see decisions.md).
-- [ ] **INTERLOCK — the `usgs-earthquake` exemption in `test_ai.py` must be deleted when
-      `s11-1-followup-orphan-cites` lands.** It fails on purpose once the id leaves `sources.json`, so whichever
-      of the two branches merges second turns the gate red until someone deletes those lines. Delete them in the
-      same change that drops `ORPHAN_SOURCE_EXCEPTIONS["usgs-earthquake"]` from `backend/corpus/validate.py`.
-      **Owner: whoever merges the second of the two branches.**
+- [x] **No interlock with the orphan-cites branch.** First version exempted `usgs-earthquake` by name and was
+      built to fail once the id left `sources.json`. `s11-1-followup-orphan-cites` then landed on `main` during
+      this session and KEPT the source (its removal waits on S11.10 re-pointing the Drill aftershock card). So
+      the exemption now reads `ORPHAN_SOURCE_EXCEPTIONS` from `backend/corpus/validate.py`, one list for both
+      checks. When S11.10 deletes the entry and the source together, as that entry says, this test stays green
+      with no edit. Verified after merging `origin/main`.
 - [ ] **The agent's opening user message is still fire-only**: `agent.py:587`, "Inspect this home for fire
       escape safety issues". S11.4 re-positioned all four SYSTEM prompts, and `test_ai_positioning.py` checks
       only those, so this string was missed. One line plus extending the test to the kickoff message.
@@ -480,8 +481,8 @@ content, no endpoint contract changed. Note: `docs/tracker/notes/2026-09-24-s11-
 - **grounding-auditor verdict: CLEAN, 0 blocking, 7 non-blocking.** Five fixed in code (every request
       recorded, not just the first; docstring said `tool` only; one tool-text sentence read as covering
       `heat_clearance` too; `.`/`/` not treated as id continuations; builder size grader passed an L-shape and an
-      invented extra room). One recorded in decisions.md (a bad model takes down the whole backend), one above
-      (the interlock).
+      invented extra room). One recorded in decisions.md (a bad model takes down the whole backend). The last one
+      (the name-based exemption would turn the gate red on the second merge) no longer applies (see above).
 
 **What the grounding-auditor found** (verdict **VIOLATIONS — 2 blocking, 7 non-blocking**; all closed):
 

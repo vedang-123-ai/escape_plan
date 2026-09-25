@@ -234,13 +234,22 @@ def test_corpus_block_matches_sources_json() -> None:
         for i in grounded.valid_source_ids()
         if not re.search(rf"(?<![A-Za-z0-9_./-]){re.escape(i)}(?![A-Za-z0-9_./-])", block)
     )
-    # TEMPORARY, one id only. `usgs-earthquake` is a known orphan: sources.json still
-    # lists it, no corpus document shows it, and branch `s11-1-followup-orphan-cites`
-    # removes it from sources.json (BLOCKERS, S11.1). It is exempted here rather than
-    # deleted because that source is corpus content this branch does not own. Remove
-    # this exemption once that branch lands; the test must then pass without it.
-    known_orphans = {"usgs-earthquake"}
+    # Known orphans (ids kept in sources.json that no corpus document shows, each
+    # with a named owner) are exempt here by exactly the list the corpus validator
+    # already keeps, `ORPHAN_SOURCE_EXCEPTIONS` in backend/corpus/validate.py, so the
+    # two cannot disagree. Today that is `usgs-earthquake`, held until S11.10
+    # re-points the Drill aftershock card (BLOCKERS, S11.1). The exemption goes when
+    # that entry does; an entry whose id has already left sources.json fails here.
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("corpus_validate", CORPUS_DIR / "validate.py")
+    assert spec is not None and spec.loader is not None
+    corpus_validate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(corpus_validate)
+    known_orphans = set(corpus_validate.ORPHAN_SOURCE_EXCEPTIONS)
     stale = sorted(known_orphans - grounded.valid_source_ids())
-    assert not stale, f"{stale} left sources.json; delete this exemption now"
+    assert not stale, (
+        f"{stale} left sources.json; remove it from ORPHAN_SOURCE_EXCEPTIONS in validate.py"
+    )
     unseen = [i for i in unseen if i not in known_orphans]
     assert not unseen, f"ids validate but are never shown to the model: {unseen}"

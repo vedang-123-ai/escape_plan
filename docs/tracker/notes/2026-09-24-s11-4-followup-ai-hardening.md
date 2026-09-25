@@ -4,7 +4,7 @@
 - **Date(s):** 2026-09-24
 - **Status when I stopped:** all four items closed and verified. Backend 788 -> 843 passed, 1 skipped,
   29 deselected. Corpus valid, unchanged. grounding-auditor CLEAN; its 7 non-blocking findings were handled
-  (5 fixed, 1 in decisions.md, 1 as a BLOCKERS interlock). Not merged. That is the orchestrator's job.
+  (5 fixed, 1 in decisions.md, and 1 removed at the root by sharing the orphan list with validate.py). Not merged. That is the orchestrator's job.
 
 ## What happened
 
@@ -18,8 +18,10 @@
 2. **`threshold_m` in the tool description.** The requested wording, "only a standard when the finding carries
    a citation", would have been wrong, because every object-hazard finding carries a citation. The description
    instead classifies by rule, and a test checks that classification against the engine over all fixtures.
-3. **Exact-id corpus match.** The stricter test went red only on `usgs-earthquake`, as predicted. That id is
-   exempted by name and the exemption expires on its own (see Next steps).
+3. **Exact-id corpus match.** The stricter test went red only on `usgs-earthquake`, as predicted. My first
+   version exempted that id by name. `s11-1-followup-orphan-cites` then merged to `main` and kept the source,
+   because its removal is blocked on S11.10. The exemption now comes from `ORPHAN_SOURCE_EXCEPTIONS` in
+   `backend/corpus/validate.py`, so the corpus validator and this test share one list.
 4. **`/build` evals.** `/build` returns no prose, so the three cases grade the `BuildResult`. Their probes are
    scripted tool-call turns replayed through the real `run_builder`. The cases are: a request with no house in
    it builds nothing, stated dimensions are used exactly, and no rooms are invented.
@@ -35,8 +37,8 @@
 
 ## Questions for teammates
 
-- Whoever merges the second of this branch and `s11-1-followup-orphan-cites`: delete the `usgs-earthquake`
-  exemption in `backend/tests/test_ai.py`. It is meant to fail at that point.
+- S11.10: when you re-point the Drill aftershock card, delete the `usgs-earthquake` source and its
+  `ORPHAN_SOURCE_EXCEPTIONS` entry together. `test_ai.py` then needs no edit.
 
 ## Next steps
 
