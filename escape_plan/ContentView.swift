@@ -24,10 +24,16 @@ struct ContentView: View {
     @State private var readiness: ReadinessStore
     @State private var router = AppRouter()
 
-    init() {
-        let library = HomeLibrary(store: try! HomeDocumentStore())
+    /// Documents could not be opened this launch; `store` is a temporary stand-in.
+    private let storageUnavailable: Bool
+
+    /// `store` is the one created at launch (`escape_planApp`), not a second instance: two
+    /// stores over one directory, each built with a `try!`, was the old arrangement.
+    init(store: HomeDocumentStore, storageUnavailable: Bool = false) {
+        let library = HomeLibrary(store: store)
         _library = StateObject(wrappedValue: library)
         _readiness = State(wrappedValue: ReadinessStore(library: library))
+        self.storageUnavailable = storageUnavailable
     }
 
     var body: some View {
@@ -59,6 +65,9 @@ struct ContentView: View {
                 .accessibilityHint("Server connection and app information.")
                 .tag(AppTab.settings)
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if storageUnavailable { storageBanner }
+        }
         .environmentObject(library)
         .environment(readiness)
         .environment(router)
@@ -72,6 +81,10 @@ struct ContentView: View {
             // next sync downloads the home straight back.
             library.deletionObserver = syncRepository
             readiness.ensureActiveHome()
+            // Start waking the free-tier Render instance NOW, alongside the cached score, rather
+            // than on the first real request (a cold start is tens of seconds). Fire and
+            // forget: the answer does not matter and nothing waits on it.
+            Task { _ = try? await apiClient.checkHealth() }
             await readiness.load(api: apiClient)
         }
         .onChange(of: sync.status) { _, status in
@@ -90,8 +103,32 @@ struct ContentView: View {
             OnboardingFlowView {
                 onboardingCompleted = true
                 showingOnboarding = false
+                // The interview just wrote profiles and tenure (and maybe a demo home) to disk.
+                // Re-read so the Home tab shows them now, not after a relaunch.
+                library.refresh()
+                readiness.ensureActiveHome()
+                Task { await readiness.load(api: apiClient) }
             }
         }
+    }
+}
+
+// MARK: - Storage banner
+
+private extension ContentView {
+    /// Shown on every tab for the whole session when the Documents directory could not be
+    /// opened. Deliberately not dismissible: every edit made in this state is lost on quit.
+    var storageBanner: some View {
+        Label("Storage unavailable. Changes won't be saved.", systemImage: "externaldrive.badge.exclamationmark")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.warning)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DS.pagePadding)
+            .padding(.vertical, 10)
+            .background(Theme.card)
+            .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isStaticText)
     }
 }
 
@@ -104,8 +141,10 @@ private struct HouseTab: View {
     @EnvironmentObject private var library: HomeLibrary
 
     var body: some View {
-        let request = router.houseRequest
-        let homeID = request?.homeID ?? readiness.activeHomeID ?? library.homes.first?.id
+        // Only a request for the ACTIVE home counts. Preferring any request over the active home
+        // stranded this tab on the old home after a switch on the Home tab (audit 2026-09-25).
+        let request = HouseRequest.honoured(router.houseRequest, activeHomeID: readiness.activeHomeID)
+        let homeID = readiness.activeHomeID ?? library.homes.first?.id
         HouseScreen(homeID: homeID, library: library, initialFocusItemID: request?.focusItemID) {
             library.refresh()
             Task { await readiness.load(api: apiClient) }
@@ -118,7 +157,7 @@ private struct HouseTab: View {
 // touch the real Keychain or the standard UserDefaults.
 #if DEBUG
 #Preview {
-    ContentView()
+    ContentView(store: HomeDocumentStore.launchStore().store)
         .environment(APIClient())
         .environment(AuthSession(client: AuthClient(baseURL: APIClient.deployedDefaultBaseURL),
                                  store: InMemoryTokenStore(),
