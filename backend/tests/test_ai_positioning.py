@@ -188,3 +188,59 @@ def test_the_search_corpus_tool_does_not_advertise_a_fire_only_corpus() -> None:
     desc = tool["description"].lower()
     assert "fire-safety grounding corpus" not in desc
     assert "earthquake" in desc and ("severe weather" in desc or "tornado" in desc)
+
+
+def test_the_object_hazard_tool_says_when_threshold_m_is_a_standard() -> None:
+    """The agent receives `threshold_m` raw, on every rule, in the same field.
+
+    Only heat_clearance puts a cited number there (NFPA's heater clearance). R1 and
+    R5 put the object's own height there, and R2 an engineering constant. The system
+    prompt forbids inventing a number but said nothing about presenting a real one
+    as a code requirement, so "the 1.5 m standard" was one plausible sentence away.
+    (Found by the S11.3 grounding-auditor, N3.)
+
+    Checked against the engine rather than restated: every rule that emits a
+    threshold_m over the fixtures is classified, and the one called a standard
+    really does carry the cited corpus value.
+    """
+    import typing
+
+    from app import config
+    from app.models import HomeModel
+    from app.routing.object_hazards import ObjectHazard, analyze_object_hazards
+    from tests.conftest import FIXTURES_DIR
+
+    tool = next(t for t in agent.TOOLS if t["name"] == "check_object_hazards")
+    desc = tool["description"]
+    assert "threshold_m" in desc
+    assert "never present it" in desc and "code or standard requirement" in desc
+
+    standard_rules = {"heat_clearance"}
+    all_rules = set(typing.get_args(typing.get_type_hints(ObjectHazard)["rule_id"]))
+    assert standard_rules <= all_rules, "a rule id in this test no longer exists"
+    for rule in all_rules:
+        assert rule in desc, f"the description does not classify rule {rule!r}"
+    standard_clause, caveat_clause = desc.split("only on", 1)[1].split(";", 1)
+    assert all(r in standard_clause for r in standard_rules)
+    assert not any(r in standard_clause for r in all_rules - standard_rules)
+
+    import json
+
+    thresholds = config.get_object_hazard_thresholds()
+    cited_value_m = thresholds.cited.heater_clearance.value_m
+    # The pydantic model drops the source id, so read it from the corpus file.
+    raw = json.loads((config.CORPUS_DIR / "object_hazard_thresholds.json").read_text())
+    cited_source = raw["cited"]["heater_clearance"]["source_doc_id"]
+    assert cited_source in desc
+    seen: set[str] = set()
+    for path in sorted(FIXTURES_DIR.glob("*.json")):
+        home = HomeModel.model_validate_json(path.read_text())
+        for h in analyze_object_hazards(home, thresholds):
+            if h.threshold_m is None:
+                continue
+            seen.add(h.rule_id)
+            if h.rule_id in standard_rules:
+                assert h.threshold_m == cited_value_m, (h.rule_id, h.threshold_m)
+                assert h.citation == cited_source
+    assert seen & standard_rules, "no fixture exercises the cited-standard rule"
+    assert seen - standard_rules, "no fixture exercises a non-standard threshold_m"

@@ -211,7 +211,12 @@ TOOLS: list[dict[str, Any]] = [
             "furniture, heavy items over beds, heat clearance violations, and unstrapped "
             "water heaters. Returns, per finding, the rule_id, severity, target, clearances, "
             "and the exact detail sentence and citation. Optionally scope to one room. "
-            "Use this to find furniture hazards."
+            "Use this to find furniture hazards. threshold_m is a cited safety standard "
+            "only on heat_clearance findings (the heater clearance nfpa-heating-safety "
+            "gives); on topple and water_heater_unsecured it is the object's own height, "
+            "and on overhead it is the app's own engineering cutoff, so never present it "
+            "there as a code or standard requirement. A finding's citation supports its "
+            "advice, not that number."
         ),
         "input_schema": {
             "type": "object",
