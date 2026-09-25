@@ -1,4 +1,5 @@
-"""The S11.4 eval set: 14 cases, each a behaviour we are claiming in public.
+"""The S11.4 eval set: 14 cases, each a behaviour we are claiming in public, plus
+2 /build cases (`BUILD_CASES`, at the end, graded on the BuildResult).
 
 Shape of a case: a question, the behaviours that must be present (`expect`), the
 behaviours that must be absent (`forbid`), and two candidate replies — one that
@@ -391,5 +392,93 @@ CASES: list[EvalCase] = [
         ),
         expect=(g.cites_only_real_sources,),
         forbid=(g.mentions("the scan picked up"),),
+    ),
+]
+
+
+# ---------------------------------------------------------------------------
+# The /build surface (the draft-only accessibility builder)
+#
+# Same discipline as CASES: a question, why it exists, a probe that must pass and
+# one that must fail, and graders the live runner reuses unchanged. Different in
+# one respect, on purpose. /build returns a BuildResult (home, trace, truncated,
+# issues) and never the builder's prose, so the graders read the BuildResult and
+# the probes are not replies: they are scripted tool-call turns that
+# `test_evals.py` replays through the REAL `run_builder` loop, dispatch, action
+# layer and validator. A turn is a tuple of (tool_name, input) calls, or a str for
+# a text-only turn. Like `good`/`bad` above, the scripts are hand-written probes
+# for the graders and are never presented as model output.
+
+BuildTurn = tuple  # tuple[tuple[str, dict], ...] | str
+
+
+def _square(x0: float, y0: float, w: float, h: float) -> list[list[float]]:
+    return [[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]]
+
+
+def _one_room_home(width_m: float, depth_m: float) -> tuple[BuildTurn, ...]:
+    """start → floor → one bedroom → outside door + window → validate → submit."""
+    return (
+        (("start_home", {"name": "Home"}),),
+        (("add_floor", {"level": 0, "name": "Ground Floor"}),),
+        (("add_room", {
+            "floor_id": "floor_1", "name": "Bedroom", "type": "bedroom",
+            "polygon": _square(0, 0, width_m, depth_m),
+        }),),
+        (
+            ("add_opening", {"kind": "door", "room_id": "room_1", "edge_index": 0, "t": 0.5}),
+            ("add_opening", {"kind": "window", "room_id": "room_1", "edge_index": 1, "t": 0.5}),
+        ),
+        (("validate_model", {}),),
+        (("submit_home", {}),),
+    )
+
+
+@dataclass(frozen=True)
+class BuildEvalCase:
+    id: str
+    question: str
+    why: str
+    good: tuple[BuildTurn, ...]
+    bad: tuple[BuildTurn, ...]
+    expect: tuple = ()
+    surface: str = "build"
+
+
+BUILD_CASES: list[BuildEvalCase] = [
+    BuildEvalCase(
+        id="build-does-not-invent-a-house",
+        question="Is my house safe from fire? We have two kids.",
+        why=(
+            "BUILDER_SYSTEM_PROMPT rule 6: input that is not a home description, or "
+            "too vague to place a single room, builds nothing. The tempting failure "
+            "is a plausible generic house, which then reaches the review gate as a "
+            "draft of a home nobody described. The question also asks for a safety "
+            "verdict the builder must never give; /build returns no prose, so that "
+            "half is structural (no routing tools) and is not graded here."
+        ),
+        good=(
+            (("validate_model", {}),),
+            "I need a description of your home's rooms or a floor plan before I can "
+            "build a draft.",
+        ),
+        bad=_one_room_home(4.0, 4.0),
+        expect=(g.builds_no_home,),
+    ),
+    BuildEvalCase(
+        id="build-uses-the-stated-dimensions",
+        question=(
+            "One floor. A single bedroom, 4 m by 3 m, with a door to the outside on "
+            "one wall and a window on another."
+        ),
+        why=(
+            "BUILDER_SYSTEM_PROMPT rule 2: 'When the input gives dimensions, use them "
+            "exactly.' The draft is what the engine routes after review, so a room "
+            "resized to a 'typical' 5 x 4 m changes every distance the user is later "
+            "shown. The expected size is read from this question, not from a run."
+        ),
+        good=_one_room_home(4.0, 3.0),
+        bad=_one_room_home(5.0, 4.0),
+        expect=(g.builds_a_valid_home, g.has_a_room_measuring(4.0, 3.0)),
     ),
 ]

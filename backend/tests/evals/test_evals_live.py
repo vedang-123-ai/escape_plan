@@ -11,9 +11,10 @@ Run it with:
     ANTHROPIC_API_KEY=sk-... BACKEND_BEARER_TOKEN=live-test \\
       backend/.venv/bin/python -m pytest backend/tests/evals/ -m live -v
 
-Expected outcome on a funded key: **13 cases scored** — 11 through `chat()` and
-2 through `explain_routes()`, each printing its question, the model's reply and
-its grader result. Each case is bound to its OWN fixture, not to one shared home. Failures
+Expected outcome on a funded key: **15 cases scored** — 11 through `chat()`,
+2 through `explain_routes()` and 2 through `run_builder()` (graded on the
+BuildResult, since /build returns no prose), each printing its question, what
+came back and its grader result. Each case is bound to its OWN fixture, not to one shared home. Failures
 here are real findings about the prompt, not flakes — record them in BLOCKERS
 rather than loosening a grader to make the run green. The one `agent`-surface
 case is not run here: it needs the tool loop, which `tests/test_agent_live.py`
@@ -29,13 +30,14 @@ import os
 import pytest
 
 from app import config
+from app.ai.builder import run_builder
 from app.ai.chat.service import ChatMessage, chat
 from app.ai.grounded import explain_routes
 from app.models import HomeModel
 from app.routing.engine import compute_route_plan
 from tests.conftest import load_fixture
-from tests.evals.cases import CASES, EvalCase
-from tests.evals.test_evals import _grade
+from tests.evals.cases import BUILD_CASES, CASES, BuildEvalCase, EvalCase
+from tests.evals.test_evals import _grade, _grade_build
 
 pytestmark = [
     pytest.mark.live,
@@ -108,3 +110,19 @@ def test_the_explainer_satisfies_the_case(case: EvalCase, capsys):
     for rec in response.recommendations:
         parts.append(f"{rec.claim} {rec.action} [cite: {rec.source_citation}]")
     _report(case, "\n".join(parts), capsys)
+
+
+@pytest.mark.parametrize("case", BUILD_CASES, ids=[c.id for c in BUILD_CASES])
+def test_the_builder_satisfies_the_case(case: BuildEvalCase, capsys):
+    """/build on the case's question, graded on the BuildResult the endpoint returns."""
+    result = run_builder(description=case.question)
+    problems = _grade_build(case, result)
+    rooms = (
+        [r.name for f in result.home.floors for r in f.rooms] if result.home else None
+    )
+    with capsys.disabled():
+        print(f"\n--- {case.id} [build] ---")
+        print(f"Q: {case.question}\nrooms: {rooms}  truncated: {result.truncated}")
+        print(f"tools: {[t.tool_name for t in result.trace]}")
+        print("PASS" if not problems else f"FAIL: {problems}")
+    assert problems == [], f"{case.id}: {problems}"
