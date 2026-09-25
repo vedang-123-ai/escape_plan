@@ -58,6 +58,13 @@ struct BackendFailureBanner: View {
         .glassPanel(cornerRadius: 14)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(failure.message)
+        // A banner that appears while VoiceOver focus is elsewhere is otherwise silent: the
+        // user hears nothing went wrong (audit 2026-09-25). Announce it once when it appears,
+        // and again if a different failure replaces it in place.
+        .onAppear { AccessibilityNotification.Announcement(failure.message).post() }
+        .onChange(of: failure.message) { _, message in
+            AccessibilityNotification.Announcement(message).post()
+        }
         .sheet(isPresented: $showingSettings) { SettingsScreen() }
     }
 
