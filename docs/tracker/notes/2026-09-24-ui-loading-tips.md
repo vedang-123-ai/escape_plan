@@ -95,3 +95,14 @@ Built a complete "loading-screen tips" feature for the Escape Plan iOS app. Whil
 - **The first-tip delay used an uncancelled `DispatchQueue.asyncAfter`**; timing now lives in `.task`,
   cancelled with the view. Dropped a `DS.bodyInk` use (not in the allowed token list) and ScoreScreen's
   `.accessibilityLabel`, which overrode the combined children so VoiceOver never heard the tip.
+
+## Reviewer follow-up (2026-09-25)
+
+swift-scenekit-reviewer: no blocking findings. Applied its three should-fix items: the tip now
+crossfades in its own overlapping layer (the spinner no longer jumps), scrolls at accessibility text
+sizes instead of drawing over the spinner, and ScoreScreen passes its fuller VoiceOver label again
+(`accessibilityText:`). VoiceOver is read live on each rotation pass. Gate after the fixes:
+EditorCore 609/0, typecheck-ios all four targets ok. App unit tests on the pre-fix commit: 954 run,
+949 passed, 5 failed — the four known BLOCKERS failures plus `CriticalSectionTests/
+highSeverityFindingIsPreserved` (NSURLError -1009), which passed 1/1 on re-run (`tips-rerun.xcresult`):
+environmental flake. The Drill screen's swap never shows a tip (its load is synchronous) — harmless.

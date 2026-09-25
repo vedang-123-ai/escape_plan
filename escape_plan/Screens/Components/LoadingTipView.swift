@@ -13,12 +13,14 @@ import SwiftUI
 
 struct LoadingTipView: View {
     let label: String
+    /// What VoiceOver reads for the spinner, when the visible label is terser than it should be.
+    var accessibilityText: String?
 
     @State private var rotator: LoadingTipRotator
     @State private var currentTip: PreventionTip?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// Long enough that a fast load never flashes a tip it had no time to show.
     private static let firstTipDelay: Duration = .milliseconds(800)
@@ -34,8 +36,9 @@ struct LoadingTipView: View {
         return tips
     }()
 
-    init(label: String, tips: [PreventionTip]? = nil) {
+    init(label: String, accessibilityText: String? = nil, tips: [PreventionTip]? = nil) {
         self.label = label
+        self.accessibilityText = accessibilityText
         _rotator = State(initialValue: LoadingTipRotator(tips: tips ?? Self.bundledTips))
     }
 
@@ -48,28 +51,46 @@ struct LoadingTipView: View {
                     .foregroundStyle(Theme.supporting)
             }
             .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityText ?? label)
 
-            if let tip = currentTip {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Tip")
-                        .sectionHeaderStyle()
-                    Text(tip.text)
-                        .font(Theme.cardBody)
-                        .foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("Source: \(tip.cite)")
-                        .font(Theme.detail)
-                        .foregroundStyle(Theme.supporting)
+            // The tip gets its own overlapping layer so a change is an in-place crossfade and
+            // the spinner above never moves. At accessibility text sizes a 250-character tip is
+            // taller than the space, so it scrolls rather than drawing over the spinner.
+            ZStack(alignment: .topLeading) {
+                if let tip = currentTip {
+                    Group {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            ScrollView { tipCard(tip) }
+                        } else {
+                            tipCard(tip)
+                        }
+                    }
+                    .id(tip.id)
+                    .transition(.opacity)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityElement(children: .combine)
-                .transition(.opacity)
-                .id(tip.id)
             }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .task { await runTips() }
+    }
+
+    private func tipCard(_ tip: PreventionTip) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Tip")
+                .font(Theme.sectionHeader)
+                .foregroundStyle(Theme.supporting)
+            Text(tip.text)
+                .font(Theme.cardBody)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Source: \(tip.cite)")
+                .font(Theme.detail)
+                .foregroundStyle(Theme.supporting)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     /// Cancelled with the view, so a finished load never leaves a timer writing to dead state.
@@ -79,10 +100,11 @@ struct LoadingTipView: View {
         guard !Task.isCancelled else { return }
         advance()
         // VoiceOver users hear one tip; text changing under the cursor is disorienting.
-        guard !voiceOverEnabled else { return }
+        // Checked live, so turning VoiceOver on mid-load stops the rotation too.
+        guard !UIAccessibility.isVoiceOverRunning else { return }
         while !Task.isCancelled {
             try? await Task.sleep(for: Self.rotateInterval)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, !UIAccessibility.isVoiceOverRunning else { return }
             advance()
         }
     }
