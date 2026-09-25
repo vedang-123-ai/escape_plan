@@ -215,8 +215,8 @@ TOOLS: list[dict[str, Any]] = [
             "only on heat_clearance findings (the heater clearance nfpa-heating-safety "
             "gives); on topple and water_heater_unsecured it is the object's own height, "
             "and on overhead it is the app's own engineering cutoff, so never present it "
-            "there as a code or standard requirement. A finding's citation supports its "
-            "advice, not that number."
+            "there as a code or standard requirement. On those rules the finding's "
+            "citation supports its advice, not that number."
         ),
         "input_schema": {
             "type": "object",

@@ -8,8 +8,9 @@ The gap this closes: every not-live test injects a stub client, so setting
 1. Configuration fails fast: `get_settings()` refuses an unsupported model at
    startup, with a message that says why.
 2. The supported set is checked against the REAL requests. Each of the five call
-   sites is driven with a client that records the `messages.create` kwargs and
-   stops; every recorded request is then checked for every supported model. So a
+   sites is driven with a client that records every `messages.create` call,
+   through one tool round-trip or citation retry where the site has a loop; every
+   recorded request is then checked for every supported model. So a
    later change that adds forced tool use to the builder, or an effort level Opus 5
    refuses with thinking disabled, fails here instead of in production.
 """
@@ -109,21 +110,54 @@ class _Recorded(Exception):
     pass
 
 
-class RecordingClient:
-    """Records the first `messages.create` kwargs and stops the call there."""
+_USAGE = SimpleNamespace(
+    input_tokens=1, output_tokens=1, cache_creation_input_tokens=0, cache_read_input_tokens=0
+)
 
-    def __init__(self) -> None:
-        self.kwargs: dict[str, Any] | None = None
+
+def _tool_use(name: str, tool_input: dict) -> SimpleNamespace:
+    return SimpleNamespace(type="tool_use", id="toolu_1", name=name, input=tool_input)
+
+
+def _text(text: str) -> SimpleNamespace:
+    return SimpleNamespace(type="text", text=text)
+
+
+class RecordingClient:
+    """Records the kwargs of EVERY `messages.create` call.
+
+    Replays `scripted` responses first, chosen so each call site makes a second,
+    different request (a tool round-trip, or a citation retry), then stops the
+    call site at the next call. A parameter added only on a later pass of a loop
+    (say, forcing submit_findings on the agent's last iteration) is recorded too.
+    """
+
+    def __init__(self, scripted: list[list[SimpleNamespace]]) -> None:
+        self._scripted = list(scripted)
+        self.requests: list[dict[str, Any]] = []
         self.messages = SimpleNamespace(create=self._create)
 
     def _create(self, **kwargs: Any):
-        self.kwargs = kwargs
-        raise _Recorded
+        self.requests.append(kwargs)
+        if not self._scripted:
+            raise _Recorded
+        return SimpleNamespace(content=self._scripted.pop(0), usage=_USAGE)
 
 
 def _home_and_plan():
     home = HomeModel.model_validate(load_fixture("twostory.json"))
     return home, compute_route_plan(home, config.get_thresholds())
+
+
+_FABRICATED_EXPLANATION = {
+    "summary": "s",
+    "room_explanations": [
+        {"room_id": "r", "room_name": "R", "primary_explanation": "Go out the door."}
+    ],
+    "recommendations": [
+        {"claim": "c", "action": "a", "source_citation": "not-a-real-source"}
+    ],
+}
 
 
 def _explain(client):
@@ -149,21 +183,28 @@ def _build(client):
     run_builder(description="a one-room cabin", client=client)
 
 
+# (call site, the responses that make it issue a second request)
 CALL_SITES = {
-    "explain_routes": _explain,
-    "answer_grounded_question": _answer,
-    "chat": _chat,
-    "agent": _agent,
-    "builder": _build,
+    # A fabricated citation forces the retry request.
+    "explain_routes": (_explain, [[_tool_use("submit_explanation", _FABRICATED_EXPLANATION)]]),
+    # One request by design: a plain-text answer, no loop.
+    "answer_grounded_question": (_answer, []),
+    "chat": (_chat, [[_text("Test them monthly [cite: not-a-real-source].")]]),
+    # A tool call forces the next loop iteration.
+    "agent": (_agent, [[_tool_use("get_home_summary", {})]]),
+    "builder": (_build, [[_tool_use("start_home", {"name": "Cabin"})]]),
 }
 
 
-def _record(call_site) -> dict[str, Any]:
-    client = RecordingClient()
+def _record(site: str) -> list[dict[str, Any]]:
+    call, scripted = CALL_SITES[site]
+    client = RecordingClient(scripted)
     with pytest.raises(_Recorded):
-        call_site(client)
-    assert client.kwargs is not None
-    return client.kwargs
+        call(client)
+    assert len(client.requests) == len(scripted) + 1, (
+        f"{site}: expected {len(scripted) + 1} requests, got {len(client.requests)}"
+    )
+    return client.requests
 
 
 @pytest.mark.parametrize("site", sorted(CALL_SITES))
@@ -171,20 +212,21 @@ def _record(call_site) -> dict[str, Any]:
 def test_every_supported_model_accepts_every_request_the_code_sends(
     site: str, model: str
 ) -> None:
-    request = _record(CALL_SITES[site])
-    problems = model_support.request_incompatibilities(model, request)
-    assert problems == [], f"{site} on {model}: {problems}"
+    for n, request in enumerate(_record(site), start=1):
+        problems = model_support.request_incompatibilities(model, request)
+        assert problems == [], f"{site} request {n} on {model}: {problems}"
 
 
 def test_every_call_site_sends_the_configured_model() -> None:
     """The guard is only as good as the assumption that settings pick the model."""
-    for site, call in CALL_SITES.items():
-        assert _record(call)["model"] == model_support.DEFAULT_MODEL, site
+    for site in CALL_SITES:
+        for request in _record(site):
+            assert request["model"] == model_support.DEFAULT_MODEL, site
 
 
 def test_the_check_would_have_caught_the_fable_swap() -> None:
     """The BLOCKERS scenario, reproduced: /explain's real request on Fable 5.1."""
-    request = _record(_explain)
+    request = _record("explain_routes")[0]
     problems = model_support.request_incompatibilities("claude-fable-5-1", request)
     assert any("tool_choice" in p for p in problems), problems
 

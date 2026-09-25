@@ -371,3 +371,16 @@ def test_the_builder_draft_is_still_stamped_ai_plan() -> None:
     assert home is not None
     entities = [e for f in home.floors for e in (*f.rooms, *f.openings, *f.objects)]
     assert entities and all(e.source.value == "ai_plan" for e in entities)
+
+
+def test_the_size_grader_rejects_an_l_shape_inside_the_stated_box() -> None:
+    """Found by the grounding-auditor: bounding box alone passed an L-shaped room."""
+    case = next(c for c in BUILD_CASES if c.id == "build-uses-the-stated-dimensions")
+    l_shape = [[0, 0], [4, 0], [4, 1.5], [2, 1.5], [2, 3], [0, 3]]
+    script = list(case.good)
+    script[2] = (("add_room", {
+        "floor_id": "floor_1", "name": "Bedroom", "type": "bedroom", "polygon": l_shape,
+    }),)
+    result = _build(case, script)
+    assert result.home is not None, result.issues
+    assert g.has_a_room_measuring(4.0, 3.0)(result) is not None

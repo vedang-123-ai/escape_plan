@@ -3,8 +3,9 @@
 `ANTHROPIC_MODEL` looks like a free choice and is not. Two parameters the AI
 layer sends are rejected with a 400 by some current models:
 
-- `tool_choice={"type": "tool", ...}` (forced tool use, `grounded.explain_routes`)
-  is not supported on Claude Fable 5.1, Claude Mythos 5.1 and Claude Opus 5.5.
+- Forced tool use, `tool_choice` of type `tool` (sent by `grounded.explain_routes`)
+  or `any`, is not supported on Claude Fable 5.1, Claude Mythos 5.1 and Claude
+  Opus 5.5.
 - `thinking={"type": "disabled"}` (all of grounded, chat and agent, set for a
   measured latency reason recorded in each file) is rejected by the Fable/Mythos 5
   and 5.1 models and by Claude Opus 5.5, whose thinking cannot be turned off;

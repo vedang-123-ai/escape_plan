@@ -364,10 +364,15 @@ def has_a_room_measuring(width_m: float, depth_m: float, tol_m: float = 0.05) ->
     """BUILDER_SYSTEM_PROMPT rule 2: dimensions the user gave are used exactly.
 
     Checks the axis-aligned extent of each room footprint, in either
-    orientation. The expected size comes from the case's own question text,
-    never from a model run.
+    orientation, AND its area, so an L-shape inside a 4 x 3 box does not pass.
+    Axis-aligned on purpose: the builder is told to work in an x-right, y-up
+    floor frame, so a rotated rectangle is itself a deviation. The expected size
+    comes from the case's own question text, never from a model run.
     """
+    from app.models import signed_area
+
     want = sorted((width_m, depth_m))
+    area_tol = tol_m * (width_m + depth_m)
 
     def grader(result: BuildResult) -> Optional[str]:
         if result.home is None:
@@ -379,9 +384,26 @@ def has_a_room_measuring(width_m: float, depth_m: float, tol_m: float = 0.05) ->
                 ys = [p[1] for p in room.polygon]
                 got = sorted((max(xs) - min(xs), max(ys) - min(ys)))
                 extents.append(tuple(round(v, 2) for v in got))
-                if all(abs(g_ - w) <= tol_m for g_, w in zip(got, want)):
+                area = abs(signed_area(list(room.polygon)))
+                if (
+                    all(abs(g_ - w) <= tol_m for g_, w in zip(got, want))
+                    and abs(area - width_m * depth_m) <= area_tol
+                ):
                     return None
         return f"no room measures {want[0]} x {want[1]} m; built {extents}"
 
     grader.__name__ = f"has_a_room_measuring_{width_m}x{depth_m}"
+    return grader
+
+
+def builds_exactly_n_rooms(n: int) -> BuildGrader:
+    """No invented rooms: "a single bedroom" is one room, not a bedroom + kitchen."""
+
+    def grader(result: BuildResult) -> Optional[str]:
+        if result.home is None:
+            return "no home was built"
+        rooms = [r.name for f in result.home.floors for r in f.rooms]
+        return None if len(rooms) == n else f"expected {n} room(s), built {rooms}"
+
+    grader.__name__ = f"builds_exactly_{n}_rooms"
     return grader

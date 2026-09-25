@@ -226,11 +226,13 @@ def test_corpus_block_matches_sources_json() -> None:
     # prefix of another read as shown: `usgs-earthquake` "appeared" only inside
     # `usgs-earthquake-during` and `usgs-earthquake-donts`. Ids are kebab-case, so
     # an exact match is one not continued by another id character on either side.
+    # `.` and `/` count as continuations too, so an id seen only inside a filename
+    # (`usgs-earthquake.md`) or a URL path does not read as shown.
     block = grounded.corpus_text()
     unseen = sorted(
         i
         for i in grounded.valid_source_ids()
-        if not re.search(rf"(?<![A-Za-z0-9_-]){re.escape(i)}(?![A-Za-z0-9_-])", block)
+        if not re.search(rf"(?<![A-Za-z0-9_./-]){re.escape(i)}(?![A-Za-z0-9_./-])", block)
     )
     # TEMPORARY, one id only. `usgs-earthquake` is a known orphan: sources.json still
     # lists it, no corpus document shows it, and branch `s11-1-followup-orphan-cites`

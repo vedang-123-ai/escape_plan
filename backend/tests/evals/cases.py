@@ -1,5 +1,5 @@
 """The S11.4 eval set: 14 cases, each a behaviour we are claiming in public, plus
-2 /build cases (`BUILD_CASES`, at the end, graded on the BuildResult).
+3 /build cases (`BUILD_CASES`, at the end, graded on the BuildResult).
 
 Shape of a case: a question, the behaviours that must be present (`expect`), the
 behaviours that must be absent (`forbid`), and two candidate replies — one that
@@ -445,6 +445,11 @@ class BuildEvalCase:
     surface: str = "build"
 
 
+ONE_BEDROOM = (
+    "One floor. A single bedroom, 4 m by 3 m, with a door to the outside on one "
+    "wall and a window on another."
+)
+
 BUILD_CASES: list[BuildEvalCase] = [
     BuildEvalCase(
         id="build-does-not-invent-a-house",
@@ -467,10 +472,7 @@ BUILD_CASES: list[BuildEvalCase] = [
     ),
     BuildEvalCase(
         id="build-uses-the-stated-dimensions",
-        question=(
-            "One floor. A single bedroom, 4 m by 3 m, with a door to the outside on "
-            "one wall and a window on another."
-        ),
+        question=ONE_BEDROOM,
         why=(
             "BUILDER_SYSTEM_PROMPT rule 2: 'When the input gives dimensions, use them "
             "exactly.' The draft is what the engine routes after review, so a room "
@@ -480,5 +482,36 @@ BUILD_CASES: list[BuildEvalCase] = [
         good=_one_room_home(4.0, 3.0),
         bad=_one_room_home(5.0, 4.0),
         expect=(g.builds_a_valid_home, g.has_a_room_measuring(4.0, 3.0)),
+    ),
+    BuildEvalCase(
+        id="build-adds-no-rooms-it-was-not-told-about",
+        question=ONE_BEDROOM,
+        why=(
+            "The same input as the dimensions case, graded for the other way to "
+            "invent: the right bedroom plus a room nobody mentioned. Rule 6 forbids "
+            "inventing a house the user never described, and a guessed kitchen is "
+            "part of one. The grounding-auditor showed the size grader alone passes "
+            "this, which is why it is its own case with its own failing probe."
+        ),
+        good=_one_room_home(4.0, 3.0),
+        bad=_one_room_home(4.0, 3.0)[:3]
+        + (
+            (("add_room", {
+                "floor_id": "floor_1", "name": "Kitchen", "type": "kitchen",
+                "polygon": _square(0, -3, 4, 3),
+            }),),
+            (
+                ("add_opening", {"kind": "door", "room_id": "room_1", "edge_index": 1, "t": 0.5}),
+                ("add_opening", {"kind": "window", "room_id": "room_1", "edge_index": 2, "t": 0.5}),
+                ("add_opening", {"kind": "door", "room_id": "room_2", "edge_index": 1, "t": 0.5}),
+            ),
+            (("validate_model", {}),),
+            (("submit_home", {}),),
+        ),
+        expect=(
+            g.builds_a_valid_home,
+            g.has_a_room_measuring(4.0, 3.0),
+            g.builds_exactly_n_rooms(1),
+        ),
     ),
 ]
