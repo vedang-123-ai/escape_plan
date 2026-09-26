@@ -2371,3 +2371,172 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - c8e5189 Docs: record the review findings and the lesson from the one that mattered
   - 66ab52d Review fixes: an ownerless tombstone must never delete from the server
 
+## 2026-09-25T05:56:19Z · Anish Yarrakonda · `main` @ `fc988c3`
+
+**Uncommitted working-tree changes (1)**
+  - ?? improved_prompt.md
+
+## 2026-09-25T06:02:24Z · Anish Yarrakonda · `main` @ `877c8ae`
+
+**Commits this session**
+  - 877c8ae Merge branch 's11-1-followup-orphan-cites'
+  - f5e6e1d S11.1 follow-up: apply grounding-auditor notes (tsunami scope, S7.1 heat_source row, corpus-summary)
+  - be74a12 S11.1 follow-up: correct spec §2, block the aftershock re-point on its copy
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T06:29:14Z · Anish Yarrakonda · `main` @ `69571ce`
+
+**Commits this session**
+  - 69571ce Merge branch 's11-6-followup-package-fixtures'
+  - bd6e16e Merge branch 's11-4-followup-ai-hardening'
+  - 996080e Tests: take the orphan-id exemption from validate.py, not a literal
+  - 96668d7 FixtureLoader: header comment names the EditorCore package as a user
+  - 07bb268 Merge remote-tracking branch 'origin/main' into s11-4-followup-ai-hardening
+  - ba71efb Docs: S11.4 follow-up note, BLOCKERS lines, three decisions
+  - 44bfd1c Review fixes from the grounding-auditor (7 non-blocking)
+  - 6550054 Merge remote-tracking branch 'origin/main' into s11-6-followup-package-fixtures
+  - 059ea2b Docs: package fixtures fixed; log the two pre-existing app-suite failures it surfaced
+  - 877c8ae Merge branch 's11-1-followup-orphan-cites'
+  - f5e6e1d S11.1 follow-up: apply grounding-auditor notes (tsunami scope, S7.1 heat_source row, corpus-summary)
+  - 67ffa20 Evals: two /build cases, graded on the BuildResult
+  - be74a12 S11.1 follow-up: correct spec §2, block the aftershock re-point on its copy
+  - 3919a09 EditorCore: make the app fixtures a package resource so package tests can load them
+  - 0346232 Tests: match corpus source ids exactly, not as substrings
+  - 13c9511 AI: say in check_object_hazards when threshold_m is a standard
+  - ccbe5bc AI: refuse an ANTHROPIC_MODEL the request shape would 400 on
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T06:36:59Z · Anish Yarrakonda · `ui-revamp-1-foundation` @ `69571ce`
+
+**Commits this session**
+  - 69571ce Merge branch 's11-6-followup-package-fixtures'
+  - bd6e16e Merge branch 's11-4-followup-ai-hardening'
+  - 996080e Tests: take the orphan-id exemption from validate.py, not a literal
+  - 96668d7 FixtureLoader: header comment names the EditorCore package as a user
+  - 07bb268 Merge remote-tracking branch 'origin/main' into s11-4-followup-ai-hardening
+  - ba71efb Docs: S11.4 follow-up note, BLOCKERS lines, three decisions
+  - 44bfd1c Review fixes from the grounding-auditor (7 non-blocking)
+  - 6550054 Merge remote-tracking branch 'origin/main' into s11-6-followup-package-fixtures
+  - 059ea2b Docs: package fixtures fixed; log the two pre-existing app-suite failures it surfaced
+  - 877c8ae Merge branch 's11-1-followup-orphan-cites'
+  - f5e6e1d S11.1 follow-up: apply grounding-auditor notes (tsunami scope, S7.1 heat_source row, corpus-summary)
+  - 67ffa20 Evals: two /build cases, graded on the BuildResult
+  - be74a12 S11.1 follow-up: correct spec §2, block the aftershock re-point on its copy
+  - 3919a09 EditorCore: make the app fixtures a package resource so package tests can load them
+  - 0346232 Tests: match corpus source ids exactly, not as substrings
+  - 13c9511 AI: say in check_object_hazards when threshold_m is a standard
+  - ccbe5bc AI: refuse an ANTHROPIC_MODEL the request shape would 400 on
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T06:37:18Z · Anish Yarrakonda · `ui-revamp-1-foundation` @ `69571ce`
+
+**Commits this session**
+  - 69571ce Merge branch 's11-6-followup-package-fixtures'
+  - bd6e16e Merge branch 's11-4-followup-ai-hardening'
+  - 996080e Tests: take the orphan-id exemption from validate.py, not a literal
+  - 96668d7 FixtureLoader: header comment names the EditorCore package as a user
+  - 07bb268 Merge remote-tracking branch 'origin/main' into s11-4-followup-ai-hardening
+  - ba71efb Docs: S11.4 follow-up note, BLOCKERS lines, three decisions
+  - 44bfd1c Review fixes from the grounding-auditor (7 non-blocking)
+  - 6550054 Merge remote-tracking branch 'origin/main' into s11-6-followup-package-fixtures
+  - 059ea2b Docs: package fixtures fixed; log the two pre-existing app-suite failures it surfaced
+  - 877c8ae Merge branch 's11-1-followup-orphan-cites'
+  - f5e6e1d S11.1 follow-up: apply grounding-auditor notes (tsunami scope, S7.1 heat_source row, corpus-summary)
+  - 67ffa20 Evals: two /build cases, graded on the BuildResult
+  - be74a12 S11.1 follow-up: correct spec §2, block the aftershock re-point on its copy
+  - 3919a09 EditorCore: make the app fixtures a package resource so package tests can load them
+  - 0346232 Tests: match corpus source ids exactly, not as substrings
+  - 13c9511 AI: say in check_object_hazards when threshold_m is a standard
+  - ccbe5bc AI: refuse an ANTHROPIC_MODEL the request shape would 400 on
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T06:52:40Z · Anish Yarrakonda · `ui-revamp-1-foundation` @ `69571ce`
+
+**Commits this session**
+  - 69571ce Merge branch 's11-6-followup-package-fixtures'
+  - bd6e16e Merge branch 's11-4-followup-ai-hardening'
+  - 996080e Tests: take the orphan-id exemption from validate.py, not a literal
+  - 96668d7 FixtureLoader: header comment names the EditorCore package as a user
+  - 07bb268 Merge remote-tracking branch 'origin/main' into s11-4-followup-ai-hardening
+  - ba71efb Docs: S11.4 follow-up note, BLOCKERS lines, three decisions
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T06:55:03Z · Anish Yarrakonda · `ui-revamp-1-foundation` @ `69571ce`
+
+**Commits this session**
+  - 69571ce Merge branch 's11-6-followup-package-fixtures'
+  - bd6e16e Merge branch 's11-4-followup-ai-hardening'
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T07:09:27Z · Anish Yarrakonda · `ui-revamp-1-foundation` @ `0247589`
+
+**Commits this session**
+  - 0247589 UI revamp pass 1: Linear dark palette, component kit, Home, 4 tabs, dark 3D stage
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T07:36:47Z · Anish Yarrakonda · `ui-revamp-1-foundation` @ `758ac83`
+
+**Commits this session**
+  - 758ac83 Tasks: short peril chips on rows
+  - 0acbfcf Merge origin/main (loading tips) into ui-revamp-1-foundation
+  - ba76f7b WIP revamp pass 2: Tasks tab, shared readiness store, router, simplified Home
+  - 27df81b Merge branch 'ui-loading-tips'
+  - b42cba0 Loading tips: crossfade in place, scroll at accessibility sizes, restore Score VoiceOver label
+  - 0247589 UI revamp pass 1: Linear dark palette, component kit, Home, 4 tabs, dark 3D stage
+  - fe6f3a6 Loading tips: shuffle-bag rotator, self-loading view, tests that pin the contract
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T18:22:31Z · Anish Yarrakonda · `ui-revamp-1-foundation` @ `758ac83`
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T18:23:18Z · Anish Yarrakonda · `ui-revamp-1-foundation` @ `758ac83`
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T18:24:17Z · Anish Yarrakonda · `ui-revamp-1-foundation` @ `758ac83`
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T18:28:31Z · Anish Yarrakonda · `ui-revamp-1-foundation` @ `758ac83`
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
+## 2026-09-25T18:37:13Z · Anish Yarrakonda · `ui-revamp-1-foundation` @ `758ac83`
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? improved_prompt.md
+
