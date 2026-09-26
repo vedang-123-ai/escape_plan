@@ -40,6 +40,33 @@ struct HomeDocumentStore {
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
+    /// The store the app launches with, and whether it is the real one.
+    ///
+    /// `<Documents>/Homes` when it can be opened. When it cannot (the only way the plain init
+    /// throws), a store in the temporary directory, so the app still launches and works for
+    /// the session, with `isFallback` set so the UI can say plainly that nothing will be kept.
+    /// Replaces two `try! HomeDocumentStore()` at launch (audit 2026-09-25), which turned an
+    /// unreadable Documents directory into a crash before the first frame.
+    static func launchStore(fileManager: FileManager = .default) -> (store: HomeDocumentStore, isFallback: Bool) {
+        if let real = try? HomeDocumentStore(fileManager: fileManager) {
+            return (real, false)
+        }
+        let temporary = fileManager.temporaryDirectory.appendingPathComponent("Homes", isDirectory: true)
+        if let scratch = try? HomeDocumentStore(directory: temporary, fileManager: fileManager) {
+            return (scratch, true)
+        }
+        // Not even the temporary directory could be created. Point at it anyway: `list()` reads
+        // a missing directory as empty and `save` throws into the caller's own error handling,
+        // which is strictly better than a launch crash.
+        return (HomeDocumentStore(uncheckedDirectory: temporary, fileManager: fileManager), true)
+    }
+
+    /// A store over `directory` without creating it. Only for `launchStore`'s last resort.
+    private init(uncheckedDirectory directory: URL, fileManager: FileManager) {
+        self.directory = directory
+        self.fileManager = fileManager
+    }
+
     // MARK: - Read
 
     /// Every saved home, newest first. Unreadable files are skipped rather than

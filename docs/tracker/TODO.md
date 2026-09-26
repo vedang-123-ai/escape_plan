@@ -33,7 +33,7 @@ The S11 arc is [`../playbook/README.md`](../playbook/README.md): 13 sessions in 
 
 - [ ] *(archive)* Enum-parity contract test: object categories in JSON Schema, pydantic and Swift.
 - [ ] *(archive)* A milder tint for `narrows_route` findings (Theme colour, no new colours).
-- [ ] *(archive)* Decide what the Beta tab does in a Release build (`BetaScreen`); it is a tester surface today.
+- [x] *(archive)* Decide what the Beta tab does in a Release build (`BetaScreen`); it is a tester surface today. **Resolved 2026-09-25: the Linear revamp removed the tab and the audit remediation deleted `BetaScreen.swift`.**
 - [ ] *(archive)* `escape_plan/CLAUDE.md` is compiled into the app bundle by the synchronized root group; confirm and exclude it.
 - [ ] *(archive)* Scan the same space twice and check the two models reconcile; commit real scan exports (S11.10 covers the
       first two exports).

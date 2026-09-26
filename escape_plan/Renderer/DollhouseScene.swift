@@ -560,7 +560,7 @@ enum DollhouseSceneBuilder {
         ambient.light = SCNLight()
         ambient.light?.type = .ambient
         ambient.light?.intensity = 650
-        ambient.light?.color = DollhousePalette.background.blended(with: .white, amount: 0.5)
+        ambient.light?.color = DollhousePalette.ambientTint.blended(with: .white, amount: 0.5)
         scene.rootNode.addChildNode(ambient)
 
         // Key at azimuth 315° / elevation 50° — upper-left, matching the reference render.

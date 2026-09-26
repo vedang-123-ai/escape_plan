@@ -1,8 +1,7 @@
 // APIClient+Routes.swift
 // POST /routes (S2.3). Follows the APIClient+<Endpoint>.swift pattern established by
 // APIClient+Score.swift: APIClient.swift stays a thin core, endpoint methods live in
-// per-endpoint extensions, and URLSession.shared stands in for the file-private injected
-// session (the default init uses .shared anyway, so runtime behavior is identical).
+// per-endpoint extensions, all sending through the client's injected `session`.
 
 import Foundation
 
@@ -24,7 +23,7 @@ extension APIClient {
         // Render's free tier spins the service down when idle; a cold start comfortably
         // exceeds URLSession's 60 s default.
         request.timeoutInterval = 90
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIClientError.unexpectedResponse(statusCode: -1)
         }

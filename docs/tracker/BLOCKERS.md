@@ -87,6 +87,60 @@ EditorCore **609 passed, 0 failed** on `macos-26`). `ios-tests` skipped (manual 
 - [ ] **GitHub Actions warns that `actions/checkout@v4` / `setup-python@v5` target Node 20** and are being forced onto
       Node 24. Harmless today; bump the major versions when convenient.
 
+### Part B · iOS (branch `audit-ios-fixes`, merged into `ui-revamp-1-foundation`, NOT `main`)
+
+**Part B CI (2026-09-25):** `audit-ios-fixes` run [36180213079](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180213079)
+green — `scripts/typecheck-ios.sh` all four targets, EditorCore **614 passed, 0 failed** (609 + the 5 `ScoreBand`
+tests), backend green. After the merge into `ui-revamp-1-foundation` (`e64f343`), the full simulator suite ran
+([36180793666](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180793666)): **971 passed, 8 failed,
+8 skipped** of 987, from `xcresulttool`. Every test added or rewritten here passed (`ThemeContrastTests`,
+`AppRouterTests`, the new `OnboardingTests`, `BackendFailureTests`, `ConversationStoreTests`). The 8 failures are the
+6 that also fail on `main` plus two UI tests, listed in §3.
+
+- [x] **B1 Assistant ignored the active home.** Grounds on `ReadinessStore.activeHome`, follows `activeHomeID`, resumes a
+      thread only for its own home, errors through `BackendFailure` + `BackendFailureBanner`, and says when chat history
+      can't be saved. **Unverified on a simulator**: the switch-homes-then-ask path has never been walked.
+- [x] **B2 One score, one source.** ScoreScreen reads `ReadinessStore`; one `ScoreBand` (85/60) for Home and Score,
+      tested in EditorCore (`ReadinessScoreBandTests`). **Visual check owed**: Score's top band is now `success` green
+      (was the indigo accent) so the two screens agree.
+- [x] **B3 House tab stuck on an old home.** `clearHouseRequest()` on switch + `HouseRequest.honoured`; `AppRouterTests`.
+- [x] **B4 Onboarding interview unreachable on a fresh install.** Always runs; writes to the active home; reports
+      failures; ContentView reloads on finish. Two new `OnboardingTests` (+1 for the no-home failure).
+- [x] **B5 Freshness gaps.** `refreshLastPracticed()` after a drill; `BackendFailure.localLoad` for a local file;
+      Tasks "No home yet" with a Scan button. Home's own no-home state (`library.homes.isEmpty` → "Map your home") was
+      checked and is sensible.
+- [x] **B6 Largest-deduction row** is title + "−X points", no bar.
+- [x] **B7 Cold start.** 90 s on `/score`, `/convert`, `/diff_obstructions`; `APIClient.session` internal and used by
+      every extension; fire-and-forget `/health` before the first score.
+- [x] **B8 Startup robustness.** One `HomeDocumentStore.launchStore()` in `escape_planApp.init`, temp fallback + a
+      persistent "Storage unavailable" banner, no `try!`; `ResponderSnapshotStore` falls back to the temp directory.
+      **The fallback path has never been exercised** (it needs an unreadable Documents directory).
+- [x] **B9** `BetaScreen.swift` deleted; `escape_plan/CLAUDE.md` tab list fixed.
+- [x] **B10** failure banners announce themselves to VoiceOver; onboarding titles, Assistant headline, Home score and
+      the Score basis caption use Dynamic Type; "Why: <item>".
+- [x] **B11** `ThemeContrastTests` rewritten for the dark-only palette (ratios computed for every token on all four
+      surfaces before writing it; tightest: `warning` on hover 4.90:1, `tertiary` on hover 3.07:1).
+- [x] **429 from the new backend cost guard** maps to the existing "busy, try again" copy (was "server had a problem (429)").
+
+**Deferred on purpose (do not do in a fix session):**
+- [ ] HouseScreen decomposition (2,726 lines) — split during the upcoming House redesign.
+- [ ] Replace the EditorCore symlinks with a real Swift package.
+- [ ] Sync last-write-wins clock-skew tie-break.
+- [ ] `profile_id` on `/score` (the score is household-level by design).
+- [ ] Put the drill log in the schema (needs a `schema_version` bump and `schema-contract-guardian`).
+- [ ] Move `HomeDocumentStore.list()` off the main thread.
+- [ ] Onboarding step-dot labels.
+
+**Found while doing this (not in the audit list):**
+- [ ] **`DrillScreen` still builds its own `HomeDocumentStore()`** (`DrillMode/DrillScreen.swift:721`), as do
+      `ProfilesScreen`, `SettingsScreen`, `BuildFromPlanView`, `HouseScreen` — all `try?`/`try`, none a `try!`, so not a
+      launch crash, but they bypass the launch store and so ignore the temp fallback. Next action: pass the library's
+      store down when those screens are next touched.
+- [ ] **`RouteRedrawAfterEditUITests` contradiction is NOT resolved.** The header stamp says red, §3 says fixed, and
+      the CI `ios-tests` job cannot settle it: the test `XCTSkip`s unless `TEST_RUNNER_ROUTE_REDRAW=1` and a live
+      local backend are present, so it is one of the 8 skipped. Next action (owner, on a Mac with the backend running):
+      run it live and record the result.
+
 ### Owner-only (cannot be done from a session)
 
 - [ ] Top up the Anthropic credits (§1).
@@ -930,6 +984,15 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
 
 ## 0 · FIRST PRIORITY — before any other work
 
+- [ ] **2026-09-25: the iOS suite has run, in CI, and is RED — true counts recorded, gate still open.** The manual
+      `ios-tests` job (`.github/workflows/gate.yml`, iPhone 17 Pro / iOS 26.5, `CODE_SIGNING_ALLOWED=NO`), counts from
+      `xcresulttool`: `main` `02988ea` **960 passed, 6 failed, 8 skipped** (974), identical on a re-run
+      ([run 36179198283](https://github.com/vedang-123-ai/escape_plan/actions/runs/36179198283)); `ui-revamp-1-foundation`
+      `e64f343` **971 passed, 8 failed, 8 skipped** (987)
+      ([run 36180793666](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180793666)). Failures in §3
+      (2026-09-25). Still owed on a Mac: the device checks in §2, and a local run to compare with CI's. To re-run:
+      Actions → gate → Run workflow on the branch.
+
 - [ ] **Compile and test the app on a working simulator, and record a real count.**
       **Owner: Anish / Yuki.** Full brief, command and follow-ups:
       [`FIRST-PRIORITY.md`](FIRST-PRIORITY.md). Four bodies of Swift have landed since the last
@@ -1179,6 +1242,28 @@ because if it fails nothing downstream is worth tuning.
 ---
 
 ## 3 · Known defects — found by review, not yet fixed
+
+**Found by the first CI simulator runs, 2026-09-25** (counts and links in §0):
+- [ ] **`KeychainTokenStoreTests` × 3 fail with `KeychainError(status: -34018)`** (errSecMissingEntitlement) on
+      `main` and the revamp, reproduced on a re-run. Almost certainly the CI command's `CODE_SIGNING_ALLOWED=NO`: an
+      unsigned simulator test host has no keychain entitlement. **Not proven** — these tests have never run on any
+      platform before. Next action: run them once on a Mac with signing on; if they pass, give the CI job an ad-hoc
+      signing variant (`CODE_SIGN_IDENTITY=-`, no team) rather than skipping them.
+- [ ] **`EvacuationMockTimelineTests.testGenericFactoryExercisesAllThreeFixturesWithoutInventingPaths` fails in the
+      app** (apartment: 2 tracks, expected 1) **but passes in EditorCore** on the same commit. `apartment.json` now has
+      two profiles (Sam and Biscuit the pet), so 2 looks right and the expectation stale — but then the package run
+      should fail too. Next action: find what differs between the two runners (fixture path via `#filePath` through the
+      symlink, or a DEBUG-only branch in `MockTimeline`) before touching the expectation.
+- [ ] **`SignedOutPathUITests.testSettingsCarriesThePrivacyDisclosureSignedOut` and
+      `testTheGateSaysWhatAnAccountWouldUpload`** fail on `main` and the revamp ("the gate asks for an account without
+      saying what it uploads"). S11.7 shipped these without a simulator. Next action: run on a Mac and look at the
+      screenshot in the uploaded `ci-xcresult` artifact.
+- [ ] **`GestureFrameCostUITests.testACameraDragDoesNotDragSwiftUIUpdatesAlongWithIt`** fails on the revamp only
+      (`editor.scene` not found after Home → Menu → Build Manually). No pre-audit revamp run exists to say whether the
+      revamp or the audit fixes caused it (the audit did not touch that path or `HouseScreen`). Next action (owner): walk
+      that path in the simulator.
+- [x] **`SignedOutPathUITests.testEveryTabOpensSignedOutWithNoBackend`** looked for the removed Beta tab. Fixed on
+      `audit-ios-fixes` (now Home, Tasks, House, Assistant, Settings). **Not re-run yet.**
 
 - [x] ~~**The root `CLAUDE.md` says "iOS 17+"; the project builds against iOS 26.5.**~~
       **RESOLVED 2026-09-16 — the docs were right and the project file was wrong.**

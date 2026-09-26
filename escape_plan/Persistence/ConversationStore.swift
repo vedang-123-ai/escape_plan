@@ -73,6 +73,17 @@ struct ConversationStore {
         return try? JSONDecoder().decode(ConversationDocument.self, from: data)
     }
 
+    /// The stored thread, but only if it was grounded in `homeID`. A thread about one home
+    /// must not resume as if it were about another: the assistant is sent the ACTIVE home, and
+    /// earlier turns that name rooms from a different house would contradict it. A thread with
+    /// no recorded home (written before homes were tracked) is not assumed to match.
+    func load(forHomeID homeID: String?) -> ConversationDocument? {
+        guard let document = load(), document.homeID != nil, document.homeID == homeID else {
+            return nil
+        }
+        return document
+    }
+
     func save(_ document: ConversationDocument) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
