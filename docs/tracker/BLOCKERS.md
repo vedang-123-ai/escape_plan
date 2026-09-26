@@ -89,7 +89,13 @@ EditorCore **609 passed, 0 failed** on `macos-26`). `ios-tests` skipped (manual 
 
 ### Part B · iOS (branch `audit-ios-fixes`, merged into `ui-revamp-1-foundation`, NOT `main`)
 
-CI evidence for this branch: see "Part B CI" at the end of this subsection.
+**Part B CI (2026-09-25):** `audit-ios-fixes` run [36180213079](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180213079)
+green — `scripts/typecheck-ios.sh` all four targets, EditorCore **614 passed, 0 failed** (609 + the 5 `ScoreBand`
+tests), backend green. After the merge into `ui-revamp-1-foundation` (`e64f343`), the full simulator suite ran
+([36180793666](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180793666)): **971 passed, 8 failed,
+8 skipped** of 987, from `xcresulttool`. Every test added or rewritten here passed (`ThemeContrastTests`,
+`AppRouterTests`, the new `OnboardingTests`, `BackendFailureTests`, `ConversationStoreTests`). The 8 failures are the
+6 that also fail on `main` plus two UI tests, listed in §3.
 
 - [x] **B1 Assistant ignored the active home.** Grounds on `ReadinessStore.activeHome`, follows `activeHomeID`, resumes a
       thread only for its own home, errors through `BackendFailure` + `BackendFailureBanner`, and says when chat history
@@ -978,6 +984,15 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
 
 ## 0 · FIRST PRIORITY — before any other work
 
+- [ ] **2026-09-25: the iOS suite has run, in CI, and is RED — true counts recorded, gate still open.** The manual
+      `ios-tests` job (`.github/workflows/gate.yml`, iPhone 17 Pro / iOS 26.5, `CODE_SIGNING_ALLOWED=NO`), counts from
+      `xcresulttool`: `main` `02988ea` **960 passed, 6 failed, 8 skipped** (974), identical on a re-run
+      ([run 36179198283](https://github.com/vedang-123-ai/escape_plan/actions/runs/36179198283)); `ui-revamp-1-foundation`
+      `e64f343` **971 passed, 8 failed, 8 skipped** (987)
+      ([run 36180793666](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180793666)). Failures in §3
+      (2026-09-25). Still owed on a Mac: the device checks in §2, and a local run to compare with CI's. To re-run:
+      Actions → gate → Run workflow on the branch.
+
 - [ ] **Compile and test the app on a working simulator, and record a real count.**
       **Owner: Anish / Yuki.** Full brief, command and follow-ups:
       [`FIRST-PRIORITY.md`](FIRST-PRIORITY.md). Four bodies of Swift have landed since the last
@@ -1227,6 +1242,28 @@ because if it fails nothing downstream is worth tuning.
 ---
 
 ## 3 · Known defects — found by review, not yet fixed
+
+**Found by the first CI simulator runs, 2026-09-25** (counts and links in §0):
+- [ ] **`KeychainTokenStoreTests` × 3 fail with `KeychainError(status: -34018)`** (errSecMissingEntitlement) on
+      `main` and the revamp, reproduced on a re-run. Almost certainly the CI command's `CODE_SIGNING_ALLOWED=NO`: an
+      unsigned simulator test host has no keychain entitlement. **Not proven** — these tests have never run on any
+      platform before. Next action: run them once on a Mac with signing on; if they pass, give the CI job an ad-hoc
+      signing variant (`CODE_SIGN_IDENTITY=-`, no team) rather than skipping them.
+- [ ] **`EvacuationMockTimelineTests.testGenericFactoryExercisesAllThreeFixturesWithoutInventingPaths` fails in the
+      app** (apartment: 2 tracks, expected 1) **but passes in EditorCore** on the same commit. `apartment.json` now has
+      two profiles (Sam and Biscuit the pet), so 2 looks right and the expectation stale — but then the package run
+      should fail too. Next action: find what differs between the two runners (fixture path via `#filePath` through the
+      symlink, or a DEBUG-only branch in `MockTimeline`) before touching the expectation.
+- [ ] **`SignedOutPathUITests.testSettingsCarriesThePrivacyDisclosureSignedOut` and
+      `testTheGateSaysWhatAnAccountWouldUpload`** fail on `main` and the revamp ("the gate asks for an account without
+      saying what it uploads"). S11.7 shipped these without a simulator. Next action: run on a Mac and look at the
+      screenshot in the uploaded `ci-xcresult` artifact.
+- [ ] **`GestureFrameCostUITests.testACameraDragDoesNotDragSwiftUIUpdatesAlongWithIt`** fails on the revamp only
+      (`editor.scene` not found after Home → Menu → Build Manually). No pre-audit revamp run exists to say whether the
+      revamp or the audit fixes caused it (the audit did not touch that path or `HouseScreen`). Next action (owner): walk
+      that path in the simulator.
+- [x] **`SignedOutPathUITests.testEveryTabOpensSignedOutWithNoBackend`** looked for the removed Beta tab. Fixed on
+      `audit-ios-fixes` (now Home, Tasks, House, Assistant, Settings). **Not re-run yet.**
 
 - [x] ~~**The root `CLAUDE.md` says "iOS 17+"; the project builds against iOS 26.5.**~~
       **RESOLVED 2026-09-16 — the docs were right and the project file was wrong.**

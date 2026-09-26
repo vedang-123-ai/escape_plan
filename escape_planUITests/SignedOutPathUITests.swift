@@ -84,7 +84,8 @@ final class SignedOutPathUITests: XCTestCase {
         let app = launchSignedOut()
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 20))
 
-        for tab in ["Home", "House", "Assistant", "Settings", "Beta"] {
+        // The Linear revamp (2026-09-25) split out Tasks and removed the Beta tab.
+        for tab in ["Home", "Tasks", "House", "Assistant", "Settings"] {
             let button = app.tabBars.buttons[tab]
             XCTAssertTrue(button.waitForExistence(timeout: 10), "\(tab) tab is missing")
             button.tap()
