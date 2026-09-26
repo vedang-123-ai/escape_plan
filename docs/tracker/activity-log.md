@@ -2568,6 +2568,16 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 87c0610 One score, one source, one set of bands; deduction row; freshness gaps
   - 733bc62 Networking: one session, 90 s cold-start timeouts, 429 and local-load failures, chat errors bridged
   - 02988ea Merge branch 'audit-backend-fixes' (audit remediation Part A)
+## 2026-09-25T19:34:02Z · Claude · `audit-backend-fixes` @ `bfd1b35`
+
+**Commits this session**
+  - bfd1b35 Audit remediation docs (Part A); wire the branch guard hook
+  - ac42ef9 CI gate workflow and a pinned requirements.lock for Render
+  - 01c3b12 cloud_repo: recognise DuplicateKeyError by isinstance, name match as fallback
+
+## 2026-09-25T19:34:14Z · Claude · `audit-backend-fixes` @ `bfd1b35`
+
+**Commits this session**
   - bfd1b35 Audit remediation docs (Part A); wire the branch guard hook
   - ac42ef9 CI gate workflow and a pinned requirements.lock for Render
 
@@ -2610,4 +2620,11 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
+
+## 2026-09-25T19:34:41Z · Claude · `audit-backend-fixes` @ `851ef6e`
+
+**Commits this session**
+  - 851ef6e activity-log: Stop hook entry
+  - bfd1b35 Audit remediation docs (Part A); wire the branch guard hook
+  - ac42ef9 CI gate workflow and a pinned requirements.lock for Render
 
