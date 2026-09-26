@@ -78,7 +78,7 @@ struct ShareWithFireDepartmentCard: View {
                 }
                 .font(.body.weight(.semibold))
                 .foregroundStyle(.white)
-                .frame(height: 48)
+                .frame(minHeight: 48)
                 .background(Theme.accent, in: RoundedRectangle(cornerRadius: DS.buttonRadius, style: .continuous))
             }
             .buttonStyle(DSPressStyle())
