@@ -31,16 +31,20 @@ compiled automatically (no `project.pbxproj` edit, and no stray scratch files). 
 
 ## Screens
 
-Tabs (`ContentView`): **Beta, Home, House, Assistant, Settings**. `RootView` chooses the soft auth gate vs the app.
+Tabs (`ContentView`): **Home, Tasks, House, Assistant, Settings** (the Linear dark-only revamp, 2026-09-25: the Beta tab
+is gone, switching homes lives in Home's top bar, and the checklist has its own tab). `ReadinessStore` owns the active
+home, its score and checklist; `AppRouter` owns the selected tab and cross-tab requests; `ContentView` creates both and
+injects them with `.environment(...)`. `RootView` chooses the soft auth gate vs the app.
 
 | Screen | What it is | Playbook owner |
 |---|---|---|
-| `HomeScreen` | readiness score/checklist entry, homes library, launches drills | S11.5 |
-| `ScoreScreen`, `ProfilesScreen`, `ProfileEditorView` | preparedness score; per-home family profiles CRUD | S11.5 / stable |
+| `HomeScreen` | overview of the active home: score card, next three tasks, drill and 3D shortcuts, home switcher, add a home | S11.5 |
+| `TasksScreen` | the full readiness checklist (Urgent / To do / Done), peril filter, family plan | revamp |
+| `ReadinessStore`, `AppRouter` | shared state: active home + `/score` result + checklist; tab and cross-tab requests | revamp |
+| `ScoreScreen`, `ProfilesScreen`, `ProfileEditorView` | score breakdown (reads `ReadinessStore`); per-home family profiles CRUD | S11.5 / stable |
 | `HouseScreen` | THE unified 3D screen: editor (rooms, openings, stairs, undo/redo) and route viewer at once | S11.9 (camera) |
 | `AssistantScreen` | grounded chat against `/chat`; degrades gracefully with no key or bearer | stable |
 | `SettingsScreen` | server URL/token, account section | S11.7 |
-| `BetaScreen` | tester tab: the old homes library and fixture shortcuts | see BLOCKERS (Release decision) |
 | `BuildFromPlanView` | text/photo `/build` intake, draft-only, mandatory editor review | stable |
 | `HazardHuntView`, `DiffReviewSheet` | guided manual hazard tagging; partial re-scan diff review | stable |
 | `ConsentSheet` (+ `Export/`) | "Share with your fire department" consent and snapshot | S11.6 |
@@ -52,5 +56,7 @@ Tabs (`ContentView`): **Beta, Home, House, Assistant, Settings**. `RootView` cho
 - Mutate the model only through `HomeModelStore` + an `EditAction`. Never from a view.
 - Openings are parametric (`wall_segment` = `edge_index` + `t0/t1`), never absolute coordinates.
 - Routes always come from a real `/routes` response. The app never computes or approximates one.
-- No API keys or tokens in source; they come from configuration. No new colours (`Theme.swift`).
+- No API keys or tokens in source; they come from configuration. Colours come only from `Screens/Theme.swift`, under the
+  three guardrails in the root `CLAUDE.md` (safety colours distinct and colour-blind-safe, accessibility floors,
+  `CameraRigModel` purity).
 - Never re-enable `allowsCameraControl`. Keep `CameraRigModel` free of SceneKit/UIKit.

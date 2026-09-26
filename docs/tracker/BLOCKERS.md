@@ -6,7 +6,14 @@ what actually stops the project from shipping, ranked by what is on the critical
 
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
-_Last verified 2026-09-16 on `s8-4-ios-cloud-sync` (the S8.4 iOS cloud-sync session). **Re-run and
+**Re-stamped 2026-09-25 (audit remediation) with numbers measured today, superseding the counts in the paragraphs
+below:** backend **893 passed, 1 skipped, 29 deselected** (on `audit-backend-fixes`; `origin/main` was 843 at the start);
+EditorCore **609 passed, 0 failed** and `scripts/typecheck-ios.sh` ok on all four targets, both from CI run
+[36178279583](https://github.com/vedang-123-ai/escape_plan/actions/runs/36178279583) on `macos-26`; corpus valid (36
+sources, 13 files, 2 threshold files). **The iOS app suite (`xcodebuild test`) count is still unknown** — see §0 and the
+Audit remediation section for whether the new manual `ios-tests` CI job has produced one.
+
+_Superseded stamp — last verified 2026-09-16 on `s8-4-ios-cloud-sync` (the S8.4 iOS cloud-sync session). **Re-run and
 green this session:** EditorCore **515** pass (was 388; **+127** — S8.4's sync layer, plus
 `SemanticMatcher` and `WallGrouping` newly symlinked into the package and so tested here for
 the first time, plus the ported `SchemaV2ContractTests` —
@@ -41,6 +48,109 @@ backend — still red, see §3._
 
 ---
 
+## Audit remediation (2026-09-25)
+
+An external AI audit produced ~110 findings; the verified ones were implemented on two branches. Rejected findings and
+their evidence are in `docs/decisions.md` (2026-09-25) so nobody re-opens them. Note: `docs/tracker/notes/2026-09-25-audit-remediation.md`.
+
+### Part A · backend + CI (branch `audit-backend-fixes`, merged to `main`)
+
+**Measured 2026-09-25.** Backend **893 passed, 1 skipped, 29 deselected** locally on CPython 3.12.3 (`origin/main` at
+the start: **843** passed, 1 skipped, 29 deselected — **+50**). Corpus valid (36 sources, 13 files, 2 threshold files,
+44 prevention tips). First CI run [36178279583](https://github.com/vedang-123-ai/escape_plan/actions/runs/36178279583)
+on `audit-backend-fixes`: **backend green, ios-typecheck green** (`scripts/typecheck-ios.sh` all four targets +
+EditorCore **609 passed, 0 failed** on `macos-26`). `ios-tests` skipped (manual only).
+
+- [x] **`/diff_obstructions` was the only compute route without the bearer token.** Guarded. `tests/test_route_guards.py`
+      walks every route (including included routers, cross-checked against the OpenAPI document) and asserts 401 with
+      no credentials and with a wrong token on everything but `/health`, `/health/db`, `/auth/register`, `/auth/login`.
+      Verified it fails with the old `main.py` (4 failures) and passes with the fix.
+- [x] **AI cost guard.** `backend/app/rate_limit.py`: per-IP token bucket (first `X-Forwarded-For` hop) plus a global
+      `BoundedSemaphore`, on `/explain`, `/analyze`, `/build`, `/chat`; 429 + `Retry-After`. `AI_RATE_PER_MIN` 6,
+      `AI_RATE_BURST` 3, `AI_MAX_CONCURRENT` 4. 18 tests; none calls Anthropic.
+- [ ] **`/score` with `include_recommendations=true` also calls the AI and is NOT behind the cost guard.** The iOS app
+      never sets it (it is not in `ScoreRequest` on iOS), so it is reachable only by someone holding the shared token.
+      Next action (backend owner): either guard it conditionally or drop the flag. Out of this task's listed scope.
+- [ ] **The first `X-Forwarded-For` hop is client-supplied.** A client that forges it gets a fresh bucket each time; the
+      global semaphore still caps concurrent spend. Render's proxy appends the real IP as the LAST hop; if abuse ever shows
+      up, key on that instead. Recorded in `rate_limit.py`'s docstring.
+- [x] **Reproducible deploys.** `backend/requirements.lock` (clean-venv `pip freeze`, CPython 3.12); `render.yaml` installs
+      it; CI fails if it no longer satisfies `requirements.txt`. Takes effect on Render at the next deploy of `main`.
+- [x] **CI exists.** `.github/workflows/gate.yml`: `backend` and `ios-typecheck` on every push and PR; `ios-tests`
+      (full simulator suite, counts from `xcresulttool`, bundle uploaded) on `workflow_dispatch` only.
+- [x] **`cloud_repo._is_duplicate_key_error`** uses `isinstance` against pymongo's `DuplicateKeyError` (guarded import),
+      class-name match kept as the fallback for the test fake. Test added.
+- [ ] **Deployed backend NOT smoke-checked after this merge.** This session's sandbox network policy denies
+      `escape-plan-backend.onrender.com` (proxy 403 on CONNECT), so neither `GET /health` (expect 200) nor
+      `POST /diff_obstructions` with no token (expect 401 after the deploy) could be observed. Next action (owner):
+      run both curls once Render shows the deploy of this merge live.
+- [ ] **GitHub Actions warns that `actions/checkout@v4` / `setup-python@v5` target Node 20** and are being forced onto
+      Node 24. Harmless today; bump the major versions when convenient.
+
+### Part B · iOS (branch `audit-ios-fixes`, merged into `ui-revamp-1-foundation`, NOT `main`)
+
+**Part B CI (2026-09-25):** `audit-ios-fixes` run [36180213079](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180213079)
+green — `scripts/typecheck-ios.sh` all four targets, EditorCore **614 passed, 0 failed** (609 + the 5 `ScoreBand`
+tests), backend green. After the merge into `ui-revamp-1-foundation` (`e64f343`), the full simulator suite ran
+([36180793666](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180793666)): **971 passed, 8 failed,
+8 skipped** of 987, from `xcresulttool`. Every test added or rewritten here passed (`ThemeContrastTests`,
+`AppRouterTests`, the new `OnboardingTests`, `BackendFailureTests`, `ConversationStoreTests`). The 8 failures are the
+6 that also fail on `main` plus two UI tests, listed in §3.
+
+- [x] **B1 Assistant ignored the active home.** Grounds on `ReadinessStore.activeHome`, follows `activeHomeID`, resumes a
+      thread only for its own home, errors through `BackendFailure` + `BackendFailureBanner`, and says when chat history
+      can't be saved. **Unverified on a simulator**: the switch-homes-then-ask path has never been walked.
+- [x] **B2 One score, one source.** ScoreScreen reads `ReadinessStore`; one `ScoreBand` (85/60) for Home and Score,
+      tested in EditorCore (`ReadinessScoreBandTests`). **Visual check owed**: Score's top band is now `success` green
+      (was the indigo accent) so the two screens agree.
+- [x] **B3 House tab stuck on an old home.** `clearHouseRequest()` on switch + `HouseRequest.honoured`; `AppRouterTests`.
+- [x] **B4 Onboarding interview unreachable on a fresh install.** Always runs; writes to the active home; reports
+      failures; ContentView reloads on finish. Two new `OnboardingTests` (+1 for the no-home failure).
+- [x] **B5 Freshness gaps.** `refreshLastPracticed()` after a drill; `BackendFailure.localLoad` for a local file;
+      Tasks "No home yet" with a Scan button. Home's own no-home state (`library.homes.isEmpty` → "Map your home") was
+      checked and is sensible.
+- [x] **B6 Largest-deduction row** is title + "−X points", no bar.
+- [x] **B7 Cold start.** 90 s on `/score`, `/convert`, `/diff_obstructions`; `APIClient.session` internal and used by
+      every extension; fire-and-forget `/health` before the first score.
+- [x] **B8 Startup robustness.** One `HomeDocumentStore.launchStore()` in `escape_planApp.init`, temp fallback + a
+      persistent "Storage unavailable" banner, no `try!`; `ResponderSnapshotStore` falls back to the temp directory.
+      **The fallback path has never been exercised** (it needs an unreadable Documents directory).
+- [x] **B9** `BetaScreen.swift` deleted; `escape_plan/CLAUDE.md` tab list fixed.
+- [x] **B10** failure banners announce themselves to VoiceOver; onboarding titles, Assistant headline, Home score and
+      the Score basis caption use Dynamic Type; "Why: <item>".
+- [x] **B11** `ThemeContrastTests` rewritten for the dark-only palette (ratios computed for every token on all four
+      surfaces before writing it; tightest: `warning` on hover 4.90:1, `tertiary` on hover 3.07:1).
+- [x] **429 from the new backend cost guard** maps to the existing "busy, try again" copy (was "server had a problem (429)").
+
+**Deferred on purpose (do not do in a fix session):**
+- [ ] HouseScreen decomposition (2,726 lines) — split during the upcoming House redesign.
+- [ ] Replace the EditorCore symlinks with a real Swift package.
+- [ ] Sync last-write-wins clock-skew tie-break.
+- [ ] `profile_id` on `/score` (the score is household-level by design).
+- [ ] Put the drill log in the schema (needs a `schema_version` bump and `schema-contract-guardian`).
+- [ ] Move `HomeDocumentStore.list()` off the main thread.
+- [ ] Onboarding step-dot labels.
+
+**Found while doing this (not in the audit list):**
+- [ ] **`DrillScreen` still builds its own `HomeDocumentStore()`** (`DrillMode/DrillScreen.swift:721`), as do
+      `ProfilesScreen`, `SettingsScreen`, `BuildFromPlanView`, `HouseScreen` — all `try?`/`try`, none a `try!`, so not a
+      launch crash, but they bypass the launch store and so ignore the temp fallback. Next action: pass the library's
+      store down when those screens are next touched.
+- [ ] **`RouteRedrawAfterEditUITests` contradiction is NOT resolved.** The header stamp says red, §3 says fixed, and
+      the CI `ios-tests` job cannot settle it: the test `XCTSkip`s unless `TEST_RUNNER_ROUTE_REDRAW=1` and a live
+      local backend are present, so it is one of the 8 skipped. Next action (owner, on a Mac with the backend running):
+      run it live and record the result.
+
+### Owner-only (cannot be done from a session)
+
+- [ ] Top up the Anthropic credits (§1).
+- [ ] Make Render's `BACKEND_BEARER_TOKEN` match `.env` (§1) — until then a fresh install gets 401 everywhere.
+- [ ] Run the 3 `-m mongo` account-deletion tests against Atlas.
+- [ ] Tune `AI_RATE_PER_MIN` / `AI_RATE_BURST` / `AI_MAX_CONCURRENT` in the Render dashboard if 6/min, burst 3, 4 in
+      flight is wrong for filming (deliberately not pinned in `render.yaml`, so dashboard values survive a blueprint sync).
+
+---
+
 ## S11 · The reframe arc: where every open item now lives
 
 Everything below this section is the pre-S11 board, still true unless a line says otherwise. The plan for closing it is
@@ -68,10 +178,14 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
 
 ### New findings from the baseline session (2026-09-18)
 
-- [ ] **The baseline is not pushed.** `s11-0-baseline` is merged locally only. Nobody else can branch from it until the
+- [x] **The baseline is not pushed.** _Verified 2026-09-25 (audit remediation): the merge `5264dcd` and the
+      baseline commit `fadd4a9` are both ancestors of `origin/main` (`git merge-base --is-ancestor`)._ `s11-0-baseline` is merged locally only. Nobody else can branch from it until the
       owner merges it to `main` and pushes. Next action (owner): `git switch main && git merge --no-ff s11-0-baseline &&
       git push`, then tell the other two to `git fetch origin`.
-- [ ] **`.claude/settings.json` and the hook scripts still need owner-approved edits.** The planned changes were blocked
+- [ ] **`.claude/settings.json` and the hook scripts still need owner-approved edits.** _Part (1) done 2026-09-25 (audit
+      remediation): `branch-guard.sh` is `chmod +x` (mode committed) and wired into PreToolUse(Bash) after
+      `secrets-guard`; checked by piping a `git commit` payload through it on `main` (exit 2) and on a branch (exit 0).
+      Parts (2) and (3) are still open._ The planned changes were blocked
       by the auto-mode classifier as self-modification and were NOT applied: (1) wire the new
       `.claude/hooks/pre-commit/branch-guard.sh` (written, unexecutable, unwired) into PreToolUse(Bash) and `chmod +x`
       it; (2) add shared allow rules for `xcodebuild test`, `swift test`, `xcrun xcresulttool|simctl`, `bash scripts/*`,
@@ -113,7 +227,9 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
       nothing was ever down. Deployment `6548963490` on the fix merge (`9698559`) went **`success` 2026-09-19
       21:21 UTC**, and `/health` returned `{"status":"ok","version":"1.0"}` in 0.27s against it. The deployed
       backend is current with `main` again.
-- [ ] **Nothing in this repo runs the gate before a deploy.** There is no `.github/workflows/`; Render deploys
+- [x] **Nothing in this repo runs the gate before a deploy.** _Closed 2026-09-25: `.github/workflows/gate.yml`
+      (see "Audit remediation" below). Render still deploys `main` independently of CI; CI turning red does not stop a
+      deploy, it only makes the break visible first._ There is no `.github/workflows/`; Render deploys
       every push to `main` and a broken import is only caught by the deploy failing. A CI job running the backend
       suite and the corpus validator on push would have caught this before Render did. Owner: unassigned — see
       `TODO.md` if it is not picked up.
@@ -868,6 +984,15 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
 
 ## 0 · FIRST PRIORITY — before any other work
 
+- [ ] **2026-09-25: the iOS suite has run, in CI, and is RED — true counts recorded, gate still open.** The manual
+      `ios-tests` job (`.github/workflows/gate.yml`, iPhone 17 Pro / iOS 26.5, `CODE_SIGNING_ALLOWED=NO`), counts from
+      `xcresulttool`: `main` `02988ea` **960 passed, 6 failed, 8 skipped** (974), identical on a re-run
+      ([run 36179198283](https://github.com/vedang-123-ai/escape_plan/actions/runs/36179198283)); `ui-revamp-1-foundation`
+      `e64f343` **971 passed, 8 failed, 8 skipped** (987)
+      ([run 36180793666](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180793666)). Failures in §3
+      (2026-09-25). Still owed on a Mac: the device checks in §2, and a local run to compare with CI's. To re-run:
+      Actions → gate → Run workflow on the branch.
+
 - [ ] **Compile and test the app on a working simulator, and record a real count.**
       **Owner: Anish / Yuki.** Full brief, command and follow-ups:
       [`FIRST-PRIORITY.md`](FIRST-PRIORITY.md). Four bodies of Swift have landed since the last
@@ -925,6 +1050,13 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
       filming.
 
       **Run preflight with `backend/.venv/bin/python`, not `python3`** — see §4.
+
+- [ ] **Run the 3 `-m mongo` account-deletion tests against Atlas** (added 2026-09-25). They need the real
+      `MONGODB_URI`; no session holds it. `cd backend && .venv/bin/python -m pytest -m mongo`.
+
+- [ ] **Tune the AI cost guard on Render if needed** (added 2026-09-25): `AI_RATE_PER_MIN` (default 6),
+      `AI_RATE_BURST` (3), `AI_MAX_CONCURRENT` (4), set in the dashboard. Filming several assistant takes back to
+      back from one phone will hit burst 3; raise it for the shoot if so.
 
 ---
 
@@ -1110,6 +1242,28 @@ because if it fails nothing downstream is worth tuning.
 ---
 
 ## 3 · Known defects — found by review, not yet fixed
+
+**Found by the first CI simulator runs, 2026-09-25** (counts and links in §0):
+- [ ] **`KeychainTokenStoreTests` × 3 fail with `KeychainError(status: -34018)`** (errSecMissingEntitlement) on
+      `main` and the revamp, reproduced on a re-run. Almost certainly the CI command's `CODE_SIGNING_ALLOWED=NO`: an
+      unsigned simulator test host has no keychain entitlement. **Not proven** — these tests have never run on any
+      platform before. Next action: run them once on a Mac with signing on; if they pass, give the CI job an ad-hoc
+      signing variant (`CODE_SIGN_IDENTITY=-`, no team) rather than skipping them.
+- [ ] **`EvacuationMockTimelineTests.testGenericFactoryExercisesAllThreeFixturesWithoutInventingPaths` fails in the
+      app** (apartment: 2 tracks, expected 1) **but passes in EditorCore** on the same commit. `apartment.json` now has
+      two profiles (Sam and Biscuit the pet), so 2 looks right and the expectation stale — but then the package run
+      should fail too. Next action: find what differs between the two runners (fixture path via `#filePath` through the
+      symlink, or a DEBUG-only branch in `MockTimeline`) before touching the expectation.
+- [ ] **`SignedOutPathUITests.testSettingsCarriesThePrivacyDisclosureSignedOut` and
+      `testTheGateSaysWhatAnAccountWouldUpload`** fail on `main` and the revamp ("the gate asks for an account without
+      saying what it uploads"). S11.7 shipped these without a simulator. Next action: run on a Mac and look at the
+      screenshot in the uploaded `ci-xcresult` artifact.
+- [ ] **`GestureFrameCostUITests.testACameraDragDoesNotDragSwiftUIUpdatesAlongWithIt`** fails on the revamp only
+      (`editor.scene` not found after Home → Menu → Build Manually). No pre-audit revamp run exists to say whether the
+      revamp or the audit fixes caused it (the audit did not touch that path or `HouseScreen`). Next action (owner): walk
+      that path in the simulator.
+- [x] **`SignedOutPathUITests.testEveryTabOpensSignedOutWithNoBackend`** looked for the removed Beta tab. Fixed on
+      `audit-ios-fixes` (now Home, Tasks, House, Assistant, Settings). **Not re-run yet.**
 
 - [x] ~~**The root `CLAUDE.md` says "iOS 17+"; the project builds against iOS 26.5.**~~
       **RESOLVED 2026-09-16 — the docs were right and the project file was wrong.**

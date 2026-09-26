@@ -1,11 +1,13 @@
 // ScoreScreen.swift
-// S3.5 preparedness score: overall 0–100 score, the five-component weighted breakdown,
-// and the actionable checklist. Pushed per-home from HomeScreen (not a tab — the score is
-// per-home data, and a sixth tab would overflow into iOS's "More" list; see docs/decisions.md).
+// S3.5 preparedness score: overall 0–100 score, the per-peril sub-scores and the single
+// largest deduction. Pushed from HomeScreen for the ACTIVE home (not a tab — a sixth tab would
+// overflow into iOS's "More" list; see docs/decisions.md).
 //
-// No score math happens on this device. Every toggle persists the checklist state locally
-// (ChecklistStateStore) and re-POSTs /score; the displayed number and breakdown are always
-// the backend's, so they match docs/preparedness-score-weights.md by construction.
+// No score math happens on this device, and since the audit (2026-09-25) no score request
+// either: this screen reads `ReadinessStore`, the one owner of the active home's /score result.
+// It used to load its own copy of the home and POST /score itself, so Home and Score could show
+// two different numbers for one home. Refresh asks the store to re-score; the Home card, the
+// Tasks tab and this screen then update together.
 
 //
 // Accessibility (lane D1): the ring is the app's most colour-dependent surface, so it does
@@ -16,51 +18,31 @@
 import SwiftUI
 
 struct ScoreScreen: View {
-    let homeID: String
-
     @Environment(APIClient.self) private var apiClient
+    @Environment(ReadinessStore.self) private var readiness
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    @State private var home: HomeModel?
-    @State private var breakdown: ScoreBreakdown?
-    @State private var checklistState: [String: Bool] = [:]
-    @State private var isLoading = false
-    @State private var isUpdating = false
-    /// The whole classified failure, not `.message`. Flattening it here was how a 502 ("no
-    /// credit — an operator must act") and a 503 ("busy — try again") ended up rendering the
-    /// same sentence with the same Retry button.
-    @State private var failure: BackendFailure?
-    /// Local load problems (a home document that won't decode) aren't backend failures and
-    /// must not be dressed as one.
-    @State private var loadErrorMessage: String?
-    @State private var refreshTask: Task<Void, Never>?
-
-    private let stateStore = ChecklistStateStore()
 
     var body: some View {
         content
             .dsPage()
-            .navigationTitle(breakdown?.home_name ?? "Score")
+            .navigationTitle(readiness.breakdown?.home_name ?? "Score")
             .navigationBarTitleDisplayMode(.inline)
-            .task { await initialLoad() }
+            .animation(reduceMotion ? nil : .snappy, value: readiness.breakdown?.score)
     }
 
     @ViewBuilder
     private var content: some View {
-        if let breakdown {
+        if let breakdown = readiness.breakdown {
             scoreList(breakdown)
-        } else if isLoading {
+        } else if readiness.isScoring {
             LoadingTipView(label: "Scoring…", accessibilityText: "Working out your preparedness score.")
-        } else if let loadErrorMessage {
+        } else if let failure = readiness.scoreFailure {
             ContentUnavailableView {
-                Label("Couldn't open this home", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(loadErrorMessage)
-            }
-        } else if let failure {
-            ContentUnavailableView {
-                Label("Couldn't get your score", systemImage: failure.symbol)
+                // A home file that will not open is not "couldn't get your score" — nothing
+                // was asked of the server.
+                Label(failure.kind == .localData ? "Couldn't open this home" : "Couldn't get your score",
+                      systemImage: failure.symbol)
             } description: {
                 VStack(spacing: 10) {
                     Text(failure.message)
@@ -79,6 +61,9 @@ struct ScoreScreen: View {
                         .accessibilityHint("Asks the server for your preparedness score again.")
                 }
             }
+        } else if readiness.activeHomeID == nil {
+            ContentUnavailableView("No home yet", systemImage: "house",
+                                   description: Text("Add a home on the Home tab to see its score."))
         } else {
             ProgressView()
                 .accessibilityLabel("Loading your preparedness score.")
@@ -91,7 +76,7 @@ struct ScoreScreen: View {
                 scoreHeader(breakdown)
                     .padding(.top, 8)
 
-                if let failure {
+                if let failure = readiness.scoreFailure {
                     // One banner, one classifier. The stale-score caveat is spoken up front so
                     // VoiceOver users hear *why* the number below might be wrong.
                     VStack(alignment: .leading, spacing: 8) {
@@ -151,7 +136,7 @@ struct ScoreScreen: View {
                 // At accessibility sizes the number alone can't carry the proportion, so a
                 // bar sits under it.
                 ProgressView(value: Double(breakdown.score), total: 100)
-                    .tint(scoreTint(breakdown.score))
+                    .tint(ReadinessStore.band(for: breakdown.score).tint)
                     .padding(.horizontal, 40)
             }
             bandLabel(breakdown.score)
@@ -177,7 +162,7 @@ struct ScoreScreen: View {
                     .padding(.top, 2)
             }
 
-            if isUpdating {
+            if readiness.isScoring {
                 ProgressView()
                     .accessibilityLabel("Updating your score.")
             }
@@ -188,8 +173,8 @@ struct ScoreScreen: View {
         // "62 out of 100. Preparedness score for the Miller House. Some gaps to close."
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(breakdown.score) out of 100. Preparedness score for "
-                            + "\(breakdown.home_name). \(bandDescription(breakdown.score)).")
-        .accessibilityValue(isUpdating ? "Updating" : "")
+                            + "\(breakdown.home_name). \(ReadinessStore.band(for: breakdown.score).title).")
+        .accessibilityValue(readiness.isScoring ? "Updating" : "")
         .accessibilityAddTraits(.isSummaryElement)
     }
 
@@ -213,50 +198,14 @@ struct ScoreScreen: View {
     }
 
     /// SC 1.4.1: the band must not be carried by the ring's colour alone. A glyph and a phrase
-    /// say the same thing to someone who can't tell the green ring from the amber one.
+    /// say the same thing to someone who can't tell one band's colour from another's. The band
+    /// itself is `ReadinessStore.band(for:)` — the same one the Home card uses.
     private func bandLabel(_ score: Int) -> some View {
-        Label(bandDescription(score), systemImage: bandSymbol(score))
+        let band = ReadinessStore.band(for: score)
+        return Label(band.title, systemImage: band.symbol)
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(scoreTextTint(score))
+            .foregroundStyle(band.textTint)
             .accessibilityHidden(true)  // already spoken by the header's combined label
-    }
-
-    /// The score ring is the biggest colour surface in the app outside the 3D view, so it has
-    /// to obey the same rule: no route orange in chrome. The mid band uses `Theme.caution`
-    /// (amber), not SwiftUI's `.orange`. These are FILL colours (ring stroke, progress bar) and
-    /// are held to WCAG's 3:1 non-text bar; `scoreTextTint` is the text-safe sibling.
-    private func scoreTint(_ score: Int) -> Color {
-        switch score {
-        case 80...: Theme.accent
-        case 50..<80: Theme.caution
-        default: Theme.warning
-        }
-    }
-
-    /// Same three bands, but the accent band uses the darkened/lightened `accentText` so the
-    /// band caption clears 4.5:1 in both appearances.
-    private func scoreTextTint(_ score: Int) -> Color {
-        switch score {
-        case 80...: Theme.accentText
-        case 50..<80: Theme.caution
-        default: Theme.warning
-        }
-    }
-
-    private func bandDescription(_ score: Int) -> String {
-        switch score {
-        case 80...: "Well prepared"
-        case 50..<80: "Some gaps to close"
-        default: "Needs work"
-        }
-    }
-
-    private func bandSymbol(_ score: Int) -> String {
-        switch score {
-        case 80...: "checkmark.shield.fill"
-        case 50..<80: "exclamationmark.triangle.fill"
-        default: "xmark.octagon.fill"
-        }
     }
 
     /// One of the three S6.7 peril sub-scores, shown under the composite ring. `basis` is
@@ -267,7 +216,7 @@ struct ScoreScreen: View {
         VStack(spacing: 4) {
             Text("\(score)")
                 .font(.headline)
-                .foregroundStyle(scoreTextTint(score))
+                .foregroundStyle(ReadinessStore.band(for: score).textTint)
             Text(label)
                 .font(.caption2)
                 .foregroundStyle(DS.supporting)
@@ -275,7 +224,9 @@ struct ScoreScreen: View {
                 .frame(maxWidth: 80)
             if let basis {
                 Text(basis)
-                    .font(.system(size: 9, weight: .semibold))
+                    // Dynamic Type (audit 2026-09-25): a fixed 9 pt never grew with the user's
+                    // text size. `.caption2` is the smallest style that does.
+                    .font(.caption2.weight(.semibold))
                     .textCase(.uppercase)
                     .kerning(0.3)
                     .foregroundStyle(DS.supporting)
@@ -287,65 +238,45 @@ struct ScoreScreen: View {
         .accessibilityLabel("\(label) sub-score is \(score)" + (basis.map { ", \($0)" } ?? ""))
     }
 
-    // MARK: - Breakdown
+    // MARK: - Largest deduction
 
-    /// Colour by how much of the component is earned (the design's thresholds): ≥70 % accent,
-    /// ≥40 % caution, else warning. Fills, held to 3:1; the text beside them uses text-safe
-    /// siblings.
-    private func componentTint(_ component: ScoreComponent) -> Color {
-        guard component.max_points > 0 else { return DS.supporting }
-        let ratio = component.earned_points / component.max_points
-        return ratio >= 0.7 ? Theme.accent : (ratio >= 0.4 ? Theme.caution : Theme.warning)
-    }
-
-    private func componentTextTint(_ component: ScoreComponent) -> Color {
-        componentTint(component) == Theme.accent ? Theme.accentText : componentTint(component)
+    /// The backend sends 0 or 1 component: the single largest unresolved deduction, as
+    /// `earned_points = 0, max_points = X` (S6.7). Drawn as a progress bar that was always an
+    /// empty "0 / X" (audit 2026-09-25); it is what it is — a title and what it costs.
+    private func deduction(_ component: ScoreComponent) -> Double {
+        max(0, component.max_points - component.earned_points)
     }
 
     private func componentRow(_ component: ScoreComponent) -> some View {
-        let points = "\(formatted(component.earned_points)) of "
-            + "\(formatted(component.max_points)) points"
-        let pointsText = "\(formatted(component.earned_points)) / \(formatted(component.max_points))"
+        let cost = "−\(formatted(deduction(component))) points"
         return VStack(alignment: .leading, spacing: 6) {
-            // At accessibility sizes "Smoke alarms" and "12 / 20" cannot share a line without
-            // one of them truncating, so the row stacks instead of shrinking either.
+            // At accessibility sizes the title and the cost cannot share a line without one of
+            // them truncating, so the row stacks instead of shrinking either.
             ViewThatFits(in: .horizontal) {
                 HStack {
                     Text(component.label).font(.body.weight(.medium)).foregroundStyle(DS.ink)
                     Spacer()
-                    Text(pointsText)
+                    Text(cost)
                         .font(.body.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(componentTextTint(component))
+                        .foregroundStyle(Theme.warning)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(component.label).font(.body.weight(.medium)).foregroundStyle(DS.ink)
-                    Text(pointsText)
+                    Text(cost)
                         .font(.body.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(componentTextTint(component))
+                        .foregroundStyle(Theme.warning)
                 }
             }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(DS.track)
-                    Capsule()
-                        .fill(componentTint(component))
-                        .frame(width: component.max_points > 0
-                               ? geo.size.width * CGFloat(min(1, component.earned_points / component.max_points))
-                               : 0)
-                }
-            }
-            .frame(height: 4)
-            .padding(.vertical, 4)
-            .accessibilityHidden(true)
             Text(component.detail)
                 .font(.subheadline)
                 .foregroundStyle(DS.supporting)
-            WhyDisclosure(rationale: component.rationale)
+            WhyDisclosure(title: component.label, rationale: component.rationale)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(component.label). \(points). \(component.detail)")
+        .accessibilityLabel("\(component.label). Costs \(formatted(deduction(component))) points. "
+                            + "\(component.detail)")
     }
 
     /// "30" not "30.0", but "2.14" for fractional per-item values like 15/7.
@@ -355,61 +286,24 @@ struct ScoreScreen: View {
 
     // MARK: - Data
 
-    private func initialLoad() async {
-        guard breakdown == nil, !isLoading else { return }
-        checklistState = stateStore.load(homeID: homeID)
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            home = try HomeDocumentStore().load(homeID: homeID, as: HomeModel.self)
-            loadErrorMessage = nil
-        } catch {
-            loadErrorMessage = "Couldn't load this home: \(error)"
-            return
-        }
-        await fetchScore()
-    }
-
-    /// Cancels any in-flight request and re-POSTs /score with the current checklist state.
+    /// Re-POSTs /score through the shared store, so every screen showing this home updates.
     private func refresh() {
-        refreshTask?.cancel()
-        refreshTask = Task { await fetchScore() }
-    }
-
-    private func fetchScore() async {
-        guard let home else {
-            // First load failed before the model decoded; retry the whole load.
-            await initialLoad()
-            return
-        }
-        isUpdating = true
-        defer { isUpdating = false }
-        do {
-            let new = try await apiClient.score(home: home, checklistState: checklistState)
-            guard !Task.isCancelled else { return }
-            withAnimation(reduceMotion ? .linear(duration: 0) : .snappy) {
-                breakdown = new
-                if let cache = try? ScoreCache() { cache.save(new, for: homeID) }
-                failure = nil
-            }
-        } catch is CancellationError {
-            // A newer toggle superseded this request.
-        } catch {
-            guard !Task.isCancelled else { return }
-            failure = BackendFailure(error, while: .score)
-        }
+        readiness.rescore(api: apiClient)
     }
 }
 
 #Preview {
     NavigationStack {
-        ScoreScreen(homeID: "preview-home")
+        ScoreScreen()
     }
     .environment(APIClient())
+    .environment(ReadinessStore(library: HomeLibrary(store: HomeDocumentStore.launchStore().store)))
 }
 
 /// The "Why" reveal, with a selection notch — `DisclosureGroup`'s own toggle is silent.
 private struct WhyDisclosure: View {
+    /// What the "Why" is about, so VoiceOver does not hear a bare "Why" with no subject.
+    let title: String
     let rationale: String
     @State private var isExpanded = false
 
@@ -423,6 +317,7 @@ private struct WhyDisclosure: View {
             Text("Why")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.accentText)
+                .accessibilityLabel("Why: \(title)")
         }
         .tint(Theme.accentText)
         .onChange(of: isExpanded) { Haptics.selection() }

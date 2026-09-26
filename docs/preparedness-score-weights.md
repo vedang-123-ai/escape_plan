@@ -76,6 +76,21 @@ Until S11.2 this weighting was decorative: earthquake and severe weather were pi
 
 If **any** unresolved checklist item across **any** peril has `high` severity — regardless of whether that item is `scoring: true` or `false` (e.g. a structural `no_viable_route` finding for a wheelchair user) — the composite score is capped at **40**. This ensures the score strictly falls into the "Needs work" (red) band on the UI, regardless of how many other boxes are checked.
 
+### Bands
+
+The app shows every score in one of three bands, defined once in `escape_plan/Readiness/ScoreBand.swift` and used by both
+the Home card and the Score screen (they disagreed, 85/60 against 80/50, until 2026-09-25):
+
+| Band | Score | Words on screen |
+| --- | --- | --- |
+| Well prepared | 85–100 | "Well prepared" |
+| Some gaps | 60–84 | "Some gaps to close" |
+| Needs work | 0–59 | "Needs work" |
+
+The bands are presentation, not scoring: they never change a number. They are pinned by `ReadinessScoreBandTests`,
+including that the high-severity cap above (40) always reads "Needs work", and that the three fixture scores (73 / 70 /
+66) are mid-band — an unedited demo home must not read "Well prepared".
+
 ### Lapsed recurring items are non-punitive
 
 `practice.drill_recent` (6-month cadence) and `rescan.home` (6-month cadence) are both `scoring: false`. A lapsed or never-completed drill, or a stale scan, shows up as an open checklist item — but it never subtracts a point. The scoring items are listed above.

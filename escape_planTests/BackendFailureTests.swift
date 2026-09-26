@@ -115,4 +115,24 @@ struct BackendFailureTests {
         #expect(f.kind == .offline)
         #expect(f.isRetryable, "the user can still try to get live routes")
     }
+
+    @Test("429 from the backend's AI cost guard reads as busy, with Retry")
+    func rateLimited() {
+        let f = failure(429, .assistant)
+        #expect(f.kind == .serverBusy)
+        #expect(f.isRetryable)
+        #expect(f.message == failure(503, .assistant).message, "one busy message, not two")
+    }
+
+    @Test("A local file that won't load never blames the server or the connection")
+    func localLoad() {
+        struct Corrupt: Error {}
+        let f = BackendFailure.localLoad(Corrupt())
+        #expect(f.kind == .localData)
+        #expect(f.isOfflineFlavoured == false)
+        #expect(f.suggestsSettings == false, "no server setting can fix a file on this phone")
+        #expect(f.message.contains("server") == false)
+        #expect(f.message.contains("connection") == false)
+        #expect(f.message.contains("this device"))
+    }
 }

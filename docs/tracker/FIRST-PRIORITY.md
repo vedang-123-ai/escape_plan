@@ -16,6 +16,25 @@ thing", not as a specific session.)
 Nothing below is a request to write code. It is a request to find out whether the code
 that already exists works.
 
+## Status 2026-09-25: the suite has now RUN, in CI, and is not green
+
+The new manual `ios-tests` job in `.github/workflows/gate.yml` (iPhone 17 Pro simulator, iOS 26.5, Xcode on
+`macos-26`, `CODE_SIGNING_ALLOWED=NO`) ran the full `xcodebuild test`. Counts below are from
+`xcrun xcresulttool get test-results summary`, not the console:
+
+| Branch / commit | Run | Passed | Failed | Skipped | Total |
+| --- | --- | --- | --- | --- | --- |
+| `main` `02988ea` (attempt 1) | [36179198283](https://github.com/vedang-123-ai/escape_plan/actions/runs/36179198283) | 960 | 6 | 8 | 974 |
+| `main` `02988ea` (re-run, attempt 2) | same run, attempt 2 | 960 | 6 | 8 | 974 |
+| `ui-revamp-1-foundation` `e64f343` (after the audit fixes) | [36180793666](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180793666) | 971 | 8 | 8 | 987 |
+
+The `main` result reproduced exactly on the re-run, so it is not flake. The failures, all listed in
+`BLOCKERS.md` §3 (2026-09-25 entries): 3 × `KeychainTokenStoreTests` (-34018, missing entitlement — expected with
+signing disabled), 1 × `EvacuationMockTimelineTests` (apartment), 2 × `SignedOutPathUITests` privacy-disclosure
+tests; on the revamp branch additionally `SignedOutPathUITests.testEveryTabOpensSignedOutWithNoBackend` (stale "Beta"
+tab — fixed on `audit-ios-fixes` afterwards, not yet re-run) and `GestureFrameCostUITests` (`editor.scene` not found).
+**`gate_status` stays `open`:** a count exists now, but a red one, and the device-only checks below still apply.
+
 ## Why this is first
 
 **Six** bodies of Swift have landed since the last recorded green iOS run (**615 passed,

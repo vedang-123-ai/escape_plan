@@ -125,8 +125,15 @@ struct HomeScreen: View {
                     if let id = library.homes.first?.id { switchHome(to: id) }
                 }
             }
-            .navigationDestination(item: $scoreHomeID) { ScoreScreen(homeID: $0) }
-            .navigationDestination(item: $drillHomeID) { DrillScreen(homeID: $0) }
+            // Score reads the shared ReadinessStore (the active home), so the id only drives
+            // the push.
+            .navigationDestination(item: $scoreHomeID) { _ in ScoreScreen() }
+            .navigationDestination(item: $drillHomeID) { homeID in
+                // The drill writes its own log; "Last: …" on the drill card must not wait
+                // for the next full load to notice.
+                DrillScreen(homeID: homeID)
+                    .onDisappear { readiness.refreshLastPracticed() }
+            }
         }
     }
 
@@ -194,6 +201,9 @@ struct HomeScreen: View {
     }
 
     private func switchHome(to id: String) {
+        // A pending "show me in the house" belongs to the home it was made for. Left in place,
+        // it pinned the House tab to the previous home after a switch (audit 2026-09-25).
+        if id != readiness.activeHomeID { router.clearHouseRequest() }
         Task { await readiness.select(id, api: apiClient) }
     }
 
@@ -238,7 +248,7 @@ struct HomeScreen: View {
                 .buttonStyle(DSPressStyle())
                 .padding(.horizontal, DS.pagePadding)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Preparedness score \(breakdown.score) out of 100, \(band(breakdown.score)). Opens the breakdown.")
+                .accessibilityLabel("Preparedness score \(breakdown.score) out of 100, \(ReadinessStore.band(for: breakdown.score).title). Opens the breakdown.")
         } else if let failure = readiness.scoreFailure {
             BackendFailureBanner(failure: failure,
                                  retry: failure.isRetryable ? { readiness.rescore(api: apiClient) } : nil)
@@ -246,14 +256,6 @@ struct HomeScreen: View {
         } else {
             LoadingTipView(label: "Scoring…").frame(minHeight: 240)
         }
-    }
-
-    private func band(_ score: Int) -> String {
-        score >= 85 ? "Well prepared" : score >= 60 ? "Nearly ready" : "Getting started"
-    }
-
-    private func bandTint(_ score: Int) -> Color {
-        score >= 85 ? Theme.success : score >= 60 ? Theme.caution : Theme.warning
     }
 
     private func scoreCard(_ score: Int) -> some View {
@@ -264,7 +266,8 @@ struct HomeScreen: View {
                     .foregroundStyle(Theme.supporting)
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(score)")
-                        .font(.system(size: 44, weight: .semibold))
+                        // Dynamic Type (audit 2026-09-25): was a fixed 44 pt.
+                        .font(Theme.metric)
                         .monospacedDigit()
                         .kerning(-1.5)
                         .foregroundStyle(Theme.text)
@@ -272,7 +275,9 @@ struct HomeScreen: View {
                     Text("/ 100").font(.subheadline).foregroundStyle(Theme.supporting)
                 }
                 HStack(spacing: 8) {
-                    DSStatusPill(text: band(score), tint: bandTint(score))
+                    // One band definition for Home and Score (`Readiness/ScoreBand.swift`).
+                    DSStatusPill(text: ReadinessStore.band(for: score).title,
+                                 tint: ReadinessStore.band(for: score).tint)
                     HStack(spacing: 3) {
                         Text("Breakdown")
                         Image(systemName: "arrow.right").font(.system(size: 9, weight: .bold))

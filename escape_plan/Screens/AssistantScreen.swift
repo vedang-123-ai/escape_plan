@@ -9,26 +9,47 @@
 //  The server is stateless: every send resends the full history (ending with a user
 //  message). The thread is persisted locally after every appended message, so it survives
 //  backgrounding and force-quit.
+//
+//  Grounding (audit 2026-09-25): the chat is about the ACTIVE home — `ReadinessStore.activeHome`,
+//  the one Home, Tasks and House show — and follows it when it changes. It used to load the most
+//  recently modified home once and never again, so it could answer about a different house from
+//  the one on screen. A saved thread resumes only for the home it was about.
 
 import SwiftUI
 
 struct AssistantScreen: View {
     @Environment(APIClient.self) private var apiClient
+    @Environment(ReadinessStore.self) private var readiness
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var messages: [AssistantMessage] = []
     @State private var draft = ""
     @State private var isSending = false
-    @State private var errorMessage: String?
-    @State private var canRetry = false
+    /// Classified by the shared `BackendFailure`, so the assistant's 401/429/502/503 read
+    /// exactly as they do on every other screen, and Retry appears only when it can help.
+    @State private var failure: BackendFailure?
 
-    @State private var home: HomeModel?
-    @State private var homeLoadError: String?
-    @State private var loaded = false
     @FocusState private var composerFocused: Bool
 
+    /// nil when Documents is unreachable. The chat still works; it just cannot be kept, and the
+    /// screen says so rather than failing silently.
     private let store = try? ConversationStore()
+
+    /// The home the chat is grounded in: the app's active home.
+    private var home: HomeModel? { readiness.activeHome }
+
+    /// Why there is no home to ground in, when there is none (nil while it is still loading).
+    private var homeLoadError: String? {
+        guard home == nil else { return nil }
+        if readiness.activeHomeID == nil {
+            return "No home yet — add one on the Home tab and the assistant will know it."
+        }
+        if let failure = readiness.scoreFailure, failure.kind == .localData {
+            return failure.message
+        }
+        return nil
+    }
 
     var body: some View {
         NavigationStack {
@@ -42,8 +63,17 @@ struct AssistantScreen: View {
             // edge on every device, and the list keeps its own room above it.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
-                    if let errorMessage {
-                        errorBanner(errorMessage)
+                    if let failure {
+                        BackendFailureBanner(failure: failure,
+                                             retry: failure.isRetryable ? { retry() } : nil)
+                            .padding(.horizontal, DS.pagePadding)
+                            .padding(.bottom, 6)
+                    }
+                    if store == nil {
+                        Label("Chat history can't be saved on this device.", systemImage: "externaldrive.badge.xmark")
+                            .font(.caption)
+                            .foregroundStyle(DS.supporting)
+                            .padding(.horizontal, DS.pagePadding)
                     }
                     inputBar
                 }
@@ -52,7 +82,9 @@ struct AssistantScreen: View {
             .navigationTitle("Assistant")
             .toolbar(.hidden, for: .navigationBar)
         }
-        .task { loadIfNeeded() }
+        .task { loadThread() }
+        // Switching homes anywhere in the app switches what the assistant is about.
+        .onChange(of: readiness.activeHomeID) { loadThread(homeChanged: true) }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { persist() }
         }
@@ -91,7 +123,7 @@ struct AssistantScreen: View {
                     .foregroundStyle(Theme.accentText)
                     .frame(width: 44, height: 44)
             }
-            .disabled(messages.isEmpty && errorMessage == nil)
+            .disabled(messages.isEmpty && failure == nil)
             .hapticTap()
             .accessibilityLabel("New chat")
             .accessibilityHint("Clears this conversation and starts a fresh one.")
@@ -192,7 +224,8 @@ struct AssistantScreen: View {
             AssistantGlow()
             VStack(spacing: 22) {
                 Text("What would you like to know about your home?")
-                    .font(.system(size: 26, weight: .bold))
+                    // Dynamic Type (audit 2026-09-25): was a fixed 26 pt.
+                    .font(.title2.bold())
                     .kerning(-0.3)
                     .foregroundStyle(DS.ink)
                     .multilineTextAlignment(.center)
@@ -246,30 +279,6 @@ struct AssistantScreen: View {
         .accessibilityAddTraits(.updatesFrequently)
     }
 
-    private func errorBanner(_ message: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(Theme.caution)
-                .accessibilityHidden(true)
-            Text(message)
-                .font(.footnote)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityLabel("The assistant couldn't answer. \(message)")
-            if canRetry {
-                Button("Retry") { retry() }
-                    .font(.footnote.bold())
-                    .disabled(isSending)
-                    .minimumTapTarget()
-                    .accessibilityLabel("Retry")
-                    .accessibilityHint("Sends your last question again.")
-            }
-        }
-        .foregroundStyle(DS.bodyInk)
-        .dsCard(radius: 12, padding: 12)
-        .padding(.horizontal, DS.pagePadding)
-        .padding(.bottom, 6)
-    }
-
     private var inputBar: some View {
         HStack(spacing: 10) {
             TextField("Ask anything…", text: $draft, axis: .vertical)
@@ -316,25 +325,14 @@ struct AssistantScreen: View {
 
     // MARK: - Actions
 
-    /// Loads the persisted thread and the home the chat is grounded in: the most recently
-    /// modified saved home, falling back to the bundled twostory fixture on a fresh install.
-    private func loadIfNeeded() {
-        guard !loaded else { return }
-        loaded = true
-
-        if let document = store?.load() {
-            messages = document.messages
-        }
-
-        do {
-            let documentStore = try HomeDocumentStore()
-            if let newest = documentStore.list().first {
-                home = try documentStore.load(homeID: newest.id, as: HomeModel.self)
-            } else {
-                home = try FixtureLoader.load(.twostory)
-            }
-        } catch {
-            homeLoadError = "No home available to ground the chat — save one on the Home tab."
+    /// Shows the saved thread if it was about the active home; otherwise starts a fresh one.
+    /// Called on appear (every tab switch back here, so it must be cheap and must not eat a
+    /// half-typed question) and whenever the active home changes.
+    private func loadThread(homeChanged: Bool = false) {
+        messages = store?.load(forHomeID: readiness.activeHomeID)?.messages ?? []
+        if homeChanged {
+            failure = nil
+            draft = ""
         }
     }
 
@@ -358,13 +356,16 @@ struct AssistantScreen: View {
     private func deliverPendingUserMessage() {
         guard let home else { return }
         isSending = true
-        errorMessage = nil
-        canRetry = false
+        failure = nil
         let history = messages.map(\.wireMessage)
+        let askedAbout = home.home_id
 
         Task {
             do {
                 let response = try await apiClient.chat(home: home, messages: history)
+                // The user switched homes while this was in flight: the answer is about a home
+                // no longer on screen, so it does not join the new home's thread.
+                guard readiness.activeHomeID == askedAbout else { isSending = false; return }
                 messages.append(
                     AssistantMessage(role: .assistant,
                                      content: response.reply,
@@ -372,10 +373,10 @@ struct AssistantScreen: View {
                 )
                 persist()
             } catch {
-                errorMessage = (error as? LocalizedError)?.errorDescription
-                    ?? "The assistant couldn't answer — check your connection and try again."
-                canRetry = true
-                Haptics.warning()
+                if readiness.activeHomeID == askedAbout {
+                    failure = BackendFailure(error, while: .assistant)
+                    Haptics.warning()
+                }
             }
             isSending = false
         }
@@ -383,14 +384,13 @@ struct AssistantScreen: View {
 
     private func newChat() {
         messages = []
-        errorMessage = nil
-        canRetry = false
+        failure = nil
         try? store?.clear()
     }
 
     private func persist() {
         guard let store else { return }
-        try? store.save(ConversationDocument(homeID: home?.home_id, messages: messages))
+        try? store.save(ConversationDocument(homeID: readiness.activeHomeID, messages: messages))
     }
 }
 
@@ -527,4 +527,5 @@ private struct TypingDots: View {
 #Preview {
     AssistantScreen()
         .environment(APIClient())
+        .environment(ReadinessStore(library: HomeLibrary(store: HomeDocumentStore.launchStore().store)))
 }
