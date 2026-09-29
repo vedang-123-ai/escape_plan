@@ -2628,3 +2628,123 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - bfd1b35 Audit remediation docs (Part A); wire the branch guard hook
   - ac42ef9 CI gate workflow and a pinned requirements.lock for Render
 
+## 2026-09-26T03:08:45Z · Anish Yarrakonda · `main` @ `b8a5ba3`
+
+**Commits this session**
+  - b8a5ba3 Merge audit-backend-fixes activity log into main
+  - 6b5eea0 Merge ui-revamp-1-foundation into main
+
+## 2026-09-26T21:23:01Z · Anish Yarrakonda · `main` @ `b8a5ba3`
+
+**Uncommitted working-tree changes (23)**
+  - M backend/app/cloud_repo.py
+  - M backend/tests/fake_mongo.py
+  - M docs/tracker/activity-log.md
+  - M escape_plan/DrillMode/DrillScreen.swift
+  - M escape_plan/Export/ShareWithFireDepartmentCard.swift
+  - M escape_plan/Models/AnalyzeModels.swift
+  - M escape_plan/Models/ScoreModels.swift
+  - M escape_plan/Networking/APIClient+Score.swift
+  - M escape_plan/Onboarding/OnboardingFlowView.swift
+  - M escape_plan/Persistence/HomeDocumentStore.swift
+  - M escape_plan/Screens/ReadinessStore.swift
+  - M escape_plan/Sync/SyncManager.swift
+  - M escape_plan/Sync/SyncReconciler.swift
+  - M escape_plan/escape_planApp.swift
+  - ?? .github/workflows/python-app.yml
+  - ?? docs/audit_reports/
+  - ?? escape_plan/Networking/APIClient+Explain.swift
+  - ?? find_image_buttons.py
+  - ?? height_results.txt
+  - ?? merge_reports.py
+  - ?? scheme_results.txt
+  - ?? swift_files.txt
+  - ?? synthesize.py
+
+## 2026-09-26T23:09:57Z · Anish Yarrakonda · `drill-3d-fallback` @ `3dc9c8e`
+
+**Commits this session**
+  - 3dc9c8e Drill: restore the 3D walkthrough; AR becomes an opt-in button on LiDAR phones
+  - 147b5ef Buttons: minHeight 48 so two fixed-height buttons grow with Dynamic Type
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-29T06:38:25Z · Anish Yarrakonda · `drill-3d-fallback` @ `3dc9c8e`
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? audit/
+
+## 2026-09-29T06:58:46Z · Anish Yarrakonda · `drill-3d-fallback` @ `3dc9c8e`
+
+**Uncommitted working-tree changes (40)**
+  - M docs/playbook/README.md
+  - M docs/tracker/activity-log.md
+  - ?? audit/
+  - ?? docs/playbook/S11-14.md
+  - ?? docs/playbook/S11-15.md
+  - ?? docs/playbook/S11-16.md
+  - ?? docs/playbook/S11-17.md
+  - ?? docs/playbook/S11-18.md
+  - ?? docs/playbook/S11-19.md
+  - ?? docs/playbook/S11-20.md
+  - ?? docs/playbook/S11-21.md
+  - ?? docs/playbook/S11-22.md
+  - ?? docs/playbook/S11-23.md
+  - ?? docs/playbook/S11-24.md
+  - ?? docs/playbook/S11-25.md
+  - ?? docs/playbook/S11-26.md
+  - ?? docs/playbook/S11-27.md
+  - ?? docs/playbook/S11-28.md
+  - ?? docs/playbook/S11-29.md
+  - ?? docs/playbook/S11-30.md
+  - ?? docs/playbook/S11-31.md
+  - ?? docs/playbook/S11-32.md
+  - ?? docs/playbook/S11-33.md
+  - ?? docs/playbook/S11-34.md
+  - ?? docs/playbook/S11-35.md
+  - …and 15 more
+
+## 2026-09-29T08:26:16Z · Anish Yarrakonda · `drill-3d-fallback` @ `3dc9c8e`
+
+**Uncommitted working-tree changes (40)**
+  - M docs/playbook/README.md
+  - M docs/tracker/activity-log.md
+  - ?? audit/
+  - ?? docs/playbook/S11-14.md
+  - ?? docs/playbook/S11-15.md
+  - ?? docs/playbook/S11-16.md
+  - ?? docs/playbook/S11-17.md
+  - ?? docs/playbook/S11-18.md
+  - ?? docs/playbook/S11-19.md
+  - ?? docs/playbook/S11-20.md
+  - ?? docs/playbook/S11-21.md
+  - ?? docs/playbook/S11-22.md
+  - ?? docs/playbook/S11-23.md
+  - ?? docs/playbook/S11-24.md
+  - ?? docs/playbook/S11-25.md
+  - ?? docs/playbook/S11-26.md
+  - ?? docs/playbook/S11-27.md
+  - ?? docs/playbook/S11-28.md
+  - ?? docs/playbook/S11-29.md
+  - ?? docs/playbook/S11-30.md
+  - ?? docs/playbook/S11-31.md
+  - ?? docs/playbook/S11-32.md
+  - ?? docs/playbook/S11-33.md
+  - ?? docs/playbook/S11-34.md
+  - ?? docs/playbook/S11-35.md
+  - …and 15 more
+
+## 2026-09-29T08:44:04Z · Anish Yarrakonda · `main` @ `96bc686`
+
+**Commits this session**
+  - 96bc686 Merge s11-14-tracker-truth (S11.14 part 2)
+  - 073d059 S11.14: tracker truth — re-stamp, audit arc board (50 IDs), AUD-048 corrections, owner answers, notes
+  - 2fa027d Merge drill-3d-fallback: drill fix, audit, audit remediation playbook (S11.14 part 1)
+  - 732c42c Playbook: audit remediation arc S11.14-S11.49 and traceability map
+  - 701e768 Audit: full-repository audit of 2026-09-28 (AUD-001 to AUD-050)
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
