@@ -6,7 +6,14 @@ what actually stops the project from shipping, ranked by what is on the critical
 
 **Deadline: submit by Oct 24, 2026.** End-to-end demo path working by Oct 5.
 
-**Re-stamped 2026-09-25 (audit remediation) with numbers measured today, superseding the counts in the paragraphs
+**Re-stamped 2026-09-29 (S11.14), measured on `drill-3d-fallback` at `732c42c` (= the drill fix + the audit docs, now
+merged to `main`), superseding every count below:** iOS app suite **987 tests: 972 passed, 7 failed, 8 skipped**, from
+`xcrun xcresulttool get test-results summary --path .build-s1114/TestResults.xcresult` (local, iPhone 17 Pro simulator,
+iOS 26.5; bundle not committed). The 7 failures are exactly the known AUD-036 set (§3). `GestureFrameCostUITests` passed.
+Backend **893 passed, 1 skipped, 29 deselected**. EditorCore **614 passed, 0 failed**. `scripts/typecheck-ios.sh` ok on
+all targets. Corpus valid (36 sources, 13 files, 2 threshold files, 44 prevention tips).
+
+_Superseded stamp:_ **Re-stamped 2026-09-25 (audit remediation) with numbers measured today, superseding the counts in the paragraphs
 below:** backend **893 passed, 1 skipped, 29 deselected** (on `audit-backend-fixes`; `origin/main` was 843 at the start);
 EditorCore **609 passed, 0 failed** and `scripts/typecheck-ios.sh` ok on all four targets, both from CI run
 [36178279583](https://github.com/vedang-123-ai/escape_plan/actions/runs/36178279583) on `macos-26`; corpus valid (36
@@ -48,6 +55,100 @@ backend — still red, see §3._
 
 ---
 
+## Audit remediation arc (2026-09-28)
+
+The full-repository audit of 2026-09-28 (`audit/`, 50 findings; master index `audit/15_PRIORITIZED_ISSUES.md`) is
+turned into sessions S11.14 to S11.49 (`docs/playbook/README.md`). Owners come from
+[`docs/playbook/audit-traceability.md`](../playbook/audit-traceability.md). One line per finding; tick it only when the
+owning session's merge is on `origin/main` and you verified it.
+
+**Fixed**
+- [x] AUD-034 (P1) drill fix only local · **fixed 2026-09-29**: `git branch -r --contains 3dc9c8e` lists `origin/main`.
+- [x] AUD-048 (P3) tracker statements wrong · **fixed 2026-09-29** by S11.14 (each item below; item 5's S11.5-S11.7
+      file question is left open under "S11.14 findings").
+
+**Owner-only (answers recorded in §1)**
+- [ ] AUD-001 (P0) deployed token vs app token · owner; S11.14 asked 2026-09-29; S11.42 handles installs
+- [ ] AUD-002 (P1) Anthropic credits · owner, **not yet (2026-09-29)**; S11.49 verifies live
+- [ ] AUD-038 (P2) `tools-used.md` missing AI tools · owner **answered 2026-09-29** (Claude + Google Antigravity/Gemini);
+      S11.12 edits the file, S11.47 the prompt file
+
+**Owned by a session**
+- [ ] AUD-003 (P1) shared token, spoofable limiter, unbounded spend · S11.27
+- [ ] AUD-004 (P1) unbounded geometry/body size · S11.25 (geometry), S11.26 (body size)
+- [ ] AUD-005 (P1) `/auth/*` unthrottled, Argon2 on the event loop · S11.28
+- [ ] AUD-006 (P2) `/score` recommendations outside the AI guard · S11.27
+- [ ] AUD-007 (P2) no per-user quota on `/homes` · S11.30, S11.32
+- [ ] AUD-008 (P2) Documents visible in Files app in Release; scans never cleaned · S11.40
+- [ ] AUD-009 (P2) saved token overrides forever; Advanced in Release · S11.42 (owner answers in §1)
+- [ ] AUD-010 (P3) `/convert` leaks Python text as 422 · S11.31
+- [ ] AUD-011 (P3) `needs_rehash` never called · S11.28
+- [ ] AUD-012 (P3) untrusted `home_id` as filename · S11.41
+- [ ] AUD-013 (P1) House editor overwrites other writers · S11.18, S11.19
+- [ ] AUD-014 (P2) home-switch race; cancel shown as offline · S11.23, S11.37
+- [ ] AUD-015 (P2) conflict copies pile up · S11.22
+- [ ] AUD-016 (P2) `POST /homes` lost update · S11.30 (server, deploy first), S11.32 (client)
+- [ ] AUD-017 (P2) re-scan "Add to Home" bypasses the reducer · S11.24
+- [ ] AUD-018 (P3) checklist/drill log/chat never leave the device · S11.16 (disclosure); syncing it: not a task
+      (product decision, accounts demoted; `audit-traceability.md`)
+- [ ] AUD-019 (P3) screens build their own `HomeDocumentStore()` · S11.18
+- [ ] AUD-020 (P1) Profiles unreachable since `87c0610` · S11.20
+- [ ] AUD-021 (P1) no delete/duplicate, blank homes accumulate · S11.21; JSON export/import UI: not a task (no spec
+      requirement)
+- [ ] AUD-022 (P1) `/analyze` `/explain` have no UI · **decided 2026-09-29: Path B, re-word the pitch** (§1,
+      `docs/decisions.md`); S11.39 executes, S11.12 takes the claims diff
+- [ ] AUD-023 (P1) AI drafts scored without review · S11.17
+- [ ] AUD-024 (P1) photo `/build` mislabelled PNG · S11.26, S11.33, S11.49
+- [ ] AUD-025 (P1) drill appends client-written tornado advice · S11.15
+- [ ] AUD-026 (P2) checklist recurrence unreachable · S11.34 (server, deploy first), S11.35
+- [ ] AUD-027 (P2) Settings share uses the wrong home, fails silently · S11.38
+- [ ] AUD-028 (P2) offline route cache ignores peril/profile/model · S11.36
+- [ ] AUD-029 (P2) re-check failure mislabelled; Retry imports old scan · S11.24
+- [ ] AUD-030 (P2) chat accepts uncited safety claims · S11.44, S11.49
+- [ ] AUD-031 (P2) 60-minute sessions, no refresh · S11.43
+- [ ] AUD-032 (P2) chat timeout shorter than cold start · S11.37 (Render paid tier: owner, logged for S11.13)
+- [ ] AUD-033 (P3) one conversation slot for all homes · S11.45
+- [ ] AUD-035 (P2) no AI timeouts; unbounded inputs · S11.26, S11.29, S11.49
+- [ ] AUD-036 (P2) iOS suite red (the 7 in §3) · S11.8
+- [ ] AUD-037 (P2) Render not gated on CI · S11.31, S11.46
+- [ ] AUD-039 (P3) stale "no delete endpoint" comments · S11.21
+- [ ] AUD-040 (P3) root scratch scripts rewrite 2.1 to 2.0 · S11.47
+- [ ] AUD-041 (P3) local Python 3.13 vs deploy 3.12 · S11.47
+- [ ] AUD-042 (P3) Mongo index creation never retried · S11.31
+- [ ] AUD-043 (P3) `require_token` duplicated · S11.27
+- [ ] AUD-044 (P3) dead code · S11.20, S11.39, S11.47
+- [ ] AUD-045 (P3) `HouseScreen.swift` 2,726 lines · S11.19 (seam only); full split: not a task (deferred to the House
+      redesign)
+- [ ] AUD-046 (P3) decode errors shown as "can't reach server" · S11.37
+- [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
+- [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
+- [ ] AUD-050 (P1) privacy copy false · S11.16
+
+### S11.14 findings (2026-09-29, branches `drill-3d-fallback` then `s11-14-tracker-truth`)
+
+- [ ] **The Linear revamp removed the Profiles, delete and duplicate entry points.** `87c0610` (2026-09-25, audit item
+      B9) deleted `BetaScreen.swift`, the only screen that opened Profiles or deleted/duplicated a home
+      (`git show 87c0610^:escape_plan/Screens/BetaScreen.swift`). Nothing replaced them. Owners: S11.20 (AUD-020),
+      S11.21 (AUD-021).
+- [ ] **`escape_plan/BackendConfig.local.json` does not exist on Anish's Mac** (preflight, 2026-09-29: `FAIL app bearer
+      token … does not exist`). §1 said it was created on 2026-09-16, presumably on another machine. An app built on this
+      Mac ships with no token, so every deterministic call gets 401. Next action (owner): the steps in §1.
+- [ ] **S11.5 to S11.7 session files still exist** although `.claude/rules/paths/docs.md` says a shipped session's file is
+      deleted (AUD-048 item 5). The same question now covers S11.1-S11.4 and S11.14 (marked DONE 2026-09-29, files kept).
+      Left open: deleting them is outside S11.14's owned files, and the rule is contested (the older §3 line "`S11-5.md`
+      and `S11-6.md` were deleted on ship, then restored"). Next action: whoever runs S11.11 picks one and logs it in
+      `decisions.md`.
+- [ ] **Doc drift outside S11.14's owned files** (doc-auditor, 2026-09-29): `docs/tracker/FIRST-PRIORITY.md` still says
+      2 failing `SignedOutPathUITests` and has no 2026-09-29 run; `docs/playbook/README.md` S11.8 addendum dates the
+      two-profile apartment fixture 2026-09-16 (it is `72bf34e`, 2026-09-17) and says "S11.14 corrects it" in the future
+      tense; S11.8's title "first full simulator run in nine days" is stale; `docs/tracker/README.md` calls `TODO.md`
+      "the source of truth", contradicting `.claude/rules/paths/docs.md` (BLOCKERS wins). Next action: S11.8 (first
+      three), any docs session (the last).
+- [x] **Four stale worktrees removed** (owner approved 2026-09-29): three Google Antigravity worktrees under
+      `~/.gemini/antigravity/…` and `../wt-s6-1`. All were clean and their commits were already on `origin/main`.
+
+---
+
 ## Audit remediation (2026-09-25)
 
 An external AI audit produced ~110 findings; the verified ones were implemented on two branches. Rejected findings and
@@ -80,14 +181,17 @@ EditorCore **609 passed, 0 failed** on `macos-26`). `ios-tests` skipped (manual 
       (full simulator suite, counts from `xcresulttool`, bundle uploaded) on `workflow_dispatch` only.
 - [x] **`cloud_repo._is_duplicate_key_error`** uses `isinstance` against pymongo's `DuplicateKeyError` (guarded import),
       class-name match kept as the fallback for the test fake. Test added.
-- [ ] **Deployed backend NOT smoke-checked after this merge.** This session's sandbox network policy denies
+- [x] **Smoke-checked 2026-09-28 by the audit** (`audit/10_DEPLOYMENT.md`, `audit/17_VERIFICATION_LOG.md`): `GET /health`
+      200 after a 51 s cold start; `POST /diff_obstructions` with no token returns 401, so the guard fix is live.
+      Re-confirmed 2026-09-29 by preflight: `/health` ok (42 s cold start), deployed schema 2.1, 16 routes.
+      _Original line:_ **Deployed backend NOT smoke-checked after this merge.** This session's sandbox network policy denies
       `escape-plan-backend.onrender.com` (proxy 403 on CONNECT), so neither `GET /health` (expect 200) nor
       `POST /diff_obstructions` with no token (expect 401 after the deploy) could be observed. Next action (owner):
       run both curls once Render shows the deploy of this merge live.
 - [ ] **GitHub Actions warns that `actions/checkout@v4` / `setup-python@v5` target Node 20** and are being forced onto
       Node 24. Harmless today; bump the major versions when convenient.
 
-### Part B · iOS (branch `audit-ios-fixes`, merged into `ui-revamp-1-foundation`, NOT `main`)
+### Part B · iOS (branch `audit-ios-fixes`, merged into `ui-revamp-1-foundation`, which reached `main` in `6b5eea0` on 2026-09-25)
 
 **Part B CI (2026-09-25):** `audit-ios-fixes` run [36180213079](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180213079)
 green — `scripts/typecheck-ios.sh` all four targets, EditorCore **614 passed, 0 failed** (609 + the 5 `ScoreBand`
@@ -143,6 +247,9 @@ tests), backend green. After the merge into `ui-revamp-1-foundation` (`e64f343`)
 
 ### Drill regression (2026-09-26, branch `drill-3d-fallback`)
 
+**Landed on `main` 2026-09-29 (S11.14)** after the full gate (header stamp). Before that the fix existed only locally
+and every branch cut from `origin/main` had no drill on the Simulator (AUD-034).
+
 - [x] **The 3D practice drill was unreachable since S9.2 (`bffb16c`)**: starting a drill opened the AR cover only, so the
       Simulator and non-LiDAR phones had no drill and no drill was ever logged. Fixed: 3D walkthrough restored as the
       default; AR is an opt-in button on LiDAR devices. Verified 2026-09-26 in the iPhone 17 Pro simulator (Demo Home,
@@ -153,7 +260,8 @@ tests), backend green. After the merge into `ui-revamp-1-foundation` (`e64f343`)
 ### Owner-only (cannot be done from a session)
 
 - [ ] Top up the Anthropic credits (§1).
-- [ ] Make Render's `BACKEND_BEARER_TOKEN` match `.env` (§1) — until then a fresh install gets 401 everywhere.
+- [ ] Copy Render's `BACKEND_BEARER_TOKEN` into `escape_plan/BackendConfig.local.json` (§1; Render is the source of truth,
+      decided 2026-09-29) — until then a fresh install gets 401 everywhere.
 - [ ] Run the 3 `-m mongo` account-deletion tests against Atlas.
 - [ ] Tune `AI_RATE_PER_MIN` / `AI_RATE_BURST` / `AI_MAX_CONCURRENT` in the Render dashboard if 6/min, burst 3, 4 in
       flight is wrong for filming (deliberately not pinned in `render.yaml`, so dashboard values survive a blueprint sync).
@@ -299,7 +407,8 @@ account" promoted from a grey subheadline to a peer of the sign-in button.
       **that is exactly the claim a typecheck cannot make**. Next action (S11.8, or anyone with a
       simulator): run `SignedOutPathUITests` — it asserts the skip button `isHittable`, which is
       the one that would catch it.
-- [ ] **`SignedOutPathUITests` (6 tests, new) has never executed.** It is the UI half of the
+- [ ] **Update 2026-09-29: `SignedOutPathUITests` has now executed** (local full run, header stamp): 3 passed, 3 failed
+      (§3, AUD-036, owner S11.8). _Original line:_ **`SignedOutPathUITests` (6 tests, new) has never executed.** It is the UI half of the
       signed-out proof — every tab opens, the library seeds, Settings offers rather than requires
       an account, the disclosure expands. Written backend-free on purpose (base URL points at port
       1) so it needs no server, only a simulator. Next action: S11.8.
@@ -993,13 +1102,20 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
 
 ## 0 · FIRST PRIORITY — before any other work
 
+- [ ] **2026-09-29 (S11.14): local full run on the drill fix + audit (`732c42c`, now on `main`).** 987 tests:
+      **972 passed, 7 failed, 8 skipped**, from `xcresulttool` on `.build-s1114/TestResults.xcresult` (iPhone 17 Pro
+      simulator, iOS 26.5, `CODE_SIGNING_ALLOWED=NO`). The 7 are exactly AUD-036 (§3): 3 `KeychainTokenStoreTests`,
+      1 `EvacuationMockTimelineTests`, 3 `SignedOutPathUITests`. `GestureFrameCostUITests` **passed** (it failed in the
+      2026-09-25 revamp CI run). Gate stays open until S11.8 fixes the 7. Local and CI now agree on the total (987).
+
 - [ ] **2026-09-25: the iOS suite has run, in CI, and is RED — true counts recorded, gate still open.** The manual
       `ios-tests` job (`.github/workflows/gate.yml`, iPhone 17 Pro / iOS 26.5, `CODE_SIGNING_ALLOWED=NO`), counts from
       `xcresulttool`: `main` `02988ea` **960 passed, 6 failed, 8 skipped** (974), identical on a re-run
       ([run 36179198283](https://github.com/vedang-123-ai/escape_plan/actions/runs/36179198283)); `ui-revamp-1-foundation`
       `e64f343` **971 passed, 8 failed, 8 skipped** (987)
       ([run 36180793666](https://github.com/vedang-123-ai/escape_plan/actions/runs/36180793666)). Failures in §3
-      (2026-09-25). Still owed on a Mac: the device checks in §2, and a local run to compare with CI's. To re-run:
+      (2026-09-25). Still owed on a Mac: the device checks in §2. (The local run to compare with CI's was done 2026-09-28 by the audit
+      and 2026-09-29 by S11.14, above: same 987 total.) To re-run:
       Actions → gate → Run workflow on the branch.
 
 - [ ] **Compile and test the app on a working simulator, and record a real count.**
@@ -1038,6 +1154,19 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
 
 ## 1 · Ship blockers — only the owner can clear these
 
+**Owner answers, asked 2026-09-29 by S11.14** (the owner is non-technical and delegated the two engineering calls):
+- **AUD-001 token:** owner does not know whether Render's token matches. Preflight run 2026-09-29 (`--skip-ai`):
+  `BackendConfig.local.json` **does not exist on this Mac**, `/health` ok (42 s cold start), deployed schema 2.1,
+  endpoint checks skipped (no token) → "NOT READY TO FILM". **Status: not yet (2026-09-29).** Plan: copy the value from
+  Render into the file (Render is the source of truth, not `.env`), then re-run preflight.
+- **AUD-002 credits:** **not yet (2026-09-29).** S11.49 and every live AI check wait on it.
+- **AUD-022:** **decided 2026-09-29, Path B: re-word the pitch to "explains and chats"**; the inspector is not wired in.
+  Recorded in `docs/decisions.md`. S11.39 runs Path B; S11.12 takes the claims diff.
+- **AUD-038 AI tools:** owner says **Claude and Google Antigravity / Gemini** were used; nothing else. For S11.12
+  (`docs/tools-used.md`). The stale worktrees were pruned with the owner's approval (S11.14 findings).
+- **AUD-001 follow-up for S11.42:** **decided 2026-09-29: no further token change before submission** (unless it leaks),
+  and **hide Settings' "Advanced" section in Release builds.** Recorded in `docs/decisions.md`.
+
 - [ ] **Anthropic account is out of credits.** `/explain`, `/analyze` and `/chat` return **502**
       by design; all 13 `-m live` tests and the never-executed `agent_bungalow_blocked` golden are
       blocked. The deterministic half (`/routes`, `/score`, `/convert`, `/evacuate`) is unaffected
@@ -1046,6 +1175,9 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
       anything that shows the assistant.
 
 - [ ] **The shared bearer token in `.env` does NOT match the one on the deployed backend.**
+      **Superseded 2026-09-29 (S11.14): `BackendConfig.local.json` does NOT exist on Anish's Mac today, and the plan is to
+      copy Render's token into it (Render is the source of truth), not to reconcile with `.env`.** See the owner answers
+      at the top of §1 and "S11.14 findings". The 2026-09-16 text below is history.
       **Narrowed 2026-09-16, and the remaining half is the owner's.** The file half is done:
       `escape_plan/BackendConfig.local.json` now exists, created from `BACKEND_BEARER_TOKEN` in
       the gitignored root `.env` (15 chars), and preflight reports `PASS app bearer token`.
@@ -1258,21 +1390,34 @@ because if it fails nothing downstream is worth tuning.
       unsigned simulator test host has no keychain entitlement. **Not proven** — these tests have never run on any
       platform before. Next action: run them once on a Mac with signing on; if they pass, give the CI job an ad-hoc
       signing variant (`CODE_SIGN_IDENTITY=-`, no team) rather than skipping them.
-- [ ] **`EvacuationMockTimelineTests.testGenericFactoryExercisesAllThreeFixturesWithoutInventingPaths` fails in the
-      app** (apartment: 2 tracks, expected 1) **but passes in EditorCore** on the same commit. `apartment.json` now has
+- [ ] **Corrected 2026-09-29 (S11.14, AUD-048 item 1):** the test **never runs in EditorCore** — the file is wrapped in
+      `#if !SWIFT_PACKAGE` (`escape_planTests/EditorCore/EvacuationMockTimelineTests.swift:6`), so "passes in the package"
+      was an absence, not a pass. The failure is a **stale expectation**: `apartment.json` has had two profiles since
+      `72bf34e` (2026-09-17). Owner: **S11.8**. The original line is kept below for history.
+      ~~`EvacuationMockTimelineTests.testGenericFactoryExercisesAllThreeFixturesWithoutInventingPaths` fails in the
+      app (apartment: 2 tracks, expected 1) but passes in EditorCore on the same commit. `apartment.json` now has
       two profiles (Sam and Biscuit the pet), so 2 looks right and the expectation stale — but then the package run
       should fail too. Next action: find what differs between the two runners (fixture path via `#filePath` through the
-      symlink, or a DEBUG-only branch in `MockTimeline`) before touching the expectation.
-- [ ] **`SignedOutPathUITests.testSettingsCarriesThePrivacyDisclosureSignedOut` and
-      `testTheGateSaysWhatAnAccountWouldUpload`** fail on `main` and the revamp ("the gate asks for an account without
+      symlink, or a DEBUG-only branch in `MockTimeline`) before touching the expectation.~~
+- [ ] **Corrected 2026-09-29 (S11.14, AUD-048 item 3): three `SignedOutPathUITests` fail, not two**, and the cause is the
+      tests, not S11.7's code (`audit/11_TESTING.md`). `testTheGateCanBeDismissedWithoutAnAccount` and
+      `testTheGateSaysWhatAnAccountWouldUpload`: **test isolation** — `launchSignedOut(showGate: true)` only omits
+      `-auth.gate.dismissed YES` and never forces `NO`, so a dismissal persisted in the simulator's `UserDefaults` hides
+      the gate. `testSettingsCarriesThePrivacyDisclosureSignedOut`: the button exists far down a scroll view the test
+      never scrolls (medium confidence; confirm with the bundle screenshot). All three failed in the 2026-09-29 local run.
+      Owner: **S11.8**. Original line kept below.
+      ~~`SignedOutPathUITests.testSettingsCarriesThePrivacyDisclosureSignedOut` and
+      `testTheGateSaysWhatAnAccountWouldUpload`~~ fail on `main` and the revamp ("the gate asks for an account without
       saying what it uploads"). S11.7 shipped these without a simulator. Next action: run on a Mac and look at the
       screenshot in the uploaded `ci-xcresult` artifact.
-- [ ] **`GestureFrameCostUITests.testACameraDragDoesNotDragSwiftUIUpdatesAlongWithIt`** fails on the revamp only
+- [ ] **Update 2026-09-29 (S11.14): PASSED in the local full run** on `732c42c` (header stamp). One pass after one CI
+      failure; left open until S11.8's run agrees.
+      **`GestureFrameCostUITests.testACameraDragDoesNotDragSwiftUIUpdatesAlongWithIt`** fails on the revamp only
       (`editor.scene` not found after Home → Menu → Build Manually). No pre-audit revamp run exists to say whether the
       revamp or the audit fixes caused it (the audit did not touch that path or `HouseScreen`). Next action (owner): walk
       that path in the simulator.
 - [x] **`SignedOutPathUITests.testEveryTabOpensSignedOutWithNoBackend`** looked for the removed Beta tab. Fixed on
-      `audit-ios-fixes` (now Home, Tasks, House, Assistant, Settings). **Not re-run yet.**
+      `audit-ios-fixes` (now Home, Tasks, House, Assistant, Settings). **Passed in the 2026-09-29 local run.**
 
 - [x] ~~**The root `CLAUDE.md` says "iOS 17+"; the project builds against iOS 26.5.**~~
       **RESOLVED 2026-09-16 — the docs were right and the project file was wrong.**

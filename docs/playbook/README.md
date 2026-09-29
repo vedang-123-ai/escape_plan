@@ -11,10 +11,10 @@ physical iPhone 17 Pro.** Assign people to lanes however you like; run a session
 
 | # | Session | Lane | Branch | Prereqs |
 |---|---|---|---|---|
-| [S11.1](S11-1.md) | Earthquake + tornado corpus depth, cited prevention tips | A | `s11-1-corpus-depth` | baseline |
-| [S11.2](S11-2.md) | Peril scoring and checklist from the new corpus, honest tiering | A | `s11-2-peril-scoring` | S11.1 |
-| [S11.3](S11-3.md) | Object-hazard QA (BUG-01..04) and the future-detection scoping doc | A | `s11-3-hazard-qa` | baseline |
-| [S11.4](S11-4.md) | AI layer: positioning, evals, credit-independent tests | A | `s11-4-ai-layer` | baseline |
+| [S11.1](S11-1.md) | ~~Earthquake + tornado corpus depth, cited prevention tips~~ **DONE 2026-09-21** (merge `c95d6de` on `origin/main`) | A | `s11-1-corpus-depth` | baseline |
+| [S11.2](S11-2.md) | ~~Peril scoring and checklist from the new corpus, honest tiering~~ **DONE 2026-09-22** (merge `85dc129` on `origin/main`) | A | `s11-2-peril-scoring` | S11.1 |
+| [S11.3](S11-3.md) | ~~Object-hazard QA (BUG-01..04) and the future-detection scoping doc~~ **DONE 2026-09-22** (merge `ae3ba6e` on `origin/main`) | A | `s11-3-hazard-qa` | baseline |
+| [S11.4](S11-4.md) | ~~AI layer: positioning, evals, credit-independent tests~~ **DONE 2026-09-23** (merge `99a43dd` on `origin/main`) | A | `s11-4-ai-layer` | baseline |
 | ~~S11.5~~ | ~~Readiness Home and the prevention layer~~ **DONE 2026-09-23** | B | `s11-5-readiness-home` | baseline (tips: S11.1) |
 | ~~S11.6~~ | ~~Responder Snapshot v2, "Share with your fire department"~~ **DONE 2026-09-23** | B | `s11-6-responder-snapshot` | baseline |
 | ~~S11.7~~ | ~~Accounts demoted: signed-out proof, privacy, delete-my-data~~ **DONE 2026-09-24** | B | `s11-7-accounts-demoted` | baseline |
@@ -61,7 +61,7 @@ Anything cut gets a BLOCKERS line.
 
 | # | Session | Audit IDs | Top sev | Phase | Lane | Branch | Prereqs | Status |
 |---|---|---|---|---|---|---|---|---|
-| [S11.14](S11-14.md) | Land the drill fix, commit the audit, make the tracker true | 034, 048 (asks owner: 001, 002, 022, 038) | P0/P1 | 0 Baseline | any | `drill-3d-fallback`, then `s11-14-tracker-truth` | none | |
+| [S11.14](S11-14.md) | ~~Land the drill fix, commit the audit, make the tracker true~~ **DONE 2026-09-29** | 034, 048 (asks owner: 001, 002, 022, 038) | P0/P1 | 0 Baseline | any | `drill-3d-fallback`, then `s11-14-tracker-truth` | none | DONE 2026-09-29 |
 | [S11.8](S11-8.md) | iOS verification (existing session; see addendum) | 036 | P2 | 0 Baseline | C | `s11-8-ios-verify` | S11.14 | |
 | [S11.15](S11-15.md) | Drill shows engine findings verbatim, no client tornado advice | 025 | P1 | 1 Truth | D | `s11-15-drill-verbatim` | S11.14 | |
 | [S11.16](S11-16.md) | Privacy copy says what actually leaves the phone | 050, 018 | P1 | 1 Truth | D | `s11-16-privacy-truth` | S11.14 (after S11.8 for UI tests) | |
