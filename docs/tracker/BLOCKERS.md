@@ -68,7 +68,8 @@ owning session's merge is on `origin/main` and you verified it.
       file question is left open under "S11.14 findings").
 
 **Owner-only (answers recorded in §1)**
-- [ ] AUD-001 (P0) deployed token vs app token · owner; S11.14 asked 2026-09-29; S11.42 handles installs
+- [x] AUD-001 (P0) deployed token vs app token · **fixed on Anish's Mac 2026-09-29**: owner copied Render's token into
+      `BackendConfig.local.json`; preflight `/routes` PASS, `/score` PASS. S11.42 still handles installs that saved an old token
 - [ ] AUD-002 (P1) Anthropic credits · owner, **not yet (2026-09-29)**; S11.49 verifies live
 - [ ] AUD-038 (P2) `tools-used.md` missing AI tools · owner **answered 2026-09-29** (Claude + Google Antigravity/Gemini);
       S11.12 edits the file, S11.47 the prompt file
@@ -1157,8 +1158,10 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
 **Owner answers, asked 2026-09-29 by S11.14** (the owner is non-technical and delegated the two engineering calls):
 - **AUD-001 token:** owner does not know whether Render's token matches. Preflight run 2026-09-29 (`--skip-ai`):
   `BackendConfig.local.json` **does not exist on this Mac**, `/health` ok (42 s cold start), deployed schema 2.1,
-  endpoint checks skipped (no token) → "NOT READY TO FILM". **Status: not yet (2026-09-29).** Plan: copy the value from
-  Render into the file (Render is the source of truth, not `.env`), then re-run preflight.
+  endpoint checks skipped (no token) → "NOT READY TO FILM". **Fixed later on 2026-09-29:** the owner copied Render's token
+  into the file (44 chars); preflight `--skip-ai` then reported `PASS /routes` (4/4 rooms), `PASS /score` (73), "Ready,
+  with 1 warning". The token in the root `.env` (15 chars per the 2026-09-16 line) is therefore stale; it only matters
+  for running the backend locally. Other machines still need the same file.
 - **AUD-002 credits:** **not yet (2026-09-29).** S11.49 and every live AI check wait on it.
 - **AUD-022:** **decided 2026-09-29, Path B: re-word the pitch to "explains and chats"**; the inspector is not wired in.
   Recorded in `docs/decisions.md`. S11.39 runs Path B; S11.12 takes the claims diff.
