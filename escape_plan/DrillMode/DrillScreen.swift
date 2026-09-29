@@ -26,6 +26,9 @@
 
 import SceneKit
 import SwiftUI
+#if canImport(RoomPlan)
+import RoomPlan
+#endif
 
 struct DrillScreen: View {
     @Environment(APIClient.self) private var apiClient
@@ -121,11 +124,10 @@ struct DrillScreen: View {
             .sheet(isPresented: $originPickerPresented) {
                 if let homeModel { originPickerSheet(homeModel) }
             }
-            .fullScreenCover(isPresented: $isARDrillActive, onDismiss: {
-                refreshLog()
-                routePlan = nil
-                isARDrillActive = false
-            }) {
+            // The AR walk is an opt-in extra on LiDAR phones, launched from the drill card. It
+            // sits on top of the 3D drill rather than replacing it: the 3D session is what
+            // times, logs and compares the drill, so closing AR returns to the same step.
+            .fullScreenCover(isPresented: $isARDrillActive) {
                 if let homeModel, let routePlan, let profile = lastRequestedProfile {
                     if #available(iOS 17.0, *) {
                         DrillRelocalizationView(homeModel: homeModel, routePlan: routePlan, profileID: profile.id)
@@ -535,9 +537,33 @@ struct DrillScreen: View {
             }
 
             drillControls(for: session)
+
+            if Self.isARDrillAvailable, !session.isAtEnd {
+                Button {
+                    isARDrillActive = true
+                } label: {
+                    Label("Walk it in AR", systemImage: "arkit")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isFlying)
+                .accessibilityHint("Opens the camera and shows this route in your real rooms. "
+                                   + "The drill timer keeps running.")
+                .accessibilityIdentifier("drill.ar.open")
+            }
         }
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    /// The AR walk needs RoomPlan to relocalize, so it exists only on LiDAR devices. Everywhere
+    /// else (Simulator, older phones) the 3D walkthrough is the whole drill, which is why AR
+    /// must never be the default path: S9.2 made it one and left those devices with no drill.
+    private static var isARDrillAvailable: Bool {
+        #if canImport(RoomPlan) && !targetEnvironment(simulator)
+        return RoomCaptureSession.isSupported
+        #else
+        return false
+        #endif
     }
 
     /// The running stopwatch. `.updatesFrequently` tells VoiceOver this value changes on its
@@ -811,8 +837,23 @@ struct DrillScreen: View {
             routesNotice = "No primary route for \(profile.name).\(detail)"
             return
         }
-        
-        isARDrillActive = true
+
+        let coverObjectName = room.cover_object_id.flatMap { id in
+            homeModel.floors.flatMap(\.objects).first(where: { $0.id == id })?.category.rawValue
+        }
+        let noCoverFinding = room.findings.first(where: { $0.kind == .no_cover_in_room })?.detail
+
+        guard let drill = DrillSession(profile: profile, route: primary,
+                                       startRoomName: room.room_name,
+                                       peril: plan.peril ?? "fire",
+                                       coverObjectName: coverObjectName,
+                                       noCoverFinding: noCoverFinding) else {
+            routesNotice = "The route for \(profile.name) is too short to walk through."
+            return
+        }
+        overlay.show(rooms: [room], home: homeModel, includeSecondary: false)
+        sceneView?.setNeedsDisplay()
+        session = drill
         activeRoomID = room.room_id
         activeRoomName = room.room_name
         comparison = nil

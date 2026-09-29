@@ -141,6 +141,15 @@ tests), backend green. After the merge into `ui-revamp-1-foundation` (`e64f343`)
       local backend are present, so it is one of the 8 skipped. Next action (owner, on a Mac with the backend running):
       run it live and record the result.
 
+### Drill regression (2026-09-26, branch `drill-3d-fallback`)
+
+- [x] **The 3D practice drill was unreachable since S9.2 (`bffb16c`)**: starting a drill opened the AR cover only, so the
+      Simulator and non-LiDAR phones had no drill and no drill was ever logged. Fixed: 3D walkthrough restored as the
+      default; AR is an opt-in button on LiDAR devices. Verified 2026-09-26 in the iPhone 17 Pro simulator (Demo Home,
+      Maya, fire): route drawn, timer running, Next flies step 1 → 2. Type-check green.
+- [ ] **The "Walk it in AR" button has never been seen on a device.** Next action (owner, on the iPhone 17 Pro): start a
+      drill, tap it, confirm the AR walk opens over the running drill and that closing it returns to the same step.
+
 ### Owner-only (cannot be done from a session)
 
 - [ ] Top up the Anthropic credits (§1).

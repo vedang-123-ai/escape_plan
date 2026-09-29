@@ -170,7 +170,7 @@ struct OnboardingFlowView: View {
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(Theme.accentText)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 48)
+                                .frame(minHeight: 48)
                                 .background(
                                     RoundedRectangle(cornerRadius: DS.buttonRadius, style: .continuous)
                                         .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
