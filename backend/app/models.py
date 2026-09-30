@@ -249,7 +249,10 @@ def bbox_cell_count(polygon: list[Point]) -> int:
 
 
 def _check_coord(value: float, owner: str, axis: str) -> None:
-    # Written as a positive assertion so NaN (every comparison False) is rejected.
+    # NaN and infinity are a different bug from an oversized home (a converter
+    # divided by zero, not a mansion), so they keep their own message.
+    if not math.isfinite(value):
+        raise ValueError(f"{owner}: {axis} coordinate must be finite, got {value}")
     if not (-MAX_COORD_M <= value <= MAX_COORD_M):
         raise ValueError(
             f"{owner}: {axis} coordinate {value} is outside the supported range "
