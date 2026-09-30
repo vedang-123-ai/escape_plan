@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -231,3 +233,56 @@ def test_routes_peril_defaults_to_fire_byte_for_byte(client: TestClient, bungalo
     assert res_explicit.status_code == 200
     
     assert res_default.text == res_explicit.text
+
+
+# --- S11.25 (AUD-004): the server refuses an oversized home ---------------
+
+def _oversize(home: dict) -> dict:
+    """Stretch a fixture's first room past MAX_TOTAL_GRID_CELLS.
+
+    A 200 m x 200 m room: valid topology, valid coordinates, and ~4,000,000
+    navigation-grid cells — about 100 s of routing per peril before S11.25.
+    """
+    import copy
+
+    d = copy.deepcopy(home)
+    d["floors"][0]["rooms"][0]["polygon"] = [
+        [0.0, 0.0], [200.0, 0.0], [200.0, 200.0], [0.0, 200.0]
+    ]
+    return d
+
+
+@pytest.mark.parametrize("endpoint", ["/routes", "/score"])
+def test_oversized_home_is_422_and_names_the_bound(
+    client: TestClient, bungalow: dict, endpoint: str
+):
+    resp = client.post(endpoint, json={"home": _oversize(bungalow)}, headers=AUTH)
+    assert resp.status_code == 422
+    detail = json.dumps(resp.json())
+    assert "span" in detail or "navigation-grid cells" in detail
+
+
+def test_oversized_home_never_reaches_the_router(
+    client: TestClient, bungalow: dict, monkeypatch: pytest.MonkeyPatch
+):
+    """The point of the bound: rejection happens before any rasterizing."""
+    import app.main as main_mod
+
+    called = False
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        nonlocal called
+        called = True
+        raise AssertionError("compute_route_plan must not run on an oversized home")
+
+    monkeypatch.setattr(main_mod, "compute_route_plan", _boom)
+    resp = client.post("/routes", json={"home": _oversize(bungalow)}, headers=AUTH)
+    assert resp.status_code == 422
+    assert not called
+
+
+def test_a_home_inside_the_bounds_still_scores(client: TestClient, bungalow: dict):
+    """The bounds must not cost the demo path anything."""
+    resp = client.post("/score", json={"home": bungalow}, headers=AUTH)
+    assert resp.status_code == 200
+    assert 0 <= resp.json()["score"] <= 100
