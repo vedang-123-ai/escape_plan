@@ -76,7 +76,8 @@ owning session's merge is on `origin/main` and you verified it.
 
 **Owned by a session**
 - [ ] AUD-003 (P1) shared token, spoofable limiter, unbounded spend · S11.27
-- [ ] AUD-004 (P1) unbounded geometry/body size · S11.25 (geometry), S11.26 (body size)
+- [ ] AUD-004 (P1) unbounded geometry/body size · **geometry half fixed 2026-09-30 by S11.25**; body-size half
+      still open · S11.26
 - [ ] AUD-005 (P1) `/auth/*` unthrottled, Argon2 on the event loop · S11.28
 - [ ] AUD-006 (P2) `/score` recommendations outside the AI guard · S11.27
 - [ ] AUD-007 (P2) no per-user quota on `/homes` · S11.30, S11.32
@@ -124,6 +125,74 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
 - [ ] AUD-050 (P1) privacy copy false · S11.16
+
+### S11.25 findings (2026-09-30, branch `s11-25-home-bounds`)
+
+- [x] **AUD-004 geometry half fixed.** Size bounds in `backend/app/models.py` (`MAX_*`) and mirrored in
+      `HomeSizeBounds` in `escape_plan/Editor/Core/EditorValidation.swift`. **Option (a): the JSON Schema is
+      unchanged and `schema_version` stays 2.1** — two dated rows in `docs/decisions.md` say why.
+      Verified 2026-09-30 on the branch: backend **926 passed, 1 skipped** (was 893/1); EditorCore **631 passed,
+      0 failures** (was 614); `typecheck-ios.sh` ok on all four targets; corpus valid.
+      Numbers: `MAX_TOTAL_GRID_CELLS` 250,000 · `MAX_ROOM_GRID_CELLS` 90,000 · `MAX_COORD_M` 200 ·
+      `MAX_ROOM_SPAN_M` 60 · `MAX_ROOM_AREA_M2` 500 · `MAX_POLYGON_VERTICES` 64 · `MAX_FLOORS` 8 ·
+      `MAX_ROOMS` 200 (whole home) · `MAX_OPENINGS_PER_FLOOR` 400 · `MAX_OBJECTS_PER_FLOOR` 500 ·
+      `MAX_SAFETY_POINTS_PER_FLOOR` 100 · `MAX_STAIRS` 50 · `MAX_PROFILES` 50 · `MAX_FLOOR_HEIGHT_M` 20.
+- [ ] **The audit's proposed AUD-004 bound was wrong, and the write-up still says it.** `audit/06_AUTH_SECURITY.md`
+      proposes `room area <= 2,000 m2`. That would not have closed the finding: `build_room_grid` rasterizes a room's
+      **bounding box**, so a measured 75 m2 diagonal sliver spanning 150 m x 150 m is 2,250,000 cells (~58 s to
+      rasterize once) and passes any area cap. Pinned by `test_area_cap_alone_would_not_have_been_enough` in
+      `backend/tests/test_home_bounds.py`. Next action: nobody needs to act on the code — this line exists so a
+      future audit pass does not "correct" the cell bounds back to an area bound.
+- [ ] **The `ecc:*` reviewer agents named in five sessions' ACCEPTANCE blocks do not exist in this install.**
+      S11.25, S11.26, S11.27, S11.28, S11.30, S11.31, S11.34 and S11.44 call for `ecc:security-reviewer`,
+      `ecc:python-reviewer`, `ecc:fastapi-reviewer` or `ecc:database-reviewer`. The only agents present are the seven
+      in `.claude/agents/quality/` (`ls .claude/agents/quality/`; `~/.claude/plugins/installed_plugins.json` lists
+      only `frontend-design`, `clangd-lsp` and `ui-ux-pro-max`). S11.25's required `schema-contract-guardian` ran;
+      the security half was a manual review, which is what found the `Int(_:)` NaN trap below. Next action (owner):
+      install that plugin, or edit the remaining Lane E session files to name agents that exist. **Do not let a
+      session claim a clean `ecc:` run that could not have happened.**
+- [ ] **A saved home that trips a new bound cannot be opened, and there is no migration path**
+      (schema-contract-guardian, MEDIUM, 2026-09-30). `EditorValidation.validate` now includes the size
+      bounds, and `escape_plan/Editor/Core/HomeModelStore.swift:76` does
+      `guard issues.isEmpty else { throw StoreError.invalidInitialModel(issues) }` — so a locally
+      persisted home over a bound makes `HomeModelStore.init` throw and the editor refuse to open it.
+      `replaceModel` (line 151) is the same. Because `schema_version` correctly stays 2.1,
+      `SchemaMigrator` has no hook to notice or repair such a document, and **a refusal at load time is
+      indistinguishable from data loss to the user.** Probability is low (it needs a room over 500 m², a
+      60 m span, or a coordinate past ±200 m, and the editor may never have produced one) but nothing
+      proves it could not have. **Not fixed here: `HomeModelStore.swift` is not in S11.25's OWNED
+      FILES.** Next action: S11.18 or S11.19 (they own the store and the load path) should make the load
+      path surface "this home is too large to edit" instead of a bare throw.
+- [ ] **`/convert` now 422s a whole scan for a room with more than 64 vertices, with no fallback**
+      (schema-contract-guardian, MEDIUM, 2026-09-30). `backend/app/convert/geometry.py:238` already
+      degrades gracefully for a degenerate polygon (bounding-box fallback) but has **no** fallback for
+      vertex count, and `backend/app/main.py:380` catches broadly, so one over-vertex room fails the
+      entire conversion rather than returning a home with a warning. It fails loudly, which is the right
+      side of the "never silently dropped" rule. But `MAX_POLYGON_VERTICES` is the only new bound
+      justified by algorithmic cost (`is_simple_polygon` is O(n²)) rather than residential plausibility,
+      so it is the one most likely set too low — and every scan fixture has just 4 vertices per room, so
+      **it is untested against anything realistically complex.** A curved or bay-windowed room is the
+      plausible trigger; 8° collinear merging (`COLLINEAR_TOL_DEG`) makes it unlikely but not impossible.
+      **Not fixed here: `convert/` and `main.py` are not in S11.25's OWNED FILES.** Next action: S11.31
+      owns `/convert` error handling — add a vertex-count fallback (simplify, or bounding box) there, and
+      raise `MAX_POLYGON_VERTICES` if a real scan ever trips it.
+- [ ] **A `.sizeBounds` validation issue has no UI.** The refusal strings are written for an end user ("this home is
+      too large to route... split it into separate homes"), but they only reach the store as a rejected mutation;
+      nothing presents them. Next action: whoever owns the editor's error presentation (S11.19 territory) should
+      check a `.sizeBounds` issue reads well wherever issues are surfaced.
+- [x] **`HomeSizeBounds.gridCellCount` crashed on a NaN coordinate** (found while writing its own test, fixed in the
+      same session). `Int(_:)` is a fatal error on NaN and infinity in Swift, so a bad scan would have crashed the
+      editor. It now returns `Int.max` for a non-finite or absurd extent, the whole-home sum saturates, and
+      span/cell checks are skipped once a coordinate is non-finite. Pinned by
+      `testCoordinateRangeAndNonFiniteValues`.
+- [ ] **Routing grid performance is still unoptimised, and that is now a documented ceiling, not a mystery.** A home
+      at `MAX_TOTAL_GRID_CELLS` measures **6.11 s** for a 3-peril `/score` on a 2026 Mac (~26 us/cell), so ~15-20 s
+      on Render's free instance — inside the iOS 90 s timeout, but not fast. The demo home is 0.39 s. Next action:
+      nothing before Oct 24. If anyone ever needs a larger home than 250,000 cells, optimise the grid (coarser
+      cells, or vectorised rasterizing); do **not** just raise the bound.
+      `test_the_maximum_home_stays_inside_the_stated_cost_budget` is where a new budget has to be argued.
+
+---
 
 ### S11.14 findings (2026-09-29, branches `drill-3d-fallback` then `s11-14-tracker-truth`)
 

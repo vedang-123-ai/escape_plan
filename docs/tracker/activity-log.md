@@ -2748,3 +2748,14 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-09-30T16:24:12Z · vedang-123-ai · `s11-25-home-bounds` @ `d7ea7ef`
+
+**Commits this session**
+  - d7ea7ef S11.25: hand S11.26 the measured body-size ceiling (1.7 MiB)
+  - ebf74f6 S11.25: close out — note, BLOCKERS section, index marked DONE
+  - f618294 S11.25: the editor enforces the same bounds, and proves they match
+  - b1f8075 S11.25: API-level bounds cases — 422 names the bound, router never runs
+  - cb46502 S11.25: bounds tests, at-bound and over-bound for every bound
+  - f180301 S11.25: residential size bounds in pydantic (AUD-004 geometry half)
+  - 8f2f251 S11.25 STEP 0: measure fixtures, choose cell-based bounds over area bounds
+

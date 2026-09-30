@@ -10,6 +10,8 @@ considered valid.
 
 from __future__ import annotations
 
+import math
+import sys
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Optional, Literal, Any
@@ -172,6 +174,140 @@ def _validate_polygon(polygon: list[Point], owner: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Size bounds (S11.25, AUD-004)
+# ---------------------------------------------------------------------------
+#
+# HomeModel validation used to check topology but never size, so one valid
+# request could pin the free Render instance for hours. `build_room_grid`
+# rasterizes each room's BOUNDING BOX at CELL_M = 0.1 m, so cost is linear in
+# bounding-box cells — NOT in room area. A 75 m² diagonal sliver spanning
+# 150 m × 150 m is 2,250,000 cells, 300× more than its area justifies, which is
+# why an area cap alone does not close AUD-004.
+#
+# Measured on 2026-09-30 (three perils, as `/score` runs them): ~26 µs per
+# bounding-box cell. Budget: a home at the maximum finishes a 3-peril `/score`
+# in under 7 s on a 2026 Mac (measured 6.11 s at 252,491 cells).
+#
+# These numbers are mirrored in `escape_plan/Editor/Core/EditorValidation.swift`
+# (`HomeSizeBounds`) so the editor can never build a home the server rejects.
+# Change them in both places, or the editor starts producing 422s.
+# See docs/decisions.md, 2026-09-30, for the headroom each bound carries.
+
+MAX_COORD_M = 200.0
+"""Any x or y in the home, in metres. Also rejects NaN and infinity."""
+
+MAX_POLYGON_VERTICES = 64
+"""Vertices in a room polygon or stairs footprint (`is_simple_polygon` is O(n²))."""
+
+MAX_ROOM_SPAN_M = 60.0
+"""Either side of a single room's bounding box."""
+
+MAX_ROOM_AREA_M2 = 500.0
+"""Absolute area of a single room polygon."""
+
+MAX_ROOM_GRID_CELLS = 90_000
+"""Bounding-box cells for one room: 900 m² of bounding box at CELL_M = 0.1 m."""
+
+MAX_TOTAL_GRID_CELLS = 250_000
+"""Bounding-box cells summed over every room on every floor. The binding bound."""
+
+MAX_FLOORS = 8
+MAX_ROOMS = 200
+"""Rooms across the whole home, not per floor."""
+
+MAX_OPENINGS_PER_FLOOR = 400
+MAX_OBJECTS_PER_FLOOR = 500
+MAX_SAFETY_POINTS_PER_FLOOR = 100
+MAX_STAIRS = 50
+MAX_PROFILES = 50
+
+MAX_FLOOR_HEIGHT_M = 20.0
+MAX_OPENING_DIM_M = 20.0
+"""Width, height or sill height of one opening."""
+
+MAX_OBJECT_SIZE_M = 50.0
+MAX_OBJECT_HEIGHT_M = 20.0
+MAX_OBJECT_ELEVATION_M = 100.0
+
+_CELL_M = 0.1
+"""Mirror of app.routing.nav_grid.CELL_M. Duplicated to keep models.py import-free
+of the routing package (routing imports models, not the other way round);
+`test_home_bounds.py` asserts the two stay equal."""
+
+
+def bbox_cell_count(polygon: list[Point]) -> int:
+    """Navigation-grid cells `build_room_grid` would rasterize for this polygon.
+
+    Mirrors nav_grid.build_room_grid's `cols * rows` exactly: the bounding box at
+    CELL_M, never fewer than one cell per axis. Pure; the bounds test and the
+    validator share it.
+
+    A non-finite extent returns `sys.maxsize` rather than raising, so this stays
+    total for every input and agrees with `HomeSizeBounds.gridCellCount` in
+    `EditorValidation.swift`, which saturates for the same reason (`Int(_:)` traps
+    on NaN in Swift). Callers read a saturated value as "over every bound", which
+    it is. `_validate_polygon_bounds` rejects a non-finite coordinate before it
+    ever gets here, so this guard is for the next caller, not for the validator.
+    """
+    xs = [p[0] for p in polygon]
+    ys = [p[1] for p in polygon]
+
+    def axis_cells(values: list[float]) -> int:
+        # Every value, not just the extent: max()/min() silently SKIP a non-leading
+        # NaN (all its comparisons are False), so `max(xs) - min(xs)` can come back
+        # finite for a polygon that contains one.
+        if not all(math.isfinite(v) for v in values):
+            return sys.maxsize
+        return max(1, int(math.ceil((max(values) - min(values)) / _CELL_M)))
+
+    cols, rows = axis_cells(xs), axis_cells(ys)
+    if sys.maxsize in (cols, rows):
+        return sys.maxsize
+    return cols * rows
+
+
+def _check_coord(value: float, owner: str, axis: str) -> None:
+    # NaN and infinity are a different bug from an oversized home (a converter
+    # divided by zero, not a mansion), so they keep their own message.
+    if not math.isfinite(value):
+        raise ValueError(f"{owner}: {axis} coordinate must be finite, got {value}")
+    if not (-MAX_COORD_M <= value <= MAX_COORD_M):
+        raise ValueError(
+            f"{owner}: {axis} coordinate {value} is outside the supported range "
+            f"±{MAX_COORD_M:g} m. This app models a single residence; check the "
+            "scan's origin if a converter produced this."
+        )
+
+
+def _validate_polygon_bounds(polygon: list[Point], owner: str) -> None:
+    """Coordinate range, vertex count, span and grid cost for one polygon."""
+    if len(polygon) > MAX_POLYGON_VERTICES:
+        raise ValueError(
+            f"{owner}: {len(polygon)} vertices exceeds the maximum of "
+            f"{MAX_POLYGON_VERTICES}. Simplify the outline."
+        )
+    for (x, y) in polygon:
+        _check_coord(x, owner, "x")
+        _check_coord(y, owner, "y")
+    xs = [p[0] for p in polygon]
+    ys = [p[1] for p in polygon]
+    width, depth = max(xs) - min(xs), max(ys) - min(ys)
+    if width > MAX_ROOM_SPAN_M or depth > MAX_ROOM_SPAN_M:
+        raise ValueError(
+            f"{owner}: bounding box {width:.1f} m × {depth:.1f} m exceeds the "
+            f"maximum span of {MAX_ROOM_SPAN_M:g} m on a side."
+        )
+    cells = bbox_cell_count(polygon)
+    if cells > MAX_ROOM_GRID_CELLS:
+        raise ValueError(
+            f"{owner}: its bounding box needs {cells:,} navigation-grid cells, "
+            f"over the per-room maximum of {MAX_ROOM_GRID_CELLS:,}. A long thin "
+            "room costs as much as the whole box it spans — split it or "
+            "straighten it."
+        )
+
+
+# ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
 
@@ -225,7 +361,15 @@ class Room(SourcedModel):
     def _check(self) -> "Room":
         if self.id == EXTERIOR_ID:
             raise ValueError(f"'{EXTERIOR_ID}' is a reserved pseudo-room id")
-        _validate_polygon(list(self.polygon), f"room '{self.id}'")
+        owner = f"room '{self.id}'"
+        _validate_polygon(list(self.polygon), owner)
+        _validate_polygon_bounds(list(self.polygon), owner)
+        area = abs(signed_area(list(self.polygon)))
+        if area > MAX_ROOM_AREA_M2:
+            raise ValueError(
+                f"{owner}: area {area:.1f} m² exceeds the maximum of "
+                f"{MAX_ROOM_AREA_M2:g} m² for a single room."
+            )
         return self
 
 
@@ -234,9 +378,9 @@ class Opening(SourcedModel):
     kind: OpeningKind
     room_ids: list[str] = Field(min_length=2, max_length=2)
     wall_segment: WallSegmentRef
-    width_m: float = Field(gt=0)
-    height_m: float = Field(gt=0)
-    sill_height_m: float = Field(ge=0)
+    width_m: float = Field(gt=0, le=MAX_OPENING_DIM_M)
+    height_m: float = Field(gt=0, le=MAX_OPENING_DIM_M)
+    sill_height_m: float = Field(ge=0, le=MAX_OPENING_DIM_M)
     egress: Optional[EgressAssessment] = None
 
     @model_validator(mode="after")
@@ -272,11 +416,13 @@ class SafetyPoint(SourcedModel):
 
     @model_validator(mode="after")
     def _check(self) -> "SafetyPoint":
-        import math
         if self.id == EXTERIOR_ID:
             raise ValueError(f"'{EXTERIOR_ID}' is a reserved id")
-        if not math.isfinite(self.position[0]) or not math.isfinite(self.position[1]):
-            raise ValueError(f"safety_point '{self.id}': position must be finite")
+        # _check_coord rejects NaN and infinity as well as out-of-range values,
+        # so it subsumes the isfinite check this validator used to carry.
+        owner = f"safety_point '{self.id}'"
+        _check_coord(self.position[0], owner, "x")
+        _check_coord(self.position[1], owner, "y")
         return self
 
 class Household(StrictModel):
@@ -314,9 +460,29 @@ class FloorObject(SourcedModel):
     def _check(self) -> "FloorObject":
         if self.id == EXTERIOR_ID:
             raise ValueError(f"'{EXTERIOR_ID}' is a reserved id")
+        owner = f"object '{self.id}'"
+        _check_coord(self.center[0], owner, "x")
+        _check_coord(self.center[1], owner, "y")
         w, d = self.size_m
         if w <= 0 or d <= 0:
             raise ValueError(f"object '{self.id}': size_m must be positive, got {self.size_m}")
+        if not (w <= MAX_OBJECT_SIZE_M and d <= MAX_OBJECT_SIZE_M):
+            raise ValueError(
+                f"{owner}: size_m {self.size_m} exceeds the maximum of "
+                f"{MAX_OBJECT_SIZE_M:g} m on a side."
+            )
+        if not (self.height_m <= MAX_OBJECT_HEIGHT_M):
+            raise ValueError(
+                f"{owner}: height_m {self.height_m} exceeds the maximum of "
+                f"{MAX_OBJECT_HEIGHT_M:g} m."
+            )
+        if not (self.elevation_m <= MAX_OBJECT_ELEVATION_M):
+            raise ValueError(
+                f"{owner}: elevation_m {self.elevation_m} exceeds the maximum of "
+                f"{MAX_OBJECT_ELEVATION_M:g} m."
+            )
+        if not math.isfinite(self.rotation_deg):
+            raise ValueError(f"{owner}: rotation_deg must be finite")
         return self
 
 
@@ -324,11 +490,13 @@ class Floor(StrictModel):
     id: str
     level: int
     name: str = Field(min_length=1)
-    height_m: float = Field(gt=0)
-    rooms: list[Room] = Field(min_length=1)
-    openings: list[Opening] = Field(default_factory=list)
-    objects: list[FloorObject] = Field(default_factory=list)
-    safety_points: list[SafetyPoint] = Field(default_factory=list)
+    height_m: float = Field(gt=0, le=MAX_FLOOR_HEIGHT_M)
+    rooms: list[Room] = Field(min_length=1, max_length=MAX_ROOMS)
+    openings: list[Opening] = Field(default_factory=list, max_length=MAX_OPENINGS_PER_FLOOR)
+    objects: list[FloorObject] = Field(default_factory=list, max_length=MAX_OBJECTS_PER_FLOOR)
+    safety_points: list[SafetyPoint] = Field(
+        default_factory=list, max_length=MAX_SAFETY_POINTS_PER_FLOOR
+    )
 
     @model_validator(mode="after")
     def _check(self) -> "Floor":
@@ -373,7 +541,9 @@ class Stairs(SourcedModel):
                 f"stairs '{self.id}': endpoints must be on different floors "
                 f"(both on '{self.to.floor_id}')"
             )
-        _validate_polygon(list(self.footprint), f"stairs '{self.id}' footprint")
+        owner = f"stairs '{self.id}' footprint"
+        _validate_polygon(list(self.footprint), owner)
+        _validate_polygon_bounds(list(self.footprint), owner)
         return self
 
 
@@ -401,9 +571,9 @@ class HomeModel(StrictModel):
     schema_version: Literal["2.1"]
     home_id: str
     name: str = Field(min_length=1)
-    floors: list[Floor] = Field(min_length=1)
-    stairs: list[Stairs] = Field(default_factory=list)
-    profiles: list[Profile] = Field(default_factory=list)
+    floors: list[Floor] = Field(min_length=1, max_length=MAX_FLOORS)
+    stairs: list[Stairs] = Field(default_factory=list, max_length=MAX_STAIRS)
+    profiles: list[Profile] = Field(default_factory=list, max_length=MAX_PROFILES)
     meta: Meta
     household: Optional[Household] = None
 
@@ -412,6 +582,28 @@ class HomeModel(StrictModel):
     def _migrate(cls, data: Any) -> Any:
         from app.schema_migrator import migrate
         return migrate(data)
+
+    @model_validator(mode="after")
+    def _size_bounds(self) -> "HomeModel":
+        """Home-wide size bounds (S11.25, AUD-004). Per-item bounds are on the items;
+        these are the two that only exist across the whole document."""
+        room_count = sum(len(fl.rooms) for fl in self.floors)
+        if room_count > MAX_ROOMS:
+            raise ValueError(
+                f"home has {room_count} rooms across {len(self.floors)} floors, over "
+                f"the maximum of {MAX_ROOMS}. This app models a single residence."
+            )
+        total_cells = sum(
+            bbox_cell_count(list(r.polygon)) for fl in self.floors for r in fl.rooms
+        )
+        if total_cells > MAX_TOTAL_GRID_CELLS:
+            raise ValueError(
+                f"home needs {total_cells:,} navigation-grid cells, over the maximum "
+                f"of {MAX_TOTAL_GRID_CELLS:,}. Routing cost is proportional to this "
+                "number, so a larger home would take minutes to route. Split it into "
+                "separate homes, or simplify long thin rooms."
+            )
+        return self
 
     @model_validator(mode="after")
     def _cross_references(self) -> "HomeModel":

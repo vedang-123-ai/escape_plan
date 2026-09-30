@@ -23,6 +23,7 @@ struct ValidationIssue: Equatable, Sendable, CustomStringConvertible {
         case emptyCollection
         case provenance
         case emptyString
+        case sizeBounds
     }
 
     let kind: Kind
@@ -45,6 +46,66 @@ struct ValidationIssue: Equatable, Sendable, CustomStringConvertible {
 /// So the store's reducer can `throw` an issue for the cases validation can't reach on its own
 /// (an action naming an id that doesn't exist leaves no bad entity behind to detect).
 extension ValidationIssue: Error {}
+
+/// Residential size bounds (S11.25, AUD-004) — the client-side mirror of the constants in
+/// `backend/app/models.py`. **Change them in both places, or the editor starts producing 422s.**
+///
+/// The two that matter are the grid-cell bounds. The backend's router rasterizes each room's
+/// *bounding box* at 10 cm cells, so routing cost is linear in bounding-box cells and NOT in
+/// room area: a 75 m² diagonal sliver spanning 150 m × 150 m costs 2,250,000 cells, 300× more
+/// than its area justifies. An area cap alone would not have closed AUD-004.
+///
+/// Budget (measured 2026-09-30, ~26 µs/cell for the three plans `/score` runs): a home at
+/// `maxTotalGridCells` completes a 3-peril `/score` in under 7 s. See docs/decisions.md.
+enum HomeSizeBounds {
+    static let maxCoordM = 200.0
+    static let maxPolygonVertices = 64
+    static let maxRoomSpanM = 60.0
+    static let maxRoomAreaM2 = 500.0
+    static let maxRoomGridCells = 90_000
+    static let maxTotalGridCells = 250_000
+    static let maxFloors = 8
+    /// Rooms across the whole home, not per floor.
+    static let maxRooms = 200
+    static let maxOpeningsPerFloor = 400
+    static let maxObjectsPerFloor = 500
+    static let maxSafetyPointsPerFloor = 100
+    static let maxStairs = 50
+    static let maxProfiles = 50
+    static let maxFloorHeightM = 20.0
+    static let maxOpeningDimM = 20.0
+    static let maxObjectSizeM = 50.0
+    static let maxObjectHeightM = 20.0
+    static let maxObjectElevationM = 100.0
+
+    /// Mirror of `CELL_M` in `backend/app/routing/nav_grid.py` (and `_CELL_M` in models.py).
+    static let cellM = 0.1
+
+    /// Navigation-grid cells the backend's router would rasterize for this polygon.
+    /// Mirrors `bbox_cell_count` in models.py and `build_room_grid`'s `cols * rows`.
+    static func gridCellCount(_ polygon: [Point]) -> Int {
+        guard !polygon.isEmpty else { return 0 }
+        // `Int(_:)` TRAPS on NaN and on infinity, and a scan or a bad edit can put either in a
+        // polygon, so a non-finite or absurd extent reports Int.max rather than crashing the
+        // editor. Callers treat Int.max as "over every bound", which it is.
+        let xs = polygon.map(\.x), ys = polygon.map(\.y)
+        func axisCells(_ values: [Double]) -> Int {
+            // Every value, not just the extent: `max()`/`min()` skip a non-leading NaN
+            // (all its comparisons are false), so the extent can come back finite for a
+            // polygon that contains one. Mirrors `axis_cells` in backend/app/models.py.
+            guard values.allSatisfy(\.isFinite) else { return Int.max }
+            let cells = ((values.max()! - values.min()!) / cellM).rounded(.up)
+            guard cells.isFinite, cells < Double(Int.max / 2) else { return Int.max }
+            return max(1, Int(cells))
+        }
+        let cols = axisCells(xs), rows = axisCells(ys)
+        guard cols != Int.max, rows != Int.max,
+              let product = cols.multipliedReportingOverflow(by: rows).overflow
+                  ? nil : cols * rows
+        else { return Int.max }
+        return product
+    }
+}
 
 enum EditorValidation {
 
@@ -71,8 +132,100 @@ enum EditorValidation {
         }
         issues += validateStairs(model)
         issues += validateProfiles(model)
+        issues += validateSizeBounds(model)
 
         return issues
+    }
+
+    // MARK: - Size bounds (S11.25, AUD-004)
+
+    /// The home-wide half of the bounds: the counts and the routing cost. Per-item bounds
+    /// live with the item, next to its other rules.
+    private static func validateSizeBounds(_ model: HomeModel) -> [ValidationIssue] {
+        var issues: [ValidationIssue] = []
+
+        if model.floors.count > HomeSizeBounds.maxFloors {
+            issues.append(.init(.sizeBounds,
+                                "this home has \(model.floors.count) floors; the maximum is \(HomeSizeBounds.maxFloors)"))
+        }
+        if model.stairs.count > HomeSizeBounds.maxStairs {
+            issues.append(.init(.sizeBounds,
+                                "this home has \(model.stairs.count) stairs; the maximum is \(HomeSizeBounds.maxStairs)"))
+        }
+        if model.profiles.count > HomeSizeBounds.maxProfiles {
+            issues.append(.init(.sizeBounds,
+                                "this home has \(model.profiles.count) people; the maximum is \(HomeSizeBounds.maxProfiles)"))
+        }
+
+        let roomCount = model.floors.reduce(0) { $0 + $1.rooms.count }
+        if roomCount > HomeSizeBounds.maxRooms {
+            issues.append(.init(.sizeBounds,
+                                "this home has \(roomCount) rooms across \(model.floors.count) floors; the maximum is \(HomeSizeBounds.maxRooms). Escape Plan models a single residence."))
+        }
+
+        // The binding bound. Routing cost is proportional to this number, so the backend
+        // refuses anything larger rather than spend minutes on one request.
+        // Saturating, because gridCellCount reports Int.max for a non-finite polygon.
+        let totalCells = model.floors.reduce(0) { sum, floor in
+            floor.rooms.reduce(sum) { running, room in
+                let (next, overflow) = running.addingReportingOverflow(
+                    HomeSizeBounds.gridCellCount(room.polygon))
+                return overflow ? Int.max : next
+            }
+        }
+        if totalCells > HomeSizeBounds.maxTotalGridCells {
+            issues.append(.init(.sizeBounds,
+                                "this home is too large to route: it needs \(totalCells) navigation cells and the maximum is \(HomeSizeBounds.maxTotalGridCells). Split it into separate homes, or straighten any long thin rooms."))
+        }
+        return issues
+    }
+
+    /// Coordinate range, vertex count, span and grid cost for one polygon.
+    /// Mirrors `_validate_polygon_bounds` in `backend/app/models.py`.
+    private static func validatePolygonBounds(_ polygon: [Point], entityId: String,
+                                              what: String) -> [ValidationIssue] {
+        var issues: [ValidationIssue] = []
+
+        if polygon.count > HomeSizeBounds.maxPolygonVertices {
+            issues.append(.init(.sizeBounds, entityId: entityId,
+                                "\(what) has \(polygon.count) vertices; the maximum is \(HomeSizeBounds.maxPolygonVertices). Simplify the outline."))
+        }
+        for point in polygon {
+            issues += validateCoordinate(point.x, axis: "x", entityId: entityId, what: what)
+            issues += validateCoordinate(point.y, axis: "y", entityId: entityId, what: what)
+        }
+        // Span and cell count are meaningless once a coordinate is NaN or infinite, and
+        // computing them would trap. pydantic's _check_coord raises at the same point.
+        guard !polygon.isEmpty,
+              polygon.allSatisfy({ $0.x.isFinite && $0.y.isFinite })
+        else { return issues }
+
+        let xs = polygon.map(\.x), ys = polygon.map(\.y)
+        let width = xs.max()! - xs.min()!, depth = ys.max()! - ys.min()!
+        if width > HomeSizeBounds.maxRoomSpanM || depth > HomeSizeBounds.maxRoomSpanM {
+            issues.append(.init(.sizeBounds, entityId: entityId,
+                                "\(what) spans \(String(format: "%.1f", width)) m × \(String(format: "%.1f", depth)) m; the maximum is \(Int(HomeSizeBounds.maxRoomSpanM)) m on a side."))
+        }
+        let cells = HomeSizeBounds.gridCellCount(polygon)
+        if cells > HomeSizeBounds.maxRoomGridCells {
+            issues.append(.init(.sizeBounds, entityId: entityId,
+                                "\(what) needs \(cells) navigation cells and the maximum is \(HomeSizeBounds.maxRoomGridCells). A long thin room costs as much as the whole box it spans — split it or straighten it."))
+        }
+        return issues
+    }
+
+    /// Written as a positive range check, so a NaN or infinite coordinate is caught too.
+    private static func validateCoordinate(_ value: Double, axis: String, entityId: String,
+                                          what: String) -> [ValidationIssue] {
+        if !value.isFinite {
+            return [.init(.sizeBounds, entityId: entityId,
+                          "\(what): \(axis) coordinate must be a finite number")]
+        }
+        if !(-HomeSizeBounds.maxCoordM...HomeSizeBounds.maxCoordM).contains(value) {
+            return [.init(.sizeBounds, entityId: entityId,
+                          "\(what): \(axis) coordinate \(value) is outside the supported range ±\(Int(HomeSizeBounds.maxCoordM)) m")]
+        }
+        return []
     }
 
     static func isValid(_ model: HomeModel) -> Bool { validate(model).isEmpty }
@@ -144,13 +297,65 @@ enum EditorValidation {
                                 "a floor must have at least one room"))
         }
 
+        if floor.height_m > HomeSizeBounds.maxFloorHeightM {
+            issues.append(.init(.sizeBounds, entityId: floor.id,
+                                "height_m \(floor.height_m) exceeds the maximum of \(Int(HomeSizeBounds.maxFloorHeightM)) m"))
+        }
+        if floor.openings.count > HomeSizeBounds.maxOpeningsPerFloor {
+            issues.append(.init(.sizeBounds, entityId: floor.id,
+                                "this floor has \(floor.openings.count) doors and windows; the maximum is \(HomeSizeBounds.maxOpeningsPerFloor)"))
+        }
+        if floor.objects.count > HomeSizeBounds.maxObjectsPerFloor {
+            issues.append(.init(.sizeBounds, entityId: floor.id,
+                                "this floor has \(floor.objects.count) objects; the maximum is \(HomeSizeBounds.maxObjectsPerFloor)"))
+        }
+        if floor.safety_points.count > HomeSizeBounds.maxSafetyPointsPerFloor {
+            issues.append(.init(.sizeBounds, entityId: floor.id,
+                                "this floor has \(floor.safety_points.count) landmarks; the maximum is \(HomeSizeBounds.maxSafetyPointsPerFloor)"))
+        }
+
         for room in floor.rooms {
             issues += validateRoom(room)
         }
         for opening in floor.openings {
             issues += validateOpening(opening, on: floor)
         }
+        for object in floor.objects {
+            issues += validateObjectBounds(object)
+        }
+        for point in floor.safety_points {
+            issues += validateCoordinate(point.position.x, axis: "x", entityId: point.id,
+                                        what: "landmark position")
+            issues += validateCoordinate(point.position.y, axis: "y", entityId: point.id,
+                                        what: "landmark position")
+        }
         issues += validateOpeningOverlaps(on: floor)
+        return issues
+    }
+
+    /// Size bounds for one object. Mirrors `FloorObject._check` in `backend/app/models.py`.
+    private static func validateObjectBounds(_ object: FloorObject) -> [ValidationIssue] {
+        var issues: [ValidationIssue] = []
+        issues += validateCoordinate(object.center.x, axis: "x", entityId: object.id,
+                                    what: "object centre")
+        issues += validateCoordinate(object.center.y, axis: "y", entityId: object.id,
+                                    what: "object centre")
+        if object.size_m.contains(where: { $0 > HomeSizeBounds.maxObjectSizeM }) {
+            issues.append(.init(.sizeBounds, entityId: object.id,
+                                "object footprint exceeds the maximum of \(Int(HomeSizeBounds.maxObjectSizeM)) m on a side"))
+        }
+        if object.height_m > HomeSizeBounds.maxObjectHeightM {
+            issues.append(.init(.sizeBounds, entityId: object.id,
+                                "object height \(object.height_m) m exceeds the maximum of \(Int(HomeSizeBounds.maxObjectHeightM)) m"))
+        }
+        if object.elevation_m > HomeSizeBounds.maxObjectElevationM {
+            issues.append(.init(.sizeBounds, entityId: object.id,
+                                "object elevation \(object.elevation_m) m exceeds the maximum of \(Int(HomeSizeBounds.maxObjectElevationM)) m"))
+        }
+        if !object.rotation_deg.isFinite {
+            issues.append(.init(.sizeBounds, entityId: object.id,
+                                "object rotation must be a finite number"))
+        }
         return issues
     }
 
@@ -194,6 +399,12 @@ enum EditorValidation {
             // Only meaningful once we know the polygon is simple.
             issues.append(.init(.polygonOrientation, entityId: room.id,
                                 "polygon must be counter-clockwise (signed area \(Geometry.signedArea(room.polygon)))"))
+        }
+        issues += validatePolygonBounds(room.polygon, entityId: room.id, what: "this room")
+        let area = abs(Geometry.signedArea(room.polygon))
+        if area > HomeSizeBounds.maxRoomAreaM2 {
+            issues.append(.init(.sizeBounds, entityId: room.id,
+                                "this room is \(String(format: "%.1f", area)) m²; the maximum for one room is \(Int(HomeSizeBounds.maxRoomAreaM2)) m²"))
         }
         issues += validateProvenance(source: room.source, confidence: room.confidence,
                                      entityId: room.id)
@@ -260,6 +471,12 @@ enum EditorValidation {
         if opening.sill_height_m < 0 {
             issues.append(.init(.openingDimensions, entityId: id, "sill_height_m must be >= 0"))
         }
+        for (label, value) in [("width_m", opening.width_m), ("height_m", opening.height_m),
+                               ("sill_height_m", opening.sill_height_m)]
+        where value > HomeSizeBounds.maxOpeningDimM {
+            issues.append(.init(.sizeBounds, entityId: id,
+                                "\(label) \(value) exceeds the maximum of \(Int(HomeSizeBounds.maxOpeningDimM)) m"))
+        }
 
         issues += validateProvenance(source: opening.source, confidence: opening.confidence,
                                      entityId: id)
@@ -290,6 +507,8 @@ enum EditorValidation {
                 issues.append(.init(.polygonDegenerate, entityId: stair.id,
                                     "footprint must be a simple polygon with at least 3 vertices"))
             }
+            issues += validatePolygonBounds(stair.footprint, entityId: stair.id,
+                                            what: "this staircase footprint")
             issues += validateProvenance(source: stair.source, confidence: stair.confidence,
                                          entityId: stair.id)
         }

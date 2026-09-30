@@ -73,7 +73,7 @@ Anything cut gets a BLOCKERS line.
 | [S11.22](S11-22.md) | Sync: at most one conflict copy, never while open | 015 | P2 | 2 Data integrity | D | `s11-22-sync-conflict-copies` | S11.19, S11.21 | |
 | [S11.23](S11-23.md) | A score belongs to the home it was asked for | 014 | P2 | 2 Data integrity | D | `s11-23-score-race` | S11.17 | |
 | [S11.24](S11-24.md) | Re-check a room end to end | 017, 029, 049 | P2 | 2 Data integrity | D | `s11-24-recheck-flow` | S11.19, S11.23 | |
-| [S11.25](S11-25.md) | Residential size bounds, server and editor alike | 004 | P1 | 3 Backend hardening | E | `s11-25-home-bounds` | S11.14 | |
+| [S11.25](S11-25.md) | ~~Residential size bounds, server and editor alike~~ **DONE 2026-09-30** | 004 | P1 | 3 Backend hardening | E | `s11-25-home-bounds` | S11.14 | DONE 2026-09-30 |
 | [S11.26](S11-26.md) | Request size limits and input caps | 004, 035, 024 | P1 | 3 Backend hardening | E | `s11-26-request-limits` | S11.14 | |
 | [S11.27](S11-27.md) | AI spend ceiling; trusted client key; one require_token | 003, 006, 043 | P1 | 3 Backend hardening | E | `s11-27-ai-spend` | S11.14 | |
 | [S11.28](S11-28.md) | Sign-in routes: off the event loop, throttled, rehash | 005, 011 | P1 | 3 Backend hardening | E | `s11-28-auth-throttle` | S11.27 | |
