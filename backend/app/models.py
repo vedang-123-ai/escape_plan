@@ -178,15 +178,33 @@ def _validate_polygon(polygon: list[Point], owner: str) -> None:
 # ---------------------------------------------------------------------------
 #
 # HomeModel validation used to check topology but never size, so one valid
-# request could pin the free Render instance for hours. `build_room_grid`
-# rasterizes each room's BOUNDING BOX at CELL_M = 0.1 m, so cost is linear in
-# bounding-box cells — NOT in room area. A 75 m² diagonal sliver spanning
-# 150 m × 150 m is 2,250,000 cells, 300× more than its area justifies, which is
-# why an area cap alone does not close AUD-004.
+# request could pin the free Render instance for hours. There are TWO independent
+# cost drivers, and bounding only one of them does not close AUD-004:
 #
-# Measured on 2026-09-30 (three perils, as `/score` runs them): ~26 µs per
-# bounding-box cell. Budget: a home at the maximum finishes a 3-peril `/score`
-# in under 7 s on a 2026 Mac (measured 6.11 s at 252,491 cells).
+# (1) GRID CELLS. `build_room_grid` rasterizes each room's BOUNDING BOX at
+#     CELL_M = 0.1 m, so cost is linear in bounding-box cells — NOT in room area.
+#     A 75 m² diagonal sliver spanning 150 m × 150 m is 2,250,000 cells, 300× more
+#     than its area justifies, so an area cap alone lets it through. Measured
+#     2026-09-30: ~26 µs per cell for the three plans `/score` runs, i.e. 6.11 s
+#     at 252,491 cells with few objects.
+#
+# (2) OBJECTS IN ONE ROOM — the worse one, and the one the first version of these
+#     bounds missed. When a route is blocked, culprit attribution re-rasterizes the
+#     room per object, so cost grows ~O(n^1.7) in the objects the room contains,
+#     almost independently of its cell count. Measured 2026-09-30 in a 3.5 m × 3.5 m
+#     room (1,225 cells), objects piled against the only exit, ONE peril:
+#
+#         10 obj  0.27 s |  50 obj   2.79 s | 200 obj  42.67 s
+#         25 obj  0.90 s | 100 obj   9.03 s | 400 obj 134.17 s
+#
+#     ×3.2 for every ×2 objects. The old MAX_OBJECTS_PER_FLOOR = 500 therefore
+#     permitted a ~10-minute `/score` inside every other bound — exactly the
+#     AUD-004 failure the cell bound was supposed to have closed. The real fix is
+#     to make attribution linear (engine work, out of scope); these bounds are the
+#     mitigation.
+#
+# Budget: a home at the maximum finishes a 3-peril `/score` in under ~25 s on a
+# 2026 Mac. See docs/decisions.md, 2026-09-30.
 #
 # These numbers are mirrored in `escape_plan/Editor/Core/EditorValidation.swift`
 # (`HomeSizeBounds`) so the editor can never build a home the server rejects.
@@ -216,7 +234,16 @@ MAX_ROOMS = 200
 """Rooms across the whole home, not per floor."""
 
 MAX_OPENINGS_PER_FLOOR = 400
-MAX_OBJECTS_PER_FLOOR = 500
+
+MAX_OBJECTS_PER_ROOM = 25
+"""Objects whose bounding circle overlaps ONE room's bounding box — the set
+`objects_intersecting` hands to `build_room_grid`, and the driver of the
+~O(n^1.7) blocked-route culprit analysis. The binding object bound."""
+
+MAX_OBJECTS_PER_FLOOR = 120
+MAX_OBJECTS_TOTAL = 200
+"""Objects across the whole home. Largest committed fixture: 9."""
+
 MAX_SAFETY_POINTS_PER_FLOOR = 100
 MAX_STAIRS = 50
 MAX_PROFILES = 50
@@ -517,6 +544,34 @@ class Floor(StrictModel):
                     f"out of range for room '{host.id}' "
                     f"({len(host.polygon)} edges)"
                 )
+
+        # Objects PER ROOM (S11.25 follow-up, AUD-004). Counted with the same
+        # bounding-box overlap test `objects_intersecting` uses, because that is the
+        # set the router actually rasterizes against. Not a Field(max_length=): the
+        # count depends on the room polygons, not on the list.
+        if self.objects:
+            for room in self.rooms:
+                xs = [p[0] for p in room.polygon]
+                ys = [p[1] for p in room.polygon]
+                min_x, max_x, min_y, max_y = min(xs), max(xs), min(ys), max(ys)
+                n = 0
+                for obj in self.objects:
+                    radius = math.hypot(obj.size_m[0], obj.size_m[1]) / 2.0
+                    if (
+                        obj.center[0] + radius >= min_x
+                        and obj.center[0] - radius <= max_x
+                        and obj.center[1] + radius >= min_y
+                        and obj.center[1] - radius <= max_y
+                    ):
+                        n += 1
+                if n > MAX_OBJECTS_PER_ROOM:
+                    raise ValueError(
+                        f"room '{room.id}': {n} objects overlap it, over the maximum of "
+                        f"{MAX_OBJECTS_PER_ROOM} per room. Finding which object blocks a "
+                        "route costs more than linearly in the objects a room holds, so a "
+                        "larger number would make routing this home take minutes. Remove "
+                        "or merge some, or split the room."
+                    )
         return self
 
 
@@ -592,6 +647,13 @@ class HomeModel(StrictModel):
             raise ValueError(
                 f"home has {room_count} rooms across {len(self.floors)} floors, over "
                 f"the maximum of {MAX_ROOMS}. This app models a single residence."
+            )
+        object_count = sum(len(fl.objects) for fl in self.floors)
+        if object_count > MAX_OBJECTS_TOTAL:
+            raise ValueError(
+                f"home has {object_count} objects, over the maximum of "
+                f"{MAX_OBJECTS_TOTAL}. Escape Plan models the large furniture that "
+                "affects a route, not every item in the house."
             )
         total_cells = sum(
             bbox_cell_count(list(r.polygon)) for fl in self.floors for r in fl.rooms

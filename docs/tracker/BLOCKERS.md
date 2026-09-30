@@ -128,7 +128,8 @@ owning session's merge is on `origin/main` and you verified it.
 
 ### S11.25 findings (2026-09-30, branch `s11-25-home-bounds`)
 
-- [x] **AUD-004 geometry half fixed.** Size bounds in `backend/app/models.py` (`MAX_*`) and mirrored in
+- [x] **AUD-004 geometry half fixed** (corrected 2026-09-30 — see the next line; the first version of these
+      bounds did NOT close it).** Size bounds in `backend/app/models.py` (`MAX_*`) and mirrored in
       `HomeSizeBounds` in `escape_plan/Editor/Core/EditorValidation.swift`. **Option (a): the JSON Schema is
       unchanged and `schema_version` stays 2.1** — two dated rows in `docs/decisions.md` say why.
       Verified 2026-09-30 on the branch: backend **926 passed, 1 skipped** (was 893/1); EditorCore **631 passed,
@@ -137,6 +138,25 @@ owning session's merge is on `origin/main` and you verified it.
       `MAX_ROOM_SPAN_M` 60 · `MAX_ROOM_AREA_M2` 500 · `MAX_POLYGON_VERTICES` 64 · `MAX_FLOORS` 8 ·
       `MAX_ROOMS` 200 (whole home) · `MAX_OPENINGS_PER_FLOOR` 400 · `MAX_OBJECTS_PER_FLOOR` 500 ·
       `MAX_SAFETY_POINTS_PER_FLOOR` 100 · `MAX_STAIRS` 50 · `MAX_PROFILES` 50 · `MAX_FLOOR_HEIGHT_M` 20.
+- [x] **CORRECTION: the cell bound alone did not close AUD-004. Objects were the real vector**
+      (`s11-25-followup-object-bounds`, 2026-09-30). The first S11.25 measurement scaled `twostory.json`, which
+      holds objects fixed at 5, so it measured the cell term and **missed the object term entirely**. Blocked-route
+      culprit attribution re-rasterizes a room per object, so cost is **~O(n^1.7)** in the objects ONE room holds,
+      almost regardless of cell count: measured in a 1,225-cell room, one peril — 25 obj 0.90 s, 100 obj 9.03 s,
+      400 obj 134.17 s. The old `MAX_OBJECTS_PER_FLOOR = 500` allowed a **~10-minute `/score`** inside every other
+      bound. Fixed: `MAX_OBJECTS_PER_ROOM = 25`, `MAX_OBJECTS_PER_FLOOR` 500 -> 120, `MAX_OBJECTS_TOTAL = 200`,
+      mirrored in `HomeSizeBounds`. Combined worst case (245,000 cells, 200 rooms, 200 objects, all blocked)
+      **measured 21.82 s** for a 3-peril `/score`. Gate: backend **932 passed**, EditorCore **635 passed**,
+      typecheck-ios ok, corpus valid. **The stated budget in the earlier S11.25 note and decisions row ("under 7 s")
+      was wrong by 3x — do not quote it.**
+- [ ] **Blocked-route culprit attribution is superlinear, and the object bounds are a mitigation, not a cure**
+      (2026-09-30). `backend/app/routing/obstructions.py` (`culprit_object_ids`, `_reachable`) re-rasterizes the
+      room per candidate object, which is why cost is ~O(n^1.7) in objects per room. The real fix is to attribute
+      culprits in one pass (rasterize once, label cells by the object that closed them) instead of re-running
+      `build_room_grid`. Next action: **not before Oct 24.** If a user ever needs more than 25 objects in one room,
+      that is the work to do — do **not** just raise `MAX_OBJECTS_PER_ROOM`.
+      `test_the_maximum_home_stays_inside_the_stated_cost_budget` fails if any bound changes, which forces a
+      re-measurement of the combined worst case rather than an extrapolation.
 - [ ] **The audit's proposed AUD-004 bound was wrong, and the write-up still says it.** `audit/06_AUTH_SECURITY.md`
       proposes `room area <= 2,000 m2`. That would not have closed the finding: `build_room_grid` rasterizes a room's
       **bounding box**, so a measured 75 m2 diagonal sliver spanning 150 m x 150 m is 2,250,000 cells (~58 s to
