@@ -53,6 +53,22 @@ def test_models_cell_size_matches_the_routing_engine() -> None:
     assert _CELL_M == CELL_M
 
 
+@pytest.mark.parametrize("position", [0, 1, 2])
+def test_bbox_cell_count_is_total_for_a_non_finite_polygon(position: int) -> None:
+    """It saturates instead of raising, and for a NaN in ANY vertex.
+
+    `max()`/`min()` silently skip a non-leading NaN (every comparison is False), so a
+    polygon containing one can produce a finite-looking extent. `bbox_cell_count` is
+    public and documented as pure, so the next caller must not be able to make it raise.
+    Swift's `HomeSizeBounds.gridCellCount` returns `Int.max` for the same inputs.
+    """
+    import sys
+
+    polygon = [(0.0, 0.0), (4.0, 0.0), (4.0, 3.0)]
+    polygon[position] = (math.nan, polygon[position][1])
+    assert bbox_cell_count(polygon) == sys.maxsize
+
+
 def test_bbox_cell_count_matches_build_room_grid() -> None:
     """A known-answer check that the validator counts what the router allocates."""
     from app.routing.nav_grid import build_room_grid

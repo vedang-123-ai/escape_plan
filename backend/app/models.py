@@ -11,6 +11,7 @@ considered valid.
 from __future__ import annotations
 
 import math
+import sys
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Optional, Literal, Any
@@ -240,11 +241,28 @@ def bbox_cell_count(polygon: list[Point]) -> int:
     Mirrors nav_grid.build_room_grid's `cols * rows` exactly: the bounding box at
     CELL_M, never fewer than one cell per axis. Pure; the bounds test and the
     validator share it.
+
+    A non-finite extent returns `sys.maxsize` rather than raising, so this stays
+    total for every input and agrees with `HomeSizeBounds.gridCellCount` in
+    `EditorValidation.swift`, which saturates for the same reason (`Int(_:)` traps
+    on NaN in Swift). Callers read a saturated value as "over every bound", which
+    it is. `_validate_polygon_bounds` rejects a non-finite coordinate before it
+    ever gets here, so this guard is for the next caller, not for the validator.
     """
     xs = [p[0] for p in polygon]
     ys = [p[1] for p in polygon]
-    cols = max(1, int(math.ceil((max(xs) - min(xs)) / _CELL_M)))
-    rows = max(1, int(math.ceil((max(ys) - min(ys)) / _CELL_M)))
+
+    def axis_cells(values: list[float]) -> int:
+        # Every value, not just the extent: max()/min() silently SKIP a non-leading
+        # NaN (all its comparisons are False), so `max(xs) - min(xs)` can come back
+        # finite for a polygon that contains one.
+        if not all(math.isfinite(v) for v in values):
+            return sys.maxsize
+        return max(1, int(math.ceil((max(values) - min(values)) / _CELL_M)))
+
+    cols, rows = axis_cells(xs), axis_cells(ys)
+    if sys.maxsize in (cols, rows):
+        return sys.maxsize
     return cols * rows
 
 

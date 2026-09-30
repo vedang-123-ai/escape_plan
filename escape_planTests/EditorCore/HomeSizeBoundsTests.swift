@@ -48,17 +48,28 @@ final class HomeSizeBoundsTests: XCTestCase {
         ("MAX_OBJECT_ELEVATION_M", HomeSizeBounds.maxObjectElevationM),
     ]
 
-    /// `MAX_NAME = 1_234` / `= 60.0`, at the start of a line.
-    private func pythonConstants(in source: String) -> [String: Double] {
-        var found: [String: Double] = [:]
-        for line in source.components(separatedBy: .newlines) {
+    /// Every `MAX_NAME = ...` assignment in the source, at any indentation.
+    ///
+    /// The value is nil when the right-hand side is not a bare number (an expression such as
+    /// `MAX_X = 2 * 50`, say). Those are reported as names with no value rather than skipped:
+    /// an earlier version required column 0 AND a parsable number, so an indented or computed
+    /// bound fell through both this dictionary and the `unmirrored` check and was invisible to
+    /// the whole test — exactly the drift it exists to catch.
+    private func pythonConstants(in source: String) -> [String: Double?] {
+        var found: [String: Double?] = [:]
+        for raw in source.components(separatedBy: .newlines) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
             guard line.hasPrefix("MAX_"), let eq = line.firstIndex(of: "=") else { continue }
+            // Skip comparisons and augmented assignment (`MAX_X == y`, `MAX_X >= y`).
+            let next = line.index(after: eq)
+            if next < line.endIndex, line[next] == "=" { continue }
             let name = String(line[line.startIndex..<eq]).trimmingCharacters(in: .whitespaces)
-            let rhs = String(line[line.index(after: eq)...])
+            guard !name.contains(" "), !name.contains("[") else { continue }
+            let rhs = String(line[next...])
                 .components(separatedBy: "#")[0]
                 .trimmingCharacters(in: .whitespaces)
                 .replacingOccurrences(of: "_", with: "")
-            if let value = Double(rhs) { found[name] = value }
+            found[name] = Double(rhs)
         }
         return found
     }
@@ -70,19 +81,29 @@ final class HomeSizeBoundsTests: XCTestCase {
 
         XCTAssertFalse(python.isEmpty, "parsed no MAX_* constants out of backend/app/models.py")
         for (name, swiftValue) in Self.mirrored {
-            guard let pythonValue = python[name] else {
+            guard let entry = python[name] else {
                 XCTFail("\(name) is missing from backend/app/models.py — was it renamed?")
+                continue
+            }
+            guard let pythonValue = entry else {
+                XCTFail("\(name) in backend/app/models.py is no longer a bare number, so this "
+                        + "test can no longer compare it. Compare it by hand or keep it literal.")
                 continue
             }
             XCTAssertEqual(pythonValue, swiftValue, accuracy: 1e-9,
                            "\(name) has drifted: Python \(pythonValue), Swift \(swiftValue). "
                            + "The editor would now build homes the server rejects.")
         }
-        // Nothing new on the Python side that Swift has not mirrored.
+        // Nothing new on the Python side that Swift has not mirrored. This is the direction
+        // that matters most: a server bound the editor does not know about is a 422 the user
+        // meets at save time.
         let unmirrored = Set(python.keys).subtracting(Self.mirrored.map(\.name))
         XCTAssertTrue(unmirrored.isEmpty,
                       "backend/app/models.py has bounds the editor does not enforce: "
                       + unmirrored.sorted().joined(separator: ", "))
+        XCTAssertEqual(python.count, Self.mirrored.count,
+                       "the two sides no longer have the same NUMBER of bounds: Python "
+                       + "\(python.count), mirrored \(Self.mirrored.count)")
     }
 
     func testCellSizeMatchesTheRoutingEngine() throws {
@@ -101,6 +122,23 @@ final class HomeSizeBoundsTests: XCTestCase {
     func testGridCellCountIsAKnownAnswer() {
         let polygon = [Point(0, 0), Point(4.3, 0), Point(4.3, 2.7), Point(0, 2.7)]
         XCTAssertEqual(HomeSizeBounds.gridCellCount(polygon), 43 * 27)
+    }
+
+    /// Saturates instead of trapping, for a NaN in ANY vertex — `max()`/`min()` skip a
+    /// non-leading NaN, so the extent can look finite. `bbox_cell_count` in
+    /// `backend/app/models.py` returns `sys.maxsize` for the same inputs.
+    func testGridCellCountIsTotalForANonFinitePolygon() {
+        for position in 0..<3 {
+            var polygon = [Point(0, 0), Point(4, 0), Point(4, 3)]
+            polygon[position] = Point(.nan, polygon[position].y)
+            XCTAssertEqual(HomeSizeBounds.gridCellCount(polygon), Int.max,
+                           "NaN at vertex \(position) should saturate, not trap")
+        }
+        for bad in [Double.infinity, -Double.infinity] {
+            XCTAssertEqual(
+                HomeSizeBounds.gridCellCount([Point(0, 0), Point(bad, 0), Point(4, 3)]),
+                Int.max)
+        }
     }
 
     /// The whole reason the bound is on cells and not area: a 30 m² sliver, 90,000 cells.
@@ -341,11 +379,31 @@ final class HomeSizeBoundsTests: XCTestCase {
 
     // MARK: - Real data is unaffected
 
+    /// EVERY fixture in `schema/fixtures/`, enumerated off disk — not `Fixtures.validNames`,
+    /// which is the hardcoded S0.2 trio and omits `jagged.json`, the fixture that sits closest
+    /// to these bounds (51,600 of 250,000 cells). A test named "every shipped fixture" that
+    /// checked three of seven would not have caught a tightening that clipped `jagged`.
     func testEveryShippedFixtureIsInsideEveryBound() throws {
-        for name in Fixtures.validNames {
+        let names = try FileManager.default
+            .contentsOfDirectory(atPath: Fixtures.directory.path)
+            .filter { $0.hasSuffix(".json") }
+            .map { String($0.dropLast(".json".count)) }
+            .sorted()
+        XCTAssertGreaterThanOrEqual(names.count, 7,
+                                    "expected at least the 7 committed fixtures, found \(names)")
+
+        var worstCells = 0
+        for name in names {
             let model = try Fixtures.load(name)
             XCTAssertTrue(sizeIssues(model).isEmpty,
                           "\(name).json must stay inside the bounds, got \(sizeIssues(model))")
+            worstCells = max(worstCells, model.floors.reduce(0) { sum, floor in
+                sum + floor.rooms.reduce(0) { $0 + HomeSizeBounds.gridCellCount($1.polygon) }
+            })
         }
+        // Records the headroom so a future tightening has to face the number.
+        XCTAssertLessThanOrEqual(worstCells, HomeSizeBounds.maxTotalGridCells / 4,
+                                 "the largest fixture now needs \(worstCells) cells, under 4x "
+                                 + "headroom below maxTotalGridCells")
     }
 }

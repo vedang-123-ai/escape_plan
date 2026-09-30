@@ -90,10 +90,12 @@ enum HomeSizeBounds {
         // editor. Callers treat Int.max as "over every bound", which it is.
         let xs = polygon.map(\.x), ys = polygon.map(\.y)
         func axisCells(_ values: [Double]) -> Int {
-            let extent = values.max()! - values.min()!
-            guard extent.isFinite else { return Int.max }
-            let cells = (extent / cellM).rounded(.up)
-            guard cells < Double(Int.max / 2) else { return Int.max }
+            // Every value, not just the extent: `max()`/`min()` skip a non-leading NaN
+            // (all its comparisons are false), so the extent can come back finite for a
+            // polygon that contains one. Mirrors `axis_cells` in backend/app/models.py.
+            guard values.allSatisfy(\.isFinite) else { return Int.max }
+            let cells = ((values.max()! - values.min()!) / cellM).rounded(.up)
+            guard cells.isFinite, cells < Double(Int.max / 2) else { return Int.max }
             return max(1, Int(cells))
         }
         let cols = axisCells(xs), rows = axisCells(ys)

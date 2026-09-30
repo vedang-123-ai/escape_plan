@@ -151,6 +151,31 @@ owning session's merge is on `origin/main` and you verified it.
       the security half was a manual review, which is what found the `Int(_:)` NaN trap below. Next action (owner):
       install that plugin, or edit the remaining Lane E session files to name agents that exist. **Do not let a
       session claim a clean `ecc:` run that could not have happened.**
+- [ ] **A saved home that trips a new bound cannot be opened, and there is no migration path**
+      (schema-contract-guardian, MEDIUM, 2026-09-30). `EditorValidation.validate` now includes the size
+      bounds, and `escape_plan/Editor/Core/HomeModelStore.swift:76` does
+      `guard issues.isEmpty else { throw StoreError.invalidInitialModel(issues) }` — so a locally
+      persisted home over a bound makes `HomeModelStore.init` throw and the editor refuse to open it.
+      `replaceModel` (line 151) is the same. Because `schema_version` correctly stays 2.1,
+      `SchemaMigrator` has no hook to notice or repair such a document, and **a refusal at load time is
+      indistinguishable from data loss to the user.** Probability is low (it needs a room over 500 m², a
+      60 m span, or a coordinate past ±200 m, and the editor may never have produced one) but nothing
+      proves it could not have. **Not fixed here: `HomeModelStore.swift` is not in S11.25's OWNED
+      FILES.** Next action: S11.18 or S11.19 (they own the store and the load path) should make the load
+      path surface "this home is too large to edit" instead of a bare throw.
+- [ ] **`/convert` now 422s a whole scan for a room with more than 64 vertices, with no fallback**
+      (schema-contract-guardian, MEDIUM, 2026-09-30). `backend/app/convert/geometry.py:238` already
+      degrades gracefully for a degenerate polygon (bounding-box fallback) but has **no** fallback for
+      vertex count, and `backend/app/main.py:380` catches broadly, so one over-vertex room fails the
+      entire conversion rather than returning a home with a warning. It fails loudly, which is the right
+      side of the "never silently dropped" rule. But `MAX_POLYGON_VERTICES` is the only new bound
+      justified by algorithmic cost (`is_simple_polygon` is O(n²)) rather than residential plausibility,
+      so it is the one most likely set too low — and every scan fixture has just 4 vertices per room, so
+      **it is untested against anything realistically complex.** A curved or bay-windowed room is the
+      plausible trigger; 8° collinear merging (`COLLINEAR_TOL_DEG`) makes it unlikely but not impossible.
+      **Not fixed here: `convert/` and `main.py` are not in S11.25's OWNED FILES.** Next action: S11.31
+      owns `/convert` error handling — add a vertex-count fallback (simplify, or bounding box) there, and
+      raise `MAX_POLYGON_VERTICES` if a real scan ever trips it.
 - [ ] **A `.sizeBounds` validation issue has no UI.** The refusal strings are written for an end user ("this home is
       too large to route... split it into separate homes"), but they only reach the store as a rejected mutation;
       nothing presents them. Next action: whoever owns the editor's error presentation (S11.19 territory) should
