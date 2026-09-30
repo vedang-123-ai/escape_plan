@@ -50,13 +50,21 @@ extension ValidationIssue: Error {}
 /// Residential size bounds (S11.25, AUD-004) — the client-side mirror of the constants in
 /// `backend/app/models.py`. **Change them in both places, or the editor starts producing 422s.**
 ///
-/// The two that matter are the grid-cell bounds. The backend's router rasterizes each room's
-/// *bounding box* at 10 cm cells, so routing cost is linear in bounding-box cells and NOT in
-/// room area: a 75 m² diagonal sliver spanning 150 m × 150 m costs 2,250,000 cells, 300× more
-/// than its area justifies. An area cap alone would not have closed AUD-004.
+/// There are TWO independent cost drivers, and bounding only one does not close AUD-004:
 ///
-/// Budget (measured 2026-09-30, ~26 µs/cell for the three plans `/score` runs): a home at
-/// `maxTotalGridCells` completes a 3-peril `/score` in under 7 s. See docs/decisions.md.
+/// 1. **Grid cells.** The backend's router rasterizes each room's *bounding box* at 10 cm cells,
+///    so cost is linear in bounding-box cells and NOT in room area: a 75 m² diagonal sliver
+///    spanning 150 m × 150 m costs 2,250,000 cells, 300× more than its area justifies. An area
+///    cap alone would not have closed AUD-004. ~26 µs per cell for the three plans `/score` runs.
+///
+/// 2. **Objects in one room** — the worse one. When a route is blocked, the server's culprit
+///    attribution re-rasterizes the room per object, so cost grows ~O(n^1.7) in the objects one
+///    room holds, almost regardless of its cell count. Measured 2026-09-30 in a 1,225-cell room,
+///    one peril: 25 objects 0.90 s, 100 objects 9.03 s, 400 objects 134.17 s.
+///
+/// Budget: the COMBINED worst case a valid home can reach (245,000 cells, 200 rooms, 200 objects,
+/// every route blocked) measures **21.82 s** for a 3-peril `/score` on a 2026 Mac. See
+/// docs/decisions.md, 2026-09-30.
 enum HomeSizeBounds {
     static let maxCoordM = 200.0
     static let maxPolygonVertices = 64
@@ -68,7 +76,12 @@ enum HomeSizeBounds {
     /// Rooms across the whole home, not per floor.
     static let maxRooms = 200
     static let maxOpeningsPerFloor = 400
-    static let maxObjectsPerFloor = 500
+    /// Objects whose bounding circle overlaps ONE room's bounding box — the set the server
+    /// rasterizes against, and the driver of the ~O(n^1.7) blocked-route analysis.
+    static let maxObjectsPerRoom = 25
+    static let maxObjectsPerFloor = 120
+    /// Objects across the whole home. Largest committed fixture: 9.
+    static let maxObjectsTotal = 200
     static let maxSafetyPointsPerFloor = 100
     static let maxStairs = 50
     static let maxProfiles = 50
@@ -155,6 +168,12 @@ enum EditorValidation {
         if model.profiles.count > HomeSizeBounds.maxProfiles {
             issues.append(.init(.sizeBounds,
                                 "this home has \(model.profiles.count) people; the maximum is \(HomeSizeBounds.maxProfiles)"))
+        }
+
+        let objectCount = model.floors.reduce(0) { $0 + $1.objects.count }
+        if objectCount > HomeSizeBounds.maxObjectsTotal {
+            issues.append(.init(.sizeBounds,
+                                "this home has \(objectCount) objects; the maximum is \(HomeSizeBounds.maxObjectsTotal). Escape Plan models the large furniture that affects a route, not every item in the house."))
         }
 
         let roomCount = model.floors.reduce(0) { $0 + $1.rooms.count }
@@ -309,6 +328,7 @@ enum EditorValidation {
             issues.append(.init(.sizeBounds, entityId: floor.id,
                                 "this floor has \(floor.objects.count) objects; the maximum is \(HomeSizeBounds.maxObjectsPerFloor)"))
         }
+        issues += validateObjectsPerRoom(on: floor)
         if floor.safety_points.count > HomeSizeBounds.maxSafetyPointsPerFloor {
             issues.append(.init(.sizeBounds, entityId: floor.id,
                                 "this floor has \(floor.safety_points.count) landmarks; the maximum is \(HomeSizeBounds.maxSafetyPointsPerFloor)"))
@@ -330,6 +350,37 @@ enum EditorValidation {
                                         what: "landmark position")
         }
         issues += validateOpeningOverlaps(on: floor)
+        return issues
+    }
+
+    /// Objects per ROOM, counted with the same bounding-box overlap test the server's
+    /// `objects_intersecting` uses — that is the set it rasterizes against. Mirrors the
+    /// per-room check in `Floor._check` in `backend/app/models.py`.
+    private static func validateObjectsPerRoom(on floor: Floor) -> [ValidationIssue] {
+        guard !floor.objects.isEmpty else { return [] }
+        var issues: [ValidationIssue] = []
+        for room in floor.rooms where !room.polygon.isEmpty {
+            let xs = room.polygon.map(\.x), ys = room.polygon.map(\.y)
+            guard let minX = xs.min(), let maxX = xs.max(),
+                  let minY = ys.min(), let maxY = ys.max(),
+                  minX.isFinite, maxX.isFinite, minY.isFinite, maxY.isFinite
+            else { continue }   // a non-finite polygon is already reported elsewhere
+            var count = 0
+            for object in floor.objects where object.size_m.count == 2 {
+                let radius = (object.size_m[0] * object.size_m[0]
+                              + object.size_m[1] * object.size_m[1]).squareRoot() / 2
+                guard radius.isFinite, object.center.x.isFinite, object.center.y.isFinite
+                else { continue }
+                if object.center.x + radius >= minX, object.center.x - radius <= maxX,
+                   object.center.y + radius >= minY, object.center.y - radius <= maxY {
+                    count += 1
+                }
+            }
+            if count > HomeSizeBounds.maxObjectsPerRoom {
+                issues.append(.init(.sizeBounds, entityId: room.id,
+                                    "\(count) objects overlap this room; the maximum is \(HomeSizeBounds.maxObjectsPerRoom). Working out which one blocks a route costs more than linearly in the objects a room holds, so more would make this home slow to route. Remove or merge some, or split the room."))
+            }
+        }
         return issues
     }
 

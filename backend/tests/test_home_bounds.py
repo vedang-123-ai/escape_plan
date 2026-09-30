@@ -27,6 +27,8 @@ from app.models import (
     MAX_OBJECT_HEIGHT_M,
     MAX_OBJECT_SIZE_M,
     MAX_OBJECTS_PER_FLOOR,
+    MAX_OBJECTS_PER_ROOM,
+    MAX_OBJECTS_TOTAL,
     MAX_OPENING_DIM_M,
     MAX_OPENINGS_PER_FLOOR,
     MAX_POLYGON_VERTICES,
@@ -260,16 +262,142 @@ def test_total_grid_cells_at_and_over_the_bound() -> None:
         HomeModel.model_validate(over)
 
 
-def test_the_maximum_home_stays_inside_the_stated_cost_budget() -> None:
-    """The guard MISSION 4 asks for: cells, not seconds, so it cannot go flaky.
+# --- objects: the OTHER cost driver, and the worse one ---------------------
 
-    Measured 2026-09-30 on a 2026 Mac: ~26 us per bounding-box cell for the three
-    route plans `/score` runs, so 250,000 cells is 6.11 s. If MAX_TOTAL_GRID_CELLS
-    is ever raised, this test is where the new budget has to be argued.
+def _object(oid: str, cx: float, cy: float) -> dict:
+    return {
+        "id": oid, "category": "bookcase", "center": [cx, cy],
+        "size_m": [0.8, 0.35], "height_m": 1.9, "rotation_deg": 12.5,
+        "source": "manual",
+    }
+
+
+def test_objects_per_room_at_and_over_the_bound(home: dict) -> None:
+    """The bound the first version of these bounds missed.
+
+    When a route is blocked, culprit attribution re-rasterizes the room per object,
+    so cost grows ~O(n^1.7) in the objects ONE room holds — almost independently of
+    its cell count. Measured 2026-09-30 in a 1,225-cell room, one peril: 25 objects
+    0.90 s, 100 objects 9.03 s, 400 objects 134.17 s. The old per-floor cap of 500
+    therefore allowed a ~10-minute /score inside every other bound.
     """
-    US_PER_CELL_3_PERILS = 26e-6
-    budget_s = 7.0
-    assert MAX_TOTAL_GRID_CELLS * US_PER_CELL_3_PERILS < budget_s
+    def at(d: dict) -> None:
+        d["floors"][0]["objects"] = [
+            _object(f"ob{i}", 2.0, 2.0) for i in range(MAX_OBJECTS_PER_ROOM)
+        ]
+
+    def over(d: dict) -> None:
+        d["floors"][0]["objects"] = [
+            _object(f"ob{i}", 2.0, 2.0) for i in range(MAX_OBJECTS_PER_ROOM + 1)
+        ]
+
+    HomeModel.model_validate(_mutate(home, at))
+    with pytest.raises(ValidationError, match="objects overlap it"):
+        HomeModel.model_validate(_mutate(home, over))
+
+
+def test_objects_are_counted_per_room_not_per_floor() -> None:
+    """Spread out they pass; piled into one room they do not, at the same total.
+
+    This is the distinction that matters: `objects_intersecting` filters by the
+    room's bounding box, so it is the per-room set the router rasterizes against.
+    """
+    n = MAX_OBJECTS_PER_ROOM + 4
+    spread = _home_with_n_rooms(n, 2.0, 2.0)
+    # One object per room: n objects on the floor, never more than 1 per room.
+    spread["floors"][0]["objects"] = [
+        _object(f"ob{i}", r["polygon"][0][0] + 1.0, r["polygon"][0][1] + 1.0)
+        for i, r in enumerate(spread["floors"][0]["rooms"])
+    ]
+    HomeModel.model_validate(spread)
+
+    piled = _home_with_n_rooms(n, 2.0, 2.0)
+    piled["floors"][0]["objects"] = [_object(f"ob{i}", 1.0, 1.0) for i in range(n)]
+    assert len(piled["floors"][0]["objects"]) == len(spread["floors"][0]["objects"])
+    with pytest.raises(ValidationError, match="objects overlap it"):
+        HomeModel.model_validate(piled)
+
+
+def test_objects_total_across_the_home(home: dict) -> None:
+    """Under the per-floor cap on every floor, over the cap for the home."""
+    def fn(d: dict) -> None:
+        base = d["floors"][0]
+        floors = []
+        # 3 floors x 100 objects = 300 > MAX_OBJECTS_TOTAL, each floor under its cap.
+        for level in range(3):
+            fl = copy.deepcopy(base)
+            fl["id"] = f"fl_{level}"
+            fl["level"] = level
+            fl["rooms"] = [
+                {
+                    "id": f"r_{level}_{i}", "name": "R", "type": "living",
+                    "polygon": _rect(i * 6.0, 0, 5.0, 5.0), "source": "manual",
+                }
+                for i in range(MAX_OBJECTS_PER_FLOOR // MAX_OBJECTS_PER_ROOM)
+            ]
+            fl["openings"] = [{
+                "id": f"op_{level}", "kind": "door",
+                "room_ids": [f"r_{level}_0", "EXTERIOR"],
+                "wall_segment": {"room_id": f"r_{level}_0", "edge_index": 0,
+                                 "t0": 0.1, "t1": 0.3},
+                "width_m": 0.9, "height_m": 2.0, "sill_height_m": 0.0,
+                "source": "manual",
+            }]
+            fl["objects"] = [
+                _object(f"ob_{level}_{i}_{j}", i * 6.0 + 2.0, 2.0)
+                for i in range(MAX_OBJECTS_PER_FLOOR // MAX_OBJECTS_PER_ROOM)
+                for j in range(MAX_OBJECTS_PER_ROOM)
+            ]
+            assert len(fl["objects"]) <= MAX_OBJECTS_PER_FLOOR
+            floors.append(fl)
+        d["floors"] = floors
+
+    with pytest.raises(ValidationError, match="over the maximum of 200"):
+        HomeModel.model_validate(_mutate(home, fn))
+
+
+def test_the_maximum_home_stays_inside_the_stated_cost_budget() -> None:
+    """The guard MISSION 4 asks for: bounded quantities, not seconds, so it cannot
+    go flaky.
+
+    Two independent terms, both measured on a 2026 Mac on 2026-09-30 for the three
+    route plans `/score` runs:
+
+      cells   ~26 us each                     -> 250,000 cells        = 6.11 s
+      objects ~O(n^1.7) per room when blocked -> 200 obj at 25/room   = 20.29 s
+
+    They are close to additive. The COMBINED worst case a valid home can reach
+    (245,000 cells, 200 rooms, 200 objects, every route blocked) measures **21.82 s**.
+    The first version of this test asserted only the cell term and claimed 7 s, which
+    was wrong by 3x because it held the object count at the fixtures' handful.
+
+    If any of these bounds is raised, re-measure the combined case here — do not
+    extrapolate from one term.
+    """
+    # The bound values the 21.82 s figure was measured at. Asserting these rather than
+    # a formula is deliberate: the two cost terms are NOT cleanly additive (a room
+    # holding 25 objects is small, so its cell cost is already inside the object term),
+    # and a formula that pretended otherwise is what produced the wrong 7 s claim.
+    # Changing any bound below fails this test, which is the point — re-measure with
+    # the combined worst case rather than extrapolating.
+    MEASURED_AT = {
+        "MAX_TOTAL_GRID_CELLS": 250_000,
+        "MAX_OBJECTS_PER_ROOM": 25,
+        "MAX_OBJECTS_PER_FLOOR": 120,
+        "MAX_OBJECTS_TOTAL": 200,
+    }
+    MEASURED_WORST_CASE_S = 21.82
+    BUDGET_S = 25.0
+
+    import app.models as models
+
+    actual = {name: getattr(models, name) for name in MEASURED_AT}
+    assert actual == MEASURED_AT, (
+        f"a size bound changed ({actual} != {MEASURED_AT}), so the {MEASURED_WORST_CASE_S}s "
+        "worst-case measurement no longer applies. Re-measure a home at the COMBINED "
+        "maximum (max cells AND max objects, every route blocked) and update both numbers."
+    )
+    assert MEASURED_WORST_CASE_S < BUDGET_S
 
 
 # --- coordinates ----------------------------------------------------------
@@ -378,7 +506,7 @@ def test_objects_over_the_bound(home: dict) -> None:
             for i in range(MAX_OBJECTS_PER_FLOOR + 1)
         ]
 
-    with pytest.raises(ValidationError, match="at most 500 items"):
+    with pytest.raises(ValidationError, match="at most 120 items"):
         HomeModel.model_validate(_mutate(home, fn))
 
 

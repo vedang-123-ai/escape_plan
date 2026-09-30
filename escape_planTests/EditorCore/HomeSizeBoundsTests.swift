@@ -37,7 +37,9 @@ final class HomeSizeBoundsTests: XCTestCase {
         ("MAX_FLOORS", Double(HomeSizeBounds.maxFloors)),
         ("MAX_ROOMS", Double(HomeSizeBounds.maxRooms)),
         ("MAX_OPENINGS_PER_FLOOR", Double(HomeSizeBounds.maxOpeningsPerFloor)),
+        ("MAX_OBJECTS_PER_ROOM", Double(HomeSizeBounds.maxObjectsPerRoom)),
         ("MAX_OBJECTS_PER_FLOOR", Double(HomeSizeBounds.maxObjectsPerFloor)),
+        ("MAX_OBJECTS_TOTAL", Double(HomeSizeBounds.maxObjectsTotal)),
         ("MAX_SAFETY_POINTS_PER_FLOOR", Double(HomeSizeBounds.maxSafetyPointsPerFloor)),
         ("MAX_STAIRS", Double(HomeSizeBounds.maxStairs)),
         ("MAX_PROFILES", Double(HomeSizeBounds.maxProfiles)),
@@ -334,17 +336,68 @@ final class HomeSizeBoundsTests: XCTestCase {
                         .contains { $0.message.contains("height_m") })
     }
 
-    func testObjectAndLandmarkCountsOverTheBound() {
-        let r = room("r1", rect(0, 0, 4, 4))
-        let objects = (0...HomeSizeBounds.maxObjectsPerFloor).map {
-            FloorObject(id: "ob\($0)", category: .bookcase, center: Point(1, 1),
-                        size_m: [0.5, 0.3], height_m: 1.8, rotation_deg: 0,
-                        source: .manual, confidence: nil, secured: false,
-                        elevation_m: 0, mounted: false)
-        }
-        XCTAssertTrue(sizeIssues(home(rooms: [r], objects: objects))
-                        .contains { $0.message.contains("objects; the maximum is 500") })
+    private func obj(_ id: String, _ x: Double, _ y: Double) -> FloorObject {
+        FloorObject(id: id, category: .bookcase, center: Point(x, y),
+                    size_m: [0.5, 0.3], height_m: 1.8, rotation_deg: 0,
+                    source: .manual, confidence: nil, secured: false,
+                    elevation_m: 0, mounted: false)
+    }
 
+    /// The bound the first version of these bounds missed: cost grows ~O(n^1.7) in the
+    /// objects ONE room holds, because blocked-route attribution re-rasterizes per object.
+    func testObjectsPerRoomAtAndOverTheBound() {
+        let r = room("r1", rect(0, 0, 6, 6))
+        let at = (0..<HomeSizeBounds.maxObjectsPerRoom).map { obj("ob\($0)", 2, 2) }
+        assertNoSizeIssues(home(rooms: [r], objects: at), "25 objects in one room")
+
+        let over = (0...HomeSizeBounds.maxObjectsPerRoom).map { obj("ob\($0)", 2, 2) }
+        let issues = sizeIssues(home(rooms: [r], objects: over))
+        XCTAssertTrue(issues.contains { $0.message.contains("objects overlap this room") },
+                      "expected a per-room object issue, got \(issues)")
+        XCTAssertEqual(issues.first?.entityId, "r1",
+                       "the issue must name the room so the editor can highlight it")
+    }
+
+    /// Counted per room, not per floor: the same total passes spread out and fails piled.
+    func testObjectsAreCountedPerRoomNotPerFloor() {
+        let n = HomeSizeBounds.maxObjectsPerRoom + 4
+        let rs = rooms(n, 2, 2)
+        let spread = rs.enumerated().map { i, r in
+            obj("ob\(i)", r.polygon[0].x + 1, r.polygon[0].y + 1)
+        }
+        assertNoSizeIssues(home(rooms: rs, objects: spread), "one object per room")
+
+        let piled = (0..<n).map { obj("ob\($0)", rs[0].polygon[0].x + 1, rs[0].polygon[0].y + 1) }
+        XCTAssertEqual(piled.count, spread.count)
+        XCTAssertTrue(sizeIssues(home(rooms: rs, objects: piled))
+                        .contains { $0.message.contains("objects overlap this room") })
+    }
+
+    func testObjectsPerFloorAndTotalOverTheBound() {
+        // Spread across enough rooms that the per-ROOM bound is not what fires.
+        let rs = rooms(HomeSizeBounds.maxObjectsPerFloor + 1, 2, 2)
+        let perFloor = rs.enumerated().map { i, r in
+            obj("ob\(i)", r.polygon[0].x + 1, r.polygon[0].y + 1)
+        }
+        XCTAssertTrue(sizeIssues(home(rooms: rs, objects: perFloor))
+                        .contains { $0.message.contains("objects; the maximum is 120") })
+
+        // Under the per-floor cap on each of 3 floors, over the whole-home total.
+        let perFloorCount = HomeSizeBounds.maxObjectsPerFloor
+        let floors = (0..<3).map { level -> Floor in
+            let fr = rooms(perFloorCount, 2, 2).map { room("r\(level)_\($0.id)", $0.polygon) }
+            return Floor(id: "f\(level)", level: level, name: "F\(level)", height_m: 2.7,
+                         rooms: fr,
+                         objects: fr.enumerated().map { i, r in
+                             obj("ob\(level)_\(i)", r.polygon[0].x + 1, r.polygon[0].y + 1)
+                         })
+        }
+        XCTAssertTrue(sizeIssues(home(rooms: [], floors: floors))
+                        .contains { $0.message.contains("objects; the maximum is 200") })
+    }
+
+    func testLandmarkCountOverTheBound() {
+        let r = room("r1", rect(0, 0, 4, 4))
         let points = (0...HomeSizeBounds.maxSafetyPointsPerFloor).map {
             SafetyPoint(id: "sp\($0)", kind: .gas_shutoff, position: Point(1, 1),
                         source: .manual, confidence: nil)
