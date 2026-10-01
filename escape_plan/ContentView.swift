@@ -100,7 +100,7 @@ struct ContentView: View {
             if !onboardingCompleted { showingOnboarding = true }
         }
         .fullScreenCover(isPresented: $showingOnboarding) {
-            OnboardingFlowView {
+            OnboardingFlowView(documentStore: library.store) {
                 onboardingCompleted = true
                 showingOnboarding = false
                 // The interview just wrote profiles and tenure (and maybe a demo home) to disk.
