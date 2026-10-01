@@ -54,7 +54,7 @@ doesn't need this…"; "Practice log"; "Step n of m"; "Walk it in AR" and its hi
 "Modeled with the fire starting in X."; "Pick where the fire starts before a drill…"; "Plan practiced — your
 preparedness score updates…"; "Mark plan as practiced"; "Getting the escape route ready…"; the two `logError`
 strings; the "Couldn't load home" empty state; the four `DrillNotice` status lines; `BackendFailureBanner` and
-`OfflineCapabilityNote` (shared, not drill-authored). None gives safety advice.
+`OfflineCapabilityNote` (shared, not drill-authored); also "No family profiles yet", "No drills recorded", "· stopped", "Start the fire in X" and the accessibility hints ("Opens the camera…", "Closes without setting a fire origin."). None gives safety advice.
 
 ## Auditors
 
@@ -78,6 +78,12 @@ strings; the "Couldn't load home" empty state; the four `DrillNotice` status lin
   house on the Home screen. Logged in BLOCKERS for the backend/corpus owner.
 - Environment: `tools/editorcore/.build` still had the old repo path (S11.8's finding); I deleted it and the package
   went green. `backend/.venv/bin/uvicorn` has a stale shebang from the repo move; `.venv/bin/python -m uvicorn` works.
+
+## Questions for teammates
+
+- Backend/corpus owner: should `no_viable_safe_room` and `safe_room.nearby_shelter` say something for a site-built
+  house (lowest floor, interior room), and should the checklist item fire only when no room anywhere qualifies?
+- S11.10 owner: keep inline `[cite: id]` tags in drill cards, or strip them and keep only the chips like the notices?
 
 ## Next steps
 
