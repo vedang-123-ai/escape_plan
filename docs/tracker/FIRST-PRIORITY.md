@@ -1,5 +1,5 @@
 ---
-gate_status: open
+gate_status: closed
 gate_owner: Anish / Yuki
 ---
 
@@ -15,6 +15,25 @@ thing", not as a specific session.)
 
 Nothing below is a request to write code. It is a request to find out whether the code
 that already exists works.
+
+## Status 2026-09-30: GREEN — gate closed by S11.8
+
+Three consecutive uncontended full runs on `s11-8-ios-verify` (`origin/main` `d98f2d8` + S11.8's test-side fixes), local
+iPhone 17 Pro simulator, iOS 26.5, `CODE_SIGNING_ALLOWED=NO`, counts from `xcrun xcresulttool get test-results summary`:
+
+| Run | Passed | Failed | Skipped | Total |
+| --- | --- | --- | --- | --- |
+| baseline (before the fixes) | 992 | 8 | 8 | 1008 |
+| run 1 / run 2 / run 3 | 997 | 0 | 11 | 1008 |
+
+The 8 baseline failures were the 7 AUD-036 tests plus a `CriticalSectionTests` stub race; all were test-side (details in
+`BLOCKERS.md`, "S11.8 findings" and §3). The 11 skips are 8 env-gated recording drivers plus 3 `KeychainTokenStoreTests`,
+which skip only without the keychain entitlement and pass 3/3 under ad-hoc signing. **The device-only checks below are
+NOT cleared** — they live in `BLOCKERS.md` §2 and need the physical iPhone (S11.9, S11.10).
+
+## Status 2026-09-29 (S11.14): local full run, 987 total, 972 passed, 7 failed, 8 skipped
+
+Superseded by the 2026-09-30 run above.
 
 ## Status 2026-09-25: the suite has now RUN, in CI, and is not green
 

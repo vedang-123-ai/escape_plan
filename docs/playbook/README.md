@@ -18,7 +18,7 @@ physical iPhone 17 Pro.** Assign people to lanes however you like; run a session
 | ~~S11.5~~ | ~~Readiness Home and the prevention layer~~ **DONE 2026-09-23** | B | `s11-5-readiness-home` | baseline (tips: S11.1) |
 | ~~S11.6~~ | ~~Responder Snapshot v2, "Share with your fire department"~~ **DONE 2026-09-23** | B | `s11-6-responder-snapshot` | baseline |
 | ~~S11.7~~ | ~~Accounts demoted: signed-out proof, privacy, delete-my-data~~ **DONE 2026-09-24** | B | `s11-7-accounts-demoted` | baseline |
-| [S11.8](S11-8.md) | iOS verification: first full simulator run in nine days | C | `s11-8-ios-verify` | baseline |
+| [S11.8](S11-8.md) | ~~iOS verification: make the simulator suite green~~ **DONE 2026-09-30** | C | `s11-8-ios-verify` | baseline |
 | [S11.9](S11-9.md) | Device pass I: camera, frame rate, framing, floors | C | `s11-9-device-camera` | S11.8 |
 | [S11.10](S11-10.md) | Device pass II: real scan, AR Drill, haptics, VoiceOver, print | C | `s11-10-device-drill` | S11.9 |
 | [S11.11](S11-11.md) | Integration gate and golden-path polish | all | `s11-11-integration` | S11.1-S11.10 |
@@ -62,7 +62,7 @@ Anything cut gets a BLOCKERS line.
 | # | Session | Audit IDs | Top sev | Phase | Lane | Branch | Prereqs | Status |
 |---|---|---|---|---|---|---|---|---|
 | [S11.14](S11-14.md) | ~~Land the drill fix, commit the audit, make the tracker true~~ **DONE 2026-09-29** | 034, 048 (asks owner: 001, 002, 022, 038) | P0/P1 | 0 Baseline | any | `drill-3d-fallback`, then `s11-14-tracker-truth` | none | DONE 2026-09-29 |
-| [S11.8](S11-8.md) | iOS verification (existing session; see addendum) | 036 | P2 | 0 Baseline | C | `s11-8-ios-verify` | S11.14 | |
+| [S11.8](S11-8.md) | ~~iOS verification (existing session; see addendum)~~ **DONE 2026-09-30** | 036 | P2 | 0 Baseline | C | `s11-8-ios-verify` | S11.14 | DONE 2026-09-30 |
 | [S11.15](S11-15.md) | Drill shows engine findings verbatim, no client tornado advice | 025 | P1 | 1 Truth | D | `s11-15-drill-verbatim` | S11.14 | |
 | [S11.16](S11-16.md) | Privacy copy says what actually leaves the phone | 050, 018 | P1 | 1 Truth | D | `s11-16-privacy-truth` | S11.14 (after S11.8 for UI tests) | |
 | [S11.17](S11-17.md) | An AI draft goes to the editor, not to the score | 023 | P1 | 1 Truth | D | `s11-17-draft-review` | S11.14 | |
@@ -119,8 +119,8 @@ total, 972 passed, 7 failed, 8 skipped. All seven failures are test-side, with t
 `CODE_SIGNING_ALLOWED=NO`. Prove the store works with one ad-hoc-signed run (`CODE_SIGN_IDENTITY=-`), then either sign
 the gate run or skip with a reason when the entitlement is missing (a skip needs a BLOCKERS line, per S11.8's RULES).
 (2) `EvacuationMockTimelineTests` expects 1 apartment track; the fixture has had 2 profiles (Sam and Biscuit) since
-2026-09-16. Confirm the pet track is intended (the renderer has a pet gait), then update the expectation. The file is
-`#if !SWIFT_PACKAGE`, so it never ran in EditorCore; BLOCKERS §3's "passes in EditorCore" is wrong (S11.14 corrects it).
+`72bf34e` (2026-09-17). Confirm the pet track is intended (the renderer has a pet gait), then update the expectation. The file is
+`#if !SWIFT_PACKAGE`, so it never ran in EditorCore; BLOCKERS §3's "passes in EditorCore" was wrong (S11.14 corrected it).
 (3) `SignedOutPathUITests`: the two gate tests fail because `-auth.gate.dismissed` persists on the simulator; pass
 `-auth.gate.dismissed NO` (and `-onboarding.completed YES`) explicitly. `testSettingsCarriesThePrivacyDisclosureSignedOut`
 likely needs a scroll to the disclosure button (medium confidence: check the result bundle's screenshot first).
