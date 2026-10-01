@@ -15,6 +15,10 @@ import XCTest
 
 final class GestureFrameCostUITests: XCTestCase {
 
+    override func setUpWithError() throws {
+        installSystemAlertMonitor()
+    }
+
     /// Parses `updates=N duringGesture=M`.
     private func counters(_ value: String?) -> (updates: Int, duringGesture: Int)? {
         guard let value else { return nil }
