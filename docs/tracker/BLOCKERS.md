@@ -100,7 +100,8 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-015 (P2) conflict copies pile up · S11.22
 - [ ] AUD-016 (P2) `POST /homes` lost update · S11.30 (server, deploy first), S11.32 (client)
 - [ ] AUD-017 (P2) re-scan "Add to Home" bypasses the reducer · S11.24
-- [ ] AUD-018 (P3) checklist/drill log/chat never leave the device · S11.16 (disclosure); syncing it: not a task
+- [ ] AUD-018 (P3) checklist/drill log/chat never leave the device · **disclosure half fixed 2026-10-01 by S11.16**
+      (`AccountPrivacy.notSynced`, evidence under "S11.16 findings"); syncing it: not a task, a documented trade-off
       (product decision, accounts demoted; `audit-traceability.md`)
 - [ ] AUD-019 (P3) screens build their own `HomeDocumentStore()` · S11.18
 - [ ] AUD-020 (P1) Profiles unreachable since `87c0610` · S11.20
@@ -134,7 +135,55 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-046 (P3) decode errors shown as "can't reach server" · S11.37
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
-- [ ] AUD-050 (P1) privacy copy false · S11.16
+- [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.16 findings (2026-10-01, branch `s11-16-privacy-truth`)
+
+- [x] **AUD-050 fixed.** `AccountPrivacy.signedOutSummary` now separates "saved only on this iPhone" from "sent to our
+      server, which does not store it", and names Anthropic for the assistant and Import Plan. The disclosure has five
+      lists (sent to compute; passed to Anthropic; saved to an account; kept on this iPhone; never leaves). Inventory of
+      every request and handler in note `2026-10-01-s11-16-privacy-truth.md`. Verified 2026-10-01: EditorCore **652
+      passed, 0 failures**; `typecheck-ios.sh` ok ×4; simulator `-only-testing` SignedOutPathUITests +
+      AccountPrivacyTests + SignedOutProofTests **29 passed, 0 failed** (xcresulttool); `AccountPrivacyTests` encodes real
+      `ScoreRequest`/`RoutesRequest` (both runners) and the four `Networking/` request types (app runner) and fails if a
+      field is undescribed (mutation-checked).
+- [x] **AUD-018, disclosure half fixed** (`AccountPrivacy.notSynced`: checklist progress, drill history and chats are
+      kept on this iPhone and not copied to your account). The sync half stays a documented trade-off.
+- [ ] **S11.13: the App Store privacy label must match this copy.** Data that leaves the device, signed out: home layout
+      and room names; household composition — member names, **health-related vulnerability tags** (elderly,
+      mobility-limited, hearing- or vision-impaired, child, pet), where each sleeps; checklist progress; assistant
+      messages; the Import Plan photo/PDF page and description (sent to Anthropic), **including any GPS location saved in
+      a picked photo** (see below). No street address: the schema has `meta.address_optional` but no screen sets it.
+      Signed in, also: email and the home stored server-side. Purpose: app functionality. Not used for tracking. Next action: S11.13
+      fills the label from `AccountPrivacy.swift` and the S11.16 note's inventory table, not from memory.
+- [ ] **The acceptance grep still matches two lines this session does not own.** `grep -rn "uploads nothing\|ever
+      sent" escape_plan escape_planTests` also finds `Screens/HouseScreen.swift:800` (a code comment) and
+      `Screens/ConsentSheet.swift:66` ("Nothing is ever sent automatically — you pick the app…", the fire-department
+      snapshot consent). The ConsentSheet line is true (the snapshot only leaves through the share sheet). Next action:
+      none needed for truth; S11.38 (owns the share path) may reword it if it wants the grep fully clean.
+- [ ] **`deletionSummary` says the server copy is erased "permanently"; MongoDB Atlas backups are not covered by the
+      code.** `DELETE /auth/me` deletes the documents; whether the cluster tier keeps snapshots is an Atlas setting.
+      Next action (owner, Atlas console): confirm the tier has no backups/snapshots (M0 has none), or soften the line to
+      "from our database".
+- [ ] **Account deletion can report success while deleting nothing (pitch-truth-auditor, confirmed by reading).**
+      `AuthSession.deleteAccount()` treats ANY 401 as "already gone" and ends the session; `SettingsScreen` then calls
+      `forgetAccount`. Tokens last 60 minutes (`JWT_ACCESS_TTL_MINUTES=60`) and expiry is only checked at launch, so a
+      user signed in for over an hour who taps Delete gets a 401, is shown signed out, and their email and homes stay on
+      the server — `deletionSummary` is then false. Next action: S11.43 (owns session length, AUD-031) checks
+      `token.isExpired()` before the delete and sends the user to sign in again; a 401 on delete must not count as
+      success unless the server says the account is gone.
+- [ ] **Import Plan sends the picked photo's original bytes, metadata and all** (`BuildFromPlanView` `loadTransferable(
+      type: Data.self)`), so a geotagged photo carries its GPS location to our server and Anthropic. The copy now says
+      so. Next action: whoever fixes AUD-024 (photo labelled PNG; S11.26/S11.33/S11.49) re-encodes through `UIImage` to
+      JPEG, which also strips metadata, then removes the "including any location" clause from
+      `AccountPrivacy.sentToAnthropic` and the location line of `notUploaded`.
+- [ ] **The assistant cannot see household members, but its prompt promises personalised answers.** The app never
+      sends `profiles` to `/chat`, so the house context always says "No family profiles configured yet."
+      (`summary.py`), while `CHAT_RULES` (`service.py`) gives examples like "your kids' bedroom". Good for privacy,
+      misleading for a demo. Next action: S11.12 (script) must not demo profile-aware chat; whoever owns the AI layer
+      decides whether to drop the example or send profiles (and update `AccountPrivacy.sentToAnthropic` if so).
+- [ ] **When S11.39 wires `/analyze`, `AccountPrivacy.sentToAnthropic` needs a line** (the agent sends the whole home's
+      tool results to Anthropic). Next action: S11.39 updates the copy in the same change.
 
 ### S11.15 findings (2026-09-30, branch `s11-15-drill-verbatim`)
 
