@@ -25,6 +25,10 @@ final class ReadinessStore {
     private(set) var preventionTips: [PreventionTip] = []
 
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    /// Homes seen as unreviewed drafts this launch. Their cached score (written by a build before
+    /// AUD-023 was fixed) describes the guessed plan, so it is not shown once they are confirmed;
+    /// the first /score after confirming replaces it.
+    @ObservationIgnored private var seenAsDraft: Set<String> = []
     @ObservationIgnored private let stateStore = ChecklistStateStore()
     @ObservationIgnored let freshnessStore = ScanFreshnessStore()
 
@@ -36,7 +40,15 @@ final class ReadinessStore {
 
     // MARK: - Reading
 
-    var items: [ChecklistItem] { breakdown?.checklist ?? [] }
+    /// Empty for an unreviewed draft, so the tab badge, Up next and the Tasks header follow the
+    /// same predicate as the score, whatever a late response left in `breakdown`.
+    var items: [ChecklistItem] { needsDraftReview ? [] : (breakdown?.checklist ?? []) }
+
+    /// The active home still has AI-drafted elements nobody has confirmed (AUD-023). Such a home
+    /// is never scored: the score would rest on a floor plan an LLM guessed, and House already
+    /// refuses to draw routes for it. This is House's own predicate, not a copy; confirming the
+    /// draft in House is the only way to clear it, and House's autosave reloads this store.
+    var needsDraftReview: Bool { activeHome?.hasAIDraftContent ?? false }
 
     func isDone(_ item: ChecklistItem) -> Bool { checklistState[item.id] ?? item.done }
 
@@ -102,9 +114,6 @@ final class ReadinessStore {
             return
         }
         checklistState = stateStore.load(homeID: activeHomeID)
-        if breakdown == nil, let cache = try? ScoreCache() {
-            breakdown = cache.load(homeID: activeHomeID)
-        }
         do {
             let home = try library.store.load(homeID: activeHomeID, as: HomeModel.self)
             activeHome = home
@@ -125,6 +134,14 @@ final class ReadinessStore {
             scoreFailure = .localLoad(error)
             return
         }
+        // An unreviewed draft shows no score at all, not even one cached before AUD-023 was fixed.
+        if needsDraftReview {
+            clearScoreForDraft()
+            return
+        }
+        if breakdown == nil, !seenAsDraft.contains(activeHomeID), let cache = try? ScoreCache() {
+            breakdown = cache.load(homeID: activeHomeID)
+        }
         await fetchScore(api: api)
     }
 
@@ -136,26 +153,46 @@ final class ReadinessStore {
         lastPracticed = (try? DrillLogStore())?.lastPracticed(homeID: activeHomeID)
     }
 
-    func rescore(api: APIClient) {
+    /// Returns the task so a test can await it instead of sleeping.
+    @discardableResult
+    func rescore(api: APIClient) -> Task<Void, Never> {
         refreshTask?.cancel()
-        refreshTask = Task { await fetchScore(api: api) }
+        let task = Task { await fetchScore(api: api) }
+        refreshTask = task
+        return task
     }
 
     private func fetchScore(api: APIClient) async {
         guard let activeHome else { return }
+        // Every path to /score passes here (load, rescore, a ticked task, a re-scan diff).
+        guard !needsDraftReview else {
+            clearScoreForDraft()
+            return
+        }
         isScoring = true
         defer { isScoring = false }
         do {
             let new = try await api.score(home: activeHome, checklistState: checklistState)
-            guard !Task.isCancelled else { return }
+            // A request started before a draft became active must not land on it. (The general
+            // "which home was this for" race is AUD-014, S11.23.)
+            guard !Task.isCancelled, !needsDraftReview else { return }
             breakdown = new
             if let cache = try? ScoreCache() { cache.save(new, for: activeHome.id) }
             scoreFailure = nil
         } catch is CancellationError {
             // superseded by a newer request
         } catch {
+            guard !needsDraftReview else { return }
             scoreFailure = BackendFailure(error, while: .score)
         }
+    }
+
+    private func clearScoreForDraft() {
+        if let id = activeHome?.id { seenAsDraft.insert(id) }
+        // Cancels a queued re-score only; a fetch started by `load` is caught after its await.
+        refreshTask?.cancel()
+        breakdown = nil
+        scoreFailure = nil
     }
 
     // MARK: - Done state

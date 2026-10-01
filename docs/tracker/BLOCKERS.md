@@ -109,7 +109,8 @@ owning session's merge is on `origin/main` and you verified it.
       requirement)
 - [ ] AUD-022 (P1) `/analyze` `/explain` have no UI · **decided 2026-09-29: Path B, re-word the pitch** (§1,
       `docs/decisions.md`); S11.39 executes, S11.12 takes the claims diff
-- [ ] AUD-023 (P1) AI drafts scored without review · S11.17
+- [x] AUD-023 (P1) AI drafts scored without review · **fixed 2026-10-01 by S11.17** (evidence under "S11.17 findings");
+      the live `/build` → House → confirm path is still owed to S11.49
 - [ ] AUD-024 (P1) photo `/build` mislabelled PNG · S11.26, S11.33, S11.49
 - [x] AUD-025 (P1) drill appends client-written tornado advice · **fixed 2026-09-30 by S11.15** (evidence under
       "S11.15 findings")
@@ -136,6 +137,32 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.17 findings (2026-10-01, branch `s11-17-draft-review`)
+
+- [x] **AUD-023 fixed.** `ReadinessStore.needsDraftReview` is House's own `HomeModel.hasAIDraftContent`; `load()` and
+      every `/score` path skip an unreviewed draft, including its `ScoreCache` entry and a response that lands after the
+      draft became active. Home, Tasks and Score show the "Review your draft" card (Anish chose it over a one-line row)
+      that routes to House; Import Plan completion selects the draft and opens House. Confirm in House → autosave →
+      `HouseTab.onModelChanged` → `readiness.load` scores it (no S11.18/S11.19 work needed). Verified 2026-10-01:
+      `ReadinessStoreTests` 5/5 (mutation-checked: removing the `fetchScore` guard fails it); simulator, a draft copy of
+      `bungalow` in `Documents/Homes` showed the card with no score, House opened on it, Confirm draft → Home 73/100. Full suite on the final code: **1031 tests, 1020 passed, 0 failed, 11 skipped** (xcresulttool, `.build-s1117/final.xcresult`); EditorCore 652/0; typecheck ok ×4.
+- [ ] **Settings › Share with fire department still snapshots an unreviewed draft.** `SettingsScreen.generateSnapshot`
+      takes `HomeDocumentStore().list().first` (the most recently modified home, so a just-built draft) with no draft
+      check, and `EscapePlanExporter.writeResponderSnapshot` embeds that home's `ScoreCache` score. The Tasks entry
+      points (meeting point → PDF, `ShareWithFireDepartmentCard`) are hidden for a draft; this one is not. Next action:
+      S11.38 (owns that path, AUD-027) shares the active home and refuses when `home.hasAIDraftContent`, saying "Review
+      your draft in House first".
+- [ ] **`DrillScreen.beginDrill` has no draft guard of its own.** It is unreachable for a draft today (every
+      `DrillScreen(homeID:)` call site is on Home or Tasks, all hidden for a draft), but it would POST `/routes` on one.
+      Next action: S11.36 (owns DrillScreen's route-fetch lines) adds `guard !homeModel.hasAIDraftContent`, mirroring
+      `HouseScreen.fetchRoutes`.
+- [ ] **A score cached for a draft by a build before this fix is never deleted.** `ReadinessStore` no longer shows it
+      (not for the draft, and not after confirm in the same launch), but the file stays until the first successful
+      `/score` overwrites it, and `HouseScreen.loadIfNeeded` reads it for hazard emphasis while the draft is open. Only
+      homes drafted on a pre-fix build are affected. Next action: whoever next owns `Persistence/ScoreCache.swift` adds a
+      `remove(homeID:)` and `ReadinessStore.clearScoreForDraft` calls it; HouseScreen's hazard read should skip a draft
+      (S11.18/S11.19 own HouseScreen's load path).
 
 ### S11.16 findings (2026-10-01, branch `s11-16-privacy-truth`)
 

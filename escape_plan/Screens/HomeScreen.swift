@@ -45,9 +45,13 @@ struct HomeScreen: View {
                         emptyState
                     } else {
                         titleBlock
-                        scoreSection
-                        upNextSection
-                        quickActions
+                        if readiness.needsDraftReview {
+                            draftReview
+                        } else {
+                            scoreSection
+                            upNextSection
+                            quickActions
+                        }
                         tipSection
                     }
                 }
@@ -95,7 +99,7 @@ struct HomeScreen: View {
             .sheet(isPresented: $showingBuildFromPlan) {
                 BuildFromPlanView { homeID in
                     library.refresh()
-                    switchHome(to: homeID)
+                    openDraftForReview(homeID)
                 }
             }
             .sheet(item: $detailItem) { item in
@@ -207,6 +211,17 @@ struct HomeScreen: View {
         Task { await readiness.select(id, api: apiClient) }
     }
 
+    /// A finished Import Plan opens House on the new draft: the spec's mandatory editor review
+    /// (§4). Making it active alone left the user on Home with a score for a floor plan an LLM
+    /// guessed (AUD-023). Selected first, so House's request is for the active home.
+    private func openDraftForReview(_ id: String) {
+        router.clearHouseRequest()
+        Task {
+            await readiness.select(id, api: apiClient)
+            router.openHouse(homeID: id)
+        }
+    }
+
     // MARK: - Title
 
     private var titleBlock: some View {
@@ -235,11 +250,21 @@ struct HomeScreen: View {
     private func homeSummary(_ home: HomeModel) -> String {
         let rooms = home.floors.reduce(0) { $0 + $1.rooms.count }
         let floors = home.floors.count
-        let age = ScanFreshness.scanAgeText(lastScanned: home.meta.last_scanned, modified: home.meta.modified)
+        // An unconfirmed AI draft was neither scanned nor built by hand; say what it is (AUD-023).
+        let age = readiness.needsDraftReview
+            ? "AI draft, not reviewed yet"
+            : ScanFreshness.scanAgeText(lastScanned: home.meta.last_scanned, modified: home.meta.modified)
         return "\(rooms) \(rooms == 1 ? "room" : "rooms") · \(floors) \(floors == 1 ? "floor" : "floors") · \(age.trimmingCharacters(in: CharacterSet(charactersIn: ".")))"
     }
 
     // MARK: - Score
+
+    /// An unreviewed AI draft: no score, no next tasks and no drill (a drill would plan routes on
+    /// the draft); one way forward, to House (AUD-023).
+    @ViewBuilder
+    private var draftReview: some View {
+        DraftReviewNotice().padding(.horizontal, DS.pagePadding)
+    }
 
     @ViewBuilder
     private var scoreSection: some View {
