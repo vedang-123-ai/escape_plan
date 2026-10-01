@@ -485,7 +485,7 @@ against iOS 17.0. **`xcodebuild test` was NOT run**, so the iOS app count is sti
 ### S11.1 to S11.13: session findings (append under your heading)
 
 _S11.1_ **see below** · _S11.2_ **see below** · _S11.3_ **see below** · _S11.4_ **see below** · _S11.5_ **see below** · _S11.6_ **see below** ·
-_S11.7_ **see below** · _S11.8_ none yet · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
+_S11.7_ **see below** · _S11.8_ **see "S11.8 findings" near the top** · _S11.9_ none yet · _S11.10_ none yet · _S11.11_ none yet · _S11.12_ none yet ·
 _S11.13_ none yet
 
 #### S11.7 · Accounts demoted: signed-out proof, privacy copy, delete-my-data (2026-09-24, branch `s11-7-accounts-demoted`)
@@ -664,7 +664,10 @@ run** — no simulator; see §0.
       presentations and `generateSnapshot()`, and left Account/auth/sync alone. Recorded in
       `docs/decisions.md` (2026-09-23) and as STEP 0 in `docs/playbook/S11-7.md`. Next action
       (S11.7): read that STEP 0 before editing the file, and do not revert the rename.
-- [ ] **Neither session was verified on a simulator or device.** Two more bodies of Swift now
+- [ ] **Update 2026-09-30 (S11.8): the simulator half is done.** Both sessions' test suites executed in three green
+      full runs (e.g. `ResponderSnapshotTests` 5/5, `SignedOutPathUITests` 6/6). What a test cannot do, a person
+      looking at the Home tab and walking the share flow, moves to the device-acceptance pass (S11.9/S11.10).
+      _Original line:_ **Neither session was verified on a simulator or device.** Two more bodies of Swift now
       sit behind the §0 gate: S11.5's Home tab reframe and S11.6's share flow have never been
       rendered or tapped. Next action: **S11.8**, which now has more to cover than when it was
       written.
@@ -736,6 +739,9 @@ Verified this session: EditorCore **516 → 522 passing, 0 failures** (6 new tes
   this machine. The PDF *content* changes were made and typechecked
   (`scripts/typecheck-ios.sh` green, 163 app files) but never visually verified. Owned by
   S11.8 per the orchestrator's instruction, or whoever next has simulator access.
+  **Update 2026-09-30 (S11.8):** the PDF export test passes on the simulator (three full runs), but nobody has
+  looked at an exported page yet; S11.8 did not. Re-owned: **S11.11** (integration gate), or anyone exporting
+  the `twostory` PDF from Settings on a simulator.
 - **`escape_planTests/ResponderSnapshotTests.swift` (mine, updated this session) and the rest
   of `escape_planTests`/`escape_planUITests` were never executed**, only typechecked
   (`ok escape_planTests (74 files)`, `ok escape_planUITests (9 files)`). No simulator on this
@@ -1403,7 +1409,8 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
       your account?" prompt.
 
 - [ ] **Update 2026-09-30 (S11.8): both have now executed on the simulator.** `HomeDocumentSyncRepositoryTests`
-      **12/12 passed** on three full runs; `KeychainTokenStoreTests` **3/3 passed** ad-hoc-signed. Left open only for
+      **12/12 passed** on three full runs (it first ran in S11.14's 2026-09-29 run, also 12/12; the class has 12
+      tests, not the 14 the original line says); `KeychainTokenStoreTests` **3/3 passed** ad-hoc-signed. Left open only for
       the part a simulator cannot do: the register → sign out → sign in → relaunch walk on the device (§2 checklist).
       _Original line:_ **Two test classes have never executed on any platform, and both cover things nothing
       else does.** `escape_planTests/KeychainTokenStoreTests.swift` (S8.3 — token persistence)
