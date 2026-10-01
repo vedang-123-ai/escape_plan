@@ -103,7 +103,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-018 (P3) checklist/drill log/chat never leave the device · **disclosure half fixed 2026-10-01 by S11.16**
       (`AccountPrivacy.notSynced`, evidence under "S11.16 findings"); syncing it: not a task, a documented trade-off
       (product decision, accounts demoted; `audit-traceability.md`)
-- [ ] AUD-019 (P3) screens build their own `HomeDocumentStore()` · S11.18
+- [x] AUD-019 (P3) screens build their own `HomeDocumentStore()` · **fixed 2026-10-01 by S11.18** (evidence under "S11.18 findings")
 - [ ] AUD-020 (P1) Profiles unreachable since `87c0610` · S11.20
 - [ ] AUD-021 (P1) no delete/duplicate, blank homes accumulate · S11.21; JSON export/import UI: not a task (no spec
       requirement)
@@ -138,7 +138,30 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
 
-### S11.17 findings (2026-10-01, branch `s11-17-draft-review`)
+### S11.18 findings (2026-10-01, branch `s11-18-one-store`)
+
+- [x] **AUD-019 fixed: one `HomeDocumentStore` for the whole app.** HouseScreen uses `library?.store` (its unused
+      second `init()` deleted), ProfilesScreen takes `store:`, Settings / BuildFromPlan / Drill read the
+      `@EnvironmentObject HomeLibrary`, and OnboardingState requires its store, passed by ContentView through
+      `OnboardingFlowView(documentStore:)` (owned-files exception, `docs/decisions.md`). Verified 2026-10-01:
+      `HomeLibraryEditorSeamTests` +3 (saves through House's, Profiles' and onboarding's store land in the library's
+      temp directory); every presenter of the three env-object screens audited inside ContentView's
+      `.environmentObject(library)` subtree (swift-scenekit-reviewer, PASS); simulator smoke: an Add Room in House autosaved to
+      `Documents/Homes` and survived a relaunch. Full suite on the final code: **1034 tests, 1023 passed, 0 failed, 11
+      skipped** (xcresulttool, `.build-s1118-final.xcresult`); EditorCore 652/0; typecheck ok ×4.
+- [x] **Review fix: on the temporary fallback store, onboarding no longer spends `onboarding.completed`.** With one
+      store, the interview now succeeds against the temp directory; the flag is set only when storage is real
+      (`ContentView`, same reason launch skips starter seeding on fallback), so the next good launch asks again.
+- [ ] **`HomeLibrary.swift:47` still has `convenience init() throws { self.init(store: try HomeDocumentStore()) }`**, with no
+      callers in app or tests. It is the last route back to a second Documents store and the only non-preview hit of the
+      acceptance grep. Not in S11.18's OWNED FILES. Next action: S11.19 (owns `HomeLibrary.swift`'s editor API) or whoever
+      next touches the file deletes it.
+- [ ] **@S11.10: `DrillScreen.swift` got a one-line injection** (`@EnvironmentObject private var library: HomeLibrary`;
+      `load()` reads `library.store`; preview injects a library). Merge `origin/main` before your device pass.
+- [ ] **AssistantScreen and ScoreScreen previews host `BackendFailureBanner` without a `HomeLibrary`**, so tapping its
+      "Settings" in those previews would trap (they already lacked AuthSession/SyncManager; preview-only, not runtime).
+      Next action: whoever next touches those previews adds the environment objects.
+
 
 - [x] **AUD-023 fixed.** `ReadinessStore.needsDraftReview` is House's own `HomeModel.hasAIDraftContent`; `load()` and
       every `/score` path skip an unreviewed draft, including its `ScoreCache` entry and a response that lands after the
@@ -162,7 +185,7 @@ owning session's merge is on `origin/main` and you verified it.
       `/score` overwrites it, and `HouseScreen.loadIfNeeded` reads it for hazard emphasis while the draft is open. Only
       homes drafted on a pre-fix build are affected. Next action: whoever next owns `Persistence/ScoreCache.swift` adds a
       `remove(homeID:)` and `ReadinessStore.clearScoreForDraft` calls it; HouseScreen's hazard read should skip a draft
-      (S11.18/S11.19 own HouseScreen's load path).
+      (S11.18/S11.19 own HouseScreen's load path). _2026-10-01: S11.18 did not take it (store injection only); S11.19's._
 
 ### S11.16 findings (2026-10-01, branch `s11-16-privacy-truth`)
 
@@ -323,7 +346,8 @@ owning session's merge is on `origin/main` and you verified it.
       60 m span, or a coordinate past ±200 m, and the editor may never have produced one) but nothing
       proves it could not have. **Not fixed here: `HomeModelStore.swift` is not in S11.25's OWNED
       FILES.** Next action: S11.18 or S11.19 (they own the store and the load path) should make the load
-      path surface "this home is too large to edit" instead of a bare throw.
+      path surface "this home is too large to edit" instead of a bare throw. _2026-10-01: S11.18 did not take it
+      (store injection only, no behaviour change); it is S11.19's (HouseScreen load path)._
 - [ ] **`/convert` now 422s a whole scan for a room with more than 64 vertices, with no fallback**
       (schema-contract-guardian, MEDIUM, 2026-09-30). `backend/app/convert/geometry.py:238` already
       degrades gracefully for a degenerate polygon (bounding-box fallback) but has **no** fallback for
@@ -470,7 +494,11 @@ tests), backend green. After the merge into `ui-revamp-1-foundation` (`e64f343`)
 - [ ] Onboarding step-dot labels.
 
 **Found while doing this (not in the audit list):**
-- [ ] **`DrillScreen` still builds its own `HomeDocumentStore()`** (`DrillMode/DrillScreen.swift:721`), as do
+- [x] **Resolved 2026-10-01 (S11.18):** `DrillScreen.load()` (line 756 now; was 755 on 7b22cb6, 721 when written) reads
+      `library.store` through `@EnvironmentObject`, and ProfilesScreen, SettingsScreen, BuildFromPlanView, HouseScreen and
+      OnboardingState all use the launch store; `grep -rn "HomeDocumentStore()" escape_plan` finds no screen. Evidence
+      under "S11.18 findings". _Original line:_
+      **`DrillScreen` still builds its own `HomeDocumentStore()`** (`DrillMode/DrillScreen.swift:721`), as do
       `ProfilesScreen`, `SettingsScreen`, `BuildFromPlanView`, `HouseScreen` — all `try?`/`try`, none a `try!`, so not a
       launch crash, but they bypass the launch store and so ignore the temp fallback. Next action: pass the library's
       store down when those screens are next touched.

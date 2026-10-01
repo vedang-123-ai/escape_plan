@@ -66,7 +66,7 @@ Anything cut gets a BLOCKERS line.
 | [S11.15](S11-15.md) | ~~Drill shows engine findings verbatim, no client tornado advice~~ **DONE 2026-09-30** | 025 | P1 | 1 Truth | D | `s11-15-drill-verbatim` | S11.14 | DONE 2026-09-30 |
 | [S11.16](S11-16.md) | ~~Privacy copy says what actually leaves the phone~~ **DONE 2026-10-01** | 050, 018 | P1 | 1 Truth | D | `s11-16-privacy-truth` | S11.14 (after S11.8 for UI tests) | DONE 2026-10-01 |
 | [S11.17](S11-17.md) | ~~An AI draft goes to the editor, not to the score~~ **DONE 2026-10-01** | 023 | P1 | 1 Truth | D | `s11-17-draft-review` | S11.14 | DONE 2026-10-01 |
-| [S11.18](S11-18.md) | One HomeDocumentStore for the whole app | 019 | P3 (R1 foundation) | 2 Data integrity | D | `s11-18-one-store` | S11.14 | |
+| [S11.18](S11-18.md) | ~~One HomeDocumentStore for the whole app~~ **DONE 2026-10-01** | 019 | P3 (R1 foundation) | 2 Data integrity | D | `s11-18-one-store` | S11.14 | DONE 2026-10-01 |
 | [S11.19](S11-19.md) | House editor reloads when its home changes underneath it | 013, 045 (seam) | P1 | 2 Data integrity | D | `s11-19-house-reload` | S11.18 | |
 | [S11.20](S11-20.md) | Household profiles are reachable again | 020, 044 | P1 | 2 Data integrity | D | `s11-20-profiles-reachable` | S11.19 | |
 | [S11.21](S11-21.md) | Delete and duplicate homes; no blank home until the first edit | 021, 039 | P1 | 2 Data integrity | D | `s11-21-home-delete` | S11.19 | |
