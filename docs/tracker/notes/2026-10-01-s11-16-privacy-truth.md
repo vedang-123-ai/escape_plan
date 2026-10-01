@@ -61,7 +61,7 @@ Not synced (AUD-018): `ChecklistStateStore` (UserDefaults `checklistState.<home_
 - `bash scripts/typecheck-ios.sh`: ok ×4 (app debug, app release, tests, UI tests).
 - Simulator, `xcrun xcresulttool get test-results summary --path /private/tmp/claude-501/s1116.xcresult` (iPhone 17 Pro,
   iOS 26.5, `-only-testing` `SignedOutPathUITests` + `AccountPrivacyTests` + `SignedOutProofTests`): **29 passed,
-  0 failed, 0 skipped** (6 UI + 16 + 7). S11.8 has landed, so the UI tests were run.
+  0 failed, 0 skipped** (6 UI + 16 + 7). S11.8 has landed, so the UI tests were run. Re-run after the auditor fixes on the final code: `s1116b.xcresult`, **29 passed, 0 failed**.
 - Eyeballed on the simulator: Settings, signed out, "What leaves this iPhone?" expands to all five lists; text wraps,
   nothing clipped.
 
