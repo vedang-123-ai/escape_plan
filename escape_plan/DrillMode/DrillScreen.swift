@@ -730,7 +730,8 @@ struct DrillScreen: View {
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(routesNotice.citations.isEmpty ? routesNotice.text
-                    : "\(routesNotice.text) Source: \(routesNotice.citations.joined(separator: ", ")).")
+                    : "\(routesNotice.text) Source\(routesNotice.citations.count == 1 ? "" : "s"): "
+                      + routesNotice.citations.joined(separator: ", ") + ".")
             }
         }
     }
@@ -835,11 +836,14 @@ struct DrillScreen: View {
         }
         // Findings are the engine's words, shown verbatim — the app never writes its own
         // safety judgments (AUD-025). `DrillNotice` builds every notice and is tested.
-        if let notice = DrillNotice.cannotStart(room: room, profileName: profile.name, peril: plan.peril) {
+        let primary: Route
+        switch DrillNotice.start(room: room, profileName: profile.name, peril: plan.peril) {
+        case .walk(let route):
+            primary = route
+        case .notice(let notice):
             routesNotice = notice
             return
         }
-        guard let primary = room.primary else { return }
 
         let coverObjectName = room.cover_object_id.flatMap { id in
             homeModel.floors.flatMap(\.objects).first(where: { $0.id == id })?.category.rawValue

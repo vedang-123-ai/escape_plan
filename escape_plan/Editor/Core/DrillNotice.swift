@@ -48,21 +48,27 @@ struct DrillNotice: Equatable {
         DrillNotice(text: "The route for \(profileName) is too short to walk through.")
     }
 
-    /// Why the drill cannot walk `room`, or nil when it has a primary route to walk.
-    ///
+    /// What the drill does with `room`: walk its primary route, or show a notice instead.
+    enum Start: Equatable {
+        case walk(Route)
+        case notice(DrillNotice)
+    }
+
     /// A tornado room the engine could not get to shelter shows that finding and nothing else.
-    /// Any other room without a primary route names the profile, then the engine's first
-    /// finding verbatim.
-    static func cannotStart(room: RoomRoutePlan, profileName: String,
-                            peril: String?) -> DrillNotice? {
+    /// Any other room without a primary route names the profile, then the engine finding that
+    /// explains it, verbatim: no route at all first, then a blocked doorway, then whatever came first.
+    static func start(room: RoomRoutePlan, profileName: String, peril: String?) -> Start {
         if peril == "tornado",
            let finding = room.findings.first(where: { $0.kind == .no_viable_safe_room }) {
-            return DrillNotice(finding: finding)
+            return .notice(DrillNotice(finding: finding))
         }
-        guard room.primary == nil else { return nil }
+        if let primary = room.primary { return .walk(primary) }
         let lead = "No primary route for \(profileName)."
-        guard let finding = room.findings.first else { return DrillNotice(text: lead) }
-        return DrillNotice(text: "\(lead) \(finding.detail)",
-                           citations: finding.citation.map { [$0] } ?? [])
+        let reason = room.findings.first(where: { $0.kind == .no_viable_route })
+            ?? room.findings.first(where: { $0.kind == .blocked_opening })
+            ?? room.findings.first
+        guard let finding = reason else { return .notice(DrillNotice(text: lead)) }
+        return .notice(DrillNotice(text: "\(lead) \(finding.detail)",
+                                   citations: finding.citation.map { [$0] } ?? []))
     }
 }

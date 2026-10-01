@@ -16,12 +16,14 @@ import XCTest
 
 final class DrillNoticeTests: XCTestCase {
 
-    /// The engine's no-interior-room sentence, copied from backend/app/routing/engine.py.
+    // The engine's own sentences, copied from backend/app/routing/engine.py (room "Bedroom").
     private static let noSafeRoomDetail = "No interior room could be reached from here. If you "
         + "are in a mobile or manufactured home, go now to a nearby sturdy building or "
         + "community shelter."
 
-    private static let noRouteDetail = "No route to an exit could be found from this room."
+    private static let noRouteDetail = "No viable escape route from 'Bedroom' under the current constraints."
+    private static let noCoverDetail = "No cover in this room — drop to the ground and cover your head and neck "
+        + "with your arms."
 
     private func room(primary: Bool, findings: [(kind: String, detail: String, citation: String?)])
         throws -> RoomRoutePlan {
@@ -45,61 +47,84 @@ final class DrillNoticeTests: XCTestCase {
         return try JSONDecoder().decode(RoomRoutePlan.self, from: data)
     }
 
+    private func notice(_ room: RoomRoutePlan, peril: String) throws -> DrillNotice {
+        guard case .notice(let notice) = DrillNotice.start(room: room, profileName: "Sam", peril: peril) else {
+            XCTFail("expected a notice, got a walk")
+            throw CancellationError()
+        }
+        return notice
+    }
+
     /// Every notice the builder can produce, for the sweep tests below.
     private func allNotices() throws -> [DrillNotice] {
         [
             DrillNotice.differentHome,
             DrillNotice.noPlan(profileName: "Sam"),
             DrillNotice.routeTooShort(profileName: "Sam"),
-            try XCTUnwrap(DrillNotice.cannotStart(
-                room: room(primary: false, findings: [("no_viable_safe_room", Self.noSafeRoomDetail, "redcross-tornado")]),
-                profileName: "Sam", peril: "tornado")),
-            try XCTUnwrap(DrillNotice.cannotStart(
-                room: room(primary: false, findings: [("no_viable_route", Self.noRouteDetail, "nfpa-escape-planning")]),
-                profileName: "Sam", peril: "fire")),
-            try XCTUnwrap(DrillNotice.cannotStart(
-                room: room(primary: false, findings: []), profileName: "Sam", peril: "earthquake")),
+            try notice(room(primary: false, findings: [("no_viable_safe_room", Self.noSafeRoomDetail, "redcross-tornado")]),
+                       peril: "tornado"),
+            try notice(room(primary: false, findings: [("no_viable_route", Self.noRouteDetail, nil)]), peril: "fire"),
+            try notice(room(primary: false, findings: [("no_cover_in_room", Self.noCoverDetail, "shakeout-guidance-dcho"),
+                                                       ("no_viable_route", Self.noRouteDetail, nil)]),
+                       peril: "earthquake"),
+            try notice(room(primary: false, findings: []), peril: "earthquake"),
         ]
     }
 
     // MARK: AUD-025
 
     func testTornadoNoInteriorRoomShowsExactlyTheEngineText() throws {
-        let notice = try XCTUnwrap(DrillNotice.cannotStart(
-            room: room(primary: false, findings: [("no_viable_safe_room", Self.noSafeRoomDetail, "redcross-tornado")]),
-            profileName: "Sam", peril: "tornado"))
+        let notice = try notice(room(primary: false, findings: [("no_viable_safe_room", Self.noSafeRoomDetail, "redcross-tornado")]),
+                                peril: "tornado")
         XCTAssertEqual(notice.text, Self.noSafeRoomDetail)
         XCTAssertEqual(notice.citations, ["redcross-tornado"])
     }
 
     func testTornadoFindingWinsEvenWhenAPrimaryRouteCameBack() throws {
-        let notice = try XCTUnwrap(DrillNotice.cannotStart(
-            room: room(primary: true, findings: [("no_viable_safe_room", Self.noSafeRoomDetail, "redcross-tornado")]),
-            profileName: "Sam", peril: "tornado"))
+        let notice = try notice(room(primary: true, findings: [("no_viable_safe_room", Self.noSafeRoomDetail, "redcross-tornado")]),
+                                peril: "tornado")
         XCTAssertEqual(notice.text, Self.noSafeRoomDetail)
     }
 
     func testFindingWithoutCitationCarriesNoChips() throws {
-        let notice = try XCTUnwrap(DrillNotice.cannotStart(
-            room: room(primary: false, findings: [("no_viable_safe_room", Self.noSafeRoomDetail, nil)]),
-            profileName: "Sam", peril: "tornado"))
+        let notice = try notice(room(primary: false, findings: [("no_viable_safe_room", Self.noSafeRoomDetail, nil)]),
+                                peril: "tornado")
         XCTAssertEqual(notice.text, Self.noSafeRoomDetail)
         XCTAssertEqual(notice.citations, [])
     }
 
     func testNoPrimaryRouteNamesTheProfileThenTheEngineFindingVerbatim() throws {
-        let notice = try XCTUnwrap(DrillNotice.cannotStart(
-            room: room(primary: false, findings: [("no_viable_route", Self.noRouteDetail, "nfpa-escape-planning")]),
-            profileName: "Sam", peril: "fire"))
+        let notice = try notice(room(primary: false, findings: [("no_viable_route", Self.noRouteDetail, nil)]),
+                                peril: "fire")
         XCTAssertEqual(notice.text, "No primary route for Sam. \(Self.noRouteDetail)")
-        XCTAssertEqual(notice.citations, ["nfpa-escape-planning"])
+        XCTAssertEqual(notice.citations, [])
+    }
+
+    /// The engine lists the earthquake no-cover finding before no_viable_route; the notice must
+    /// give the reason there is no route, not the cover advice.
+    func testNoPrimaryRoutePrefersTheFindingThatExplainsIt() throws {
+        let notice = try notice(room(primary: false, findings: [("no_cover_in_room", Self.noCoverDetail, "shakeout-guidance-dcho"),
+                                                                ("no_viable_route", Self.noRouteDetail, nil)]),
+                                peril: "earthquake")
+        XCTAssertEqual(notice.text, "No primary route for Sam. \(Self.noRouteDetail)")
+    }
+
+    func testOtherwiseABlockedDoorwayExplainsIt() throws {
+        let blocked = "Doorway blocked."
+        let notice = try notice(room(primary: false, findings: [("no_secondary_egress", "Only one way out.", nil),
+                                                                ("blocked_opening", blocked, "usfa-escape-plans")]),
+                                peril: "fire")
+        XCTAssertEqual(notice.text, "No primary route for Sam. \(blocked)")
+        XCTAssertEqual(notice.citations, ["usfa-escape-plans"])
     }
 
     func testWalkableRoomHasNoNotice() throws {
         let oneWayOut = try room(primary: true, findings: [("no_secondary_egress", "Only one way out.", nil)])
-        XCTAssertNil(DrillNotice.cannotStart(room: oneWayOut, profileName: "Sam", peril: "fire"))
+        XCTAssertEqual(DrillNotice.start(room: oneWayOut, profileName: "Sam", peril: "fire"),
+                       .walk(try XCTUnwrap(oneWayOut.primary)))
         let clear = try room(primary: true, findings: [])
-        XCTAssertNil(DrillNotice.cannotStart(room: clear, profileName: "Sam", peril: "tornado"))
+        XCTAssertEqual(DrillNotice.start(room: clear, profileName: "Sam", peril: "tornado"),
+                       .walk(try XCTUnwrap(clear.primary)))
     }
 
     // MARK: Sweep
@@ -116,7 +141,7 @@ final class DrillNoticeTests: XCTestCase {
         ]
         for notice in try allNotices() {
             var rest = notice.text
-            for detail in [Self.noSafeRoomDetail, Self.noRouteDetail] {
+            for detail in [Self.noSafeRoomDetail, Self.noRouteDetail, Self.noCoverDetail] {
                 rest = rest.replacingOccurrences(of: detail, with: "")
             }
             rest = rest.trimmingCharacters(in: .whitespaces)
