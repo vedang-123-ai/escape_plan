@@ -146,7 +146,7 @@ owning session's merge is on `origin/main` and you verified it.
       that routes to House; Import Plan completion selects the draft and opens House. Confirm in House → autosave →
       `HouseTab.onModelChanged` → `readiness.load` scores it (no S11.18/S11.19 work needed). Verified 2026-10-01:
       `ReadinessStoreTests` 5/5 (mutation-checked: removing the `fetchScore` guard fails it); simulator, a draft copy of
-      `bungalow` in `Documents/Homes` showed the card with no score, House opened on it, Confirm draft → Home 73/100.
+      `bungalow` in `Documents/Homes` showed the card with no score, House opened on it, Confirm draft → Home 73/100. Full suite on the final code: **1031 tests, 1020 passed, 0 failed, 11 skipped** (xcresulttool, `.build-s1117/final.xcresult`); EditorCore 652/0; typecheck ok ×4.
 - [ ] **Settings › Share with fire department still snapshots an unreviewed draft.** `SettingsScreen.generateSnapshot`
       takes `HomeDocumentStore().list().first` (the most recently modified home, so a just-built draft) with no draft
       check, and `EscapePlanExporter.writeResponderSnapshot` embeds that home's `ScoreCache` score. The Tasks entry
