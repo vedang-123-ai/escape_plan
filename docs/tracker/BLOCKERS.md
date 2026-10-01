@@ -110,7 +110,8 @@ owning session's merge is on `origin/main` and you verified it.
       `docs/decisions.md`); S11.39 executes, S11.12 takes the claims diff
 - [ ] AUD-023 (P1) AI drafts scored without review · S11.17
 - [ ] AUD-024 (P1) photo `/build` mislabelled PNG · S11.26, S11.33, S11.49
-- [ ] AUD-025 (P1) drill appends client-written tornado advice · S11.15
+- [x] AUD-025 (P1) drill appends client-written tornado advice · **fixed 2026-09-30 by S11.15** (evidence under
+      "S11.15 findings")
 - [ ] AUD-026 (P2) checklist recurrence unreachable · S11.34 (server, deploy first), S11.35
 - [ ] AUD-027 (P2) Settings share uses the wrong home, fails silently · S11.38
 - [ ] AUD-028 (P2) offline route cache ignores peril/profile/model · S11.36
@@ -134,6 +135,36 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
 - [ ] AUD-050 (P1) privacy copy false · S11.16
+
+### S11.15 findings (2026-09-30, branch `s11-15-drill-verbatim`)
+
+- [x] **AUD-025 fixed.** Every drill notice is built by the pure `DrillNotice` (`escape_plan/Editor/Core/`): the
+      engine's `detail` verbatim, its `citation` id rendered as the drill's source chips. Verified 2026-09-30:
+      `grep -rn "nearby sturdy building" escape_plan` empty; EditorCore **645 passed, 0 failures** (10 new
+      `DrillNoticeTests`); drill classes + `DrillNoticeTests` **19/19** (xcresulttool, `.build-s1115/drill3.xcresult`);
+      `typecheck-ios.sh` ok ×4; simulator: tornado drill on a no-stairs copy of `twostory.json` shows only the engine's
+      sentence plus a `redcross-tornado` chip (note `2026-09-30-s11-15-drill-verbatim.md`). grounding-auditor
+      GROUNDED, swift-scenekit-reviewer PASS.
+- [ ] **The engine's tornado wording reads wrongly for a site-built house** (backend/corpus owner; not fixable in
+      Swift by rule). (1) `backend/app/routing/engine.py` `no_viable_safe_room`: "No interior room could be reached
+      from here. If you are in a mobile or manufactured home, go now to a nearby sturdy building…" gives a site-built
+      household nothing to do. (2) `backend/app/scoring/checklist.py` `safe_room.nearby_shelter` tells the user "No
+      room in your home qualifies as a safe room. Identify a nearby sturdy building…" whenever ANY room has that
+      finding — it showed on the Home screen for a two-story house whose upstairs just has no stairs modelled. The
+      corpus (`severe-weather-tornado.md`) ranks lowest floor / interior room for site-built homes. Next action: the
+      backend owner words both for the site-built case from the corpus, with a cite, and re-runs
+      `backend/tests/` + the grounding-auditor.
+- [ ] **Drill instruction cards show raw `[cite: id]` tags** (by design in `DrillMode/DrillCitedText.swift`, which also
+      shows the ids as chips). S11.15's brief says citations are never shown raw; that rule now holds for notices
+      only. Next action: whoever owns `DrillMode/**` next (S11.10) decides whether `DrillCitedText` strips the inline
+      tags and keeps only the chips, as the notices now do. Not a grounding defect — the citations are real.
+- [ ] **`-only-testing:escape_planTests/DrillModeTests` (as written in `docs/playbook/S11-15.md`) selects zero tests and
+      still reports TEST SUCCEEDED** — the file's classes are `DrillSessionTests`, `DrillInstructionsTests`,
+      `DrillPracticedStateTests`. Next action: any playbook that names a test by file must name the class; check the
+      xcresult total is non-zero.
+- [ ] **`backend/.venv/bin/uvicorn` (and other venv scripts) carry a stale shebang** from the repo move
+      (`…/Documents/Projects/Escape-Plan-App-Challenge/…`) and fail with "permission denied". `.venv/bin/python -m
+      uvicorn …` works. Next action (anyone on Anish's Mac): recreate the venv (BLOCKERS §4 recipe).
 
 ### S11.8 findings (2026-09-30, branch `s11-8-ios-verify`)
 
