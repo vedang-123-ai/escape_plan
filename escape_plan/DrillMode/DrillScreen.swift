@@ -33,6 +33,7 @@ import RoomPlan
 struct DrillScreen: View {
     @Environment(APIClient.self) private var apiClient
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @EnvironmentObject private var library: HomeLibrary
     let homeID: String
 
     /// An externally supplied timeline (previews, tests, a future caller that already has one).
@@ -752,7 +753,7 @@ struct DrillScreen: View {
         // drill session is drawn on. Load once per push.
         guard homeModel == nil else { return }
         do {
-            let model = try HomeDocumentStore().load(homeID: homeID, as: HomeModel.self)
+            let model = try library.store.load(homeID: homeID, as: HomeModel.self)
             homeModel = model
             built = DollhouseSceneBuilder.build(model)
             overlay = built.map { RouteOverlay(dollhouse: $0.dollhouse) }
@@ -969,4 +970,5 @@ struct DrillScreen: View {
         DrillScreen(homeID: "preview")
     }
     .environment(APIClient())
+    .environmentObject(HomeLibrary(store: HomeDocumentStore.launchStore().store))
 }

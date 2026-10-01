@@ -10,9 +10,16 @@ import SwiftUI
 
 struct OnboardingFlowView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var state = OnboardingState()
+    @State private var state: OnboardingState
 
     var onFinished: () -> Void
+
+    /// `documentStore` is the library's store (AUD-019). Passed in, not read from the
+    /// environment: ContentView presents this cover outside its `.environmentObject(library)`.
+    init(documentStore: HomeDocumentStore, onFinished: @escaping () -> Void) {
+        _state = State(initialValue: OnboardingState(documentStore: documentStore))
+        self.onFinished = onFinished
+    }
 
     private let steps: [OnboardingState.Step] = [.welcome, .whoLivesHere, .needs, .rentOrOwn]
 

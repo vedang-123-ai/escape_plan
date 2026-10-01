@@ -25,12 +25,13 @@ struct ProfilesScreen: View {
     @State private var deleteCandidate: Profile?
     @State private var rejectionMessage: String?
 
-    private let documentStore: HomeDocumentStore?
+    /// The library's store, passed in by the caller (AUD-019): never a second store of its own.
+    let documentStore: HomeDocumentStore?
 
-    init(homeID: String, onModelChanged: (() -> Void)? = nil) {
+    init(homeID: String, store: HomeDocumentStore?, onModelChanged: (() -> Void)? = nil) {
         self.homeID = homeID
         self.onModelChanged = onModelChanged
-        self.documentStore = try? HomeDocumentStore()
+        self.documentStore = store
     }
 
     var body: some View {
@@ -236,6 +237,6 @@ struct ProfilesScreen: View {
 
 #Preview {
     NavigationStack {
-        ProfilesScreen(homeID: "missing")
+        ProfilesScreen(homeID: "missing", store: try? HomeDocumentStore())
     }
 }

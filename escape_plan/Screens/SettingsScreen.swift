@@ -15,6 +15,7 @@ struct SettingsScreen: View {
     @Environment(APIClient.self) private var apiClient
     @Environment(AuthSession.self) private var authSession
     @Environment(SyncManager.self) private var syncManager
+    @EnvironmentObject private var library: HomeLibrary
 
     private enum HealthState: Equatable {
         case unknown
@@ -240,7 +241,7 @@ struct SettingsScreen: View {
         defer { isGeneratingSnapshot = false }
 
         // Find the most recent home from the library
-        guard let store = try? HomeDocumentStore() else { return }
+        let store = library.store
         let summaries = store.list()
         guard let homeID = summaries.first?.id else { return }
 
@@ -570,5 +571,6 @@ private struct HowRoutesAreComputedSheet: View {
                                  store: InMemoryTokenStore(),
                                  defaults: UserDefaults(suiteName: "preview.\(UUID().uuidString)")!))
         .previewSyncEnvironment()
+        .environmentObject(HomeLibrary(store: HomeDocumentStore.launchStore().store))
 }
 #endif

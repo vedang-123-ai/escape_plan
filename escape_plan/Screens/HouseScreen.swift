@@ -197,24 +197,16 @@ struct HouseScreen: View {
     /// Set while the user drags the scrubber, so playback resumes only if it was playing.
     @State private var wasPlayingBeforeScrub = false
 
-    private let documentStore: HomeDocumentStore?
+    /// The library's store, the one store for this launch (AUD-019). Nil only without a
+    /// library, which is the preview alone, and then nothing is saved.
+    let documentStore: HomeDocumentStore?
 
     init(homeID: String?, library: HomeLibrary? = nil, initialFocusItemID: String? = nil, onModelChanged: (() -> Void)? = nil) {
         self.homeID = homeID
         self.library = library
         self.initialFocusItemID = initialFocusItemID
         self.onModelChanged = onModelChanged
-        self.documentStore = try? HomeDocumentStore()
-    }
-
-    /// House tab entry point: resumes the most recently modified saved home, or starts a new
-    /// one if there isn't one yet.
-    init() {
-        let documentStore = try? HomeDocumentStore()
-        self.homeID = documentStore?.list().first?.id
-        self.onModelChanged = nil
-        self.library = nil
-        self.documentStore = documentStore
+        self.documentStore = library?.store
     }
 
     var body: some View {

@@ -17,6 +17,8 @@ struct BuildFromPlanView: View {
 
     @Environment(APIClient.self) private var apiClient
     @Environment(\.dismiss) private var dismiss
+    /// Reaches this sheet from HomeScreen's environment; the draft is saved through its store.
+    @EnvironmentObject private var library: HomeLibrary
 
     @State private var descriptionText = ""
     @State private var photoItem: PhotosPickerItem?
@@ -209,8 +211,7 @@ struct BuildFromPlanView: View {
                         : "The draft didn't validate: " + response.issues.prefix(3).joined(separator: "; ")
                     return
                 }
-                let store = try HomeDocumentStore()
-                try store.save(model: home)
+                try library.store.save(model: home)
                 dismiss()
                 onBuilt(home.home_id)
             } catch is CancellationError {
@@ -226,4 +227,5 @@ struct BuildFromPlanView: View {
 #Preview {
     BuildFromPlanView(onBuilt: { _ in })
         .environment(APIClient())
+        .environmentObject(HomeLibrary(store: HomeDocumentStore.launchStore().store))
 }
