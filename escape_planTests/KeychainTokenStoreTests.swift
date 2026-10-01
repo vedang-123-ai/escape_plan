@@ -18,10 +18,23 @@ final class KeychainTokenStoreTests: XCTestCase {
 
     private var store: KeychainTokenStore!
 
-    override func setUp() {
-        super.setUp()
+    override func setUpWithError() throws {
+        try super.setUpWithError()
         store = KeychainTokenStore(service: "com.escapeplan.tests.\(UUID().uuidString)",
                                    account: "access_token")
+
+        // The gate runs with `CODE_SIGNING_ALLOWED=NO`, and an unsigned test host has no
+        // keychain access group, so every SecItem call fails with errSecMissingEntitlement
+        // (-34018) for reasons that say nothing about this code. Skip rather than fail, but
+        // ONLY for that status: anything else is a real failure and still goes red. An
+        // ad-hoc-signed run (`CODE_SIGN_IDENTITY=-`) has the entitlement and runs these for real.
+        do {
+            try store.save("probe")
+            try store.delete()
+        } catch let error as KeychainError where error.status == errSecMissingEntitlement {
+            throw XCTSkip("Unsigned test host has no keychain entitlement (-34018); "
+                        + "run with ad-hoc signing (CODE_SIGN_IDENTITY=-) to exercise the Keychain.")
+        }
     }
 
     override func tearDown() {

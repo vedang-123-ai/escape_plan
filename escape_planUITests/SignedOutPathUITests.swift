@@ -13,14 +13,17 @@
 //
 //  Two launch arguments do the work. UserDefaults reads the `NSArgumentDomain` first, so
 //  `-auth.gate.dismissed YES` is the supported "skip the gate" path — no test-only branch in
-//  the app, and the same mechanism the other seven UI test files already use. The gate test
-//  below omits it, because the point there is that the gate appears and can be dismissed.
+//  the app, and the same mechanism the other seven UI test files already use. The gate tests
+//  below pass `-auth.gate.dismissed NO` instead. Omitting the flag is NOT enough: the app writes
+//  it to UserDefaults when anyone taps "Continue without an account", and that persists on the
+//  simulator, so after the first dismissal in a run the gate would never appear again (AUD-036).
 
 import XCTest
 
 final class SignedOutPathUITests: XCTestCase {
 
     override func setUpWithError() throws {
+        installSystemAlertMonitor()
         continueAfterFailure = false
     }
 
@@ -33,7 +36,9 @@ final class SignedOutPathUITests: XCTestCase {
             // 1 is reserved and nothing binds it, so every backend call fails fast.
             "-APIClient.baseURL", "http://127.0.0.1:1",
             "-APIClient.bearerToken", "not-a-real-token",
-        ] + (showGate ? [] : ["-auth.gate.dismissed", "YES"])
+            // Forced either way: an argument overrides whatever an earlier test left persisted.
+            "-auth.gate.dismissed", showGate ? "NO" : "YES",
+        ]
         app.launch()
         return app
     }
@@ -71,8 +76,8 @@ final class SignedOutPathUITests: XCTestCase {
         // which replaces their descendant Texts with one element whose label is the whole
         // paragraph. Queried by string these never resolve — caught in review before they had
         // ever run, which is exactly the failure mode an unrun test has.
-        XCTAssertTrue(app.otherElements["privacy.uploads"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.otherElements["privacy.neverUploads"].exists)
+        XCTAssertTrue(disclosureList(in: app, "privacy.uploads").waitForExistence(timeout: 5))
+        XCTAssertTrue(disclosureList(in: app, "privacy.neverUploads").exists)
     }
 
     // MARK: - Every tab opens
@@ -129,6 +134,14 @@ final class SignedOutPathUITests: XCTestCase {
         let disclose = app.buttons["What does an account upload?"]
         XCTAssertTrue(disclose.waitForExistence(timeout: 20))
         disclose.tap()
-        XCTAssertTrue(app.otherElements["privacy.neverUploads"].waitForExistence(timeout: 5))
+        XCTAssertTrue(disclosureList(in: app, "privacy.neverUploads").waitForExistence(timeout: 5))
+    }
+
+    /// The `.combine`d list is exposed under whatever element type SwiftUI picks for a Label plus
+    /// Texts — not `.other` — so `app.otherElements[id]` never matched it (AUD-036). Match the
+    /// identifier on any type; the identifier is the contract, the type is SwiftUI's business.
+    @MainActor
+    private func disclosureList(in app: XCUIApplication, _ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any)[identifier]
     }
 }

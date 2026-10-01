@@ -26,7 +26,9 @@ final class EvacuationMockTimelineTests: XCTestCase {
     func testGenericFactoryExercisesAllThreeFixturesWithoutInventingPaths() throws {
         let fixtures: [(name: String, expectedTracks: Int, expectedIssues: Int)] = [
             ("bungalow", 4, 0),     // no profiles: one DEBUG-only occupant per room
-            ("apartment", 1, 0),    // Sam
+            // Sam, and Biscuit the cat (added 2026-09-16, `72bf34e`). The pet track is intended:
+            // `MockTimeline` gives a `.pet`-tagged profile its own gait.
+            ("apartment", 2, 0),
             // The unscoped sample sends Grandpa down stairs. The mock must omit that track
             // rather than visually claim it is compatible with a wheelchair.
             ("twostory", 1, 1),
