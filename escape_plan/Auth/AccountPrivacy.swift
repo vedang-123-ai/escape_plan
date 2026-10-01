@@ -1,23 +1,104 @@
 //  AccountPrivacy.swift
-//  escape_plan — S11.7 accounts demoted
+//  escape_plan — S11.7 accounts demoted; S11.16 rewritten against what actually leaves the phone
 //
-//  What leaves this device once you sign in, in the words the user actually reads.
+//  What leaves this device, in the words the user actually reads.
 //
 //  Copy lives HERE, in Foundation-only code, rather than inline in the three SwiftUI screens
 //  that show it, for two reasons. The screens cannot be tested on a machine with no simulator
 //  and this file can; and a privacy claim repeated in three places is a privacy claim that
 //  will be true in two of them after the next schema change.
 //
-//  `uploadedHomeKeys` is the load-bearing part. It is the exact set of top-level HomeModel
-//  keys that `POST /homes` sends, and `AccountPrivacyTests` encodes a real fixture and
-//  asserts the two agree — so adding a field to the schema and saying nothing about it fails
-//  a test rather than quietly making this screen a lie.
+//  Two different things leave the phone, and the copy keeps them apart (AUD-050):
+//
+//  - SENT TO COMPUTE, NOT KEPT. Routes, the score, the fire simulation and scan conversion run
+//    on our server, signed in or not. Every one of those requests carries the whole HomeModel,
+//    household names and vulnerability tags included. The server stores none of them: the only
+//    database writes are `/auth/*` and `/homes`, and nothing logs a request body.
+//  - SAVED TO AN ACCOUNT. Only when signed in, `POST /homes` stores the same document.
+//
+//  The S11.7 copy told signed-out users nothing about their home left the phone: the second
+//  claim mistaken for the first. Where a claim names Anthropic it is because `/chat` and
+//  `/build` are the only endpoints the app calls that reach it (`backend/app/api_chat.py`,
+//  `backend/app/ai/builder.py`). `/explain` and `/analyze` also call it, and the app calls
+//  neither; `/score` can, but only with `include_recommendations`, which the app never sends.
+//
+//  The key sets are the load-bearing part. `AccountPrivacyTests` encodes real requests and
+//  asserts every top-level field is described by a line of copy, so adding a field to the
+//  schema or to a request body and saying nothing about it fails a test rather than quietly
+//  making this screen a lie.
 
 import Foundation
 
 enum AccountPrivacy {
 
-    // MARK: - What is uploaded
+    // MARK: - The headline claim
+
+    /// The one paragraph that has to be on the sign-in screen, because it is the fact that
+    /// makes the gate soft rather than a wall. Each sentence is one row of the S11.16 inventory
+    /// (docs/tracker/notes/2026-10-01-s11-16-privacy-truth.md).
+    static let signedOutSummary =
+        "Signed out, your homes are saved only on this iPhone, and you never need an account. "
+        + "To work out routes, your score and the fire drill, the app sends the whole home — "
+        + "household names and tags included — to our server, which uses it and does not keep "
+        + "it. The assistant and Import Plan send what you type or pick on to Anthropic's AI "
+        + "service."
+
+    // MARK: - Sent to compute, not kept
+
+    /// Every top-level field of the request bodies that carry a home to a compute endpoint:
+    /// `/score`, `/routes`, `/evacuate`, `/convert`, `/diff_obstructions`, `/chat`, `/build`.
+    /// None of them needs an account and none of them is stored.
+    ///
+    /// Pinned by test against real encodes of `ScoreRequest` and `RoutesRequest` (in both
+    /// runners) and of the Networking-only request types (in the app runner).
+    static let computeRequestKeys: Set<String> = [
+        "home", "checklist_state",                              // /score, /routes, /evacuate, /chat
+        "peril", "constraints", "profile_id",                   // /routes
+        "origin_room_id", "profile_set_id",                     // /evacuate
+        "scan", "home_name",                                    // /convert
+        "stored_model", "scan_model", "target_room_id",         // /diff_obstructions
+        "messages",                                             // /chat
+        "description", "image_b64", "image_media_type",         // /build
+    ]
+
+    /// What the server is sent to work things out, ordered most-personal first.
+    static let sentToCompute: [Disclosure] = [
+        Disclosure(
+            text: "The whole home, every time the server works something out for you: the "
+                + "floor plan and room names, the names you gave household members, "
+                + "their tags (child, elderly, mobility-limited, hearing- or vision-impaired), "
+                + "the room each one sleeps in, and the address if you typed one.",
+            keys: ["home"]),
+        Disclosure(
+            text: "Which checklist items you have ticked, so the score can count them.",
+            keys: ["checklist_state"]),
+        Disclosure(
+            text: "A new scan's room measurements and the model of iPhone that took it, to "
+                + "turn them into a floor plan or compare them with the one you saved.",
+            keys: ["scan", "home_name", "stored_model", "scan_model"]),
+        Disclosure(
+            text: "Which hazard, household member or starting room you are looking at.",
+            keys: ["peril", "constraints", "profile_id", "origin_room_id", "profile_set_id",
+                   "target_room_id"]),
+        Disclosure(
+            text: "Your messages to the assistant, and the photo, PDF page or description you "
+                + "give Import Plan. These go on to Anthropic, below.",
+            keys: ["messages", "description", "image_b64", "image_media_type"]),
+    ]
+
+    /// What our server passes on to Anthropic. Nothing here is keyed: the server builds these
+    /// from the request rather than forwarding it. `/chat` sends `summarize_home` (home, floor
+    /// and room names, exits, stairs) and the message history; the app sends no `profiles`.
+    /// `/build` sends the image and the description. Only the first page of a PDF is rendered
+    /// and sent (`BuildFromPlanView`).
+    static let sentToAnthropic: [String] = [
+        "The assistant: your messages and a summary of the floor plan — the home's name, its "
+            + "floor and room names, its exits and its stairs.",
+        "Import Plan: the photo, or the first page of the PDF, that you pick, and any "
+            + "description you type.",
+    ]
+
+    // MARK: - Saved to an account
 
     /// Every top-level key of the `HomeModel` document that `CloudHomesClient.push` sends.
     ///
@@ -27,7 +108,7 @@ enum AccountPrivacy {
         "schema_version", "home_id", "name", "floors", "stairs", "profiles", "meta", "household",
     ]
 
-    /// Plain-language lines for "what gets uploaded", each tied to the schema keys it covers.
+    /// Plain-language lines for "what an account saves", each tied to the schema keys it covers.
     ///
     /// Ordered most-personal first. Someone skimming should hit "names" and "address" before
     /// they hit "wall measurements", because those are the two that would change their mind.
@@ -60,29 +141,38 @@ enum AccountPrivacy {
         Disclosure(
             text: "Your email address, which is what the account is.",
             keys: []),
+        // Was under "never uploads" in S11.7, which contradicted itself: the password IS sent,
+        // once, to `/auth/register` and `/auth/login`. What is never kept is the password.
+        Disclosure(
+            text: "A one-way hash of your password, which cannot be turned back into it. The "
+                + "password itself is never stored.",
+            keys: []),
     ]
 
-    // MARK: - What is not
+    /// AUD-018. Sync copies the home document and nothing else, so the state that lives beside
+    /// it — `ChecklistStateStore` (UserDefaults), the drill log and `ConversationStore` — is
+    /// not in the account. Said here so a second device showing a different score is expected
+    /// rather than a bug. Deliberately "not copied to your account" and not "never leaves this
+    /// iPhone": ticks go to `/score` and messages go to `/chat`, they are just not saved there.
+    static let notSynced: [String] = [
+        "Checklist progress, practice-drill history and assistant chats are kept on this "
+            + "iPhone and are not copied to your account, so another device starts without them.",
+    ]
+
+    // MARK: - What never leaves this iPhone
 
     /// Claims that must stay checkable. Nothing vague belongs here — "we respect your privacy"
     /// is not a fact, and a judge reading the submission can verify every line below against
     /// the code.
     static let notUploaded: [String] = [
-        "Your password. The server stores a one-way hash it cannot reverse, never the password "
-            + "itself.",
-        "Camera images. A LiDAR scan is converted from room measurements; no photo or video "
-            + "frame is ever sent or stored.",
+        "Camera images from a scan. A LiDAR scan sends only room measurements; no photo or "
+            + "video frame from the camera leaves this iPhone. Import Plan is the one exception, "
+            + "and only for the picture you choose.",
         "Your location. Escape Plan never asks for it and never has it.",
         "Anything about how you use the app. There is no analytics or tracking of any kind.",
     ]
 
-    // MARK: - The headline claims
-
-    /// The one sentence that has to be on the sign-in screen, because it is the fact that
-    /// makes the gate soft rather than a wall.
-    static let signedOutSummary =
-        "Signed out, Escape Plan uploads nothing about your home. Everything — building, "
-        + "editing, routes, the drill and exporting — works on this iPhone with no account."
+    // MARK: - Deleting
 
     /// Shown next to the delete button. Both halves matter: people hesitate to delete because
     /// they are afraid of losing the work, and the honest answer is that they will not.
@@ -101,8 +191,9 @@ enum AccountPrivacy {
 
     struct Disclosure: Equatable, Sendable {
         let text: String
-        /// The `HomeModel` keys this line accounts for. Empty means it describes something
-        /// outside the home document (the account's own email address).
+        /// The keys this line accounts for: `HomeModel` keys in `uploaded`, request-body keys
+        /// in `sentToCompute`. Empty means it describes something outside both (the account's
+        /// own email address and password hash).
         let keys: [String]
     }
 }

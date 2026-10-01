@@ -151,24 +151,34 @@ struct AuthSubmitButton: View {
     }
 }
 
-/// What signing in uploads, and what it never does — the S11.7 privacy disclosure.
+/// What leaves this iPhone, what is kept and where — the S11.7 privacy disclosure, rewritten in
+/// S11.16 to separate "sent to compute, not kept" from "saved to an account" (AUD-050).
 ///
 /// Shown on the gate, in the sign-in sheet and in Settings, from ONE source: the copy lives in
 /// `AccountPrivacy` (Foundation-only, so it is testable without a simulator) and is pinned by
-/// test against a real encode of a `HomeModel`. A disclosure repeated in three hand-written
-/// places is a disclosure that will be true in two of them after the next schema change.
+/// test against real encodes of the home and of the compute requests. A disclosure repeated in
+/// three hand-written places is a disclosure that will be true in two of them after the next
+/// schema change.
 ///
-/// Collapsed by default. Expanded, it is eight lines of text on a screen whose job is to let
+/// Collapsed by default. Expanded, it is five short lists on a screen whose job is to let
 /// someone decide about an account — but the summary above it is the fact that actually
 /// decides most of it, and the detail has to be one tap away, not a link to a web page the
 /// user has to leave the app to read.
 struct AccountPrivacyDisclosure: View {
 
-    /// Queried by `SignedOutPathUITests`. The two lists are `.combine`d for VoiceOver, which
+    /// Queried by `SignedOutPathUITests`. The lists are `.combine`d for VoiceOver, which
     /// takes their visible strings out of the accessibility tree, so an identifier is the only
     /// handle a UI test has on them.
+    static let computeIdentifier = "privacy.compute"
+    static let anthropicIdentifier = "privacy.anthropic"
     static let uploadsIdentifier = "privacy.uploads"
+    static let notSyncedIdentifier = "privacy.notSynced"
     static let neverUploadsIdentifier = "privacy.neverUploads"
+
+    /// Asks the question the whole disclosure answers. It used to be "What does an account
+    /// upload?", which pointed the reader at the one path that is opt-in and away from the
+    /// one that happens to everyone.
+    static let expandLabel = "What leaves this iPhone?"
 
     @State private var isExpanded = false
 
@@ -183,8 +193,8 @@ struct AccountPrivacyDisclosure: View {
                 withAnimation(.easeInOut(duration: 0.2)) { isExpanded.toggle() }
             } label: {
                 HStack(spacing: 4) {
-                    Text(isExpanded ? "Hide what an account uploads"
-                                    : "What does an account upload?")
+                    Text(isExpanded ? "Hide what leaves this iPhone"
+                                    : AccountPrivacyDisclosure.expandLabel)
                     Image(systemName: "chevron.right")
                         .font(.caption2.weight(.semibold))
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
@@ -194,15 +204,27 @@ struct AccountPrivacyDisclosure: View {
             }
             .buttonStyle(.plain)
             .minimumTapTarget(44)
-            .accessibilityHint("Lists exactly what leaves this iPhone after you sign in.")
+            .accessibilityHint("Lists what is sent to work things out, what an account saves, and what never leaves.")
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 12) {
-                    disclosureList("Signing in uploads",
+                    disclosureList("Sent to our server to work things out, not kept",
+                                   AccountPrivacy.sentToCompute.map(\.text),
+                                   symbol: "arrow.left.arrow.right.circle",
+                                   identifier: AccountPrivacyDisclosure.computeIdentifier)
+                    disclosureList("Passed on to Anthropic's AI service",
+                                   AccountPrivacy.sentToAnthropic,
+                                   symbol: "arrow.up.right.circle",
+                                   identifier: AccountPrivacyDisclosure.anthropicIdentifier)
+                    disclosureList("Saved to your account, only if you sign in",
                                    AccountPrivacy.uploaded.map(\.text),
                                    symbol: "arrow.up.circle",
                                    identifier: AccountPrivacyDisclosure.uploadsIdentifier)
-                    disclosureList("It never uploads",
+                    disclosureList("Kept on this iPhone, not in your account",
+                                   AccountPrivacy.notSynced,
+                                   symbol: "iphone",
+                                   identifier: AccountPrivacyDisclosure.notSyncedIdentifier)
+                    disclosureList("Never leaves this iPhone",
                                    AccountPrivacy.notUploaded,
                                    symbol: "xmark.circle",
                                    identifier: AccountPrivacyDisclosure.neverUploadsIdentifier)
@@ -225,8 +247,8 @@ struct AccountPrivacyDisclosure: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(DS.ink)
             ForEach(lines, id: \.self) { line in
-                // A real bullet rather than a Label per line: eight icons down the side reads
-                // as eight warnings, and none of these is a warning.
+                // A real bullet rather than a Label per line: an icon per line down the side reads
+                // as a column of warnings, and none of these is a warning.
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("•").font(.footnote).foregroundStyle(DS.supporting)
                     Text(line)
@@ -237,7 +259,7 @@ struct AccountPrivacyDisclosure: View {
                 }
             }
         }
-        // `.combine` is right for VoiceOver — one announcement beats eight orphan bullets —
+        // `.combine` is right for VoiceOver — one announcement beats a run of orphan bullets —
         // but it REMOVES the descendant Texts from the accessibility tree, so nothing can be
         // queried by its visible string. The identifier is what gives a UI test a handle on
         // the combined element. Found in review, 2026-09-24: `SignedOutPathUITests` asserted

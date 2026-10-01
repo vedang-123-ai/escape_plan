@@ -1,12 +1,18 @@
 //  SignedOutProofTests.swift — S11.7: the app works with no account and no server.
 //
 //  The claim this file exists to keep true is on the sign-in screen, in
-//  `AccountPrivacy.signedOutSummary`: signed out, Escape Plan uploads nothing, and everything
-//  works on this iPhone. The soft gate, the pitch and the privacy copy all rest on it.
+//  `AccountPrivacy.signedOutSummary`: signed out, your homes are saved only on this iPhone and
+//  you never need an account. The soft gate, the pitch and the privacy copy all rest on it.
 //
-//  What can be proved HERE is the part that is pure: no token means no request, an unreachable
-//  server changes a badge and nothing else, and nothing in the auth layer can put itself in
-//  front of the app. Whether the SCREENS behave is a simulator question — `SignedOutPathUITests`
+//  Scope, corrected in S11.16 (AUD-050): this proves the SYNC half — no token means no `/homes`
+//  request, so nothing is saved to a server. It does NOT prove that nothing leaves the phone,
+//  and nothing should claim it does: `/score`, `/routes`, `/evacuate` and `/chat` send the
+//  whole home signed in or out. What those requests carry is pinned against the copy in
+//  `AccountPrivacyTests`.
+//
+//  What can be proved HERE is the part that is pure: no token means no sync request, an
+//  unreachable server changes a badge and nothing else, and nothing in the auth layer can put
+//  itself in front of the app. Whether the SCREENS behave is a simulator question — `SignedOutPathUITests`
 //  walks them, and BLOCKERS records that it has not been run on this machine.
 
 import Foundation
@@ -51,10 +57,10 @@ final class SignedOutProofTests: XCTestCase {
             tokenProvider: { token })
     }
 
-    // MARK: - Nothing is uploaded
+    // MARK: - Nothing is saved to the server
 
-    /// The literal claim on the sign-in screen. `syncIfSignedIn` is what every call site in
-    /// `RootView` uses — launch, sign-in, and returning to the foreground.
+    /// "Saved only on this iPhone", from the sign-in screen. `syncIfSignedIn` is what every
+    /// call site in `RootView` uses — launch, sign-in, and returning to the foreground.
     func testASignedOutLaunchSendsNoRequestAtAll() async {
         let manager = makeManager()
 
@@ -68,7 +74,7 @@ final class SignedOutProofTests: XCTestCase {
     /// Even called directly rather than through the guard. `sync()` is reachable from the
     /// badge, and a user who taps it signed out must not produce an unauthenticated POST
     /// carrying their floor plan.
-    func testCallingSyncDirectlyWhileSignedOutUploadsNothing() async {
+    func testCallingSyncDirectlyWhileSignedOutSavesNothingToTheServer() async {
         let manager = makeManager()
 
         await manager.sync()
