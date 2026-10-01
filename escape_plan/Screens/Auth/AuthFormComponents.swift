@@ -152,7 +152,7 @@ struct AuthSubmitButton: View {
 }
 
 /// What leaves this iPhone, what is kept and where — the S11.7 privacy disclosure, rewritten in
-/// S11.16 to separate "sent to compute, not kept" from "saved to an account" (AUD-050).
+/// S11.16 to separate "sent to compute, not stored" from "saved to an account" (AUD-050).
 ///
 /// Shown on the gate, in the sign-in sheet and in Settings, from ONE source: the copy lives in
 /// `AccountPrivacy` (Foundation-only, so it is testable without a simulator) and is pinned by
@@ -208,7 +208,7 @@ struct AccountPrivacyDisclosure: View {
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 12) {
-                    disclosureList("Sent to our server to work things out, not kept",
+                    disclosureList("Sent to our server to work things out, not stored",
                                    AccountPrivacy.sentToCompute.map(\.text),
                                    symbol: "arrow.left.arrow.right.circle",
                                    identifier: AccountPrivacyDisclosure.computeIdentifier)

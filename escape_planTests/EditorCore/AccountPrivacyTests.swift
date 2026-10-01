@@ -165,7 +165,7 @@ final class AccountPrivacyTests: XCTestCase {
         XCTAssertTrue(text.contains("account"))
         XCTAssertTrue(text.contains("sends the whole home"))
         XCTAssertTrue(text.contains("household names"))
-        XCTAssertTrue(text.contains("does not keep"))
+        XCTAssertTrue(text.contains("does not store"))
         XCTAssertTrue(text.contains("anthropic"))
     }
 
@@ -180,6 +180,10 @@ final class AccountPrivacyTests: XCTestCase {
             XCTAssertFalse(line.contains("uploads nothing"), line)
             XCTAssertFalse(line.contains("ever sent"), line)
             XCTAssertFalse(line.contains("works on this iphone with no account"), line)
+            // No screen sets `meta.address_optional`, so no line may describe an address the
+            // user typed (pitch-truth-auditor, S11.16).
+            XCTAssertFalse(line.contains("address if you typed")
+                           || line.contains("only if you typed one in"), line)
         }
     }
 

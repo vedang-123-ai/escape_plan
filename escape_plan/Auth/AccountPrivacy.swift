@@ -39,11 +39,11 @@ enum AccountPrivacy {
     static let signedOutSummary =
         "Signed out, your homes are saved only on this iPhone, and you never need an account. "
         + "To work out routes, your score and the fire drill, the app sends the whole home — "
-        + "household names and tags included — to our server, which uses it and does not keep "
-        + "it. The assistant and Import Plan send what you type or pick on to Anthropic's AI "
-        + "service."
+        + "household names and tags included — to our server, which uses it and does not store "
+        + "it. The assistant sends your messages and your home's room names on to Anthropic's "
+        + "AI service, and Import Plan sends it the picture and description you give it."
 
-    // MARK: - Sent to compute, not kept
+    // MARK: - Sent to compute, not stored
 
     /// Every top-level field of the request bodies that carry a home to a compute endpoint:
     /// `/score`, `/routes`, `/evacuate`, `/convert`, `/diff_obstructions`, `/chat`, `/build`.
@@ -52,7 +52,8 @@ enum AccountPrivacy {
     /// Pinned by test against real encodes of `ScoreRequest` and `RoutesRequest` (in both
     /// runners) and of the Networking-only request types (in the app runner).
     static let computeRequestKeys: Set<String> = [
-        "home", "checklist_state",                              // /score, /routes, /evacuate, /chat
+        "home",                                                 // /score, /routes, /evacuate, /chat
+        "checklist_state",                                      // /score
         "peril", "constraints", "profile_id",                   // /routes
         "origin_room_id", "profile_set_id",                     // /evacuate
         "scan", "home_name",                                    // /convert
@@ -65,17 +66,19 @@ enum AccountPrivacy {
     static let sentToCompute: [Disclosure] = [
         Disclosure(
             text: "The whole home, every time the server works something out for you: the "
-                + "floor plan and room names, the names you gave household members, "
-                + "their tags (child, elderly, mobility-limited, hearing- or vision-impaired), "
-                + "the room each one sleeps in, and the address if you typed one.",
-            keys: ["home"]),
+                + "floor plan and room names, the names you gave household members and pets, "
+                + "their tags (child, elderly, pet, mobility-limited, hearing- or "
+                + "vision-impaired) and the room each one sleeps in. Re-scanning "
+                + "a room sends your saved home and the new scan together, to compare them.",
+            keys: ["home", "stored_model", "scan_model"]),
         Disclosure(
             text: "Which checklist items you have ticked, so the score can count them.",
             keys: ["checklist_state"]),
         Disclosure(
-            text: "A new scan's room measurements and the model of iPhone that took it, to "
-                + "turn them into a floor plan or compare them with the one you saved.",
-            keys: ["scan", "home_name", "stored_model", "scan_model"]),
+            text: "A new scan's measurements and labels (walls, doors, windows, furniture), the "
+                + "name you give it, the app version and the model of iPhone that took it, to "
+                + "turn them into a floor plan.",
+            keys: ["scan", "home_name"]),
         Disclosure(
             text: "Which hazard, household member or starting room you are looking at.",
             keys: ["peril", "constraints", "profile_id", "origin_room_id", "profile_set_id",
@@ -92,10 +95,13 @@ enum AccountPrivacy {
     /// `/build` sends the image and the description. Only the first page of a PDF is rendered
     /// and sent (`BuildFromPlanView`).
     static let sentToAnthropic: [String] = [
-        "The assistant: your messages and a summary of the floor plan — the home's name, its "
-            + "floor and room names, its exits and its stairs.",
+        "The assistant: your messages, its earlier replies, and a summary of the floor plan — "
+            + "the home's name, its floor and room names and types, its exits and its stairs. "
+            + "Not the household members you added.",
         "Import Plan: the photo, or the first page of the PDF, that you pick, and any "
-            + "description you type.",
+            + "description you type. A photo is sent as it is, including any location your "
+            + "camera saved in it.",
+        "Anthropic handles what it receives under its own policies, not ours.",
     ]
 
     // MARK: - Saved to an account
@@ -110,18 +116,21 @@ enum AccountPrivacy {
 
     /// Plain-language lines for "what an account saves", each tied to the schema keys it covers.
     ///
-    /// Ordered most-personal first. Someone skimming should hit "names" and "address" before
-    /// they hit "wall measurements", because those are the two that would change their mind.
+    /// Ordered most-personal first. Someone skimming should hit household names and tags before
+    /// they hit "wall measurements", because those are what would change their mind.
     static let uploaded: [Disclosure] = [
         Disclosure(
             text: "The names you gave household members and pets, whether you tagged them as a "
-                + "child, elderly, mobility-limited, or hearing- or vision-impaired, and which "
-                + "room each one sleeps in.",
+                + "child, elderly, pet, mobility-limited, or hearing- or vision-impaired, and "
+                + "which room each one sleeps in.",
             keys: ["profiles"]),
         Disclosure(
-            text: "Your home's address — only if you typed one in. It is optional everywhere "
-                + "in the app and blank until you fill it in, and its created, edited and "
-                + "last-scanned dates.",
+            // S11.16: the S11.7 line promised an address "only if you typed one in", but no
+            // screen sets `meta.address_optional` and nothing on the server does either
+            // (pitch-truth-auditor). If a screen ever gains an address field, this line and the
+            // `sentToCompute` "whole home" line both need it back.
+            text: "The dates the home was created, last edited and last scanned. The app never "
+                + "asks for your address.",
             keys: ["meta"]),
         Disclosure(
             text: "Whether you rent or own, and which safety equipment you said you already "
@@ -165,11 +174,13 @@ enum AccountPrivacy {
     /// is not a fact, and a judge reading the submission can verify every line below against
     /// the code.
     static let notUploaded: [String] = [
-        "Camera images from a scan. A LiDAR scan sends only room measurements; no photo or "
-            + "video frame from the camera leaves this iPhone. Import Plan is the one exception, "
-            + "and only for the picture you choose.",
-        "Your location. Escape Plan never asks for it and never has it.",
-        "Anything about how you use the app. There is no analytics or tracking of any kind.",
+        "Camera images from a scan. A LiDAR scan sends the measurements and labels listed "
+            + "above; no photo or video frame from the camera leaves this iPhone. Import Plan is "
+            + "the one exception, and only for the picture you choose.",
+        "Your location. Escape Plan never asks for it. The one way it can leave is inside a "
+            + "photo you pick for Import Plan, as described above.",
+        "Analytics or tracking. There is none. Like any server, ours records when each request "
+            + "arrived and from which internet address.",
     ]
 
     // MARK: - Deleting
