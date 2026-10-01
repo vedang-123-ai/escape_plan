@@ -54,6 +54,7 @@ final class S44ScreenshotUITests: XCTestCase {
     }
 
     override func setUpWithError() throws {
+        installSystemAlertMonitor()
         let env = ProcessInfo.processInfo.environment
         guard env["S44_SHOTS"] == "1" else {
             throw XCTSkip("Screenshot driver — run with TEST_RUNNER_S44_SHOTS=1.")
@@ -278,6 +279,10 @@ final class S44ScreenshotUITests: XCTestCase {
 /// screen on the demo path must degrade to a banner or an explicit error state — never a
 /// crash, never a dead spinner. Enabled with TEST_RUNNER_S44_DOWN=1.
 final class S44BackendDownUITests: XCTestCase {
+
+    override func setUpWithError() throws {
+        installSystemAlertMonitor()
+    }
 
     @MainActor
     func testDemoPathWithBackendDown() throws {

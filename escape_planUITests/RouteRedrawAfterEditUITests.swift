@@ -21,6 +21,10 @@ final class RouteRedrawAfterEditUITests: XCTestCase {
 
     private var outDir: URL?
 
+    override func setUpWithError() throws {
+        installSystemAlertMonitor()
+    }
+
     /// Primary-route blue pixels, as a fraction of the frame. This matches
     /// `DollhousePalette.routePrimary` (#123FB0), not the retired orange route color.
     private func routePixelFraction(_ screenshot: XCUIScreenshot) -> Double {

@@ -14,6 +14,7 @@ final class escape_planUITestsLaunchTests: XCTestCase {
     }
 
     override func setUpWithError() throws {
+        installSystemAlertMonitor()
         continueAfterFailure = false
     }
 

@@ -14,6 +14,10 @@ import XCTest
 
 final class ScoreScreenshotUITests: XCTestCase {
 
+    override func setUpWithError() throws {
+        installSystemAlertMonitor()
+    }
+
     func testCaptureScoreScreen() throws {
         let env = ProcessInfo.processInfo.environment
         guard env["SCORE_SHOT"] == "1" else {

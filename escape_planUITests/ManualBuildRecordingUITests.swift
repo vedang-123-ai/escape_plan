@@ -30,6 +30,10 @@ final class ManualBuildRecordingUITests: XCTestCase {
     /// mirror of what it has built, driving the camera-inverse math.
     private var rooms: [CGRect] = []
 
+    override func setUpWithError() throws {
+        installSystemAlertMonitor()
+    }
+
     @MainActor
     func testBuildTwoStoryHomeByHandAndFetchRoutes() throws {
         let env = ProcessInfo.processInfo.environment

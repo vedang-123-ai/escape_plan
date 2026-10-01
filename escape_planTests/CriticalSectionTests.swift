@@ -27,11 +27,12 @@ struct CriticalSectionTests {
         }
         """
         
-        OfflineStubProtocol.installStatus(200, body: json.data(using: .utf8)!)
-        defer { OfflineStubProtocol.remove() }
-        
+        // Its own stub, not `OfflineStubProtocol`: that one keeps its responder in a static that
+        // `OfflineIntegrityTests` (serialized only against itself) sets to `.notConnectedToInternet`
+        // while this suite runs in parallel, which failed this test with -1009 (S11.8).
         let config = URLSessionConfiguration.ephemeral
-        config.protocolClasses = [OfflineStubProtocol.self]
+        config.protocolClasses = [ScoreJSONStub.self]
+        ScoreJSONStub.body = json.data(using: .utf8)!
         let session = URLSession(configuration: config)
         let client = APIClient(session: session)
         
@@ -43,4 +44,22 @@ struct CriticalSectionTests {
         #expect(highSeverityItems.count == 1, "The high severity item must decode correctly through the real APIClient path")
         #expect(highSeverityItems.first?.id == "engine.no_viable_route.r1")
     }
+}
+
+/// Answers every request with 200 and `body`. Used by this suite alone; set before the request.
+private final class ScoreJSONStub: URLProtocol {
+    nonisolated(unsafe) static var body = Data()
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200,
+                                       httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Self.body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }

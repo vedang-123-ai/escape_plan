@@ -11,6 +11,10 @@ import XCTest
 
 final class GoldenPathRecordingUITests: XCTestCase {
 
+    override func setUpWithError() throws {
+        installSystemAlertMonitor()
+    }
+
     @MainActor
     func testGoldenPathFullLoop() throws {
         let env = ProcessInfo.processInfo.environment

@@ -15,6 +15,10 @@ import XCTest
 
 final class EntryPointUITests: XCTestCase {
 
+    override func setUpWithError() throws {
+        installSystemAlertMonitor()
+    }
+
     /// Launches straight into the tab shell with onboarding suppressed and no seeded home.
     @MainActor
     private func launchPastOnboarding() -> XCUIApplication {
