@@ -49,7 +49,7 @@ struct DrillScreen: View {
     @State private var routesFailure: BackendFailure?
     /// Engine/app-level messages that are NOT transport failures ("no primary route for Ana",
     /// findings shown verbatim). Kept separate so they never borrow a network banner's wording.
-    @State private var routesNotice: String?
+    @State private var routesNotice: DrillNotice?
     /// Set when the plan being walked came out of the offline cache rather than the network.
     @State private var cachedPlanDate: Date?
     @State private var isFetchingRoutes = false
@@ -716,14 +716,21 @@ struct DrillScreen: View {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")
                         .accessibilityHidden(true)
-                    Text(routesNotice)
-                        .font(.caption)
-                        .fixedSize(horizontal: false, vertical: true)
+                    // The engine's words verbatim; its citation as the drill's source chips.
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(routesNotice.text)
+                            .font(.caption)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if !routesNotice.citations.isEmpty {
+                            DrillCitationChips(ids: routesNotice.citations)
+                        }
+                    }
                 }
                 .padding(10)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel(routesNotice)
+                .accessibilityLabel(routesNotice.citations.isEmpty ? routesNotice.text
+                    : "\(routesNotice.text) Source: \(routesNotice.citations.joined(separator: ", ")).")
             }
         }
     }
@@ -805,7 +812,7 @@ struct DrillScreen: View {
                     routesFailure = .showingCachedRoutes(savedAt: cached.savedAt)
                 }
                 guard plan.home_id == homeModel.home_id else {
-                    routesNotice = "The saved plan is for a different home — try again online."
+                    routesNotice = .differentHome
                     return
                 }
                 routePlan = plan
@@ -823,20 +830,16 @@ struct DrillScreen: View {
     private func start(profile: Profile, plan: RoutePlan) {
         guard let homeModel, let overlay else { return }
         guard let room = plan.rooms.first(where: { $0.room_id == profile.bedroom_room_id }) else {
-            routesNotice = "The engine returned no plan for \(profile.name)'s bedroom."
+            routesNotice = .noPlan(profileName: profile.name)
             return
         }
-        if plan.peril == "tornado", let finding = room.findings.first(where: { $0.kind == .no_viable_safe_room }) {
-            routesNotice = "\(finding.detail) Leave immediately and seek shelter in a nearby sturdy building. [cite: redcross-tornado]"
+        // Findings are the engine's words, shown verbatim — the app never writes its own
+        // safety judgments (AUD-025). `DrillNotice` builds every notice and is tested.
+        if let notice = DrillNotice.cannotStart(room: room, profileName: profile.name, peril: plan.peril) {
+            routesNotice = notice
             return
         }
-        guard let primary = room.primary else {
-            // Findings are the engine's words, shown verbatim — the app never writes its own
-            // safety judgments.
-            let detail = room.findings.first.map { " \($0.detail)" } ?? ""
-            routesNotice = "No primary route for \(profile.name).\(detail)"
-            return
-        }
+        guard let primary = room.primary else { return }
 
         let coverObjectName = room.cover_object_id.flatMap { id in
             homeModel.floors.flatMap(\.objects).first(where: { $0.id == id })?.category.rawValue
@@ -848,7 +851,7 @@ struct DrillScreen: View {
                                        peril: plan.peril ?? "fire",
                                        coverObjectName: coverObjectName,
                                        noCoverFinding: noCoverFinding) else {
-            routesNotice = "The route for \(profile.name) is too short to walk through."
+            routesNotice = .routeTooShort(profileName: profile.name)
             return
         }
         overlay.show(rooms: [room], home: homeModel, includeSecondary: false)
