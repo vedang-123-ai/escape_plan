@@ -101,7 +101,10 @@ struct ContentView: View {
         }
         .fullScreenCover(isPresented: $showingOnboarding) {
             OnboardingFlowView(documentStore: library.store) {
-                onboardingCompleted = true
+                // On the temporary fallback store the interview's answers vanish on quit, so do not
+                // spend the flag on them: the next launch with real storage asks again. Same reason
+                // escape_planApp skips starter seeding on the fallback (S11.18 review).
+                if !storageUnavailable { onboardingCompleted = true }
                 showingOnboarding = false
                 // The interview just wrote profiles and tenure (and maybe a demo home) to disk.
                 // Re-read so the Home tab shows them now, not after a relaunch.
