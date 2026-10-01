@@ -33,7 +33,12 @@ struct ScoreScreen: View {
 
     @ViewBuilder
     private var content: some View {
-        if let breakdown = readiness.breakdown {
+        if readiness.needsDraftReview {
+            // An unreviewed AI draft has no score (AUD-023).
+            ScrollView {
+                DraftReviewNotice().padding(DS.pagePadding)
+            }
+        } else if let breakdown = readiness.breakdown {
             scoreList(breakdown)
         } else if readiness.isScoring {
             LoadingTipView(label: "Scoring…", accessibilityText: "Working out your preparedness score.")

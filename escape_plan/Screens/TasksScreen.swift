@@ -32,6 +32,9 @@ struct TasksScreen: View {
                     header
                     if readiness.activeHomeID == nil {
                         noHome
+                    } else if readiness.needsDraftReview {
+                        // No checklist for a home nobody has confirmed (AUD-023).
+                        DraftReviewNotice().padding(.horizontal, DS.pagePadding)
                     } else if readiness.breakdown == nil {
                         placeholder
                     } else {
@@ -39,7 +42,9 @@ struct TasksScreen: View {
                         if let reason = readiness.nudgeReason { nudge(reason) }
                         groups
                     }
-                    if let home = readiness.activeHome { familyPlan(home) }
+                    // The meeting point opens the PDF export and the fire-department card shares
+                    // a snapshot; neither is offered for an unreviewed draft (AUD-023).
+                    if let home = readiness.activeHome, !readiness.needsDraftReview { familyPlan(home) }
                 }
                 .padding(.bottom, 32)
             }
@@ -337,5 +342,42 @@ struct TasksScreen: View {
             try? await Task.sleep(for: .milliseconds(320))
             go()
         }
+    }
+}
+
+// MARK: - Review your draft (AUD-023)
+
+/// What Home, Tasks and Score show instead of a score while the active home is an unreviewed AI
+/// draft (`ReadinessStore.needsDraftReview`). It sends the user to House, where "Confirm draft" is
+/// the only way to turn the draft into a home the engine will score and route.
+struct DraftReviewNotice: View {
+    @Environment(ReadinessStore.self) private var readiness
+    @Environment(AppRouter.self) private var router
+
+    // Layout and copy chosen by Anish in the simulator, 2026-10-01 (over a one-line row).
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: "wand.and.stars")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Theme.caution)
+                .accessibilityHidden(true)
+            Text("Review your draft")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Theme.text)
+                .accessibilityAddTraits(.isHeader)
+            Text("This floor plan is an AI draft. Check its rooms, doors and windows in House, then tap Confirm draft. Your score, tasks and escape routes appear after that.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.supporting)
+                .fixedSize(horizontal: false, vertical: true)
+            DSPrimaryButton(title: "Review in House", systemImage: "cube") {
+                Haptics.selection()
+                router.openHouse(homeID: readiness.activeHomeID)
+            }
+            .accessibilityHint("Opens the 3D house so you can check and confirm the draft.")
+            .accessibilityIdentifier("draftReview.openHouse")
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .dsCard(padding: 16)
     }
 }
