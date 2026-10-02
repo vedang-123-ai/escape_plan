@@ -39,9 +39,9 @@ struct HouseScreen: View {
     @Environment(APIClient.self) private var apiClient
     @Environment(\.dismiss) private var dismiss
 
-    /// App-scoped, so sync knows which home is open regardless of which of the three entry
-    /// points opened it. `HomeLibrary.editor` cannot answer this — the House tab's own
-    /// initialiser passes `library: nil`, and Beta and Home each own a different library.
+    /// App-scoped, so sync knows which home is open regardless of which entry point opened it.
+    /// `HouseEditorAppRegistration` sets its `openHomeID` on every appear and clears it on
+    /// disappear (S11.19); before that it was set once at load and lost on the first tab switch.
     @Environment(HomeDocumentSyncRepository.self) private var syncRepository
 
     @Environment(SyncManager.self) private var sync
@@ -54,6 +54,13 @@ struct HouseScreen: View {
     @State private var didCommitSinceAppear = false
 
     @State private var session: EditorSession?
+    /// The session's load/save lifecycle (S11.19, AUD-013): re-arms the open-home guard on every
+    /// appear and never autosaves over a file another writer changed. Nil until loaded.
+    @State private var sessionController: HouseEditorSessionController?
+    /// One line after House reloaded a home that changed elsewhere. Cleared by the next save.
+    @State private var externalChangeNotice: String?
+    /// The home's file was deleted while House held it. The session is closed for good.
+    @State private var homeWasDeleted = false
     @State private var loadError: String?
     @State private var saveError: String?
     @State private var addStairsSheetPresented = false
@@ -219,7 +226,13 @@ struct HouseScreen: View {
         // Reduce Motion degrades playback to discrete steps — it never disables the feature.
         // The flag is read HERE (the view layer): EvacuationPlaybackModel lives in Models/,
         // which is compiled into the pure-Foundation editorcore package with no UIKit.
-        .onAppear { playback.isSteppedMode = reduceMotion }
+        .onAppear {
+            playback.isSteppedMode = reduceMotion
+            // The TabView keeps this screen and its session alive across tab switches, and
+            // onDisappear lifts the sync guard (verified in the simulator, S11.19). The first
+            // appear has no session yet; `.task` loads it.
+            resumeSession()
+        }
         .onChange(of: controller) { _, newController in
             focusInitialSelection(controller: newController)
         }
@@ -238,7 +251,7 @@ struct HouseScreen: View {
             refetchDebounce?.cancel()
             evacuateTask?.cancel()
             playback.pause()
-            unregisterFromLibrary()
+            sessionController?.disappear()
 
             // Closing the editor is the moment to push. Deliberately NOT hooked to autosave:
             // that fires on a debounce DURING editing, so a push per autosave would mint a
@@ -246,9 +259,9 @@ struct HouseScreen: View {
             // burn a free-tier service doing it. Closing is the first moment the user is
             // plausibly done.
             //
-            // `unregisterFromLibrary()` runs first on purpose — it clears the open-home guard,
-            // so this sync is allowed to write a pulled copy of the home just released rather
-            // than skipping it as "open in the editor".
+            // `disappear()` runs first on purpose — it clears the open-home guard, so this sync
+            // is allowed to write a pulled copy of the home just released rather than skipping
+            // it as "open in the editor". The next appear re-arms the guard and reloads it.
             if didCommitSinceAppear {
                 didCommitSinceAppear = false
                 Task { await sync.syncIfSignedIn() }
@@ -280,6 +293,9 @@ struct HouseScreen: View {
         if let error = loadError {
             ContentUnavailableView("Couldn't open home", systemImage: "exclamationmark.triangle",
                                     description: Text(error))
+        } else if homeWasDeleted {
+            ContentUnavailableView("This home was deleted", systemImage: "trash",
+                                    description: Text("Choose another home on the Home tab."))
         } else if let session {
             let store = session.store
             // The scene card collapses as the dock scrolls (the design's 1a artboard): 400pt
@@ -311,6 +327,11 @@ struct HouseScreen: View {
                             if let rejection {
                                 Text(rejection).font(.caption).foregroundStyle(Theme.caution).padding(.horizontal)
                             }
+                            if let externalChangeNotice {
+                                Text(externalChangeNotice).font(.caption).foregroundStyle(Theme.caution)
+                                    .padding(.horizontal)
+                                    .accessibilityIdentifier("house.externalChangeNotice")
+                            }
                             if let saveError {
                                 Text("Autosave failed: \(saveError)").font(.caption).foregroundStyle(Theme.warning)
                                     .padding(.horizontal)
@@ -341,7 +362,9 @@ struct HouseScreen: View {
             .toolbar(isImmersive ? .hidden : .visible, for: .navigationBar, .tabBar)
             .statusBarHidden(isImmersive)
             .onChange(of: session.wasDeletedExternally) { _, deleted in
-                if deleted { dismiss() }
+                guard deleted else { return }
+                closeForDeletedHome(session)
+                dismiss()
             }
         } else {
             ProgressView("Loading…")
@@ -2216,73 +2239,144 @@ struct HouseScreen: View {
     // MARK: - Loading & saving
 
     private func loadIfNeeded() {
-        guard session == nil, loadError == nil else { return }
+        guard session == nil, loadError == nil, !homeWasDeleted else { return }
         do {
-            let model: HomeModel
-            if let homeID, let documentStore, documentStore.exists(homeID: homeID) {
-                model = try documentStore.load(homeID: homeID, as: HomeModel.self)
-            } else {
-                model = Self.blankHome()
+            var controller: HouseEditorSessionController?
+            var loaded: HomeModel?
+            if let homeID, let documentStore {
+                let existing = HouseEditorSessionController(homeID: homeID, disk: documentStore)
+                loaded = try existing.open()
+                if loaded != nil { controller = existing }
+            }
+            let model = loaded ?? Self.blankHome()
+            if controller == nil, let documentStore {
+                // A brand-new home: no file yet, so its first save creates it.
+                controller = HouseEditorSessionController(homeID: model.home_id, disk: documentStore)
             }
             let newStore = try HomeModelStore(model: model)
             let newSession = EditorSession(store: newStore)
-            newStore.onCommit = { [documentStore] _commit in
+            // The controller is captured, not read back from @State: this closure outlives the
+            // copy of the view it was created in.
+            newStore.onCommit = { [controller] _commit in
                 newSession.undoStack.recordCommit(_commit)
-                autosave(newStore, documentStore: documentStore)
+                autosave(newSession, controller: controller)
                 invalidateRoutes()
                 didCommitSinceAppear = true
             }
             session = newSession
-            library?.editor = newSession
-            // Tell sync before the first autosave: a pull that landed between here and the
-            // next frame would otherwise write the server's copy over the file this editor is
-            // about to save into.
-            syncRepository.openHomeID = newStore.model.home_id
+            sessionController = controller
+            // Arms `library.editor` and sync's `openHomeID` before the first autosave: a pull
+            // that landed between here and the next frame would otherwise write the server's
+            // copy over the file this editor is about to save into.
+            controller?.registration = HouseEditorAppRegistration(
+                session: newSession, library: library, syncRepository: syncRepository)
+            _ = controller?.appear()
             // A brand-new home has nothing on disk yet — write it immediately so it shows up
             // in the home list without waiting for the first edit.
-            if homeID == nil {
-                autosave(newStore, documentStore: documentStore)
+            if loaded == nil {
+                autosave(newSession, controller: controller)
             }
             fetchRoutes()
-            
-            // Advisory emphasis and finding→object focus both key off the cached score: the
-            // engine decided what is hazardous, this screen only draws what it was told.
-            if let activeHomeID = homeID, let cache = try? ScoreCache(), let score = cache.load(homeID: activeHomeID) {
-                let model = newSession.store.model
-                hazardObjectIDs = Set(score.checklist
-                    .filter { $0.id.hasPrefix("hazard.") }
-                    .flatMap { $0.objectIDs(in: model) })
-                controller?.setHazardObjects(hazardObjectIDs)
-
-                if let itemID = initialFocusItemID,
-                   let target = score.checklist.first(where: { $0.id == itemID })?.objectIDs(in: model).first {
-                    initialSelection = .object(objectId: target)
-                    newSession.store.select(.object(objectId: target))
-                }
+            applyCachedHazardEmphasis(for: newSession, focusing: initialFocusItemID)
+        } catch HomeModelStore.StoreError.invalidInitialModel(let issues) {
+            // A home over a size bound (S11.25) is refused by the store. Say why in its own
+            // words rather than dumping the error.
+            if let bound = issues.first(where: { $0.kind == .sizeBounds }) {
+                loadError = "This home is too large to edit: \(bound.message)."
+            } else {
+                loadError = "This home has a problem the editor can't open: \(issues.first?.message ?? "unknown")."
             }
         } catch {
             loadError = "\(error)"
         }
     }
 
-    private func unregisterFromLibrary() {
-        if let library, library.editor === session {
-            library.editor = nil
+    /// Advisory emphasis and finding→object focus both key off the cached score: the engine
+    /// decided what is hazardous, this screen only draws what it was told.
+    ///
+    /// Skipped for an unreviewed AI draft: drafts are never scored (S11.17), so any cache entry
+    /// for one is left over from before that fix and describes a home nobody confirmed.
+    private func applyCachedHazardEmphasis(for session: EditorSession, focusing itemID: String?) {
+        let model = session.store.model
+        guard !model.hasAIDraftContent, let cache = try? ScoreCache(),
+              let score = cache.load(homeID: model.home_id) else {
+            hazardObjectIDs = []
+            controller?.setHazardObjects(hazardObjectIDs)
+            return
         }
-        // Clear the sync guard only if it still names OUR home. Two editors can exist across
-        // a tab switch, and clearing unconditionally would unlock a home the other one has
-        // open.
-        if syncRepository.openHomeID == session?.store.model.home_id {
-            syncRepository.openHomeID = nil
+        hazardObjectIDs = Set(score.checklist
+            .filter { $0.id.hasPrefix("hazard.") }
+            .flatMap { $0.objectIDs(in: model) })
+        controller?.setHazardObjects(hazardObjectIDs)
+
+        if let itemID,
+           let target = score.checklist.first(where: { $0.id == itemID })?.objectIDs(in: model).first {
+            initialSelection = .object(objectId: target)
+            session.store.select(.object(objectId: target))
         }
     }
 
-    private func autosave(_ store: HomeModelStore, documentStore: HomeDocumentStore?) {
-        do {
-            try documentStore?.save(model: store.model)
+    /// Back from another tab with a live session: re-arm the guard, then pick up any change
+    /// another writer made while House was away (onboarding, re-scan, sync, Profiles).
+    private func resumeSession() {
+        guard let session, let sessionController else { return }
+        handle(sessionController.appear(), in: session)
+    }
+
+    private func handle(_ state: HouseEditorSessionController.DiskState, in session: EditorSession) {
+        switch state {
+        case .current:
+            break
+        case .changed(let newer):
+            adoptExternalChange(newer, in: session,
+                                notice: "This plan was updated elsewhere, so it has been reloaded. Undo history was cleared.")
+        case .deleted:
+            closeForDeletedHome(session)
+        case .unreadable(let reason):
+            saveError = reason
+        }
+    }
+
+    /// Replaces the session's model with the newer file. The undo history goes: its snapshots
+    /// describe a document that no longer exists, and undoing into one would write it back.
+    private func adoptExternalChange(_ newer: HomeModel, in session: EditorSession, notice: String) {
+        session.undoStack.reset()
+        guard session.store.replaceModel(newer).didApply else {
+            // The newer file does not validate (over a bound, say). Never edit it from here.
+            sessionController?.disappear()
+            self.session = nil
+            loadError = "This plan was changed elsewhere and can't be opened here."
+            return
+        }
+        externalChangeNotice = notice
+        invalidateRoutes()
+        applyCachedHazardEmphasis(for: session, focusing: nil)
+        onModelChanged?()
+    }
+
+    /// The home's file is gone. Drop the session; the controller already refuses every save.
+    private func closeForDeletedHome(_ session: EditorSession) {
+        session.undoStack.reset()
+        sessionController?.disappear()
+        self.session = nil
+        homeWasDeleted = true
+        invalidateRoutes()
+    }
+
+    private func autosave(_ session: EditorSession, controller: HouseEditorSessionController?) {
+        // No controller means no library, which is the preview alone: nothing is saved.
+        guard let controller else { return }
+        switch controller.save(session.store.model) {
+        case .saved:
             saveError = nil
-        } catch {
-            saveError = "\(error)"
+            externalChangeNotice = nil
+        case .reloaded(let newer):
+            adoptExternalChange(newer, in: session,
+                                notice: "This plan was updated elsewhere, so your last change was not saved and the newer plan is shown. Undo history was cleared.")
+        case .deleted:
+            closeForDeletedHome(session)
+        case .failed(let reason):
+            saveError = reason
         }
         onModelChanged?()
     }
@@ -2343,13 +2437,13 @@ struct HouseScreen: View {
         guard let session, session.undoStack.undo(on: session.store) else { return }
         // replaceModel does NOT fire onCommit (undoing must not push its own undo entry), so
         // autosave and invalidate explicitly.
-        autosave(session.store, documentStore: documentStore)
+        autosave(session, controller: sessionController)
         invalidateRoutes()
     }
 
     private func redo() {
         guard let session, session.undoStack.redo(on: session.store) else { return }
-        autosave(session.store, documentStore: documentStore)
+        autosave(session, controller: sessionController)
         invalidateRoutes()
     }
 
