@@ -31,6 +31,7 @@ struct HomeScreen: View {
 
     @State private var scoreHomeID: String?
     @State private var drillHomeID: String?
+    @State private var profilesHomeID: String?
     @State private var detailItem: ChecklistItem?
 
     var body: some View {
@@ -51,6 +52,7 @@ struct HomeScreen: View {
                             scoreSection
                             upNextSection
                             quickActions
+                            household
                         }
                         tipSection
                     }
@@ -137,6 +139,9 @@ struct HomeScreen: View {
                 // for the next full load to notice.
                 DrillScreen(homeID: homeID)
                     .onDisappear { readiness.refreshLastPracticed() }
+            }
+            .navigationDestination(item: $profilesHomeID) { homeID in
+                ProfilesScreen(homeID: homeID, store: library.store)
             }
         }
     }
@@ -380,6 +385,16 @@ struct HomeScreen: View {
         }
         .padding(.horizontal, DS.pagePadding)
         .padding(.top, 12)
+    }
+
+    /// Who lives here (AUD-020): per-person routes and the drill need at least one profile.
+    @ViewBuilder
+    private var household: some View {
+        if let home = readiness.activeHome {
+            HouseholdRow(profiles: home.profiles) { profilesHomeID = home.id }
+                .padding(.horizontal, DS.pagePadding)
+                .padding(.top, 8)
+        }
     }
 
     private var lastPracticedText: String {

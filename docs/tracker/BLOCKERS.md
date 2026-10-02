@@ -104,7 +104,7 @@ owning session's merge is on `origin/main` and you verified it.
       (`AccountPrivacy.notSynced`, evidence under "S11.16 findings"); syncing it: not a task, a documented trade-off
       (product decision, accounts demoted; `audit-traceability.md`)
 - [x] AUD-019 (P3) screens build their own `HomeDocumentStore()` · **fixed 2026-10-01 by S11.18** (evidence under "S11.18 findings")
-- [ ] AUD-020 (P1) Profiles unreachable since `87c0610` · S11.20
+- [x] AUD-020 (P1) Profiles unreachable since `87c0610` · **fixed 2026-10-02 by S11.20** (evidence under "S11.20 findings")
 - [ ] AUD-021 (P1) no delete/duplicate, blank homes accumulate · S11.21; JSON export/import UI: not a task (no spec
       requirement)
 - [ ] AUD-022 (P1) `/analyze` `/explain` have no UI · **decided 2026-09-29: Path B, re-word the pitch** (§1,
@@ -130,13 +130,55 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-041 (P3) local Python 3.13 vs deploy 3.12 · S11.47
 - [ ] AUD-042 (P3) Mongo index creation never retried · S11.31
 - [ ] AUD-043 (P3) `require_token` duplicated · S11.27
-- [ ] AUD-044 (P3) dead code · S11.20, S11.39, S11.47
+- [ ] AUD-044 (P3) dead code · **Profiles half resolved 2026-10-02 by S11.20** (ProfilesScreen/ProfileEditorView re-wired,
+      not deleted); the rest · S11.39, S11.47
 - [ ] AUD-045 (P3) `HouseScreen.swift` 2,726 lines · seam done 2026-10-01 by S11.19 (`HouseEditorSessionController`
       owns load/save/registration); full split: not a task (deferred to the House redesign)
 - [ ] AUD-046 (P3) decode errors shown as "can't reach server" · S11.37
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.20 findings (2026-10-02, branch `s11-20-profiles-reachable`)
+
+- [x] **AUD-020 fixed: household profiles are reachable again.** A "Household" row on Home under the drill and 3D-house
+      cards (placement chosen by Anish in the simulator over a row at the top of Tasks' "Family plan") pushes the screen,
+      now titled "Household"; the drill's "No family profiles yet" state has an "Add family members" button that opens
+      it as a sheet and reloads the drill when it closes. Leaving the screen after a change hands the saved home to
+      `ReadinessStore.replaceActiveHome` (cancellable rescore, not `load`, which races an in-flight /score: AUD-014).
+      Verified 2026-10-02: `ProfilesEntryUITests` 2/2 (Home row → add → Home row shows the name → drill offers the
+      person; blank home's drill empty state → add → Done → drill offers the person; backend-free). Manual walk
+      (simulator): House opened, Grandma added from Home's Household row, back to House → Grandma in the "Escape
+      routes" person picker and the yellow "changed on another screen or device" line shown; Home's row then read "Ada
+      703, Grandma". Full suite 2026-10-02: **1052 tests, 1041 passed, 0 failed, 11 skipped** (xcresulttool,
+      `.build-s1120-full.xcresult`); typecheck ok ×4. swift-scenekit-reviewer: no must-fix, should-fixes taken.
+- [x] **Accessibility floors on Profiles (B10/B11, ecc:a11y-architect):** Cancel/Save/Done and the tag toggles use
+      `Theme.accentText` (accent text was 3.6:1 on a sheet), the empty state's 20 pt "Add Profile" text button is now
+      `DSPrimaryButton`, the name placeholder uses `Theme.supporting` (system one ~2.4:1), tags wrap as one text line
+      at large sizes instead of truncating, whole rows are tappable, Delete is a VoiceOver custom action, autosave
+      failures are announced, and a rejected save alerts on the editor sheet instead of under it.
+- [ ] **Accessibility left open (not floor-breaking by our reading, or outside owned files).** Owner: whoever takes the
+      next UI polish pass (no session owns it yet; S11.11 to assign). (1) ProfilesScreen and the editor still draw on
+      iOS system surfaces, not `dsPage()`/`dsCard` (the B10 theme gap; contrast is fine on them). (2) `DSPrimaryButton`
+      does not hide its icon from VoiceOver (`DesignKit.swift`, shared). (3) Settings' toggles use the same 2.97:1
+      accent "on" track (`SettingsScreen.swift:138`). (4) The VoiceOver Delete action and the editor's rejection alert
+      were never exercised with VoiceOver on: device pass (S11.10).
+- [x] **S11.19's "A sheet over House is not an appear" does not apply to Profiles:** it opens from Home and the drill,
+      never as a sheet on House, so House needed no change (no owned-files exception taken). That S11.19 line stays
+      open as a warning for the next writer.
+- [ ] **@S11.10: S11.20 changed `DrillMode/DrillScreen.swift`** (empty state button, a Profiles sheet, `reloadAfterProfiles`).
+      Merge `origin/main` before your device pass, and walk the drill's empty state on a home with no people.
+- [ ] **Should a new scan or build ask "Who lives here?"** (MISSION 5, not built). Today a scanned or built home has no
+      people until the user finds Household on Home; the drill then offers "Add family members". Next action: Anish
+      decides; if yes, it is a new session (onboarding and scan flow are not S11.20's files).
+- [ ] **The Household row is hidden for an unreviewed AI draft,** like the score and drill card (AUD-023). Intentional:
+      people are added after the draft is confirmed in House. Revisit only if the owner wants it.
+- [ ] **@S11.21: `ProfilesEntryUITests` builds its home with Home "+" → Build Manually → back, with no edit.** Your
+      "no blank home until the first edit" will make that home vanish, so both tests would find no Household row / an
+      old home. Next action (S11.21): have the tests make one edit in the editor first (e.g. "house.addMenu" → Add
+      Object), or seed a home, and keep them green.
+- [ ] **`escape_planUITests/S44ScreenshotUITests.swift:245` still swipes for a "Profiles" action that was deleted with
+      BetaScreen.** Dead path in a screenshot driver (AUD-044). Next action: S11.47.
 
 ### S11.19 findings (2026-10-01, branch `s11-19-house-reload`)
 

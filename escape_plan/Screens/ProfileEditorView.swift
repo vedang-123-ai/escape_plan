@@ -35,7 +35,9 @@ struct ProfileEditorView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Name", text: $name)
+                    // The system placeholder is ~2.4:1 on a sheet's form row.
+                    TextField("Name", text: $name,
+                              prompt: Text("Name").foregroundStyle(Theme.supporting))
                         .accessibilityLabel("Name")
                         .accessibilityHint("The name of the person or pet who lives here.")
                 } header: {
@@ -50,6 +52,8 @@ struct ProfileEditorView: View {
                         .accessibilityLabel(tag.displayName)
                         .accessibilityValue(tags.contains(tag) ? "On" : "Off")
                         .accessibilityHint(tag.routingHint)
+                        // The app tint's "on" track is 2.97:1 on a form row; accentText is 5:1.
+                        .tint(Theme.accentText)
                     }
                 } header: {
                     Text("Needs").accessibilityAddTraits(.isHeader)
@@ -80,7 +84,9 @@ struct ProfileEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
+                    // Accent text is under 4.5:1 on a sheet; accentText passes.
                     Button("Cancel") { dismiss() }
+                        .tint(Theme.accentText)
                         .accessibilityHint("Closes without saving this profile.")
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -89,10 +95,11 @@ struct ProfileEditorView: View {
                             dismiss()
                         }
                     }
+                    .tint(Theme.accentText)
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                     .accessibilityHint(name.trimmingCharacters(in: .whitespaces).isEmpty
                                        ? "Unavailable until you enter a name."
-                                       : "Saves this profile and recomputes their escape route.")
+                                       : "Saves this profile. Their escape routes are planned from it.")
                 }
             }
         }
