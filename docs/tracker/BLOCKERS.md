@@ -145,11 +145,11 @@ owning session's merge is on `origin/main` and you verified it.
       `openHomeID` and reloads a changed file (undo cleared, one-line notice); every autosave/undo/redo checks first and
       reloads instead of writing; a deleted file closes the session and is never re-created. Verified 2026-10-01:
       `HouseEditorReloadTests.testAnotherWritersChangeSurvivesTheSessionsNextEdit` **fails on origin/main behaviour**
-      ("Shared" is not equal to "Renamed elsewhere") and passes on the branch; `HouseEditorReloadTests` 4/4 (real store,
-      library and `HomeDocumentSyncRepository`), EditorCore `HouseEditorSessionControllerTests` 10/10 (reload, refuse to
-      overwrite, own saves, deleted, new home, unreadable, guard re-armed on every appear). EditorCore **662 / 0**;
-      typecheck ok ×4; full suite **1048 tests, 1037 passed, 0 failed, 11 skipped** (xcresulttool,
-      `.build-s1119-full.xcresult`). Manual walk with Anish 2026-10-02 (simulator): House edit → Home tab → home file
+      ("Shared" is not equal to "Renamed elsewhere") and passes on the branch; `HouseEditorReloadTests` 5/5 (real store,
+      library and `HomeDocumentSyncRepository`), EditorCore `HouseEditorSessionControllerTests` 11/11 (reload, refuse to
+      overwrite, own saves, deleted, new home, unreadable, guard re-armed on every appear, closed after a rejected reload).
+      Final, 2026-10-02: EditorCore **663 / 0**; typecheck ok ×4; full suite **1050 tests, 1039 passed, 0 failed, 11
+      skipped** (xcresulttool, `.build-s1119-final.xcresult`). Manual walk with Anish 2026-10-02 (simulator): House edit → Home tab → home file
       rewritten from the Mac (renamed, "Grandma" added) → House showed both plus the notice → a second edit kept them on
       disk. swift-scenekit-reviewer PASS (should-fixes taken, note).
 - [x] **Tab lifecycle (the audit's low-confidence half) confirmed in the simulator:** `onDisappear` fires on every tab
