@@ -163,6 +163,9 @@ owning session's merge is on `origin/main` and you verified it.
       does not hide its icon from VoiceOver (`DesignKit.swift`, shared). (3) Settings' toggles use the same 2.97:1
       accent "on" track (`SettingsScreen.swift:138`). (4) The VoiceOver Delete action and the editor's rejection alert
       were never exercised with VoiceOver on: device pass (S11.10).
+- [x] **S11.19's "A sheet over House is not an appear" does not apply to Profiles:** it opens from Home and the drill,
+      never as a sheet on House, so House needed no change (no owned-files exception taken). That S11.19 line stays
+      open as a warning for the next writer.
 - [ ] **@S11.10: S11.20 changed `DrillMode/DrillScreen.swift`** (empty state button, a Profiles sheet, `reloadAfterProfiles`).
       Merge `origin/main` before your device pass, and walk the drill's empty state on a home with no people.
 - [ ] **Should a new scan or build ask "Who lives here?"** (MISSION 5, not built). Today a scanned or built home has no
@@ -205,8 +208,7 @@ owning session's merge is on `origin/main` and you verified it.
       (pre-existing: one atomic write per frame). Simulator dragging felt normal; never measured on the iPhone. Next action:
       the device pass (BLOCKERS §2) drags a room on twostory and watches frame rate; if it stutters, skip the pre-save read
       when the file's modification date and size are unchanged (`HouseEditorSessionController.checkDisk`).
-- [ ] **A sheet over House is not an appear.** (S11.20, 2026-10-02: Profiles opens from Home and the drill, not from
-      House, so there is still no such writer; the line stays as a warning for the next one.) A writer presented as a sheet ON House (none today) would change the file
+- [ ] **A sheet over House is not an appear.** A writer presented as a sheet ON House (none today) would change the file
       without a disappear/appear; the next autosave catches it and reloads, but the user's edit that triggered it is
       dropped. Next action: S11.20, if Profiles opens as a sheet from House, calls the reload on the sheet's dismiss
       (`resumeSession()`).
