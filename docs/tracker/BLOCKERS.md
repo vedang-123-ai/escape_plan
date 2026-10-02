@@ -95,7 +95,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-010 (P3) `/convert` leaks Python text as 422 · S11.31
 - [ ] AUD-011 (P3) `needs_rehash` never called · S11.28
 - [ ] AUD-012 (P3) untrusted `home_id` as filename · S11.41
-- [ ] AUD-013 (P1) House editor overwrites other writers · S11.18, S11.19
+- [x] AUD-013 (P1) House editor overwrites other writers · **fixed 2026-10-01 by S11.19** (evidence under "S11.19 findings")
 - [ ] AUD-014 (P2) home-switch race; cancel shown as offline · S11.23, S11.37
 - [ ] AUD-015 (P2) conflict copies pile up · S11.22
 - [ ] AUD-016 (P2) `POST /homes` lost update · S11.30 (server, deploy first), S11.32 (client)
@@ -131,12 +131,45 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-042 (P3) Mongo index creation never retried · S11.31
 - [ ] AUD-043 (P3) `require_token` duplicated · S11.27
 - [ ] AUD-044 (P3) dead code · S11.20, S11.39, S11.47
-- [ ] AUD-045 (P3) `HouseScreen.swift` 2,726 lines · S11.19 (seam only); full split: not a task (deferred to the House
-      redesign)
+- [ ] AUD-045 (P3) `HouseScreen.swift` 2,726 lines · seam done 2026-10-01 by S11.19 (`HouseEditorSessionController`
+      owns load/save/registration); full split: not a task (deferred to the House redesign)
 - [ ] AUD-046 (P3) decode errors shown as "can't reach server" · S11.37
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.19 findings (2026-10-01, branch `s11-19-house-reload`)
+
+- [x] **AUD-013 fixed: House never autosaves over a home another writer changed.** `HouseEditorSessionController`
+      (`Editor/Core/`, Foundation-only) keeps the file's `HomeFingerprint`; every appear re-arms `library.editor` and sync's
+      `openHomeID` and reloads a changed file (undo cleared, one-line notice); every autosave/undo/redo checks first and
+      reloads instead of writing; a deleted file closes the session and is never re-created. Verified 2026-10-01:
+      `HouseEditorReloadTests.testAnotherWritersChangeSurvivesTheSessionsNextEdit` **fails on origin/main behaviour**
+      ("Shared" is not equal to "Renamed elsewhere") and passes on the branch; `HouseEditorReloadTests` 5/5 (real store,
+      library and `HomeDocumentSyncRepository`), EditorCore `HouseEditorSessionControllerTests` 11/11 (reload, refuse to
+      overwrite, own saves, deleted, new home, unreadable, guard re-armed on every appear, closed after a rejected reload).
+      Final, 2026-10-02: EditorCore **663 / 0**; typecheck ok ×4; full suite **1050 tests, 1039 passed, 0 failed, 11
+      skipped** (xcresulttool, `.build-s1119-final.xcresult`). Manual walk with Anish 2026-10-02 (simulator): House edit → Home tab → home file
+      rewritten from the Mac (renamed, "Grandma" added) → House showed both plus the notice → a second edit kept them on
+      disk. swift-scenekit-reviewer PASS (should-fixes taken, note).
+- [x] **Tab lifecycle (the audit's low-confidence half) confirmed in the simulator:** `onDisappear` fires on every tab
+      switch and `onAppear` on return with the session still alive (temporary `NSLog`, removed). Before this fix the sync
+      guard was gone after the first switch.
+- [ ] **@S11.20 @S11.21 @S11.22 @S11.24: S11.19 is merged, you are unblocked.** Merge `origin/main` first. What changed for
+      you: any write to the active home through `library.store` is picked up when House next appears (or refused at its
+      next autosave), so new writers need no House wiring; the open-home guard is now `HouseEditorAppRegistration`
+      (`Screens/HouseEditorSessionController+App.swift`). S11.21: a blank home's first save now lives in `loadIfNeeded`
+      as `autosave(newSession, controller:)` when `loaded == nil`, and a deleted active home shows "This home was
+      deleted" in House. S11.22: while House is visible `writePulledHome` still refuses its home; while away a pull lands
+      and House reloads it.
+- [ ] **Every autosave now reads the home file once before writing, and House autosaves on every drag frame**
+      (pre-existing: one atomic write per frame). Simulator dragging felt normal; never measured on the iPhone. Next action:
+      the device pass (BLOCKERS §2) drags a room on twostory and watches frame rate; if it stutters, skip the pre-save read
+      when the file's modification date and size are unchanged (`HouseEditorSessionController.checkDisk`).
+- [ ] **A sheet over House is not an appear.** A writer presented as a sheet ON House (none today) would change the file
+      without a disappear/appear; the next autosave catches it and reloads, but the user's edit that triggered it is
+      dropped. Next action: S11.20, if Profiles opens as a sheet from House, calls the reload on the sheet's dismiss
+      (`resumeSession()`).
 
 ### S11.18 findings (2026-10-01, branch `s11-18-one-store`)
 
@@ -152,7 +185,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] **Review fix: on the temporary fallback store, onboarding no longer spends `onboarding.completed`.** With one
       store, the interview now succeeds against the temp directory; the flag is set only when storage is real
       (`ContentView`, same reason launch skips starter seeding on fallback), so the next good launch asks again.
-- [ ] **`HomeLibrary.swift:47` still has `convenience init() throws { self.init(store: try HomeDocumentStore()) }`**, with no
+- [x] **Done 2026-10-01 by S11.19 (deleted; `docs/decisions.md`).** ~~`HomeLibrary.swift:47` still has `convenience init() throws { self.init(store: try HomeDocumentStore()) }`~~, with no
       callers in app or tests. It is the last route back to a second Documents store and the only non-preview hit of the
       acceptance grep. Not in S11.18's OWNED FILES. Next action: S11.19 (owns `HomeLibrary.swift`'s editor API) or whoever
       next touches the file deletes it.
@@ -185,7 +218,10 @@ owning session's merge is on `origin/main` and you verified it.
       `/score` overwrites it, and `HouseScreen.loadIfNeeded` reads it for hazard emphasis while the draft is open. Only
       homes drafted on a pre-fix build are affected. Next action: whoever next owns `Persistence/ScoreCache.swift` adds a
       `remove(homeID:)` and `ReadinessStore.clearScoreForDraft` calls it; HouseScreen's hazard read should skip a draft
-      (S11.18/S11.19 own HouseScreen's load path). _2026-10-01: S11.18 did not take it (store injection only); S11.19's._
+      (S11.18/S11.19 own HouseScreen's load path). _2026-10-01: S11.18 did not take it (store injection only). **House half
+      done 2026-10-01 by S11.19**: `HouseScreen.applyCachedHazardEmphasis` skips a `hasAIDraftContent` home (code-read, not
+      simulator-checked). Still open: `ScoreCache.remove(homeID:)` + `ReadinessStore.clearScoreForDraft` calling it. Next
+      action: S11.23 (owns `ReadinessStore.swift`; `ScoreCache.swift` needs a one-line owned-files exception there)._
 
 ### S11.16 findings (2026-10-01, branch `s11-16-privacy-truth`)
 
@@ -347,7 +383,11 @@ owning session's merge is on `origin/main` and you verified it.
       proves it could not have. **Not fixed here: `HomeModelStore.swift` is not in S11.25's OWNED
       FILES.** Next action: S11.18 or S11.19 (they own the store and the load path) should make the load
       path surface "this home is too large to edit" instead of a bare throw. _2026-10-01: S11.18 did not take it
-      (store injection only, no behaviour change); it is S11.19's (HouseScreen load path)._
+      (store injection only, no behaviour change). **House load path done 2026-10-01 by S11.19**: `loadIfNeeded` catches
+      `invalidInitialModel` and shows "This home is too large to edit: <the bound's message>." (code-read; no over-bound
+      home was opened in the simulator). A changed file that fails `replaceModel` on reload closes the session with
+      "can't be opened here". Other loaders of a home (Drill, Profiles, onboarding) still throw bare: not in S11.19's
+      files; each owner when next touched._
 - [ ] **`/convert` now 422s a whole scan for a room with more than 64 vertices, with no fallback**
       (schema-contract-guardian, MEDIUM, 2026-09-30). `backend/app/convert/geometry.py:238` already
       degrades gracefully for a degenerate polygon (bounding-box fallback) but has **no** fallback for

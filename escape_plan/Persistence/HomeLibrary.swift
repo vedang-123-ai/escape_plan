@@ -42,11 +42,6 @@ final class HomeLibrary: ObservableObject {
         refresh()
     }
 
-    /// Convenience init against the app's real Documents directory.
-    convenience init() throws {
-        self.init(store: try HomeDocumentStore())
-    }
-
     func refresh() {
         homes = store.list()
     }

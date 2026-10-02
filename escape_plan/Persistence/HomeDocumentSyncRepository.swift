@@ -37,7 +37,10 @@ final class HomeDocumentSyncRepository: SyncHomeRepository, HomeDeletionObservin
 
     /// The home currently open in the editor, or nil.
     ///
-    /// App-scoped and set by `HouseScreen` itself, which is the only thing that actually knows.
+    /// App-scoped and set by House's session (`HouseEditorAppRegistration`, S11.19) on EVERY
+    /// appear, cleared on every disappear. While House is visible with a live session, this
+    /// names its home and `writePulledHome` refuses it; while House is away, a pull may land, and
+    /// the next appear reloads it instead of autosaving over it.
     /// An earlier version resolved this through `HomeLibrary.editor`, which was wrong: the
     /// editor is reachable from three places with three different `HomeLibrary` instances, and
     /// the House tab's own entry point constructs itself with `library: nil`. So for two of the
