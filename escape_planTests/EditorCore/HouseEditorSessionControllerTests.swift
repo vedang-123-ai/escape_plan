@@ -25,17 +25,19 @@ private final class MemoryDisk: HouseEditorDocumentAccess {
         return home
     }
 
-    func saveHome(_ home: HomeModel) throws {
+    func saveHome(_ home: HomeModel) throws -> HomeModel {
         saves += 1
-        write(home)
+        return write(home)
     }
 
     /// Another writer (onboarding, re-scan, sync, Profiles) — or the session's own save.
-    func write(_ home: HomeModel) {
+    @discardableResult
+    func write(_ home: HomeModel) -> HomeModel {
         clock += 1
         var stamped = home
         stamped.meta.modified = clock
         files[home.home_id] = stamped
+        return stamped
     }
 }
 
@@ -170,7 +172,7 @@ final class HouseEditorSessionControllerTests: XCTestCase {
             var saves = 0
             func homeFileExists(_ homeID: String) -> Bool { true }
             func loadHome(_ homeID: String) throws -> HomeModel { throw CocoaError(.fileReadCorruptFile) }
-            func saveHome(_ home: HomeModel) throws { saves += 1 }
+            func saveHome(_ home: HomeModel) throws -> HomeModel { saves += 1; return home }
         }
         let disk = BrokenDisk()
         let home = HomeModelStore.newHome(name: "Corrupt")
@@ -179,6 +181,32 @@ final class HouseEditorSessionControllerTests: XCTestCase {
         guard case .unreadable = controller.checkDisk() else { return XCTFail("expected unreadable") }
         guard case .failed = controller.save(home) else { return XCTFail("expected the save to refuse") }
         XCTAssertEqual(disk.saves, 0)
+    }
+
+    /// The screen could not take the newer file (it failed validation) and gave the session up.
+    /// The old store may still commit (a drag frame in flight); it must never write over the file.
+    func testAClosedSessionNeverSavesAfterARejectedReload() throws {
+        let disk = MemoryDisk()
+        let home = homeOnDisk(disk)
+        let controller = HouseEditorSessionController(homeID: home.home_id, disk: disk)
+        let recorder = RegistrationRecorder()
+        controller.registration = recorder
+        var stale = try XCTUnwrap(try controller.open())
+        _ = controller.appear()
+
+        var elsewhere = try disk.loadHome(home.home_id)
+        elsewhere.name = "Too big for the editor"
+        disk.write(elsewhere)
+        guard case .changed = controller.checkDisk() else { return XCTFail("expected a change") }
+
+        controller.close()
+
+        stale.name = "Late drag frame"
+        XCTAssertEqual(controller.save(stale), .deleted)
+        XCTAssertEqual(disk.saves, 0)
+        XCTAssertEqual(try disk.loadHome(home.home_id).name, "Too big for the editor")
+        XCTAssertNil(recorder.openHomeID)
+        XCTAssertEqual(controller.appear(), .deleted, "a closed session never re-arms")
     }
 
     // MARK: - The open-home guard (sync's openHomeID, HomeLibrary.editor)

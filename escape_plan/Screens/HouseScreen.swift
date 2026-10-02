@@ -252,6 +252,8 @@ struct HouseScreen: View {
             evacuateTask?.cancel()
             playback.pause()
             sessionController?.disappear()
+            // A notice about the last visit; the next appear says again if anything changed.
+            externalChangeNotice = nil
 
             // Closing the editor is the moment to push. Deliberately NOT hooked to autosave:
             // that fires on a debounce DURING editing, so a push per autosave would mint a
@@ -363,7 +365,7 @@ struct HouseScreen: View {
             .statusBarHidden(isImmersive)
             .onChange(of: session.wasDeletedExternally) { _, deleted in
                 guard deleted else { return }
-                closeForDeletedHome(session)
+                closeForDeletedHome(session, controller: sessionController)
                 dismiss()
             }
         } else {
@@ -2270,7 +2272,7 @@ struct HouseScreen: View {
             // copy over the file this editor is about to save into.
             controller?.registration = HouseEditorAppRegistration(
                 session: newSession, library: library, syncRepository: syncRepository)
-            _ = controller?.appear()
+            if let controller { handle(controller.appear(), in: newSession, controller: controller) }
             // A brand-new home has nothing on disk yet — write it immediately so it shows up
             // in the home list without waiting for the first edit.
             if loaded == nil {
@@ -2282,9 +2284,9 @@ struct HouseScreen: View {
             // A home over a size bound (S11.25) is refused by the store. Say why in its own
             // words rather than dumping the error.
             if let bound = issues.first(where: { $0.kind == .sizeBounds }) {
-                loadError = "This home is too large to edit: \(bound.message)."
+                loadError = "This home is too large to edit: \(Self.sentence(bound.message))"
             } else {
-                loadError = "This home has a problem the editor can't open: \(issues.first?.message ?? "unknown")."
+                loadError = "This home has a problem the editor can't open: \(Self.sentence(issues.first?.message ?? "unknown"))"
             }
         } catch {
             loadError = "\(error)"
@@ -2320,44 +2322,61 @@ struct HouseScreen: View {
     /// another writer made while House was away (onboarding, re-scan, sync, Profiles).
     private func resumeSession() {
         guard let session, let sessionController else { return }
-        handle(sessionController.appear(), in: session)
+        handle(sessionController.appear(), in: session, controller: sessionController)
     }
 
-    private func handle(_ state: HouseEditorSessionController.DiskState, in session: EditorSession) {
+    private func handle(_ state: HouseEditorSessionController.DiskState, in session: EditorSession,
+                        controller: HouseEditorSessionController) {
         switch state {
         case .current:
             break
         case .changed(let newer):
-            adoptExternalChange(newer, in: session,
-                                notice: "This plan was updated elsewhere, so it has been reloaded. Undo history was cleared.")
+            adoptExternalChange(newer, in: session, controller: controller,
+                                notice: Self.reloadedNotice)
+            onModelChanged?()
         case .deleted:
-            closeForDeletedHome(session)
-        case .unreadable(let reason):
-            saveError = reason
+            closeForDeletedHome(session, controller: controller)
+        case .unreadable:
+            saveError = Self.unreadableNotice
         }
+    }
+
+    // User-facing copy: "home", never "plan" (in this app a plan is the escape plan).
+    private static let reloadedNotice =
+        "This home was changed on another screen or device, so the newer version is shown. Undo history was cleared."
+    private static let editDroppedNotice =
+        "This home was changed on another screen or device, so your last change was not saved and the newer version is shown. Undo history was cleared."
+    private static let unreadableNotice =
+        "This home's file can't be read, so changes aren't being saved."
+
+    /// A validation message as a sentence: some already end in a full stop, some don't.
+    private static func sentence(_ message: String) -> String {
+        message.hasSuffix(".") ? message : message + "."
     }
 
     /// Replaces the session's model with the newer file. The undo history goes: its snapshots
     /// describe a document that no longer exists, and undoing into one would write it back.
-    private func adoptExternalChange(_ newer: HomeModel, in session: EditorSession, notice: String) {
+    private func adoptExternalChange(_ newer: HomeModel, in session: EditorSession,
+                                     controller: HouseEditorSessionController, notice: String) {
         session.undoStack.reset()
         guard session.store.replaceModel(newer).didApply else {
-            // The newer file does not validate (over a bound, say). Never edit it from here.
-            sessionController?.disappear()
+            // The newer file does not validate (over a bound, say). Never edit it from here:
+            // close the controller too, so a commit still in flight on the old store (a drag
+            // frame) can never write the old model over the newer file.
+            controller.close()
             self.session = nil
-            loadError = "This plan was changed elsewhere and can't be opened here."
+            loadError = "This home was changed on another screen or device and can't be opened here."
             return
         }
         externalChangeNotice = notice
         invalidateRoutes()
         applyCachedHazardEmphasis(for: session, focusing: nil)
-        onModelChanged?()
     }
 
-    /// The home's file is gone. Drop the session; the controller already refuses every save.
-    private func closeForDeletedHome(_ session: EditorSession) {
+    /// The home's file is gone. Drop the session and close the controller for good.
+    private func closeForDeletedHome(_ session: EditorSession, controller: HouseEditorSessionController?) {
         session.undoStack.reset()
-        sessionController?.disappear()
+        controller?.close()
         self.session = nil
         homeWasDeleted = true
         invalidateRoutes()
@@ -2371,10 +2390,9 @@ struct HouseScreen: View {
             saveError = nil
             externalChangeNotice = nil
         case .reloaded(let newer):
-            adoptExternalChange(newer, in: session,
-                                notice: "This plan was updated elsewhere, so your last change was not saved and the newer plan is shown. Undo history was cleared.")
+            adoptExternalChange(newer, in: session, controller: controller, notice: Self.editDroppedNotice)
         case .deleted:
-            closeForDeletedHome(session)
+            closeForDeletedHome(session, controller: controller)
         case .failed(let reason):
             saveError = reason
         }

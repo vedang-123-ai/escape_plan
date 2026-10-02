@@ -20,7 +20,9 @@ import Foundation
 protocol HouseEditorDocumentAccess {
     func homeFileExists(_ homeID: String) -> Bool
     func loadHome(_ homeID: String) throws -> HomeModel
-    func saveHome(_ home: HomeModel) throws
+    /// Writes the home and returns it exactly as it will read back (the store stamps
+    /// `meta.modified`), so the session can fingerprint what landed without reading it again.
+    func saveHome(_ home: HomeModel) throws -> HomeModel
 }
 
 /// How the rest of the app learns that House holds a home: `HomeLibrary.editor` and sync's
@@ -104,6 +106,13 @@ final class HouseEditorSessionController {
         registration?.unregisterOpenHome(homeID)
     }
 
+    /// The screen gave up the session (the newer file could not be loaded into the editor).
+    /// Final, like a delete: whatever still holds the old store can never save it.
+    func close() {
+        isClosed = true
+        registration?.unregisterOpenHome(homeID)
+    }
+
     /// Compares the file with what this session last saw. A changed file is adopted as the new
     /// baseline, so the caller must reload the returned model; a missing one closes the session.
     func checkDisk() -> DiskState {
@@ -141,10 +150,9 @@ final class HouseEditorSessionController {
             return .failed(reason)
         }
         do {
-            try disk.saveHome(home)
             // Fingerprint what actually landed, not `home`: the store stamps `meta.modified` on
             // save, so the file differs from the in-memory model it was written from.
-            knownFingerprint = HomeFingerprint.of(try disk.loadHome(homeID))
+            knownFingerprint = HomeFingerprint.of(try disk.saveHome(home))
             return .saved
         } catch {
             return .failed(String(describing: error))

@@ -11,7 +11,15 @@ extension HomeDocumentStore: HouseEditorDocumentAccess {
 
     func loadHome(_ homeID: String) throws -> HomeModel { try load(homeID: homeID, as: HomeModel.self) }
 
-    func saveHome(_ home: HomeModel) throws { try save(model: home) }
+    func saveHome(_ home: HomeModel) throws -> HomeModel {
+        // Whole seconds: the file stores ISO-8601 without fractions, so this is the date that
+        // reads back, and the returned model fingerprints the same as the file.
+        let now = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down))
+        var stamped = home
+        stamped.meta.modified = now
+        try save(model: stamped, now: now)
+        return stamped
+    }
 }
 
 /// Tells the library and sync that House holds a home. Both are weak: the screen's session must

@@ -78,6 +78,27 @@ final class HouseEditorReloadTests: XCTestCase {
         XCTAssertEqual(try library.store.load(homeID: home.home_id, as: HomeModel.self).name, "Second")
     }
 
+    /// The adapter returns the model it wrote instead of reading the file back, so what it returns
+    /// must fingerprint exactly like the file (dates are stored to whole seconds). Real fixtures, a
+    /// few saves each: a mismatch would make House reload after every one of its own edits.
+    func testEachOwnSaveFingerprintsLikeTheFileOnTheRealFixtures() throws {
+        for name in ["bungalow", "apartment", "twostory"] {
+            let library = try makeLibrary()
+            let home = try PersistenceFixtures.document(name).decode(as: HomeModel.self)
+            try library.store.save(model: home)
+            let (store, controller) = try openSession(home.home_id, in: library)
+            var outcomes: [HouseEditorSessionController.SaveOutcome] = []
+            store.onCommit = { _ in outcomes.append(controller.save(store.model)) }
+
+            for rename in ["A", "B", "C"] { store.dispatch(.setHomeName("\(name) \(rename)")) }
+
+            XCTAssertEqual(outcomes, [.saved, .saved, .saved], name)
+            XCTAssertEqual(controller.checkDisk(), .current, name)
+            XCTAssertEqual(controller.knownFingerprint,
+                           HomeFingerprint.of(try library.store.load(homeID: home.home_id, as: HomeModel.self)), name)
+        }
+    }
+
     /// Deleted underneath: the session closes and its next autosave does not re-create the file.
     func testDeletedHomeIsNeverRecreatedByAutosave() throws {
         let library = try makeLibrary()
