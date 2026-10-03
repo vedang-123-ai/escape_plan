@@ -13,20 +13,21 @@ compiled automatically (no `project.pbxproj` edit, and no stray scratch files). 
 - `Persistence/` — local JSON documents via FileManager, one file per home, schema-versioned, atomic writes;
   `ConversationStore`, `ChecklistStateStore`, and `HomeDocumentSyncRepository` (adapter for `Sync/`).
 - `Editor/Core/` — `HomeModelStore` reducer (the ONLY path that mutates a `HomeModel`), `EditAction`, `UndoStack`,
-  validation, hit-testing, snapping, `CameraRigModel`. Pure Foundation, also tested as `tools/editorcore`.
+  validation, hit-testing, snapping, `CameraRigModel`, `EvacuationJourney` (a fire simulation's tracks in words). Pure
+  Foundation, also tested as `tools/editorcore`.
 - `Editor/SceneKit/` — `EditorSceneView` (+ `UnifiedSceneController`, `OrbitCameraRig`), `SceneKitEditorBridge`.
 - `Renderer/` — SceneKit dollhouse plus `RouteOverlay`/`RouteGeometry`. Routes are drawn from a `/routes` plan,
   never computed client-side.
 - `Capture/` — RoomPlan LiDAR capture and the raw JSON/USDZ exporter matching the converter contract.
 - `Networking/` — `APIClient` (base URL + shared bearer token) plus `+Routes`, `+Chat`, `+Score` extensions.
 - `Onboarding/` — first-run flow, household interview, `FixtureSeeder` (seeds the demo home only into an empty library).
-- `Drill/` — S9 AR drill: `SemanticMatcher` (which stored room is the phone in, and the live-to-model transform),
-  `DrillRelocalizationController/View`, `ARDrillView`. Device-only, unverified; the flat-screen `DrillMode/` is the fallback.
-- `DrillMode/` — flat-screen practice drill, practice log and reminders.
+- **No drill folder since trim 2 (2026-10-03).** "Run a fire drill" opens House on its fire simulation
+  (`AppRouter.openFireDrill`); the old practice drill, practice log, reminders and the AR walk (`Drill/`, `DrillMode/`)
+  were deleted. History: git before the trim-2 merge.
 - `Export/` — plan PDF/JSON export, `MeetingPointStore`, and the Responder Snapshot (`ResponderSnapshot*`).
 - `Auth/`, `Sync/` — accounts and cloud sync, **switched off since 2026-10-02** (no screen reaches them; `RootView`
   signs out any stored login once). `AccountPrivacy` copy and `HomeFingerprint` are still live. **Pure Foundation, no SwiftUI/UIKit**: both are symlinked into
-  `tools/editorcore`, as is `Drill/SemanticMatcher.swift`; a SwiftUI import there silently removes test coverage.
+  `tools/editorcore`; a SwiftUI import there silently removes test coverage.
   The per-user JWT goes on `/homes` only; the dirty check fingerprints the decoded model, never bytes.
 - `Screens/` — the tab shell and sub-screens (table below).
 
@@ -39,11 +40,11 @@ injects them with `.environment(...)`. `RootView` chooses the soft auth gate vs 
 
 | Screen | What it is | Playbook owner |
 |---|---|---|
-| `HomeScreen` | overview of the active home: score card, next three tasks, drill and 3D shortcuts, home switcher, add a home | S11.5 |
+| `HomeScreen` | overview of the active home: score card, next three tasks, fire-drill and 3D shortcuts (both open House), home switcher, add a home | S11.5 |
 | `TasksScreen` | the full readiness checklist (Urgent / To do / Done), peril filter, family plan | revamp |
 | `ReadinessStore`, `AppRouter` | shared state: active home + `/score` result + checklist; tab and cross-tab requests | revamp |
 | `ScoreScreen`, `ProfilesScreen`, `ProfileEditorView` | score breakdown (reads `ReadinessStore`); per-home family profiles CRUD | S11.5 / stable |
-| `HouseScreen` | THE unified 3D screen: editor (rooms, openings, stairs, undo/redo) and route viewer at once | S11.9 (camera) |
+| `HouseScreen` | THE unified 3D screen: editor (rooms, openings, stairs, undo/redo), route viewer and fire simulation (the drill) at once; `EvacuationPeoplePanel` is its "Who does what" | S11.9 (camera) |
 | `AssistantScreen` | grounded chat against `/chat`; degrades gracefully with no key or bearer | stable |
 | `SettingsScreen` | server URL/token, fire-department share, Privacy ("what leaves this iPhone") | S11.7 |
 | `BuildFromPlanView` | text/photo `/build` intake, draft-only, mandatory editor review | stable |

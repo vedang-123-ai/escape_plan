@@ -20,7 +20,7 @@ backend env exists.
 ## 1–4: the surfaces that always run
 
 ```bash
-# 1. EditorCore — pure Foundation, macOS, ~8s. Auth, Sync, the editor core, SemanticMatcher.
+# 1. EditorCore — pure Foundation, macOS, ~8s. Auth, Sync, Models, the editor core.
 swift test --package-path tools/editorcore
 
 # 2. Backend — ~30s. `-m "not live"` skips the tests needing ANTHROPIC_API_KEY.

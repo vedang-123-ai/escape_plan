@@ -44,9 +44,9 @@ build). A cleanup session will work from this column.
 
 | Feature | What it does | Take | Decision |
 |---|---|---|---|
-| Practice drill | Walks the family through the plan step by step, timer vs the modeled time | Keep only if it fits the video || CHANGE: fire playback, 0.25×–2× (trim 2) |
-| Practice log + reminders | Records practice runs and schedules a nudge to repeat | Cut or hide || CUT (trim 2) |
-| Walk it in AR | Shows the route through the phone camera | Cut. Never tested on a real iPhone, a big demo risk || CUT (trim 2) |
+| Practice drill | Walks the family through the plan step by step, timer vs the modeled time | Keep only if it fits the video || CHANGED (trim 2, done 2026-10-03): "Run a fire drill" opens House's fire simulation, 0.25×–2×, with a "Who does what" card per person |
+| Practice log + reminders | Records practice runs and schedules a nudge to repeat | Cut or hide || CUT (trim 2, done 2026-10-03). The drill task is now ticked by hand |
+| Walk it in AR | Shows the route through the phone camera | Cut. Never tested on a real iPhone, a big demo risk || CUT (trim 2, done 2026-10-03; code deleted) |
 
 ## Other tabs and screens
 

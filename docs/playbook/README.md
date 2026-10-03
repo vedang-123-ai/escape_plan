@@ -60,6 +60,12 @@ S11.33 and S11.39. (S11.28 dropped 2026-10-02 with accounts; S11.24, S11.30, S11
 rows in `docs/decisions.md`.) The owner actions (token, credits, the AUD-022 and AUD-038 answers) sit outside any session.
 Anything cut gets a BLOCKERS line.
 
+**Demo trim 2 (2026-10-03) deleted `DrillMode/` and `Drill/`** (the drill is now House's fire simulation). Sessions that
+name those files: **S11.10** loses its AR Drill and drill-step checks (verify House's fire simulation and the "Who does
+what" cards with VoiceOver instead); **S11.35** has no `markPracticed` or `PracticeReminderScheduler` to change (the drill
+task is ticked by hand through `toggleDone`); **S11.36** keys the route cache in `HouseScreen` only. The lane-D rule about
+`DrillScreen.swift` no longer applies.
+
 | # | Session | Audit IDs | Top sev | Phase | Lane | Branch | Prereqs | Status |
 |---|---|---|---|---|---|---|---|---|
 | [S11.14](S11-14.md) | ~~Land the drill fix, commit the audit, make the tracker true~~ **DONE 2026-09-29** | 034, 048 (asks owner: 001, 002, 022, 038) | P0/P1 | 0 Baseline | any | `drill-3d-fallback`, then `s11-14-tracker-truth` | none | DONE 2026-09-29 |

@@ -176,6 +176,31 @@ rewrite (trim 2).
 - [ ] **Signed-in phones from earlier builds** are signed out on first launch of this build; their homes stay. Never
       walked with a real account. Next action: none (no testers have accounts).
 
+### Demo trim 2 findings (2026-10-03, branch `trim-2-drill-playback`)
+
+The drill is House's fire simulation (Anish's "Reuse House" design); the old drill, the AR walk and the practice log +
+reminders are deleted (decisions 2026-10-03). Note: `notes/2026-10-03-trim-2-drill-playback.md`.
+
+- [x] **"Run a fire drill" opens House on the fire simulation** (Home card and the drill task). Verified by
+      `FireDrillUITests` and on the simulator with Ranch House against the live server.
+- [x] **"Who does what" per person** (start room, rooms passed, exit, time out, overtaken warning), narrated from the
+      engine's tracks by `EvacuationJourneyNarrator` (9 known-answer tests). Seen on the simulator with Ranch House.
+- [x] **Speeds 0.25×–2×** in House's menu (seen on the simulator; labels tested).
+- [x] **Old drill, AR walk, practice log + reminders deleted** with 73 tests; `practice.drill_recent` is ticked by hand.
+- [ ] **"Who does what" was never heard with VoiceOver on a phone,** nor at the largest text sizes on screen (one combined
+      element per card and wrapping text are in the code, not walked). Next action: S11.10 device pass.
+- [ ] **Leftover practice reminders from earlier builds are removed at launch** (`RootView`, ids `practice-reminder.*`),
+      but this was never watched with a real leftover reminder. Next action: S11.10, on a phone that had one, confirm it
+      is gone after launching this build.
+- [x] **No-way-out people are not missing from "Who does what"** (review fix): `no_viable_route` findings are listed
+      first, verbatim (`EvacuationJourneyTests.testPeopleWithNoWayOutAreTheNoViableRouteFindings`). Not seen on screen:
+      Ranch House had none.
+- [ ] **Stale comment in `Renderer/CameraGestureDriver.swift:6`** still names `UnifiedSceneView` (DrillScreen), both deleted.
+      Left alone: no renderer edits this trim. Next action: S11.47 cleanup.
+- [ ] **The fire drill needs the server** (`/evacuate`); offline it shows the failure banner. The offline note now says so.
+      With the free Render tier, a 12-room home can be slow (see "Owner review 2026-10-02"). Next action: owner, paid tier
+      before filming.
+
 ### S11.27 findings (2026-10-03, branch `s11-27-ai-spend`)
 
 - [x] **AUD-003 mitigated, not eliminated — and the premise is now written down.** The shared bearer token ships in
@@ -308,8 +333,9 @@ Anish chose to handle these after the S11 sessions. Each has its evidence and fi
       `/score` and `/evacuate`, which use no AI. Next action: AI wording only for the AI operations.
 - [ ] **The live server has no `ANTHROPIC_API_KEY`** (`/chat` → 502 "ANTHROPIC_API_KEY is not configured on the
       server", 2026-10-02). Sharper than AUD-002's "credits". Next action (owner): set the key in Render's environment.
-- [ ] **Feature trim pending owner decisions** in [`../demo/feature-inventory.md`](../demo/feature-inventory.md)
-      (Hazard Hunt, AR drill, Import Plan, practice log, accounts). Next action: one cleanup session after the marks.
+- [ ] **Feature trim pending owner decisions** in [`../demo/feature-inventory.md`](../demo/feature-inventory.md).
+      Hazard Hunt, accounts (trim 1) and the AR drill, practice log and old drill (trim 2) are done; **Import Plan and the
+      other AI rows** still wait for the owner's next pass.
 - [ ] **UI tests leave homes in the simulator** (61 by 2026-10-02, moved to a scratch backup by hand). P3.
 - [ ] **Ranch House test home is uncommitted** (`demo-homes/`, Anish's working copy). Owner decides fixture or demo home.
 
@@ -421,8 +447,9 @@ Anish chose to handle these after the S11 sessions. Each has its evidence and fi
 - [x] **S11.19's "A sheet over House is not an appear" does not apply to Profiles:** it opens from Home and the drill,
       never as a sheet on House, so House needed no change (no owned-files exception taken). That S11.19 line stays
       open as a warning for the next writer.
-- [ ] **@S11.10: S11.20 changed `DrillMode/DrillScreen.swift`** (empty state button, a Profiles sheet, `reloadAfterProfiles`).
-      Merge `origin/main` before your device pass, and walk the drill's empty state on a home with no people.
+- [x] **Obsolete 2026-10-03 (trim 2): `DrillMode/DrillScreen.swift` was deleted.** ~~@S11.10: S11.20 changed `DrillMode/DrillScreen.swift`~~
+      (empty state button, a Profiles sheet, `reloadAfterProfiles`). Its replacement is House's "No one is added to this
+      home yet" note in the fire dock (`ProfilesEntryUITests.testFireDrillSaysWhereToAddPeople`).
 - [ ] **Should a new scan or build ask "Who lives here?"** (MISSION 5, not built). Today a scanned or built home has no
       people until the user finds Household on Home; the drill then offers "Add family members". Next action: Anish
       decides; if yes, it is a new session (onboarding and scan flow are not S11.20's files).
@@ -487,8 +514,7 @@ Anish chose to handle these after the S11 sessions. Each has its evidence and fi
       callers in app or tests. It is the last route back to a second Documents store and the only non-preview hit of the
       acceptance grep. Not in S11.18's OWNED FILES. Next action: S11.19 (owns `HomeLibrary.swift`'s editor API) or whoever
       next touches the file deletes it.
-- [ ] **@S11.10: `DrillScreen.swift` got a one-line injection** (`@EnvironmentObject private var library: HomeLibrary`;
-      `load()` reads `library.store`; preview injects a library). Merge `origin/main` before your device pass.
+- [x] **Obsolete 2026-10-03 (trim 2): `DrillScreen.swift` was deleted.** ~~@S11.10: `DrillScreen.swift` got a one-line injection~~.
 - [ ] **AssistantScreen and ScoreScreen previews host `BackendFailureBanner` without a `HomeLibrary`**, so tapping its
       "Settings" in those previews would trap (they already lacked AuthSession/SyncManager; preview-only, not runtime).
       Next action: whoever next touches those previews adds the environment objects.
@@ -507,7 +533,8 @@ Anish chose to handle these after the S11 sessions. Each has its evidence and fi
       points (meeting point → PDF, `ShareWithFireDepartmentCard`) are hidden for a draft; this one is not. Next action:
       S11.38 (owns that path, AUD-027) shares the active home and refuses when `home.hasAIDraftContent`, saying "Review
       your draft in House first".
-- [ ] **`DrillScreen.beginDrill` has no draft guard of its own.** It is unreachable for a draft today (every
+- [x] **Obsolete 2026-10-03 (trim 2): `DrillScreen` was deleted;** the drill is House's fire simulation, whose `ignite`
+      already returns on `needsDraftReview`. ~~`DrillScreen.beginDrill` has no draft guard of its own.~~ It is unreachable for a draft today (every
       `DrillScreen(homeID:)` call site is on Home or Tasks, all hidden for a draft), but it would POST `/routes` on one.
       Next action: S11.36 (owns DrillScreen's route-fetch lines) adds `guard !homeModel.hasAIDraftContent`, mirroring
       `HouseScreen.fetchRoutes`.
