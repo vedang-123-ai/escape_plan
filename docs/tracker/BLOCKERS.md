@@ -140,6 +140,22 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
 
+### Owner review 2026-10-02 (branch `docs-feature-inventory`) · detail in [`end-of-project-fixes.md`](end-of-project-fixes.md)
+
+Anish chose to handle these after the S11 sessions. Each has its evidence and fix options in that file.
+
+- [ ] **Free Render instance cannot keep up with a 12-room home.** Ranch House: `/routes` 6.6–7.6 s, `/score` 20.6 s
+      (demo home 0.39 s); opening House queues score + routes + `/evacuate` and Render answers 503/502. Next action:
+      paid tier before filming (with AUD-032, S11.13), and measure where the 7 s goes.
+- [ ] **`BackendFailure` shows every 502 as "AI features are unavailable"**, including Render gateway 502s on `/routes`,
+      `/score` and `/evacuate`, which use no AI. Next action: AI wording only for the AI operations.
+- [ ] **The live server has no `ANTHROPIC_API_KEY`** (`/chat` → 502 "ANTHROPIC_API_KEY is not configured on the
+      server", 2026-10-02). Sharper than AUD-002's "credits". Next action (owner): set the key in Render's environment.
+- [ ] **Feature trim pending owner decisions** in [`../demo/feature-inventory.md`](../demo/feature-inventory.md)
+      (Hazard Hunt, AR drill, Import Plan, practice log, accounts). Next action: one cleanup session after the marks.
+- [ ] **UI tests leave homes in the simulator** (61 by 2026-10-02, moved to a scratch backup by hand). P3.
+- [ ] **Ranch House test home is uncommitted** (`demo-homes/`, Anish's working copy). Owner decides fixture or demo home.
+
 ### S11.21 findings (2026-10-02, branch `s11-21-home-delete`)
 
 - [x] **AUD-021 fixed: homes can be deleted and duplicated, and Build Manually writes nothing until the first edit.**
