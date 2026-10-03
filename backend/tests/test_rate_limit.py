@@ -175,19 +175,98 @@ def test_bucket_prunes_refilled_entries_when_large():
     assert set(bucket._buckets) == {"d"}
 
 
-def test_client_key_prefers_the_first_forwarded_hop():
+# --- client key: the caller must not be able to choose it (S11.27, AUD-003) ---
+#
+# This replaces `test_client_key_prefers_the_first_forwarded_hop`, which asserted
+# the vulnerable behaviour: the first X-Forwarded-For hop is written by the
+# caller, so keying on it handed a script a fresh bucket per request just by
+# varying a header. Render's own FastAPI guidance calls trusting that "a critical
+# vulnerability, allowing bad actors to spoof their IP address".
+
+
+def _request(headers: list[tuple[bytes, bytes]]):
     from starlette.requests import Request
 
-    def request(headers: list[tuple[bytes, bytes]]) -> Request:
-        return Request(
-            {"type": "http", "headers": headers, "client": ("10.0.0.1", 1234)}
-        )
+    return Request({"type": "http", "headers": headers, "client": ("10.0.0.1", 1234)})
 
-    assert rate_limit.client_key(request([])) == "10.0.0.1"
+
+def test_client_key_falls_back_to_the_socket_peer():
+    assert rate_limit.client_key(_request([])) == "10.0.0.1"
+
+
+def test_client_key_prefers_the_header_the_proxy_overwrites():
+    """CF-Connecting-IP is written by Cloudflare on every proxied request and
+    overwrites whatever the caller sent, so it wins over X-Forwarded-For."""
+    key = rate_limit.client_key(
+        _request(
+            [
+                (b"x-forwarded-for", b"1.2.3.4, 203.0.113.7"),
+                (b"cf-connecting-ip", b"198.51.100.9"),
+            ]
+        )
+    )
+    assert key == "198.51.100.9"
+
+
+def test_client_key_takes_the_forwarded_hop_from_the_right():
+    """With one proxy in front, the LAST entry is the one that proxy observed;
+    everything left of it is whatever the caller chose to send."""
+    key = rate_limit.client_key(
+        _request([(b"x-forwarded-for", b" 1.2.3.4 , 203.0.113.7 ")])
+    )
+    assert key == "203.0.113.7"
+
+
+def test_a_forged_forwarded_chain_cannot_win_a_fresh_bucket():
+    """The point of the change, stated as the attack it stops.
+
+    A caller prepending different addresses gets the SAME key every time, so the
+    per-client bucket actually bounds them.
+    """
+    keys = {
+        rate_limit.client_key(
+            _request([(b"x-forwarded-for", f"{i}.{i}.{i}.{i}, 203.0.113.7".encode())])
+        )
+        for i in range(1, 20)
+    }
+    assert keys == {"203.0.113.7"}
+
+
+def test_more_hops_than_entries_falls_back_to_the_leftmost(monkeypatch):
+    """A misconfiguration must not index off the end; the most conservative
+    reading available is the leftmost entry."""
+    monkeypatch.setenv("AI_TRUSTED_PROXY_HOPS", "5")
+    config.get_settings.cache_clear()
     assert (
-        rate_limit.client_key(request([(b"x-forwarded-for", b" 203.0.113.7 , 10.1.1.1")]))
+        rate_limit.client_key(_request([(b"x-forwarded-for", b"203.0.113.7")]))
         == "203.0.113.7"
     )
+
+
+def test_zero_hops_ignores_the_header_entirely(monkeypatch):
+    """The local-run setting: no proxy in front, so believe only the socket."""
+    monkeypatch.setenv("AI_TRUSTED_PROXY_HOPS", "0")
+    monkeypatch.setenv("AI_CLIENT_IP_HEADER", "")
+    config.get_settings.cache_clear()
+    assert (
+        rate_limit.client_key(_request([(b"x-forwarded-for", b"1.2.3.4, 203.0.113.7")]))
+        == "10.0.0.1"
+    )
+
+
+def test_an_empty_trusted_header_is_skipped_not_used(monkeypatch):
+    """A present-but-blank CF-Connecting-IP must not become the key."""
+    monkeypatch.setenv("AI_TRUSTED_PROXY_HOPS", "1")
+    config.get_settings.cache_clear()
+    key = rate_limit.client_key(
+        _request(
+            [
+                (b"cf-connecting-ip", b"   "),
+                (b"x-forwarded-for", b"1.2.3.4, 203.0.113.7"),
+            ]
+        )
+    )
+    assert key == "203.0.113.7"
 
 
 @pytest.mark.parametrize(

@@ -8,40 +8,19 @@ depends on. See docs/decisions.md for why this session is "prep" not "DONE".
 
 from __future__ import annotations
 
-import secrets
-from typing import Annotated, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.ai.chat.service import ChatGroundingError, ChatMessage, ChatResponse, chat
 from app.ai.grounded import GroundingError
-from app.config import get_settings
+from app.deps import AI_GUARDS
 from app.limits import MAX_CHAT_MESSAGES, MAX_CHAT_TOTAL_CHARS
 from app.models import HomeModel, Profile
-from app.rate_limit import ai_concurrency, ai_rate_limit
 from app.routing.plan import RoutePlan
 
 router = APIRouter()
-
-# Duplicated (not imported) from app.main.require_token: importing it here
-# would create a main <-> api_chat circular import since main.py includes
-# this router. Same bearer-token check, same fail-closed Settings source.
-_bearer_scheme = HTTPBearer(auto_error=False)
-
-
-def require_token(
-    credentials: Annotated[
-        Optional[HTTPAuthorizationCredentials], Depends(_bearer_scheme)
-    ],
-) -> None:
-    expected = get_settings().bearer_token
-    if credentials is None or not secrets.compare_digest(
-        credentials.credentials, expected
-    ):
-        raise HTTPException(status_code=401, detail="Invalid or missing bearer token")
-
 
 class ChatRequest(BaseModel):
     """S11.26 (AUD-035): the history is bounded by count and by total length.
@@ -74,8 +53,10 @@ class ChatRequest(BaseModel):
 @router.post(
     "/chat",
     response_model=ChatResponse,
-    # Token first, then the AI cost guard (app/rate_limit.py), as in app.main.
-    dependencies=[Depends(require_token), Depends(ai_rate_limit), Depends(ai_concurrency)],
+    # The one shared guard stack (app/deps.py), identical to the AI routes in
+    # app.main — including S11.27's daily budget, which this route used to be
+    # able to miss simply by not being edited.
+    dependencies=AI_GUARDS,
 )
 def post_chat(request: ChatRequest) -> ChatResponse:
     """Grounded, house-aware, multi-turn chat (S3.1's corpus + citation rules)."""

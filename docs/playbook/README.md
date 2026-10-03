@@ -76,7 +76,7 @@ Anything cut gets a BLOCKERS line.
 | [S11.24](S11-24.md) | ~~Re-check a room end to end~~ | 017, 029, 049 | P2 | 2 Data integrity | D | `s11-24-recheck-flow` | S11.19, S11.23 | **DROPPED 2026-10-02** (re-scan review cut) |
 | [S11.25](S11-25.md) | ~~Residential size bounds, server and editor alike~~ **DONE 2026-09-30** | 004 | P1 | 3 Backend hardening | E | `s11-25-home-bounds` | S11.14 | DONE 2026-09-30 |
 | [S11.26](S11-26.md) | ~~Request size limits and input caps~~ **DONE 2026-10-03** | 004, 035, 024 | P1 | 3 Backend hardening | E | `s11-26-request-limits` | S11.14 | DONE 2026-10-03 |
-| [S11.27](S11-27.md) | AI spend ceiling; trusted client key; one require_token | 003, 006, 043 | P1 | 3 Backend hardening | E | `s11-27-ai-spend` | S11.14 | |
+| [S11.27](S11-27.md) | ~~AI spend ceiling; trusted client key; one require_token~~ **DONE 2026-10-03** | 003, 006, 043 | P1 | 3 Backend hardening | E | `s11-27-ai-spend` | S11.14 | DONE 2026-10-03 |
 | [S11.28](S11-28.md) | ~~Sign-in routes: off the event loop, throttled, rehash~~ | 005, 011 | P1 | 3 Backend hardening | E | `s11-28-auth-throttle` | S11.27 | **DROPPED 2026-10-02** (accounts cut; see BLOCKERS: turn the server routes off instead) |
 | [S11.29](S11-29.md) | AI calls time out and stop when the phone gives up | 035 | P2 | 3 Backend hardening | E | `s11-29-ai-deadlines` | S11.26, S11.27 | |
 | [S11.30](S11-30.md) | ~~Cloud homes: quota and compare-and-set revisions~~ | 016, 007 | P2 | 3 Backend hardening | E | `s11-30-homes-cas` | S11.26, S11.28 | **DROPPED 2026-10-02** (accounts cut) |

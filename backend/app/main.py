@@ -9,15 +9,13 @@ from __future__ import annotations
 
 import logging
 from app.routing.diff import compute_diff, DiffRequest, DiffResult
-import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Annotated, Any, AsyncIterator, Optional, Literal
+from typing import Any, AsyncIterator, Optional, Literal
 
 import anthropic
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.models import HomeModel, FloorObject
 from app.routing.obstructions import Obstruction
@@ -39,7 +37,14 @@ from app.limits import (
     MAX_IMAGE_DECODED_BYTES,
     decoded_image_bytes,
 )
-from app.rate_limit import ai_concurrency, ai_rate_limit
+from app.deps import AI_GUARDS, ai_guards_for_optional_call, require_token
+from app.rate_limit import (
+    BUDGET_COST_ANALYZE,
+    BUDGET_COST_BUILD,
+    BUDGET_COST_SINGLE_CALL,
+    budget,
+    enforce_budget,
+)
 from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
 from app.routing.hazard import EvacuationTimeline, compute_evacuation_timeline
@@ -98,9 +103,6 @@ app.include_router(cloud_router)
 # Added last so it runs outermost — the check has to happen before routing, the
 # bearer-token dependency, and pydantic, which is the whole point of it.
 app.add_middleware(BodySizeLimitMiddleware)
-
-_bearer_scheme = HTTPBearer(auto_error=False)
-
 
 # Every AI module raises its own domain error (GroundingError/AgentError/BuilderError)
 # for the missing-key case, but the `client.messages.create` calls themselves are
@@ -224,28 +226,6 @@ if _ConnectionFailure is not None:
         )
 
 
-def require_token(
-    credentials: Annotated[
-        Optional[HTTPAuthorizationCredentials], Depends(_bearer_scheme)
-    ],
-) -> None:
-    expected = get_settings().bearer_token
-    if credentials is None or not secrets.compare_digest(
-        credentials.credentials, expected
-    ):
-        raise HTTPException(status_code=401, detail="Invalid or missing bearer token")
-
-
-# The AI routes spend Anthropic credit, so on top of the token they get the cost
-# guard (app/rate_limit.py): per-client token bucket, then the global in-flight
-# cap. Order matters — no token is a 401 that never touches anyone's budget.
-AI_GUARDS = [
-    Depends(require_token),
-    Depends(ai_rate_limit),
-    Depends(ai_concurrency),
-]
-
-
 class RoutesRequest(BaseModel):
     """(S1.2) Compute primary/secondary routes for every room.
     
@@ -263,13 +243,30 @@ class RoutesRequest(BaseModel):
 
 
 class HealthResponse(BaseModel):
+    """Numbers only, deliberately.
+
+    /health is open so a platform probe can reach it, so everything here is
+    readable by anyone. The AI budget fields are counts, not configuration and
+    not identities: they say how much of today's allowance is left, which is what
+    the owner needs to see before filming and what tells us whether a 429 is the
+    budget or the rate limiter. They reveal nothing about who spent it.
+    """
+
     status: str
     version: str
+    ai_calls_remaining_today: int
+    ai_calls_spent_today: int
 
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    return HealthResponse(status="ok", version=app.version)
+    settings = get_settings()
+    return HealthResponse(
+        status="ok",
+        version=app.version,
+        ai_calls_remaining_today=budget.remaining(settings.ai_daily_call_budget),
+        ai_calls_spent_today=budget.spent_today(),
+    )
 
 
 class DatabaseHealthResponse(BaseModel):
@@ -434,6 +431,9 @@ def analyze(request: AnalyzeRequest) -> AnalysisResult:
     """Agentic safety inspection: tool-use loop over the home, evidence-linked
     findings only (S3.2). The agent never computes routes or egress itself —
     it calls the same deterministic engines /routes and /explain use."""
+    # S11.27: the agent loop makes up to MAX_ITERATIONS model calls plus submit
+    # retries; charge the remainder over the base cost AI_GUARDS already took.
+    enforce_budget(BUDGET_COST_ANALYZE - BUDGET_COST_SINGLE_CALL)
     try:
         return run_agent_analysis(request.home, get_thresholds())
     except AgentError as exc:
@@ -500,6 +500,11 @@ def build(request: BuildRequest) -> BuildResult:
         raise HTTPException(
             status_code=422, detail="provide a description, an image, or both"
         )
+    # S11.27: the builder is a LOOP of up to MAX_ITERATIONS model calls, so the
+    # base cost the guard already charged is not what this request can spend.
+    # Charged here rather than in AI_GUARDS because the guard runs before body
+    # validation, and a malformed request must not cost a full loop's budget.
+    enforce_budget(BUDGET_COST_BUILD - BUDGET_COST_SINGLE_CALL)
     try:
         return run_builder(
             description=request.description,
@@ -537,7 +542,7 @@ class ScoreRequest(BaseModel):
     response_model=ScoreBreakdown,
     dependencies=[Depends(require_token)],
 )
-def score(request: ScoreRequest) -> ScoreBreakdown:
+def score(request: ScoreRequest, http_request: Request) -> ScoreBreakdown:
     """Explainable 0-100 preparedness score + checklist (S3.5).
 
     The score itself is deterministic — weights in
@@ -559,14 +564,21 @@ def score(request: ScoreRequest) -> ScoreBreakdown:
         earthquake_plan=earthquake_plan
     )
     if request.include_recommendations:
-        try:
-            breakdown.checklist.extend(
-                recommendation_items(
-                    request.home, plan, request.checklist_state, request.profile
+        # S11.27 (AUD-006): this is an AI call and must obey the AI guards, but
+        # /score itself must NOT — it is deterministic and the demo path leans on
+        # it, so rate-limiting the whole route would throttle the thing that works
+        # when the AI is down. The guards cannot be route-level dependencies for a
+        # flag that is per-request, so they are applied here instead, in the same
+        # order and from the same module as AI_GUARDS.
+        with ai_guards_for_optional_call(http_request):
+            try:
+                breakdown.checklist.extend(
+                    recommendation_items(
+                        request.home, plan, request.checklist_state, request.profile
+                    )
                 )
-            )
-        except GroundingError as exc:
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
+            except GroundingError as exc:
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
     return breakdown
 
 @app.post(

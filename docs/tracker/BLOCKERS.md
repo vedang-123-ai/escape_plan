@@ -176,6 +176,57 @@ rewrite (trim 2).
 - [ ] **Signed-in phones from earlier builds** are signed out on first launch of this build; their homes stay. Never
       walked with a real account. Next action: none (no testers have accounts).
 
+### S11.27 findings (2026-10-03, branch `s11-27-ai-spend`)
+
+- [x] **AUD-003 mitigated, not eliminated — and the premise is now written down.** The shared bearer token ships in
+      every app build and is **public by design**; it identifies the app, not the caller, and no attempt will be made to
+      hide it (`docs/decisions.md`, 2026-10-03). What bounds spend is a **global daily AI budget**:
+      `AI_DAILY_CALL_BUDGET` model calls per UTC day, server-wide, 429 when exhausted, counted for every AI call whoever makes
+      it — the one limit a holder of the public token cannot reset. Evidence: 19 tests in
+      `backend/tests/test_ai_budget.py`; suite **1003 passed, 1 skipped, 29 deselected** (2026-10-03).
+- [x] **AUD-043 fixed: one `require_token`.** `grep -rn "def require_token" backend/app` returns exactly one hit
+      (`backend/app/deps.py:40`). `api_chat.py` now shares `AI_GUARDS`, so it picked up the new budget guard without
+      being separately edited — the omission mode that produced AUD-006.
+- [x] **Route guards unchanged by the move:** `backend/tests/test_route_guards.py` 31 passed after relocating
+      `require_token` out of `main.py`.
+
+- [x] **The budget's unit was one HTTP request, not one model call — found by review, fixed before merge.** `/build`
+      loops up to 40 `messages.create` and `/analyze` up to 15 + 2, and neither uses prompt caching, so the 300/day
+      ceiling really allowed ~12,000 model calls. Costs are now per model call (`BUDGET_COST_BUILD` 40,
+      `BUDGET_COST_ANALYZE` 17, `BUDGET_COST_SINGLE_CALL` 3), charged in the handler for the loop routes so a malformed
+      request costs only the base. `test_costs_stay_in_lockstep_with_the_loops_they_mirror` fails if a loop's cap moves
+      without its cost.
+- [ ] **A rejected request still costs the base `BUDGET_COST_SINGLE_CALL`, because the guard runs before body
+      validation.** Measured 2026-10-03: a malformed `/build` charges 3. So ~100 junk requests can still spend a 300
+      budget without reaching Anthropic — griefing, not a spend bypass, and the alternative (validating before
+      charging) would reopen the flood hole the entry charge closes. Next action: if it ever matters, refund on
+      `RequestValidationError` rather than moving the charge.
+- [ ] **`AI_CLIENT_IP_HEADER` defaults to `cf-connecting-ip`, which is only unforgeable behind Cloudflare.** Correct on
+      Render (all inbound traffic transits Cloudflare, which overwrites it), but on any deployment reachable directly
+      a caller sets it freely and gets a fresh bucket per request — the hole this session closed, reopened on a
+      different header name. The daily budget is the backstop and the value is configurable. Next action: set
+      `AI_CLIENT_IP_HEADER=""` and `AI_TRUSTED_PROXY_HOPS=0` if the service is ever run off Render.
+- [ ] **The budget counts CALLS, not tokens.** Debiting real `response.usage` needs each AI module to report it back,
+      and `backend/app/ai/` is outside S11.27's OWNED FILES. Every call site has its own `max_tokens`, so a call count
+      does bound spend, but a run of long calls costs more than a run of short ones and the budget cannot tell them
+      apart. Next action: **S11.29** is the next session inside `app/ai/` (timeouts and deadlines) — it should thread
+      `usage` back into `DailyAICallBudget` while it is in there.
+- [ ] **A restart resets the budget.** In-memory and per process, so a redeploy or a free-tier idle spin-down returns
+      the full allowance, and several instances would each enforce their own. Accepted for one free Render instance and
+      documented in `rate_limit.py`; persisting it in Mongo was rejected because the demo trim is switching that
+      database off. Next action: none unless the service is scaled past one instance.
+- [ ] **New env vars the owner should know about** (BLOCKERS §1 "tune the AI cost guard"). None is pinned in
+      `render.yaml`, following the existing rule for the rate variables:
+      `AI_DAILY_CALL_BUDGET` (default **1000**) — Anthropic **model calls** per UTC day, server-wide (not HTTP
+      requests: one `/build` costs 40, one `/analyze` 17, everything else 3, so 1000 is ~25 builds or ~333 chat turns);
+      `AI_CLIENT_IP_HEADER` (default **`cf-connecting-ip`**) — the trusted client-IP header, empty string to disable;
+      `AI_TRUSTED_PROXY_HOPS` (default **1**) — proxies in front of the app, `0` for a local run with none.
+      Next action (owner): the defaults are sized for filming and need no change; raise `AI_DAILY_CALL_BUDGET` only if a
+      rehearsal day actually hits it, which `/health`'s `ai_calls_remaining_today` will show.
+- [ ] **Per-install tokens with App Attest remain the real fix for AUD-003** and are deliberately not built before
+      Oct 24 (`docs/decisions.md`, 2026-10-03). The budget caps the damage; it does not attribute or revoke per device.
+      Next action: none before submission; name it as a known limitation if a judge asks.
+
 ### S11.26 findings (2026-10-03, branch `s11-26-request-limits`)
 
 - [x] **AUD-004 body-size half fixed.** `backend/app/limits.py` adds `BodySizeLimitMiddleware`: 413 before anything
@@ -714,12 +765,21 @@ EditorCore **609 passed, 0 failed** on `macos-26`). `ios-tests` skipped (manual 
 - [x] **AI cost guard.** `backend/app/rate_limit.py`: per-IP token bucket (first `X-Forwarded-For` hop) plus a global
       `BoundedSemaphore`, on `/explain`, `/analyze`, `/build`, `/chat`; 429 + `Retry-After`. `AI_RATE_PER_MIN` 6,
       `AI_RATE_BURST` 3, `AI_MAX_CONCURRENT` 4. 18 tests; none calls Anthropic.
-- [ ] **`/score` with `include_recommendations=true` also calls the AI and is NOT behind the cost guard.** The iOS app
-      never sets it (it is not in `ScoreRequest` on iOS), so it is reachable only by someone holding the shared token.
-      Next action (backend owner): either guard it conditionally or drop the flag. Out of this task's listed scope.
-- [ ] **The first `X-Forwarded-For` hop is client-supplied.** A client that forges it gets a fresh bucket each time; the
-      global semaphore still caps concurrent spend. Render's proxy appends the real IP as the LAST hop; if abuse ever shows
-      up, key on that instead. Recorded in `rate_limit.py`'s docstring.
+- [x] **`/score` with `include_recommendations=true` also calls the AI and is NOT behind the cost guard.**
+      **Fixed 2026-10-03 by S11.27 (AUD-006):** guarded conditionally, not dropped. `ai_guards_for_optional_call`
+      (`backend/app/deps.py`) runs the same rate limit, daily budget and concurrency checks as `AI_GUARDS`, through the
+      same enforcement functions, only when the flag is set — route-level dependencies would have throttled every plain
+      deterministic `/score`, which the demo path depends on. Evidence:
+      `test_score_with_recommendations_does_charge_the_budget` and
+      `test_score_without_recommendations_never_charges_the_budget` in `backend/tests/test_ai_budget.py`, plus
+      `/score` in the parametrized `test_every_ai_call_site_refuses_once_the_budget_is_spent`.
+- [x] **The first `X-Forwarded-For` hop is client-supplied.** **Fixed 2026-10-03 by S11.27.** `client_key` now prefers
+      `CF-Connecting-IP` (Cloudflare overwrites it per request), else counts in from the RIGHT of `X-Forwarded-For` by
+      `AI_TRUSTED_PROXY_HOPS` (default 1), else the socket peer; all configurable, `AI_TRUSTED_PROXY_HOPS=0` for a local
+      run. Confirmed from Render's docs 2026-10-03 that all inbound traffic passes through Cloudflare and that proxies
+      append. Evidence: `test_a_forged_forwarded_chain_cannot_win_a_fresh_bucket` and five sibling tests in
+      `backend/tests/test_rate_limit.py`, which replaced `test_client_key_prefers_the_first_forwarded_hop` — that test
+      asserted the vulnerable behaviour.
 - [x] **Reproducible deploys.** `backend/requirements.lock` (clean-venv `pip freeze`, CPython 3.12); `render.yaml` installs
       it; CI fails if it no longer satisfies `requirements.txt`. Takes effect on Render at the next deploy of `main`.
 - [x] **CI exists.** `.github/workflows/gate.yml`: `backend` and `ios-typecheck` on every push and PR; `ios-tests`
