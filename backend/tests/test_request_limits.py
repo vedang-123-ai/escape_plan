@@ -569,3 +569,103 @@ def test_chat_total_budget_binds_before_the_count_product():
     """Documents why both caps exist: the product of the other two is larger, so
     the total is the real ceiling."""
     assert MAX_CHAT_TOTAL_CHARS < MAX_CHAT_MESSAGES * MAX_CHAT_MESSAGE_CHARS
+
+
+# --- framing: the declared length must never be a way past the limit ---------
+#
+# Found 2026-10-03 while reviewing this session's own middleware. A declared
+# Content-Length short-circuits the counting path, so anything that makes the
+# declaration a lie bypasses the limit entirely rather than merely under-counting.
+# These drive the middleware at the ASGI layer on purpose: an HTTP client (and
+# h11 underneath TestClient) will not emit a contradictory framing pair, which is
+# exactly why the hole was invisible to the endpoint-level tests above.
+
+
+async def _deliver(headers: list[tuple[bytes, bytes]], megabytes: int) -> tuple[list, int]:
+    """Push `megabytes` MB through the middleware with `headers`.
+
+    Returns the response statuses and how many body bytes reached the app.
+    """
+    from app.limits import BodySizeLimitMiddleware
+
+    delivered = 0
+
+    async def fake_app(scope, receive, send):
+        nonlocal delivered
+        while True:
+            message = await receive()
+            if message["type"] != "http.request":
+                break
+            delivered += len(message.get("body", b""))
+            if not message.get("more_body"):
+                break
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    scope = {"type": "http", "method": "POST", "path": "/score", "headers": headers}
+    chunk = b"x" * (1024 * 1024)
+    messages = [
+        {"type": "http.request", "body": chunk, "more_body": True}
+        for _ in range(megabytes)
+    ]
+    messages.append({"type": "http.request", "body": b"", "more_body": False})
+    pending = iter(messages)
+
+    async def receive():
+        return next(pending)
+
+    sent: list = []
+
+    async def send(message):
+        sent.append(message)
+
+    await BodySizeLimitMiddleware(fake_app)(scope, receive, send)
+    statuses = [m.get("status") for m in sent if m["type"] == "http.response.start"]
+    return statuses, delivered
+
+
+@pytest.mark.parametrize(
+    "label,headers",
+    [
+        (
+            "content-length plus chunked: RFC 9112 says chunked wins",
+            [(b"content-length", b"10"), (b"transfer-encoding", b"chunked")],
+        ),
+        (
+            "chunked as the last of several transfer codings",
+            [(b"content-length", b"10"), (b"transfer-encoding", b"gzip, chunked")],
+        ),
+        (
+            "two content-length headers that disagree",
+            [(b"content-length", b"10"), (b"content-length", b"99999999")],
+        ),
+        ("negative content-length", [(b"content-length", b"-1")]),
+        ("no content-length at all", []),
+    ],
+)
+def test_a_lying_content_length_cannot_bypass_the_limit(
+    label: str, headers: list[tuple[bytes, bytes]]
+):
+    import asyncio
+
+    over = MAX_BODY_BYTES_DEFAULT // (1024 * 1024) + 4
+    statuses, delivered = asyncio.run(_deliver(headers, over))
+
+    assert statuses == [413], f"{label}: expected 413, got {statuses}"
+    assert delivered <= MAX_BODY_BYTES_DEFAULT, (
+        f"{label}: {delivered:,} bytes reached the app, over the "
+        f"{MAX_BODY_BYTES_DEFAULT:,} byte limit"
+    )
+
+
+def test_a_truthful_content_length_still_short_circuits():
+    """The fix must not cost the fast path: a plain, honest Content-Length under
+    the limit is still trusted and the body is not buffered here."""
+    from app.limits import _declared_length
+
+    assert _declared_length(
+        {"headers": [(b"content-length", b"1234")]}
+    ) == 1234
+    assert _declared_length(
+        {"headers": [(b"content-length", b"1234"), (b"content-length", b"1234")]}
+    ) == 1234

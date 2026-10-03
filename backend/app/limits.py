@@ -233,20 +233,43 @@ class BodySizeLimitMiddleware:
 
 
 def _declared_length(scope: Scope) -> Optional[int]:
-    """The request's `Content-Length`, or None if absent or unparseable.
+    """The request's trustworthy `Content-Length`, or None to count instead.
 
-    An unparseable value is treated as absent rather than rejected, which routes
-    it into the counting path above: a bad header cannot be used to skip the
-    limit, and a malformed request still gets the framework's own error instead
-    of one invented here.
+    None is returned — meaning "measure it yourself" — in every case where the
+    header cannot be relied on, so an attacker can never use a header to skip the
+    check. That matters more than it looks: a declared length short-circuits the
+    counting path, so anything that makes the declaration a lie is a bypass of the
+    whole limit, not a cosmetic issue.
+
+    * `Transfer-Encoding: chunked` present. RFC 9112 s6.1 says chunked framing
+      wins and Content-Length must be ignored. Measured 2026-10-03 against this
+      middleware: `Content-Length: 10` plus a 12 MB chunked body sailed past the
+      8 MiB cap when the header was trusted. h11 rejects that combination today,
+      so the practical reach was limited to a deployment behind a proxy that
+      normalizes framing differently -- but a size limit must not depend on
+      another layer's strictness to hold.
+    * Two `Content-Length` headers that disagree: the classic smuggling pair,
+      where each hop believes a different one.
+    * A value that is not a non-negative integer.
     """
+    lengths: list[int] = []
     for name, value in scope.get("headers", []):
+        if name == b"transfer-encoding" and b"chunked" in value.lower():
+            return None
         if name == b"content-length":
             try:
-                return int(value)
+                parsed = int(value)
             except ValueError:
                 return None
-    return None
+            if parsed < 0:
+                return None
+            lengths.append(parsed)
+
+    if not lengths:
+        return None
+    if len(set(lengths)) > 1:
+        return None
+    return lengths[0]
 
 
 def _replay(
