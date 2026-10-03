@@ -105,8 +105,8 @@ owning session's merge is on `origin/main` and you verified it.
       (product decision, accounts demoted; `audit-traceability.md`)
 - [x] AUD-019 (P3) screens build their own `HomeDocumentStore()` · **fixed 2026-10-01 by S11.18** (evidence under "S11.18 findings")
 - [x] AUD-020 (P1) Profiles unreachable since `87c0610` · **fixed 2026-10-02 by S11.20** (evidence under "S11.20 findings")
-- [ ] AUD-021 (P1) no delete/duplicate, blank homes accumulate · S11.21; JSON export/import UI: not a task (no spec
-      requirement)
+- [x] AUD-021 (P1) no delete/duplicate, blank homes accumulate · **fixed 2026-10-02 by S11.21** (evidence under "S11.21
+      findings"); JSON export/import UI: not a task (no spec requirement)
 - [ ] AUD-022 (P1) `/analyze` `/explain` have no UI · **decided 2026-09-29: Path B, re-word the pitch** (§1,
       `docs/decisions.md`); S11.39 executes, S11.12 takes the claims diff
 - [x] AUD-023 (P1) AI drafts scored without review · **fixed 2026-10-01 by S11.17** (evidence under "S11.17 findings");
@@ -125,7 +125,8 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-035 (P2) no AI timeouts; unbounded inputs · S11.26, S11.29, S11.49
 - [x] AUD-036 (P2) iOS suite red (the 7 in §3) · **fixed 2026-09-30 by S11.8**: 0 failed on three full runs (header stamp)
 - [ ] AUD-037 (P2) Render not gated on CI · S11.31, S11.46
-- [ ] AUD-039 (P3) stale "no delete endpoint" comments · S11.21
+- [x] AUD-039 (P3) stale "no delete endpoint" comments · **fixed 2026-10-02 by S11.21** (`grep -rn "no delete endpoint"
+      escape_plan` returns nothing)
 - [ ] AUD-040 (P3) root scratch scripts rewrite 2.1 to 2.0 · S11.47
 - [ ] AUD-041 (P3) local Python 3.13 vs deploy 3.12 · S11.47
 - [ ] AUD-042 (P3) Mongo index creation never retried · S11.31
@@ -138,6 +139,85 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.21 findings (2026-10-02, branch `s11-21-home-delete`)
+
+- [x] **AUD-021 fixed: homes can be deleted and duplicated, and Build Manually writes nothing until the first edit.**
+      Home's home switcher has "Manage homes…" first (the end of a long menu is off screen), opening "Your homes": every
+      home with its room/floor count, a "Demo" tag on the fixed-id starter homes, a check on the current one. Swipe a
+      row left (or press and hold) for Duplicate and Delete; VoiceOver gets both as named actions. Delete asks first,
+      naming the home, and says truthfully what goes (`Sync/HomeDeletionReach.swift`, the rule sync itself uses):
+      "removed from this iPhone" (no account ever held it), "…and from your account" (the signed-in account owns it), or
+      "…from the account it's backed up to the next time that account signs in here" (another account owns it).
+      Placement ("Your homes" list over a context menu on the switcher) and the short wording chosen by Anish in the
+      simulator. Duplicate copies the home and its household, not its checklist ticks, drill log or meeting point
+      (decisions 2026-10-02). Deleting the current home moves Home, its Household row and House to another home.
+      Verified 2026-10-02: EditorCore `SyncDeletionTests` 18/18 against a fake backend (signed out: no DELETE; signed in:
+      DELETE with the owner's record id; owner signed out: DELETE only when that owner next signs in; another owner:
+      never), mutation-checked (flipping the owner rule fails 2); `HomeLibraryEditorSeamTests` (delete moves the active
+      home, a failed delete leaves no tombstone, a blank home is not written before its first save, a deleted starter
+      home is not re-seeded, duplicate keeps the household and not the ticks, and the app's real
+      `HomeDocumentSyncRepository` writes the tombstone the confirmation promised); `HomeDeleteUITests` 3/3 (Build
+      Manually → back leaves no home; duplicate then delete the copy, with the signed-out wording; deleting the current
+      home moves to another). Simulator walk: deleted the current home → the alert read "Delete “New Home”? It's
+      removed from this iPhone. You can't undo this." → Home's Household row changed from "Ada 714" to "Bo 750", the
+      file was gone, sync-state.json held an ownerless tombstone; deleted "Bungalow" (Demo), relaunched → it did not
+      come back (`fixtures.starterHomesSeeded.v1` = true, no file). Full suite: **1065 tests, 1054 passed, 0 failed, 11 skipped** (xcresulttool, `.build-s1121-final.xcresult`, after the review fixes); EditorCore 667 / 0; typecheck ok ×4; swift-scenekit-reviewer and ecc:security-reviewer run, findings fixed or logged below.
+- [x] **AUD-039 fixed:** the five stale "no delete endpoint" comments now describe tombstones and the owned
+      `DELETE /homes/{id}` (two of them outside OWNED FILES, comment-only; decisions 2026-10-02).
+- [x] **Empty library: House's first edit no longer tears the editor down** (swift-scenekit-reviewer). With no homes, the
+      House tab's blank editor saved its first edit, the new home appeared, `HouseTab`'s `.id` changed and the editor was
+      rebuilt, losing that edit's undo (this used to happen at open, before any edit). `HouseTab` now keeps the same
+      identity for the home its blank editor created, and makes it the active home so Home shows it. Checked with a
+      temporary UI test on an empty library (undo still enabled after the first edit, Home no longer says "Map your
+      home"): passes with the fix, fails without it ("the first edit's undo was lost"); the test was removed because
+      the shared simulator library is never empty. Owned-files exception (`ContentView.swift`, decisions 2026-10-02).
+- [ ] **@S11.22: a running sync drops a tombstone written while it runs (ecc:security-reviewer, confirmed by reading
+      `SyncManager.sync()`).** `sync()` loads the sidecar once, then `persist(state)` writes that snapshot back after
+      every action, so a home deleted mid-sync loses its tombstone (and its owner), may even be pushed from the
+      `localByID` snapshot, and is pulled back on the next sync. Same shape as the `forgetAccount` race that
+      `forgottenAccountID` closed. Stopgap in S11.21's files: "Your homes" refuses Delete while `sync.status ==
+      .syncing` ("Your homes are syncing. Try again when the sync finishes."), checked when the swipe is tapped and
+      again on confirm. Next action (S11.22 owns `SyncManager`/`SyncState`): have `persist` merge tombstones (and their
+      cleared `homeOwners` claims) written since the snapshot, skip planned pushes for homes tombstoned since, test it,
+      then remove the stopgap from `HomeScreen.swift` (`ManageHomesSheet.syncIsRunning`).
+- [ ] **@S11.22: `homeWasDeletedLocally` saves the tombstone with `try?`** (`HomeDocumentSyncRepository.swift`). If that
+      write fails the home is gone from disk with no tombstone and may come back once, and a "removed from your
+      account" promise is not kept. Next action (S11.22, owns the file): return the failure so Home can say so.
+- [ ] **@S11.41: delete now reaches `HomeDocumentStore.url(for:)` with an id read from a file's `home_id`**
+      (ecc:security-reviewer). Ids are not validated anywhere (server `home_id: str`), so a synced `"../x"` could be
+      written (pre-existing, `writePulledHome`) and now also deleted from "Your homes". Next action: S11.41's planned
+      validation covers `url(for:)` and `writePulledHome` (reject anything that is not a UUID or a fixture id).
+- [ ] **Per-home data is left behind when a home is deleted:** `RouteCache/<id>.routeplan.json` (seen on disk),
+      checklist ticks (`ChecklistStateStore`), drill log, meeting point (`MeetingPointStore`), score cache and scan
+      freshness, all keyed by home id and in files S11.21 does not own. Harmless for a random-id home; a deleted starter
+      home re-added later with the same fixed id would bring its old ticks back. Next action: S11.47 (cleanup) or the
+      owner of each store adds a `forget(homeID:)` and `HomeLibrary.delete` calls them.
+- [ ] **Duplicating another account's home on a shared phone makes an unclaimed copy** (ecc:security-reviewer, by design):
+      it uploads, household names included, to whichever account syncs next. One tap now, where before it needed the
+      editor. Next action: none unless Anish wants Duplicate hidden for homes `SyncState.ownership` says belong to
+      someone else.
+- [ ] **"…and from your account" is said before the sync that does it.** Offline, or if the DELETE fails, the account
+      copy goes at the next successful sync (the tombstone waits). Accepted wording (Anish chose "Short"); revisit only
+      if the owner wants "will be removed".
+- [ ] **Duplicate does not start a sync** (delete does), so the copy uploads at the next foreground/launch sync. Low.
+- [ ] **Swipe-action contrast:** Delete now uses `Theme.destructiveFill` (#C93A3A, white 5.06:1, asserted in
+      `ThemeContrastTests`); on iOS 26 the label sits under the circle on the list background anyway. Never checked with
+      VoiceOver on a device: S11.10.
+- [ ] **@S11.10: walk "Your homes" on the iPhone** (swipe, press-and-hold menu, VoiceOver Duplicate/Delete actions).
+- [x] **GestureFrameCostUITests still has a home to work on:** it drags inside the editor Build Manually opens; the blank
+      home is drawn from memory, so no file is needed. Green in the full suite.
+- [ ] **@S11.22 @S11.41 @S11.48: S11.21 is merged.** Merge `origin/main` first. What changed for you:
+      `HomeLibrary.delete(homeID:)` returns `Bool` (true only when the file went; the deletion observer is told only
+      then); `HomeLibrary.duplicate(homeID:) -> String?` (new id, newest first, unclaimed by any account);
+      `HomeLibrary.starterHomeIDs` / `isStarterHome`; `Sync/HomeDeletionReach.swift` (pure, EditorCore) and
+      `HomeDocumentSyncRepository.deletionReach(of:signedInUserID:)`; Home → switcher → "Manage homes…" → "Your homes"
+      (`ManageHomesSheet` in `HomeScreen.swift`); a delete starts `sync.syncIfSignedIn()`; House writes a brand-new home
+      only on its first committed edit (no file, no library row, no sync until then). S11.22: the delete stopgap and the
+      `try?` above are yours; conflict copies ("(this device)") can now be deleted by the user, so a preserved-copy id
+      you record may point at a deleted (tombstoned) home. S11.41: delete is one more caller of `url(for:)`. S11.48:
+      "Your homes" reads `library.homes`, so moving `list()` off the main thread must keep the sheet's list current
+      after a delete/duplicate.
 
 ### S11.20 findings (2026-10-02, branch `s11-20-profiles-reachable`)
 
@@ -173,7 +253,8 @@ owning session's merge is on `origin/main` and you verified it.
       decides; if yes, it is a new session (onboarding and scan flow are not S11.20's files).
 - [ ] **The Household row is hidden for an unreviewed AI draft,** like the score and drill card (AUD-023). Intentional:
       people are added after the draft is confirmed in House. Revisit only if the owner wants it.
-- [ ] **@S11.21: `ProfilesEntryUITests` builds its home with Home "+" → Build Manually → back, with no edit.** Your
+- [x] **@S11.21: `ProfilesEntryUITests` builds its home with Home "+" → Build Manually → back, with no edit.** Done by
+      S11.21: `buildBlankHome` now adds one object (house.addMenu → Add Object) before going back; 2/2 green. Your
       "no blank home until the first edit" will make that home vanish, so both tests would find no Household row / an
       old home. Next action (S11.21): have the tests make one edit in the editor first (e.g. "house.addMenu" → Add
       Object), or seed a home, and keep them green.

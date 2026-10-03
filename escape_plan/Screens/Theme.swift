@@ -163,6 +163,11 @@ enum Theme {
     static let warning = warningComponents.color
     static let warningComponents = AppearancePair(both: 0xEF6363)
 
+    /// The fill behind a destructive control's WHITE label, e.g. a list row's Delete swipe action.
+    /// `warning` carries white at only ~3.5:1; this darker red carries it at 5.06:1 (S11.21).
+    static let destructiveFill = destructiveFillComponents.color
+    static let destructiveFillComponents = AppearancePair(both: 0xC93A3A)
+
     /// Worth noticing, not broken: a low-confidence scan item, a caveat, "to do".
     static let caution = cautionComponents.color
     static let cautionComponents = AppearancePair(both: 0xE8B93C)

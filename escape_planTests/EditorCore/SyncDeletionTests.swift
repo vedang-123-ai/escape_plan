@@ -205,6 +205,97 @@ final class SyncDeletionTests: XCTestCase {
                       "a duplicate server record outlived the deletion")
     }
 
+    // MARK: - What the delete confirmation promises (S11.21)
+    //
+    // The home list's delete confirmation reads `HomeDeletionReach` to say whether the account's
+    // copy goes too. Each test states the answer, deletes the way the app does, then syncs against
+    // the fake backend and checks the promise was kept. Never the live server.
+
+    private var deleteRequests: [URLRequest] {
+        AuthStubURLProtocol.capturedRequests.filter { $0.httpMethod == "DELETE" }
+    }
+
+    /// Deletes `base` on this device exactly as `HomeDocumentSyncRepository` does: tombstone,
+    /// then the home is gone from disk.
+    private func deleteLocally() throws {
+        var state = stateStore.load()
+        state.markDeleted(localHomeID: base.home_id, at: Date())
+        try stateStore.save(state)
+        repository = InMemoryHomeRepository()
+    }
+
+    /// A starter home deleted before anyone signed in. `base` is the Bungalow fixture, whose fixed
+    /// `home_id` every install shares, and the account already holds a real Bungalow from another
+    /// device: "from this iPhone" must be the whole truth.
+    func testDeletingAStarterHomeBeforeSigningInReachesOnlyThisDevice() async throws {
+        XCTAssertEqual(HomeDeletionReach.of(base.home_id, in: stateStore.load(), signedInUserID: nil),
+                       .thisDeviceOnly)
+        try deleteLocally()
+        var fromOtherDevice = base!
+        fromOtherDevice.name = "My real Bungalow"
+        backend.seed(fromOtherDevice, revision: 3, userID: "u-1")
+
+        // The user signs in afterwards.
+        await makeManager().sync()
+
+        XCTAssertTrue(deleteRequests.isEmpty, "a delete made signed out reached the account")
+        XCTAssertNotNil(backend.record(withLocalHomeID: base.home_id))
+    }
+
+    /// Signed in, and the home is this account's: the confirmation says the account copy goes,
+    /// and the next sync sends the tombstone's `DELETE /homes/{id}`.
+    func testDeletingWhileSignedInReachesTheAccount() async throws {
+        repository = InMemoryHomeRepository([base])
+        await makeManager().sync()
+        let recordID = try XCTUnwrap(backend.record(withLocalHomeID: base.home_id)?.id, "setup failed")
+
+        XCTAssertEqual(HomeDeletionReach.of(base.home_id, in: stateStore.load(), signedInUserID: "u-1"),
+                       .deviceAndAccount)
+        try deleteLocally()
+        XCTAssertEqual(stateStore.load().deletions[base.home_id]?.ownerUserID, "u-1",
+                       "the tombstone must carry the owner, or sync will never send the delete")
+        await makeManager().sync()
+
+        XCTAssertEqual(deleteRequests.map { $0.url?.lastPathComponent }, [recordID])
+        XCTAssertNil(backend.record(withLocalHomeID: base.home_id))
+    }
+
+    /// Backed up, but that account is signed out now. Nothing leaves while signed out; the
+    /// account's copy goes when it signs back in here, as the confirmation says.
+    func testDeletingAHomeWhoseAccountIsSignedOutReachesItOnSignIn() async throws {
+        repository = InMemoryHomeRepository([base])
+        await makeManager().sync()
+        token = nil
+
+        XCTAssertEqual(HomeDeletionReach.of(base.home_id, in: stateStore.load(), signedInUserID: nil),
+                       .deviceNowAccountLater)
+        try deleteLocally()
+        await makeManager().sync()
+        XCTAssertTrue(deleteRequests.isEmpty)
+        XCTAssertNotNil(backend.record(withLocalHomeID: base.home_id))
+
+        token = makeTestToken()
+        await makeManager().sync()
+        XCTAssertNil(backend.record(withLocalHomeID: base.home_id))
+    }
+
+    /// Another account is signed in. The home's own account still loses its copy only when it
+    /// signs in; the account signed in now is never touched.
+    func testAHomeOwnedByAnotherAccountIsNotTheSignedInAccountsToDelete() async throws {
+        token = makeTestToken(subject: "alice")
+        repository = InMemoryHomeRepository([base])
+        await makeManager().sync()
+
+        XCTAssertEqual(HomeDeletionReach.of(base.home_id, in: stateStore.load(), signedInUserID: "bob"),
+                       .deviceNowAccountLater)
+        try deleteLocally()
+        token = makeTestToken(subject: "bob")
+        await makeManager().sync()
+
+        XCTAssertTrue(deleteRequests.isEmpty, "Bob's sync deleted Alice's home")
+        XCTAssertNotNil(backend.record(withLocalHomeID: base.home_id))
+    }
+
     // MARK: - Forgetting a deleted account
 
     func testForgettingAnAccountClearsItsRecordsAndOwnership() async throws {

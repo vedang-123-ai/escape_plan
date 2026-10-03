@@ -14,6 +14,9 @@ struct HomeScreen: View {
     @Environment(AppRouter.self) private var router
     @EnvironmentObject private var library: HomeLibrary
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AuthSession.self) private var auth
+    @Environment(SyncManager.self) private var sync
+    @Environment(HomeDocumentSyncRepository.self) private var syncRepository
 
     // Adding a home
     @State private var showingNewHome = false
@@ -33,6 +36,7 @@ struct HomeScreen: View {
     @State private var drillHomeID: String?
     @State private var profilesHomeID: String?
     @State private var detailItem: ChecklistItem?
+    @State private var showingManageHomes = false
 
     var body: some View {
         NavigationStack {
@@ -104,6 +108,14 @@ struct HomeScreen: View {
                     openDraftForReview(homeID)
                 }
             }
+            .sheet(isPresented: $showingManageHomes) {
+                ManageHomesSheet(
+                    activeHomeID: readiness.activeHomeID,
+                    reach: { syncRepository.deletionReach(of: $0, signedInUserID: auth.token?.subject) },
+                    syncIsRunning: { sync.status == .syncing },
+                    onOpen: { id in showingManageHomes = false; switchHome(to: id) },
+                    onDelete: deleteHome)
+            }
             .sheet(item: $detailItem) { item in
                 TaskDetailSheet(item: item,
                                 isDone: readiness.isDone(item),
@@ -151,6 +163,13 @@ struct HomeScreen: View {
     private var topBar: some View {
         HStack(spacing: 8) {
             Menu {
+                // First, not last: with many homes the end of the menu is off screen.
+                Section {
+                    Button { showingManageHomes = true } label: {
+                        Label("Manage homes…", systemImage: "square.stack")
+                    }
+                    .accessibilityIdentifier("homes.manage")
+                }
                 Section("Homes") {
                     ForEach(library.homes) { home in
                         Button { switchHome(to: home.id) } label: {
@@ -159,6 +178,8 @@ struct HomeScreen: View {
                             } else {
                                 Text(home.name)
                             }
+                            // A menu shows a second Text as the row's subtitle.
+                            if HomeLibrary.isStarterHome(home.id) { Text("Demo") }
                         }
                     }
                 }
@@ -207,6 +228,26 @@ struct HomeScreen: View {
         }
         .padding(.horizontal, DS.pagePadding - 8)
         .padding(.top, 4)
+    }
+
+    /// Deletes a home from the "Your homes" list. Deleting the active home moves Home, Tasks and
+    /// House to another home (or to "Map your home" when none are left); House's own session
+    /// learns of the delete through `HomeLibrary.editor` and never writes the file back.
+    /// Returns false when the delete failed, so the list can say so.
+    private func deleteHome(_ id: String) -> Bool {
+        let wasActive = id == readiness.activeHomeID
+        guard library.delete(homeID: id) else { return false }
+        Haptics.success()
+        if wasActive {
+            // The pending "show me in the house" was for the deleted home.
+            router.clearHouseRequest()
+            readiness.ensureActiveHome()
+            Task { await readiness.load(api: apiClient) }
+        }
+        // Signed in, the tombstone is what deletes the account's copy, and only a sync sends it.
+        // Signed out this does nothing.
+        Task { await sync.syncIfSignedIn() }
+        return true
     }
 
     private func switchHome(to id: String) {
@@ -554,6 +595,164 @@ struct HomeScreen: View {
     private func retryScanImport() {
         guard let artifacts = lastScanArtifacts else { return }
         Task { await importScan(artifacts) }
+    }
+}
+
+// MARK: - Your homes (S11.21, AUD-021)
+
+/// Every home on this iPhone, to open, duplicate or delete. Swipe a row left, or press and hold
+/// it; VoiceOver gets both as named actions. Placement and the confirmation wording were chosen by
+/// Anish in the simulator (2026-10-02).
+private struct ManageHomesSheet: View {
+    let activeHomeID: String?
+    /// What deleting a home would delete, read when the confirmation opens.
+    let reach: (String) -> HomeDeletionReach
+    /// A running sync writes back the sync state it read when it started, which would drop this
+    /// delete's tombstone and bring the home back (BLOCKERS, S11.21 findings). Until `SyncManager`
+    /// merges tombstones written mid-sync, a delete waits for the sync to finish.
+    let syncIsRunning: () -> Bool
+    let onOpen: (String) -> Void
+    /// False when the delete failed; `HomeLibrary.loadError` says why.
+    let onDelete: (String) -> Bool
+
+    @EnvironmentObject private var library: HomeLibrary
+    @Environment(\.dismiss) private var dismiss
+
+    private struct PendingDelete {
+        let id: String
+        let name: String
+        let reach: HomeDeletionReach
+    }
+
+    @State private var pendingDelete: PendingDelete?
+    @State private var failure: String?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if library.homes.isEmpty {
+                    ContentUnavailableView("No homes on this iPhone", systemImage: "house",
+                                           description: Text("Scan or build one from the Home tab."))
+                } else {
+                    List {
+                        ForEach(library.homes) { home in row(home) }
+                    }
+                    .scrollContentBackground(.hidden)
+                    // Pinned above the list, not a row in it: the swiped row may be far down.
+                    .safeAreaInset(edge: .top) {
+                        if let failure {
+                            Text(failure)
+                                .font(.footnote)
+                                .foregroundStyle(Theme.warning)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 8)
+                                .accessibilityIdentifier("homes.failure")
+                        }
+                    }
+                }
+            }
+            .dsPage()
+            .navigationTitle("Your homes")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .alert("Delete \u{201C}\(pendingDelete?.name ?? "")\u{201D}?",
+                   isPresented: Binding(get: { pendingDelete != nil },
+                                        set: { if !$0 { pendingDelete = nil } }),
+                   presenting: pendingDelete) { pending in
+                Button("Delete", role: .destructive) { delete(pending.id) }
+                Button("Cancel", role: .cancel) { }
+            } message: { pending in
+                Text(pending.reach.confirmationMessage)
+            }
+        }
+    }
+
+    private func row(_ home: HomeSummary) -> some View {
+        let isDemo = HomeLibrary.isStarterHome(home.id)
+        let isActive = home.id == activeHomeID
+        return Button { onOpen(home.id) } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(home.name)
+                            .font(.body)
+                            .foregroundStyle(Theme.text)
+                        if isDemo {
+                            Text("Demo")
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(Theme.supporting)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .overlay(Capsule().strokeBorder(Theme.border, lineWidth: 1))
+                        }
+                    }
+                    Text(Self.size(home))
+                        .font(.caption)
+                        .foregroundStyle(Theme.supporting)
+                }
+                Spacer(minLength: 8)
+                if isActive {
+                    Image(systemName: "checkmark")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.accentText)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(Theme.card)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(home.name)\(isDemo ? ", demo home" : "")\(isActive ? ", current home" : "")")
+        .accessibilityValue(Self.size(home).replacingOccurrences(of: " · ", with: ", "))
+        .accessibilityHint("Opens this home. Swipe up or down with one finger for Duplicate and Delete.")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("homes.row.\(home.id)")
+        // The swipe and menu actions are not reliably exposed once children are ignored.
+        .accessibilityAction(named: "Duplicate") { duplicate(home.id) }
+        .accessibilityAction(named: "Delete") { askToDelete(home) }
+        // Not `role: .destructive`: that removes the row before the confirmation is answered.
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button { askToDelete(home) } label: { Label("Delete", systemImage: "trash") }
+                .tint(Theme.destructiveFill)
+            Button { duplicate(home.id) } label: { Label("Duplicate", systemImage: "plus.square.on.square") }
+                .tint(Theme.accent)
+        }
+        .contextMenu {
+            Button { duplicate(home.id) } label: { Label("Duplicate", systemImage: "plus.square.on.square") }
+            Button(role: .destructive) { askToDelete(home) } label: { Label("Delete…", systemImage: "trash") }
+        }
+    }
+
+    private static func size(_ home: HomeSummary) -> String {
+        "\(home.roomCount) \(home.roomCount == 1 ? "room" : "rooms") · \(home.floorCount) \(home.floorCount == 1 ? "floor" : "floors")"
+    }
+
+    private static let waitForSync = "Your homes are syncing. Try again when the sync finishes."
+
+    private func askToDelete(_ home: HomeSummary) {
+        guard !syncIsRunning() else { failure = Self.waitForSync; return }
+        pendingDelete = PendingDelete(id: home.id, name: home.name, reach: reach(home.id))
+    }
+
+    private func delete(_ id: String) {
+        // Checked again: a sync can start while the confirmation is open.
+        guard !syncIsRunning() else { failure = Self.waitForSync; return }
+        failure = onDelete(id) ? nil : "Couldn't delete that home. \(library.loadError ?? "")"
+    }
+
+    private func duplicate(_ id: String) {
+        if library.duplicate(homeID: id) != nil {
+            failure = nil
+            Haptics.success()
+        } else {
+            failure = "Couldn't duplicate that home. \(library.loadError ?? "")"
+        }
     }
 }
 

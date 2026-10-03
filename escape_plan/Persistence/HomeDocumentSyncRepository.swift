@@ -21,8 +21,9 @@ import Observation
 
 /// Told when a home is deleted on this device, so the deletion can be remembered.
 ///
-/// The backend has no delete endpoint, so without this the next sync downloads the deleted
-/// home straight back and it reappears in the library.
+/// Without the tombstone this writes, the next sync downloads the deleted home straight back
+/// and it reappears in the library. The tombstone is also the only thing that sends
+/// `DELETE /homes/{id}`, and only for its owner (docs/decisions.md 2026-09-24).
 @MainActor
 protocol HomeDeletionObserving: AnyObject {
     func homeWasDeletedLocally(homeID: String)
@@ -144,5 +145,11 @@ final class HomeDocumentSyncRepository: SyncHomeRepository, HomeDeletionObservin
         // scoped to the account the home belonged to rather than suppressing it for everyone.
         state.markDeleted(localHomeID: homeID, at: Date())
         try? stateStore.save(state)
+    }
+
+    /// What deleting `homeID` here would delete, for the confirmation to say (S11.21). Read-only;
+    /// the decision itself is `HomeDeletionReach.of`, tested against a sync.
+    func deletionReach(of homeID: String, signedInUserID: String?) -> HomeDeletionReach {
+        HomeDeletionReach.of(homeID, in: stateStore.load(), signedInUserID: signedInUserID)
     }
 }

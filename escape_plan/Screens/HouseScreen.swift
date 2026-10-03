@@ -2273,11 +2273,10 @@ struct HouseScreen: View {
             controller?.registration = HouseEditorAppRegistration(
                 session: newSession, library: library, syncRepository: syncRepository)
             if let controller { handle(controller.appear(), in: newSession, controller: controller) }
-            // A brand-new home has nothing on disk yet — write it immediately so it shows up
-            // in the home list without waiting for the first edit.
-            if loaded == nil {
-                autosave(newSession, controller: controller)
-            }
+            // A brand-new home is NOT written here. Its first committed edit creates the file
+            // (`onCommit` → `autosave`), so opening Build Manually and backing out leaves nothing
+            // behind (S11.21, AUD-021). Writing on open is how blank "New Home"s piled up, and
+            // each one uploaded to the account on the next sync.
             fetchRoutes()
             applyCachedHazardEmphasis(for: newSession, focusing: initialFocusItemID)
         } catch HomeModelStore.StoreError.invalidInitialModel(let issues) {

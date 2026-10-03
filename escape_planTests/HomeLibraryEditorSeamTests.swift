@@ -63,6 +63,133 @@ final class HomeLibraryEditorSeamTests: XCTestCase {
         XCTAssertTrue(session.undoStack.canUndo, "history for a different home must survive")
     }
 
+    // MARK: - Delete, duplicate, and no blank home until the first edit (S11.21, AUD-021)
+
+    /// Home's "Your homes" list deletes the active home with `library.delete` then
+    /// `readiness.ensureActiveHome()`. The next home takes over; deleting the last leaves none,
+    /// which is what shows "Map your home".
+    func testDeletingTheActiveHomeMovesToAnotherAndTheLastLeavesNone() throws {
+        let (docStore, library) = try makeStores()
+        let first = HomeModelStore.newHome(name: "First")
+        let second = HomeModelStore.newHome(name: "Second")
+        _ = try docStore.save(model: first, now: Date(timeIntervalSince1970: 1_000))
+        _ = try docStore.save(model: second, now: Date(timeIntervalSince1970: 2_000))
+        library.refresh()
+        let readiness = ReadinessStore(library: library)
+        XCTAssertEqual(readiness.activeHomeID, second.home_id, "precondition: newest is active")
+
+        XCTAssertTrue(library.delete(homeID: second.home_id))
+        readiness.ensureActiveHome()
+        XCTAssertEqual(readiness.activeHomeID, first.home_id)
+
+        XCTAssertTrue(library.delete(homeID: first.home_id))
+        readiness.ensureActiveHome()
+        XCTAssertNil(readiness.activeHomeID)
+        XCTAssertTrue(library.homes.isEmpty)
+    }
+
+    /// The app's own path, not a copy of it: the library tells the real sync repository, whose
+    /// tombstone carries the owner the confirmation promised to delete from (SyncDeletionTests
+    /// then proves what a sync does with that tombstone).
+    func testTheConfirmationsPromiseMatchesTheTombstoneTheAppWrites() throws {
+        let (docStore, library) = try makeStores()
+        let stateStore = InMemorySyncStateStore()
+        let sync = HomeDocumentSyncRepository(store: docStore, stateStore: stateStore)
+        library.deletionObserver = sync
+        let owned = HomeModelStore.newHome(name: "Backed up")
+        let local = HomeModelStore.newHome(name: "Only here")
+        _ = try docStore.save(model: owned, now: Date())
+        _ = try docStore.save(model: local, now: Date())
+        library.refresh()
+        var state = stateStore.load()
+        state.homeOwners[owned.home_id] = "u-1"
+        try stateStore.save(state)
+
+        XCTAssertEqual(sync.deletionReach(of: owned.home_id, signedInUserID: "u-1"), .deviceAndAccount)
+        XCTAssertEqual(sync.deletionReach(of: owned.home_id, signedInUserID: nil), .deviceNowAccountLater)
+        XCTAssertEqual(sync.deletionReach(of: local.home_id, signedInUserID: "u-1"), .thisDeviceOnly)
+
+        XCTAssertTrue(library.delete(homeID: owned.home_id))
+        XCTAssertTrue(library.delete(homeID: local.home_id))
+        let after = stateStore.load()
+        XCTAssertEqual(after.deletions[owned.home_id]?.ownerUserID, "u-1")
+        XCTAssertNotNil(after.deletions[local.home_id])
+        XCTAssertNil(after.deletions[local.home_id]?.ownerUserID, "an ownerless tombstone never deletes from a server")
+    }
+
+    func testAFailedDeleteSaysSoAndLeavesNoTombstone() throws {
+        let (_, library) = try makeStores()
+        let observer = RecordingDeletionObserver()
+        library.deletionObserver = observer
+
+        XCTAssertFalse(library.delete(homeID: "no-such-home"))
+        XCTAssertNotNil(library.loadError)
+        XCTAssertTrue(observer.deleted.isEmpty, "a tombstone for a home still on disk, or never there")
+    }
+
+    /// House opens a brand-new home through a controller with no file behind it. Nothing reaches
+    /// disk until the first committed edit saves, so backing out of Build Manually leaves nothing.
+    /// (HomeDeleteUITests drives the real screen.)
+    func testABlankHomeIsNotWrittenUntilItsFirstSave() throws {
+        let (docStore, library) = try makeStores()
+        let blank = HomeModelStore.newHome(name: "New Home")
+        let controller = HouseEditorSessionController(homeID: blank.home_id, disk: docStore)
+
+        XCTAssertNil(try controller.open())
+        XCTAssertEqual(controller.appear(), .current)
+        library.refresh()
+        XCTAssertTrue(library.homes.isEmpty, "opening a blank home wrote a file")
+
+        XCTAssertEqual(controller.save(blank), .saved)
+        library.refresh()
+        XCTAssertEqual(library.homes.map(\.id), [blank.home_id])
+    }
+
+    /// Starter homes are removable like any home, and the seeding flag keeps a deleted one gone
+    /// on the next launch.
+    func testADeletedStarterHomeIsNotReseeded() throws {
+        let (docStore, library) = try makeStores()
+        let suite = "s1121-seed-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let seeded = try FixtureSeeder.seedStarterHomes(into: docStore, defaults: defaults)
+        let bungalow = try XCTUnwrap(seeded.first { $0.name == "Bungalow" })
+        library.refresh()
+        XCTAssertTrue(library.homes.allSatisfy { HomeLibrary.isStarterHome($0.id) }, "labelled Demo")
+
+        XCTAssertTrue(library.delete(homeID: bungalow.home_id))
+        // The next launch runs the same call with the same defaults.
+        XCTAssertTrue(try FixtureSeeder.seedStarterHomes(into: docStore, defaults: defaults).isEmpty)
+        library.refresh()
+        XCTAssertFalse(library.homes.contains { $0.id == bungalow.home_id }, "the deleted starter came back")
+    }
+
+    /// A duplicate is a new home: new id, "<name> copy", the household comes along inside the
+    /// document, not a demo even when copied from one, and the original's checklist ticks stay
+    /// with the original (docs/decisions.md 2026-10-02).
+    func testDuplicateIsAnIndependentHomeWithTheHouseholdButNotTheTicks() throws {
+        let (docStore, library) = try makeStores()
+        let suite = "s1121-dup-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let original = try XCTUnwrap(
+            FixtureSeeder.seedStarterHomes(into: docStore, defaults: defaults).first { !$0.profiles.isEmpty },
+            "a starter home with a household")
+        let ticks = ChecklistStateStore(defaults: defaults)
+        ticks.save(["smoke.test": true], homeID: original.home_id)
+        library.refresh()
+
+        let copyID = try XCTUnwrap(library.duplicate(homeID: original.home_id))
+
+        XCTAssertNotEqual(copyID, original.home_id)
+        let copy = try docStore.load(homeID: copyID, as: HomeModel.self)
+        XCTAssertEqual(copy.name, "\(original.name) copy")
+        XCTAssertEqual(copy.profiles, original.profiles)
+        XCTAssertFalse(HomeLibrary.isStarterHome(copyID))
+        XCTAssertTrue(ticks.load(homeID: copyID).isEmpty)
+        XCTAssertEqual(ticks.load(homeID: original.home_id), ["smoke.test": true])
+    }
+
     // MARK: - One store for the whole app (AUD-019, S11.18)
     //
     // On the launch fallback the library reads a temporary directory. A screen that built its own
@@ -103,4 +230,10 @@ final class HomeLibraryEditorSeamTests: XCTestCase {
         XCTAssertEqual(library.homes.map(\.id), [seeded.home_id],
                        "the demo home must land in the library's directory, not Documents")
     }
+}
+
+@MainActor
+private final class RecordingDeletionObserver: HomeDeletionObserving {
+    var deleted: [String] = []
+    func homeWasDeletedLocally(homeID: String) { deleted.append(homeID) }
 }
