@@ -43,6 +43,16 @@ struct HomeDeletion: Codable, Equatable, Sendable {
     let ownerUserID: String?
 }
 
+/// The "(this device)" copy a lost conflict set aside, remembered so the same version is never
+/// set aside twice (S11.22, AUD-015).
+struct PreservedCopy: Codable, Equatable, Sendable {
+    /// The copy's own `home_id`.
+    let copyHomeID: String
+    /// `HomeFingerprint.of` the local home at the moment it was copied. A later plan for the
+    /// same conflict whose local home still has this fingerprint has nothing new to keep.
+    let preservedFingerprint: String
+}
+
 /// Every `HomeSyncRecord` this device holds, keyed by schema `home_id`, plus the tombstones
 /// for homes deleted here, plus who owns what.
 ///
@@ -55,6 +65,11 @@ struct SyncState: Codable, Equatable, Sendable {
     /// would either leak one account's homes into another's or refuse to back up a first-time
     /// user's entire library — so the version guard in `FileSyncStateStore.load` discards it
     /// and the device re-syncs from scratch.
+    ///
+    /// `preservedCopies` (S11.22) did NOT bump it: it is optional and decoded with
+    /// `decodeIfPresent`, so a version-3 file without it still loads, and a build that predates
+    /// it ignores the key. A bump would make every phone discard its sidecar, forgetting
+    /// tombstones (deleted homes come back) and ownership (docs/decisions.md 2026-10-02).
     static let currentVersion = 3
 
     var version: Int
@@ -86,20 +101,26 @@ struct SyncState: Codable, Equatable, Sendable {
     /// `ownership(of:)`.
     var homeOwners: [String: String]
 
+    /// Conflict copies already made, keyed by the ORIGINAL home's `home_id`. Cleared when the
+    /// conflict resolves (`remember`) or the original is deleted. See `PreservedCopy`.
+    var preservedCopies: [String: PreservedCopy]
+
     init(version: Int = SyncState.currentVersion,
          userID: String? = nil,
          records: [String: HomeSyncRecord] = [:],
          deletions: [String: HomeDeletion] = [:],
-         homeOwners: [String: String] = [:]) {
+         homeOwners: [String: String] = [:],
+         preservedCopies: [String: PreservedCopy] = [:]) {
         self.version = version
         self.userID = userID
         self.records = records
         self.deletions = deletions
         self.homeOwners = homeOwners
+        self.preservedCopies = preservedCopies
     }
 
     private enum CodingKeys: String, CodingKey {
-        case version, userID, records, deletions, homeOwners
+        case version, userID, records, deletions, homeOwners, preservedCopies
     }
 
     /// Absent collections decode as empty rather than failing the whole file — the same
@@ -116,6 +137,8 @@ struct SyncState: Codable, Equatable, Sendable {
         records = try container.decodeIfPresent([String: HomeSyncRecord].self, forKey: .records) ?? [:]
         deletions = try container.decodeIfPresent([String: HomeDeletion].self, forKey: .deletions) ?? [:]
         homeOwners = try container.decodeIfPresent([String: String].self, forKey: .homeOwners) ?? [:]
+        preservedCopies = try container.decodeIfPresent([String: PreservedCopy].self,
+                                                        forKey: .preservedCopies) ?? [:]
     }
 
     static let empty = SyncState()
@@ -128,6 +151,8 @@ struct SyncState: Codable, Equatable, Sendable {
         if let userID { homeOwners[record.localHomeID] = userID }
         // Re-syncing a home means it is back; a stale tombstone would suppress it forever.
         deletions.removeValue(forKey: record.localHomeID)
+        // Both sides now agree, so any conflict this home had is over.
+        preservedCopies.removeValue(forKey: record.localHomeID)
     }
 
     mutating func forget(localHomeID: String) {
@@ -191,10 +216,17 @@ struct SyncState: Codable, Equatable, Sendable {
         // else's home" and be skipped forever — the starter homes share fixed ids, so that is
         // reachable, not theoretical. The tombstone keeps the owner so the deletion still
         // applies to the account it happened in, and only that one.
-        deletions[localHomeID] = HomeDeletion(deletedAt: date,
-                                              ownerUserID: homeOwners[localHomeID])
+        apply(HomeDeletion(deletedAt: date, ownerUserID: homeOwners[localHomeID]),
+              to: localHomeID)
+    }
+
+    /// Records a tombstone made elsewhere: by `markDeleted` in a sidecar written while a sync
+    /// was running (S11.22). Releases the same claims `markDeleted` releases.
+    mutating func apply(_ deletion: HomeDeletion, to localHomeID: String) {
+        deletions[localHomeID] = deletion
         homeOwners.removeValue(forKey: localHomeID)
         records.removeValue(forKey: localHomeID)
+        preservedCopies.removeValue(forKey: localHomeID)
     }
 
     /// The home is on disk again (re-imported, or a stale tombstone from a race), so the
@@ -228,12 +260,15 @@ struct SyncState: Codable, Equatable, Sendable {
             // throw away a different signed-in account's sync history for no reason.
             records: isCurrent ? [:] : records,
             deletions: deletions.filter { $0.value.ownerUserID != userID },
-            homeOwners: homeOwners.filter { $0.value != userID })
+            homeOwners: homeOwners.filter { $0.value != userID },
+            // A conflict with this account's server copy, like `records`.
+            preservedCopies: isCurrent ? [:] : preservedCopies)
     }
 
     /// A copy scoped to one account.
     ///
-    /// `records` are server ids and mean nothing to a different account, so they go. Ownership
+    /// `records` are server ids and mean nothing to a different account, so they go, and so do
+    /// `preservedCopies`, which describe conflicts with that account's server copies. Ownership
     /// and tombstones are facts about THIS DEVICE rather than about one login, so they stay —
     /// dropping them is what would let a second account adopt the first one's homes, and let
     /// the server undo a deletion simply because someone else signed in.
