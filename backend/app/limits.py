@@ -29,8 +29,30 @@ full-length ids -- and measured:
 is small. A home one byte larger than this is rejected by `HomeModel` anyway, so
 it never reaches the body limit.)
 
-MAX_BODY_BYTES_DEFAULT is therefore ~4.5x the largest body the app can legally
-send. That headroom is deliberate: this session ships BEFORE the client-side
+A home is NOT the whole body, though, and an earlier draft of this comment quoted
+the home-only figure as if it were. `/explain` and `/chat` send `home` plus a
+`route_plan` plus `profiles`, so the worst case had to be measured on the real
+combination rather than extrapolated from one term:
+
+    that home's route_plan                 :   273,048 bytes
+    its profiles, sent again separately    :    10,340 bytes
+    --> /chat worst case                   : 2,063,742 bytes (2.06 MB)
+        vs MAX_BODY_BYTES_DEFAULT          : 4.06x headroom
+
+Extrapolating would have been wrong in an interesting direction: on the small
+fixtures a route_plan runs ~1.9x the home it describes, which predicts a ~5.3 MB
+body, but at the maximum it is 0.17x. The ratio inverts because a maximal home is
+dominated by 200 room polygons and 3,200 openings while its route plan still
+describes only a handful of paths. Vary each input independently, then measure the
+combination.
+
+One caveat, deliberately stated rather than hidden: `RoutePlan`'s lists carry no
+length caps of their own (see `app/routing/plan.py`), so 2.06 MB is a MEASURED
+worst case for a plan the engine actually produces, not a ceiling any validator
+enforces. A client that hand-wrote an enormous `route_plan` is still bounded by
+MAX_BODY_BYTES_DEFAULT and nothing finer. There is a BLOCKERS line to bound it.
+
+The remaining headroom is deliberate: this session ships BEFORE the client-side
 trimming (S11.45) and transcoding (S11.33), so a limit chosen tight against
 today's measurement would reject real requests in the gap between sessions.
 
@@ -244,10 +266,18 @@ def _declared_length(scope: Scope) -> Optional[int]:
     * `Transfer-Encoding: chunked` present. RFC 9112 s6.1 says chunked framing
       wins and Content-Length must be ignored. Measured 2026-10-03 against this
       middleware: `Content-Length: 10` plus a 12 MB chunked body sailed past the
-      8 MiB cap when the header was trusted. h11 rejects that combination today,
-      so the practical reach was limited to a deployment behind a proxy that
-      normalizes framing differently -- but a size limit must not depend on
-      another layer's strictness to hold.
+      8 MiB cap when the header was trusted.
+
+      This was directly exploitable on our own stack -- an earlier version of this
+      comment wrongly said h11 rejected the pair and that the reach was limited to
+      a deployment behind a permissive proxy. Verified on the installed
+      h11 0.16.0, with `httptools` absent so uvicorn uses the h11 implementation:
+      `h11._headers.normalize_and_validate` accepts `Content-Length` and
+      `Transfer-Encoding: chunked` together and keeps both, and
+      `h11._connection._body_framing` returns `("chunked", ())` at its own
+      "Step 2: check for Transfer-Encoding (T-E beats C-L)" before it ever reads
+      Content-Length. uvicorn then puts every raw header into `scope["headers"]`,
+      including the one h11 ignored. So the bypass needed no proxy at all.
     * Two `Content-Length` headers that disagree: the classic smuggling pair,
       where each hop believes a different one.
     * A value that is not a non-negative integer.

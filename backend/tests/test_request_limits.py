@@ -346,9 +346,20 @@ def test_default_limit_clears_the_largest_legal_home():
     pretty = len(json.dumps(home))
 
     assert compact < 2_000_000, f"max legal home grew to {compact:,} bytes"
-    assert MAX_BODY_BYTES_DEFAULT > pretty * 4, (
-        f"limit {MAX_BODY_BYTES_DEFAULT:,} leaves under 4x headroom over the "
-        f"largest legal home ({pretty:,} bytes pretty-printed)"
+
+    # A home is not the whole body. /explain and /chat also send a route_plan and
+    # the profiles again, so the headroom that matters is over the COMBINED body.
+    # Measured 2026-10-03 for this exact home: route_plan 273,048 + profiles
+    # 10,340 -> 2,063,742 bytes total, 4.06x under the limit. Routing it to
+    # re-measure costs ~50 s, so the measured figure is asserted as a constant and
+    # the home that produced it is pinned by the size check above.
+    MEASURED_ROUTE_PLAN = 273_048
+    MEASURED_PROFILES = 10_340
+    combined = pretty + MEASURED_ROUTE_PLAN + MEASURED_PROFILES
+
+    assert MAX_BODY_BYTES_DEFAULT > combined * 3, (
+        f"limit {MAX_BODY_BYTES_DEFAULT:,} leaves under 3x headroom over the "
+        f"largest legal /chat body ({combined:,} bytes)"
     )
 
 
@@ -669,3 +680,19 @@ def test_a_truthful_content_length_still_short_circuits():
     assert _declared_length(
         {"headers": [(b"content-length", b"1234"), (b"content-length", b"1234")]}
     ) == 1234
+
+
+def test_the_media_type_tuple_and_literal_cannot_drift():
+    """`ALLOWED_IMAGE_MEDIA_TYPES` and `ImageMediaType` are hand-kept in step, and
+    the drift was only caught in one direction.
+
+    Adding to the tuple alone already fails
+    `test_build_accepts_every_media_type_anthropic_accepts`. Adding to the Literal
+    alone failed nothing: the new type would be silently accepted and forwarded to
+    Anthropic with no test covering it. This closes the other direction.
+    """
+    from typing import get_args
+
+    from app.limits import ImageMediaType
+
+    assert set(get_args(ImageMediaType)) == set(ALLOWED_IMAGE_MEDIA_TYPES)

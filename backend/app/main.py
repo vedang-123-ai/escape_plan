@@ -445,10 +445,17 @@ class BuildRequest(BaseModel):
     allow-list rather than a string forwarded to Anthropic unchecked.
 
     `image_media_type` keeps its "image/png" default: the PDF path really does
-    render a PNG, and the photo path (which mislabels HEIC/JPEG bytes as PNG) is
-    fixed client-side in S11.33. Narrowing the type to the four Anthropic accepts
-    means a HEIC payload is now refused here, with a message naming the problem,
-    instead of costing a model call and coming back as "AI unavailable".
+    render a PNG, and the photo path is fixed client-side in S11.33.
+
+    Read the allow-list narrowly. It refuses a CORRECTLY LABELLED unsupported
+    type, so a caller that honestly says `image/heic` now gets a 422 naming the
+    problem instead of paying for a model call that returns "AI unavailable".
+    It does NOT fix AUD-024's user-visible symptom: `APIClient+Build.swift`
+    hardcodes `image_media_type = "image/png"` at both the struct and function
+    defaults and `BuildFromPlanView` omits the argument, so real HEIC camera bytes
+    still arrive labelled `image/png`, still pass this allow-list and the base64
+    decode, and still reach Anthropic. The mislabel is a client bug and S11.33
+    owns it; this is the server half only.
     """
 
     model_config = ConfigDict(extra="forbid")
