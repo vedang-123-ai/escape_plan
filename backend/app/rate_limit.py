@@ -12,16 +12,48 @@ external store:
   in-flight AI calls, whoever makes them. Full is 429 with `Retry-After`,
   immediately: a request never queues holding a worker thread.
 
-Both are in memory and per process. That is the right size for a single free
+- `ai_budget` (S11.27) — a global ceiling on AI calls per UTC day, whoever makes
+  them. Exhausted is 429. This is the one limit a client cannot reset: see below.
+
+All three are in memory and per process. That is the right size for a single free
 Render instance; more instances would each enforce their own limits, which is a
 known and acceptable over-allowance, not a bypass. The deterministic routes
-(/routes, /score, ...) are deliberately NOT limited — they cost CPU, not credit,
-and the demo path depends on them.
+(/routes, /score without recommendations, ...) are deliberately NOT limited —
+they cost CPU, not credit, and the demo path depends on them.
 
-Keying on IP honours the first `X-Forwarded-For` hop because Render terminates
-TLS at a proxy, so `request.client.host` is the proxy for every caller. The
-first hop is client-supplied and can be forged; a forger gets their own bucket
-but still cannot get past the global semaphore, which is why both exist.
+WHY A DAILY BUDGET AND NOT JUST THE PER-CLIENT BUCKET (S11.27, AUD-003)
+-----------------------------------------------------------------------
+The bearer token ships inside every app build, so it is public: it identifies the
+app, not the caller. The per-client bucket was therefore the only thing standing
+between a leaked token and the credit balance, and it keyed on a value the caller
+sets. Both halves of that are fixed here — the key is no longer client-supplied
+(below), and the daily budget bounds total spend even if the key is defeated,
+because it counts every AI call regardless of who makes it. The account has run
+dry once already.
+
+A restart resets the counter. That is accepted and not hidden: on one free Render
+instance a restart is rare, and the alternative (persisting in Mongo) would attach
+spend control to a database the demo trim is switching off. If the service is ever
+run as several instances, each enforces its own budget and the effective ceiling
+multiplies by the instance count.
+
+CHOOSING THE CLIENT KEY (S11.27)
+--------------------------------
+The previous key was the FIRST `X-Forwarded-For` hop, which a caller controls
+outright: Render's own FastAPI guidance calls trusting that "a critical
+vulnerability, allowing bad actors to spoof their IP address", so a script got a
+fresh bucket per request simply by varying the header. Confirmed from Render's
+documentation 2026-10-03: "All inbound traffic to Render web services passes
+through Cloudflare's global network before reaching your application", and
+proxies APPEND to `X-Forwarded-For` — so the trustworthy hops are at the RIGHT
+end of the list and the left end is whatever the caller invented.
+
+`client_key` therefore prefers a header the infrastructure overwrites
+(`CF-Connecting-IP`, which Cloudflare sets on every proxied request), and falls
+back to counting in from the right of `X-Forwarded-For` by the number of proxy
+hops in front of the app. Both are configurable, so nothing here depends on a
+vendor detail staying true: set `AI_TRUSTED_PROXY_HOPS=0` for a local run with no
+proxy and the socket peer is used instead.
 """
 
 from __future__ import annotations
@@ -30,6 +62,7 @@ import math
 import threading
 import time
 from collections.abc import AsyncIterator, Callable
+from datetime import date, datetime, time as dt_time, timedelta, timezone
 
 from fastapi import HTTPException, Request
 
@@ -117,13 +150,109 @@ gate = ConcurrencyGate()
 
 
 def client_key(request: Request) -> str:
-    """The client's IP: the first `X-Forwarded-For` hop when present (Render's
-    proxy), else the socket peer."""
-    forwarded = request.headers.get("x-forwarded-for", "")
-    first_hop = forwarded.split(",")[0].strip()
-    if first_hop:
-        return first_hop
+    """The client's IP, from a source the client cannot choose.
+
+    In order:
+
+    1. The trusted header (`AI_CLIENT_IP_HEADER`, default `cf-connecting-ip`).
+       Cloudflare writes it on every proxied request and overwrites whatever the
+       caller sent, so it is both accurate and outside the caller's control.
+    2. `X-Forwarded-For`, counted from the RIGHT by `AI_TRUSTED_PROXY_HOPS`.
+       Proxies append, so with one proxy in front the last entry is the one that
+       proxy observed, and everything to its left is caller-supplied. Asking for
+       more hops than the list holds falls back to the leftmost entry rather than
+       indexing off the end -- that is the most conservative reading available,
+       and it is also what a correctly configured deployment never hits.
+    3. The socket peer, for a local run with no proxy at all
+       (`AI_TRUSTED_PROXY_HOPS=0`).
+
+    Returning the same constant for every unidentifiable caller is deliberate:
+    they share one bucket rather than each getting a fresh one.
+    """
+    settings = get_settings()
+
+    trusted_header = settings.ai_client_ip_header
+    if trusted_header:
+        value = request.headers.get(trusted_header, "").strip()
+        if value:
+            return value
+
+    hops = settings.ai_trusted_proxy_hops
+    if hops > 0:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        entries = [part.strip() for part in forwarded.split(",") if part.strip()]
+        if entries:
+            index = max(0, len(entries) - hops)
+            return entries[index]
+
     return request.client.host if request.client else "unknown"
+
+
+class DailyAICallBudget:
+    """A process-wide ceiling on AI calls per UTC day (S11.27, AUD-003).
+
+    Counts CALLS, not tokens. Debiting real token usage would mean every AI
+    module reporting its `response.usage` back here, and `app/ai/` is outside
+    this session's owned files -- there is a BLOCKERS line for it. A call count
+    still bounds spend, because every call site has its own `max_tokens` cap.
+
+    The day boundary is UTC so the ceiling does not shift with the server's
+    timezone, and so "today" means the same thing in a log and in /health. The
+    clock is injectable for the same reason the token bucket's is: tests move
+    time instead of sleeping.
+    """
+
+    def __init__(self, clock: Callable[[], datetime] | None = None) -> None:
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._lock = threading.Lock()
+        self._day: date | None = None
+        self._spent = 0
+
+    def _roll(self) -> None:
+        """Reset the counter when the UTC day changes. Caller holds the lock."""
+        today = self._clock().date()
+        if self._day != today:
+            self._day = today
+            self._spent = 0
+
+    def spend(self, limit: int) -> bool:
+        """Charge one call. True if it was within budget, False if exhausted."""
+        with self._lock:
+            self._roll()
+            if self._spent >= limit:
+                return False
+            self._spent += 1
+            return True
+
+    def remaining(self, limit: int) -> int:
+        with self._lock:
+            self._roll()
+            return max(0, limit - self._spent)
+
+    def spent_today(self) -> int:
+        with self._lock:
+            self._roll()
+            return self._spent
+
+    def reset(self) -> None:
+        with self._lock:
+            self._day = None
+            self._spent = 0
+
+
+budget = DailyAICallBudget()
+
+
+def _seconds_until_utc_midnight(now: datetime) -> float:
+    """How long until the budget rolls over, for `Retry-After`.
+
+    Telling a client to come back in 5 s when the budget is spent for the day
+    would just produce a retry loop against a wall.
+    """
+    tomorrow = datetime.combine(
+        now.date() + timedelta(days=1), dt_time.min, tzinfo=timezone.utc
+    )
+    return max(1.0, (tomorrow - now).total_seconds())
 
 
 def _too_many(detail: str, retry_after_s: float) -> HTTPException:
@@ -134,9 +263,14 @@ def _too_many(detail: str, retry_after_s: float) -> HTTPException:
     )
 
 
-async def ai_rate_limit(request: Request) -> None:
-    """Per-client token bucket. Declare AFTER `require_token`, so a request
-    without the token is a 401 and never spends anyone's budget."""
+def enforce_rate_limit(request: Request) -> None:
+    """Charge the per-client bucket, raising 429 if it is empty.
+
+    Sync and separate from the dependency below so `/score`'s conditional AI call
+    enforces the SAME limit through the SAME code (app/deps.py). Two
+    implementations of one limit is how `/score` came to spend credit outside the
+    guard in the first place (AUD-006).
+    """
     settings = get_settings()
     wait = limiter.take(
         client_key(request), settings.ai_rate_per_min, settings.ai_rate_burst
@@ -147,14 +281,48 @@ async def ai_rate_limit(request: Request) -> None:
         )
 
 
+def enforce_budget() -> None:
+    """Charge the daily budget, raising 429 if today's allowance is spent."""
+    settings = get_settings()
+    if not budget.spend(settings.ai_daily_call_budget):
+        raise _too_many(
+            "The daily AI limit for this server has been reached. "
+            "Routes, scores and the rest of the app are unaffected.",
+            _seconds_until_utc_midnight(datetime.now(timezone.utc)),
+        )
+
+
+def busy_exception() -> HTTPException:
+    """The 429 for "every AI slot is in use"."""
+    return _too_many(
+        "The assistant is busy right now. Please try again in a moment.",
+        CONCURRENCY_RETRY_AFTER_S,
+    )
+
+
+async def ai_rate_limit(request: Request) -> None:
+    """Per-client token bucket. Declare AFTER `require_token`, so a request
+    without the token is a 401 and never spends anyone's budget."""
+    enforce_rate_limit(request)
+
+
+async def ai_budget() -> None:
+    """Global daily ceiling on AI calls. Declare AFTER `require_token`, so an
+    unauthenticated request never spends the day's budget.
+
+    Charged on ENTRY, not on success. A call that reaches Anthropic and then
+    fails has usually already cost credit, and a budget that refunded failures
+    would let a loop of failing calls run unbounded -- which is the exact shape
+    of the incident that drained the account.
+    """
+    enforce_budget()
+
+
 async def ai_concurrency() -> AsyncIterator[None]:
     """Global in-flight cap; the slot is held until the endpoint returns."""
     semaphore = gate.semaphore(get_settings().ai_max_concurrent)
     if not semaphore.acquire(blocking=False):
-        raise _too_many(
-            "The assistant is busy right now. Please try again in a moment.",
-            CONCURRENCY_RETRY_AFTER_S,
-        )
+        raise busy_exception()
     try:
         yield
     finally:

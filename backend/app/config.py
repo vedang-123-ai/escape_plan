@@ -43,6 +43,19 @@ class Settings(BaseModel):
     ai_rate_per_min: float = 6.0
     ai_rate_burst: int = 3
     ai_max_concurrent: int = 4
+    # S11.27 (AUD-003). The bearer token ships in every app build and is public,
+    # so it bounds nobody's spend. These two do.
+    ai_daily_call_budget: int = 300
+    """AI calls allowed per UTC day, server-wide. Sized for filming: a demo run
+    uses a handful, so 300 is roomy for a day of rehearsal and still a ceiling a
+    runaway script hits in minutes rather than draining the account."""
+    ai_client_ip_header: str = "cf-connecting-ip"
+    """A header the infrastructure overwrites, used as the rate-limit key when
+    present. Empty string disables it (then the X-Forwarded-For path is used)."""
+    ai_trusted_proxy_hops: int = 1
+    """How many proxies sit in front of this app, so `client_key` knows how far
+    from the RIGHT of X-Forwarded-For the trustworthy entry is. 0 means no proxy:
+    use the socket peer, which is correct for a local run."""
 
     @property
     def auth_enabled(self) -> bool:
@@ -131,7 +144,34 @@ def get_settings() -> Settings:
         ai_rate_per_min=_positive_number("AI_RATE_PER_MIN", "6", float),
         ai_rate_burst=_positive_number("AI_RATE_BURST", "3", int),
         ai_max_concurrent=_positive_number("AI_MAX_CONCURRENT", "4", int),
+        ai_daily_call_budget=_positive_number("AI_DAILY_CALL_BUDGET", "300", int),
+        # Not _positive_number: an empty value is meaningful (disable the header)
+        # and lowercased because ASGI header lookups are case-insensitive but the
+        # comparison in client_key is not.
+        ai_client_ip_header=os.environ.get("AI_CLIENT_IP_HEADER", "cf-connecting-ip")
+        .strip()
+        .lower(),
+        # Not _positive_number either: 0 is the valid "no proxy" setting.
+        ai_trusted_proxy_hops=_non_negative_int("AI_TRUSTED_PROXY_HOPS", "1"),
     )
+
+
+def _non_negative_int(name: str, default: str) -> int:
+    """Read an int env var that may legitimately be zero.
+
+    `_positive_number` refuses 0 because a zero rate or semaphore size would brick
+    the AI routes. A zero proxy-hop count is not that: it is the correct setting
+    for running with no proxy in front, so it needs its own reader rather than a
+    relaxation of the other one.
+    """
+    raw = os.environ.get(name) or default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"{name}={raw!r} is not an integer") from exc
+    if value < 0:
+        raise RuntimeError(f"{name} must be zero or greater, got {raw!r}")
+    return value
 
 
 def _positive_number(name: str, default: str, kind: type[int] | type[float]) -> Any:
