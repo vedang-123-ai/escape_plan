@@ -91,14 +91,16 @@ sign-off.** Invariants:
 - **Don't trust a clean merge.** A textually clean merge of `origin/main` once combined a flipped rotation with
   tests written for the original. Run the gate after every merge.
 
-## Scope lock (restated 2026-09-18; full text in the product spec §4)
+## Scope lock (restated 2026-09-18, demo trim 2026-10-02; full text in the product spec §4)
 
 Fire + earthquake + severe weather (tornado); iOS only; LiDAR scan plus editor primary, with the text/photo
-builder as a draft-only accessibility fallback; accounts and cloud sync **optional and soft-gated**, never
-required and absent from the pitch; **no custom or trained ML**; no fourth peril, no Android. Fire is fully
-code-quantified; earthquake and tornado are FEMA/NOAA-grounded readiness modules and must be labeled honestly.
-Object hazards come from RoomPlan objects plus guided manual tagging — transient clutter is never claimed as
-detected. Any change to this lock is a dated entry in `docs/decisions.md`.
+builder as a draft-only accessibility fallback; **no accounts or cloud sync in the app** (cut 2026-10-02: `Auth/`
+and `Sync/` are kept but switched off, no screen reaches them); **no custom or trained ML**; no fourth peril, no
+Android. Fire is fully code-quantified; earthquake and tornado are FEMA/NOAA-grounded readiness modules and must be
+labeled honestly. Object hazards come from RoomPlan objects plus manual tagging in the House object inspector
+(Hazard Hunt, the guided version, was cut 2026-10-02) — transient clutter is never claimed as detected. Also cut
+2026-10-02: the re-scan review, the AR drill walk, and the practice log and reminders. Any change to this lock is a
+dated entry in `docs/decisions.md`.
 
 ## Conventions
 

@@ -135,4 +135,35 @@ struct BackendFailureTests {
         #expect(f.message.contains("connection") == false)
         #expect(f.message.contains("this device"))
     }
+
+    @Test("An opted-in banner fades, except for a Settings fix, an offline notice, or VoiceOver")
+    func bannerAutoHide() {
+        #expect(BackendFailureBanner.hidesAutomatically(failure(503), voiceOverRunning: false))
+        #expect(BackendFailureBanner.hidesAutomatically(failure(502, .assistant), voiceOverRunning: false))
+        #expect(!BackendFailureBanner.hidesAutomatically(failure(401), voiceOverRunning: false),
+                "a wrong token needs Settings; the banner is the only thing saying so")
+        #expect(!BackendFailureBanner.hidesAutomatically(failure(503), voiceOverRunning: true),
+                "a VoiceOver user may not have reached the banner yet")
+        #expect(!BackendFailureBanner.hidesAutomatically(
+                    BackendFailure(URLError(.notConnectedToInternet), while: .routes), voiceOverRunning: false),
+                "offline is what says the routes on screen are saved, not live")
+        #expect(!BackendFailureBanner.hidesAutomatically(.showingCachedRoutes(savedAt: Date()),
+                                                         voiceOverRunning: false))
+        #expect(BackendFailureBanner.autoHideDelay == .seconds(8))
+    }
+}
+
+/// Which checklist items open the drill (demo trim, 2026-10-02): only the drill item itself.
+@MainActor
+struct TaskDestinationTests {
+    private func practice(_ id: String) -> ChecklistItem {
+        ChecklistItem(id: id, category: .practice, title: "t", detail: "d", done: false, scoring: false)
+    }
+
+    @Test("Only the drill item opens the drill; meeting point and re-scan tick off in place")
+    func practiceItems() {
+        #expect(TaskDestination(practice("practice.drill_recent")) == .drill)
+        #expect(TaskDestination(practice("practice.meeting_point")) == .toggle)
+        #expect(TaskDestination(practice("rescan.home")) == .toggle)
+    }
 }

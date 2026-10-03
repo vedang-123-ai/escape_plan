@@ -1,7 +1,9 @@
 //  SignedOutPathUITests.swift — S11.7: the whole app, with no account.
 //
-//  The claim on the sign-in screen (`AccountPrivacy.signedOutSummary`) is that you never need an
-//  account. `SignedOutProofTests` pins the part that is pure — no token means no request.
+//  Accounts and cloud sync were cut from the demo app on 2026-10-02 (code kept, switched off), so
+//  "signed out" is now the only state. The tests below prove there is no gate or sign-in left and
+//  that every tab and the privacy disclosure still work. Originally: the claim on the sign-in
+//  screen (`AccountPrivacy.signedOutSummary`) was that you never need an account. `SignedOutProofTests` pins the part that is pure — no token means no request.
 //  This walks the screens, which is the part only a simulator can answer.
 //
 //  Deliberately BACKEND-FREE. Every assertion below is about a screen appearing, never about a
@@ -43,46 +45,17 @@ final class SignedOutPathUITests: XCTestCase {
         return app
     }
 
-    // MARK: - The gate is soft
+    // MARK: - No account anywhere (accounts cut 2026-10-02)
 
-    /// The one assertion the whole soft-gate decision rests on: a brand-new install can get
-    /// into the app without an account, and the way past is a visible control rather than
-    /// something to hunt for.
+    /// Accounts and cloud sync were cut from the demo app. Even with the gate flag forced back
+    /// to "not dismissed", a launch goes straight into the app.
     @MainActor
-    func testTheGateCanBeDismissedWithoutAnAccount() throws {
+    func testThereIsNoAccountGate() throws {
         let app = launchSignedOut(showGate: true)
-
-        let skip = app.buttons["Continue without an account"]
-        XCTAssertTrue(skip.waitForExistence(timeout: 20),
-                      "no way past the auth gate — the soft gate has become a wall")
-        XCTAssertTrue(skip.isHittable, "the way past must not be off-screen or covered")
-        skip.tap()
 
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 20),
-                      "dismissing the gate did not reach the app")
-    }
-
-    /// The disclosure has to be readable before the decision, not after it.
-    @MainActor
-    func testTheGateSaysWhatLeavesThePhone() throws {
-        let app = launchSignedOut(showGate: true)
-
-        let disclose = app.buttons["What leaves this iPhone?"]
-        XCTAssertTrue(disclose.waitForExistence(timeout: 20),
-                      "the gate asks for an account without saying what leaves the phone")
-        disclose.tap()
-
-        // By identifier, not by visible string: the two lists are `.combine`d for VoiceOver,
-        // which replaces their descendant Texts with one element whose label is the whole
-        // paragraph. Queried by string these never resolve — caught in review before they had
-        // ever run, which is exactly the failure mode an unrun test has.
-        // S11.16: what is sent to compute and to Anthropic comes first, because it happens
-        // signed out; what an account saves is the opt-in part.
-        XCTAssertTrue(disclosureList(in: app, "privacy.compute").waitForExistence(timeout: 5))
-        XCTAssertTrue(disclosureList(in: app, "privacy.anthropic").exists)
-        XCTAssertTrue(disclosureList(in: app, "privacy.uploads").exists)
-        XCTAssertTrue(disclosureList(in: app, "privacy.notSynced").exists)
-        XCTAssertTrue(disclosureList(in: app, "privacy.neverUploads").exists)
+                      "the app did not open straight to Home")
+        XCTAssertFalse(app.buttons["Continue without an account"].exists, "the account gate is back")
     }
 
     // MARK: - Every tab opens
@@ -119,27 +92,31 @@ final class SignedOutPathUITests: XCTestCase {
     // MARK: - Settings tells the truth
 
     @MainActor
-    func testSettingsOffersAnAccountRatherThanRequiringOne() throws {
+    func testSettingsOffersNoAccount() throws {
         let app = launchSignedOut()
         app.tabBars.buttons["Settings"].tap()
 
-        XCTAssertTrue(app.buttons["Sign in or create an account"].waitForExistence(timeout: 20),
-                      "signed out, Settings must offer the way IN to an account")
-        XCTAssertFalse(app.buttons["Delete account and data"].exists,
-                       "there is no account to delete")
+        XCTAssertTrue(app.buttons["What leaves this iPhone?"].waitForExistence(timeout: 20))
+        XCTAssertFalse(app.buttons["Sign in or create an account"].exists, "accounts were cut")
+        XCTAssertFalse(app.buttons["Delete account and data"].exists, "accounts were cut")
     }
 
-    /// Signed out, the disclosure is still there — someone deciding whether to sign up looks
-    /// here as often as at the gate.
+    /// The disclosure moved from the Account section to its own Privacy section: still true for
+    /// everyone, because routes, the score and the fire simulation send the home to compute.
     @MainActor
-    func testSettingsCarriesThePrivacyDisclosureSignedOut() throws {
+    func testSettingsCarriesThePrivacyDisclosure() throws {
         let app = launchSignedOut()
         app.tabBars.buttons["Settings"].tap()
 
         let disclose = app.buttons["What leaves this iPhone?"]
         XCTAssertTrue(disclose.waitForExistence(timeout: 20))
         disclose.tap()
-        XCTAssertTrue(disclosureList(in: app, "privacy.neverUploads").waitForExistence(timeout: 5))
+        // By identifier: the lists are `.combine`d for VoiceOver, so their strings are not
+        // queryable (AUD-036).
+        XCTAssertTrue(disclosureList(in: app, "privacy.compute").waitForExistence(timeout: 5))
+        XCTAssertTrue(disclosureList(in: app, "privacy.anthropic").exists)
+        XCTAssertTrue(disclosureList(in: app, "privacy.neverUploads").exists)
+        XCTAssertFalse(disclosureList(in: app, "privacy.uploads").exists, "there is no account to save to")
     }
 
     /// The `.combine`d list is exposed under whatever element type SwiftUI picks for a Label plus

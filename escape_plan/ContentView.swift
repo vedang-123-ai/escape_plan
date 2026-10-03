@@ -77,9 +77,9 @@ struct ContentView: View {
             // Sync writes pulled homes through this library, and reads its `editor` to know
             // which home is open so it never overwrites one mid-edit.
             syncRepository.library = library
-            // A deletion is remembered as a tombstone: it stops the next sync downloading the home
-            // straight back, and an owned one sends `DELETE /homes/{id}` (docs/decisions.md 2026-09-24).
-            library.deletionObserver = syncRepository
+            // `library.deletionObserver = syncRepository` wrote a sync tombstone per deleted home. Not
+            // wired while accounts and sync are switched off (demo trim, 2026-10-02): with no sync a
+            // deleted home cannot come back, and a failed tombstone write warned that it might.
             readiness.ensureActiveHome()
             // Start waking the free-tier Render instance NOW, alongside the cached score, rather
             // than on the first real request (a cold start is tens of seconds). Fire and

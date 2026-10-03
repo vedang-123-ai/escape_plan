@@ -24,7 +24,8 @@ compiled automatically (no `project.pbxproj` edit, and no stray scratch files). 
   `DrillRelocalizationController/View`, `ARDrillView`. Device-only, unverified; the flat-screen `DrillMode/` is the fallback.
 - `DrillMode/` — flat-screen practice drill, practice log and reminders.
 - `Export/` — plan PDF/JSON export, `MeetingPointStore`, and the Responder Snapshot (`ResponderSnapshot*`).
-- `Auth/`, `Sync/` — optional accounts and cloud sync. **Pure Foundation, no SwiftUI/UIKit**: both are symlinked into
+- `Auth/`, `Sync/` — accounts and cloud sync, **switched off since 2026-10-02** (no screen reaches them; `RootView`
+  signs out any stored login once). `AccountPrivacy` copy and `HomeFingerprint` are still live. **Pure Foundation, no SwiftUI/UIKit**: both are symlinked into
   `tools/editorcore`, as is `Drill/SemanticMatcher.swift`; a SwiftUI import there silently removes test coverage.
   The per-user JWT goes on `/homes` only; the dirty check fingerprints the decoded model, never bytes.
 - `Screens/` — the tab shell and sub-screens (table below).
@@ -44,11 +45,10 @@ injects them with `.environment(...)`. `RootView` chooses the soft auth gate vs 
 | `ScoreScreen`, `ProfilesScreen`, `ProfileEditorView` | score breakdown (reads `ReadinessStore`); per-home family profiles CRUD | S11.5 / stable |
 | `HouseScreen` | THE unified 3D screen: editor (rooms, openings, stairs, undo/redo) and route viewer at once | S11.9 (camera) |
 | `AssistantScreen` | grounded chat against `/chat`; degrades gracefully with no key or bearer | stable |
-| `SettingsScreen` | server URL/token, account section | S11.7 |
+| `SettingsScreen` | server URL/token, fire-department share, Privacy ("what leaves this iPhone") | S11.7 |
 | `BuildFromPlanView` | text/photo `/build` intake, draft-only, mandatory editor review | stable |
-| `HazardHuntView`, `DiffReviewSheet` | guided manual hazard tagging; partial re-scan diff review | stable |
 | `ConsentSheet` (+ `Export/`) | "Share with your fire department" consent and snapshot | S11.6 |
-| `AuthGateView`, `LoginView`, `SignupView`, `AuthSheetView`, `SyncStatusBadge` | optional accounts; gate is SOFT ("Continue without an account") | S11.7 |
+| `AuthGateView`, `LoginView`, `SignupView`, `AuthSheetView`, `SyncStatusBadge` | **unreachable since 2026-10-02** (accounts cut, code kept); `AccountPrivacyDisclosure` is still used by Settings | — |
 | `RouteFindingViews`, `HomeThumbnailView`, `BackendFailureBanner` | presentation only; the shared failure notice | stable |
 
 ## Hard rules

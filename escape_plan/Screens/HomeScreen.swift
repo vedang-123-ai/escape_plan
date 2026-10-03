@@ -3,8 +3,8 @@
 //
 //  A short overview, not a dashboard: which home, how prepared it is, the next three things to
 //  do, the two things you come here for (drill, 3D house), and one cited prevention tip. The full
-//  checklist moved to the Tasks tab; Home owns the flows that add a home (scan, build, import)
-//  and the partial re-scan, because they start here.
+//  checklist moved to the Tasks tab; Home owns the flows that add a home (scan, build, import),
+//  because they start here.
 
 import SwiftUI
 
@@ -14,9 +14,6 @@ struct HomeScreen: View {
     @Environment(AppRouter.self) private var router
     @EnvironmentObject private var library: HomeLibrary
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(AuthSession.self) private var auth
-    @Environment(SyncManager.self) private var sync
-    @Environment(HomeDocumentSyncRepository.self) private var syncRepository
 
     // Adding a home
     @State private var showingNewHome = false
@@ -25,12 +22,6 @@ struct HomeScreen: View {
     @State private var isConverting = false
     @State private var scanFailure: BackendFailure?
     @State private var lastScanArtifacts: ScanArtifacts?
-
-    // Partial re-scan of one room
-    @State private var targetRecheckRoomID: String?
-    @State private var showingRoomPicker = false
-    @State private var pendingDiffResult: DiffResult?
-    @State private var pendingRecheckRoomID: String?
 
     @State private var scoreHomeID: String?
     @State private var drillHomeID: String?
@@ -70,37 +61,8 @@ struct HomeScreen: View {
                 guard let intent else { return }
                 router.homeIntent = nil
                 switch intent {
-                case .scan: targetRecheckRoomID = nil; showingScan = true
-                case .recheckRoom: showingRoomPicker = true
+                case .scan: showingScan = true
                 }
-            }
-            .confirmationDialog("Select a room to re-check", isPresented: $showingRoomPicker, titleVisibility: .visible) {
-                if let home = readiness.activeHome {
-                    ForEach(home.floors.flatMap(\.rooms)) { room in
-                        Button(room.name) {
-                            targetRecheckRoomID = room.id
-                            showingScan = true
-                        }
-                    }
-                }
-                Button("Cancel", role: .cancel) { }
-            }
-            .sheet(item: Binding<DiffResultWrapper?>(
-                get: { pendingDiffResult.map { DiffResultWrapper(result: $0) } },
-                set: { if $0 == nil { pendingDiffResult = nil } }
-            )) { wrapper in
-                DiffReviewSheet(
-                    result: wrapper.result,
-                    onAdd: { obj in
-                        guard var home = readiness.activeHome, let roomID = pendingRecheckRoomID,
-                              let floorIdx = home.floors.firstIndex(where: { $0.rooms.contains(where: { $0.id == roomID }) })
-                        else { return }
-                        home.floors[floorIdx].objects.append(obj)
-                        try? library.store.save(model: home)
-                        readiness.replaceActiveHome(home, api: apiClient)
-                    },
-                    onDismiss: { pendingDiffResult = nil; pendingRecheckRoomID = nil }
-                )
             }
             .sheet(isPresented: $showingBuildFromPlan) {
                 BuildFromPlanView { homeID in
@@ -111,27 +73,21 @@ struct HomeScreen: View {
             .sheet(isPresented: $showingManageHomes) {
                 ManageHomesSheet(
                     activeHomeID: readiness.activeHomeID,
-                    reach: { syncRepository.deletionReach(of: $0, signedInUserID: auth.token?.subject) },
+                    // Accounts are switched off (2026-10-02): a delete only ever reaches this iPhone.
+                    reach: { _ in .thisDeviceOnly },
                     onOpen: { id in showingManageHomes = false; switchHome(to: id) },
                     onDelete: deleteHome)
             }
             .sheet(item: $detailItem) { item in
                 TaskDetailSheet(item: item,
                                 isDone: readiness.isDone(item),
-                                onPrimary: { perform(item) },
-                                onRecheck: item.id == "rescan.home"
-                                    ? { detailItem = nil; showingRoomPicker = true } : nil)
+                                onPrimary: { perform(item) })
             }
             .fullScreenCover(isPresented: $showingScan) {
                 ScanFlowView(
-                    recheckRoomID: targetRecheckRoomID,
                     onFinished: { artifacts in
                         showingScan = false
-                        if let rid = targetRecheckRoomID {
-                            Task { await processRecheck(artifacts: artifacts, roomID: rid) }
-                        } else {
-                            Task { await importScan(artifacts) }
-                        }
+                        Task { await importScan(artifacts) }
                     },
                     onCancel: { showingScan = false }
                 )
@@ -203,9 +159,8 @@ struct HomeScreen: View {
             }
             .accessibilityLabel("Home: \(readiness.activeHome?.name ?? "none"). Switch home.")
             Spacer()
-            SyncStatusBadge()
             Menu {
-                Button { targetRecheckRoomID = nil; showingScan = true } label: {
+                Button { showingScan = true } label: {
                     Label("Scan New Home", systemImage: "camera.viewfinder")
                 }
                 .accessibilityIdentifier("Scan New Home")
@@ -243,9 +198,6 @@ struct HomeScreen: View {
             readiness.ensureActiveHome()
             Task { await readiness.load(api: apiClient) }
         }
-        // Signed in, the tombstone is what deletes the account's copy, and only a sync sends it.
-        // Signed out this does nothing.
-        Task { await sync.syncIfSignedIn() }
         return true
     }
 
@@ -506,7 +458,7 @@ struct HomeScreen: View {
                 .fixedSize(horizontal: false, vertical: true)
             VStack(spacing: 8) {
                 DSPrimaryButton(title: "Scan my home", systemImage: "camera.viewfinder") {
-                    targetRecheckRoomID = nil; showingScan = true
+                    showingScan = true
                 }
                 DSSecondaryButton(title: "Build it myself") { showingNewHome = true }
             }
@@ -536,21 +488,6 @@ struct HomeScreen: View {
     }
 
     // MARK: - Scan conversion
-
-    private func processRecheck(artifacts: ScanArtifacts, roomID: String) async {
-        isConverting = true
-        defer { isConverting = false }
-        do {
-            guard let activeHome = readiness.activeHome else { return }
-            let scanModel = try await apiClient.convertScan(at: artifacts.rawJSON, homeName: "Recheck")
-            let diffRequest = DiffRequest(stored_model: activeHome, scan_model: scanModel, target_room_id: roomID)
-            let result = try await apiClient.diffObstructions(diffRequest)
-            pendingRecheckRoomID = roomID
-            pendingDiffResult = result
-        } catch {
-            scanFailure = BackendFailure(error, while: .score)
-        }
-    }
 
     private func importScan(_ artifacts: ScanArtifacts) async {
         isConverting = true
