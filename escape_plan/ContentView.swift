@@ -77,8 +77,8 @@ struct ContentView: View {
             // Sync writes pulled homes through this library, and reads its `editor` to know
             // which home is open so it never overwrites one mid-edit.
             syncRepository.library = library
-            // The backend has no delete endpoint, so a deletion has to be remembered here or the
-            // next sync downloads the home straight back.
+            // A deletion is remembered as a tombstone: it stops the next sync downloading the home
+            // straight back, and an owned one sends `DELETE /homes/{id}` (docs/decisions.md 2026-09-24).
             library.deletionObserver = syncRepository
             readiness.ensureActiveHome()
             // Start waking the free-tier Render instance NOW, alongside the cached score, rather
@@ -100,8 +100,11 @@ struct ContentView: View {
             if !onboardingCompleted { showingOnboarding = true }
         }
         .fullScreenCover(isPresented: $showingOnboarding) {
-            OnboardingFlowView {
-                onboardingCompleted = true
+            OnboardingFlowView(documentStore: library.store) {
+                // On the temporary fallback store the interview's answers vanish on quit, so do not
+                // spend the flag on them: the next launch with real storage asks again. Same reason
+                // escape_planApp skips starter seeding on the fallback (S11.18 review).
+                if !storageUnavailable { onboardingCompleted = true }
                 showingOnboarding = false
                 // The interview just wrote profiles and tenure (and maybe a demo home) to disk.
                 // Re-read so the Home tab shows them now, not after a relaunch.
@@ -139,17 +142,35 @@ private struct HouseTab: View {
     @Environment(ReadinessStore.self) private var readiness
     @Environment(AppRouter.self) private var router
     @EnvironmentObject private var library: HomeLibrary
+    /// The home a blank editor (empty library) created with its first edit. That save makes the
+    /// home appear, which must not change the `.id` below: a rebuild would throw away the editor
+    /// and the undo of the edit that created it (S11.21, AUD-021).
+    @State private var homeCreatedByBlankEditor: String?
+    /// Bumped when the library empties again, so the next blank editor is a fresh one.
+    @State private var blankGeneration = 0
 
     var body: some View {
         // Only a request for the ACTIVE home counts. Preferring any request over the active home
         // stranded this tab on the old home after a switch on the Home tab (audit 2026-09-25).
         let request = HouseRequest.honoured(router.houseRequest, activeHomeID: readiness.activeHomeID)
         let homeID = readiness.activeHomeID ?? library.homes.first?.id
+        let wasBlank = homeID == nil
+        let key = homeID == nil || homeID == homeCreatedByBlankEditor ? "new\(blankGeneration)" : homeID!
         HouseScreen(homeID: homeID, library: library, initialFocusItemID: request?.focusItemID) {
             library.refresh()
+            if wasBlank, homeCreatedByBlankEditor == nil {
+                homeCreatedByBlankEditor = library.homes.first?.id
+                readiness.ensureActiveHome()
+            }
             Task { await readiness.load(api: apiClient) }
         }
-        .id("\(homeID ?? "new")-\(request?.token.uuidString ?? "")")
+        .id("\(key)-\(request?.token.uuidString ?? "")")
+        .onChange(of: homeID) { old, new in
+            if new == nil, old != nil {
+                homeCreatedByBlankEditor = nil
+                blankGeneration += 1
+            }
+        }
     }
 }
 

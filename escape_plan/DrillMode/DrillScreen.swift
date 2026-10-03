@@ -33,6 +33,7 @@ import RoomPlan
 struct DrillScreen: View {
     @Environment(APIClient.self) private var apiClient
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @EnvironmentObject private var library: HomeLibrary
     let homeID: String
 
     /// An externally supplied timeline (previews, tests, a future caller that already has one).
@@ -91,6 +92,7 @@ struct DrillScreen: View {
     @State private var lastPracticed: Date?
     @State private var logError: String?
     @State private var showingLog = false
+    @State private var showingProfiles = false
     /// nil only if Documents is unavailable; the drill still runs, it just isn't recorded.
     /// Built once in `load()` rather than per view init — SwiftUI re-inits the struct on every
     /// timer tick, and the store's init touches the filesystem.
@@ -115,6 +117,18 @@ struct DrillScreen: View {
                 overlay?.cancelTour()
                 // Leaving mid-drill is a stopped drill, not a lost one.
                 finish(outcome: .abandoned)
+            }
+            // A sheet, so the drill stays where it is and reloads the home when it closes.
+            .sheet(isPresented: $showingProfiles, onDismiss: reloadAfterProfiles) {
+                NavigationStack {
+                    ProfilesScreen(homeID: homeID, store: library.store)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Done") { showingProfiles = false }
+                                    .tint(Theme.accentText)
+                            }
+                        }
+                }
             }
             .sheet(isPresented: $showingLog, onDismiss: refreshLog) {
                 PracticeLogView(homeID: homeID,
@@ -144,11 +158,17 @@ struct DrillScreen: View {
             ContentUnavailableView("Couldn't load home", systemImage: "exclamationmark.triangle",
                                    description: Text(loadError))
         } else if let homeModel, homeModel.profiles.isEmpty {
-            ContentUnavailableView(
-                "No family profiles yet",
-                systemImage: "person.2",
-                description: Text("Add family members in Profiles first — the drill walks one person's escape route.")
-            )
+            ContentUnavailableView {
+                Label("No family profiles yet", systemImage: "person.2")
+            } description: {
+                Text("Add the people who live here first — the drill walks one person's escape route.")
+            } actions: {
+                // AUD-020: this used to name a Profiles screen nothing opened.
+                DSPrimaryButton(title: "Add family members", systemImage: "person.badge.plus") {
+                    showingProfiles = true
+                }
+                .accessibilityIdentifier("drill.addProfiles")
+            }
         } else if let built, let homeModel {
             ZStack(alignment: .bottom) {
                 UnifiedSceneView(
@@ -752,7 +772,7 @@ struct DrillScreen: View {
         // drill session is drawn on. Load once per push.
         guard homeModel == nil else { return }
         do {
-            let model = try HomeDocumentStore().load(homeID: homeID, as: HomeModel.self)
+            let model = try library.store.load(homeID: homeID, as: HomeModel.self)
             homeModel = model
             built = DollhouseSceneBuilder.build(model)
             overlay = built.map { RouteOverlay(dollhouse: $0.dollhouse) }
@@ -765,6 +785,14 @@ struct DrillScreen: View {
         } catch {
             loadError = "\(error)"
         }
+    }
+
+    /// `load()` runs once per push, so the people just added would not show without this.
+    private func reloadAfterProfiles() {
+        homeModel = nil
+        built = nil
+        overlay = nil
+        load()
     }
 
     // MARK: - Timing
@@ -969,4 +997,5 @@ struct DrillScreen: View {
         DrillScreen(homeID: "preview")
     }
     .environment(APIClient())
+    .environmentObject(HomeLibrary(store: HomeDocumentStore.launchStore().store))
 }

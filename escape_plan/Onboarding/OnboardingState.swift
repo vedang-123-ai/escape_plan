@@ -40,9 +40,11 @@ final class OnboardingState {
     private(set) var commitError: String?
     /// The home the household was written to, once `commitAndFinish()` has succeeded.
     private(set) var committedHomeID: String?
-    private let documentStore: HomeDocumentStore?
+    /// The library's store (AUD-019). Required: a default of its own would write to Documents
+    /// while the app runs on its temporary fallback store.
+    private let documentStore: HomeDocumentStore
 
-    init(documentStore: HomeDocumentStore? = nil) {
+    init(documentStore: HomeDocumentStore) {
         self.documentStore = documentStore
     }
 
@@ -51,7 +53,7 @@ final class OnboardingState {
     func seedIfNeeded() {
         guard seededHome == nil else { return }
         do {
-            seededHome = try FixtureSeeder.seedDemoHome(into: try store())
+            seededHome = try FixtureSeeder.seedDemoHome(into: store())
             hasExistingLibrary = seededHome == nil
             seedError = nil
         } catch {
@@ -68,7 +70,7 @@ final class OnboardingState {
     /// active on launch (`library.homes.first`, newest first).
     private func targetHome() throws -> HomeModel? {
         if let seededHome { return seededHome }
-        let documentStore = try store()
+        let documentStore = store()
         guard let first = documentStore.list().first else { return nil }
         return try documentStore.load(homeID: first.id, as: HomeModel.self)
     }
@@ -97,7 +99,7 @@ final class OnboardingState {
             ?? ordered.first?.rooms.first?.id ?? ""
 
         do {
-            let documentStore = try store()
+            let documentStore = store()
             let store = try HomeModelStore(model: home)
 
             var saveError: Error?
@@ -148,10 +150,7 @@ final class OnboardingState {
         }
     }
 
-    private func store() throws -> HomeDocumentStore {
-        if let documentStore {
-            return documentStore
-        }
-        return try HomeDocumentStore()
+    private func store() -> HomeDocumentStore {
+        documentStore
     }
 }

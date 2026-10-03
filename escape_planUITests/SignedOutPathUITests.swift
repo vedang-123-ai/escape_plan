@@ -1,7 +1,7 @@
 //  SignedOutPathUITests.swift — S11.7: the whole app, with no account.
 //
-//  The claim on the sign-in screen (`AccountPrivacy.signedOutSummary`) is that everything works
-//  signed out. `SignedOutProofTests` pins the part that is pure — no token means no request.
+//  The claim on the sign-in screen (`AccountPrivacy.signedOutSummary`) is that you never need an
+//  account. `SignedOutProofTests` pins the part that is pure — no token means no request.
 //  This walks the screens, which is the part only a simulator can answer.
 //
 //  Deliberately BACKEND-FREE. Every assertion below is about a screen appearing, never about a
@@ -64,19 +64,24 @@ final class SignedOutPathUITests: XCTestCase {
 
     /// The disclosure has to be readable before the decision, not after it.
     @MainActor
-    func testTheGateSaysWhatAnAccountWouldUpload() throws {
+    func testTheGateSaysWhatLeavesThePhone() throws {
         let app = launchSignedOut(showGate: true)
 
-        let disclose = app.buttons["What does an account upload?"]
+        let disclose = app.buttons["What leaves this iPhone?"]
         XCTAssertTrue(disclose.waitForExistence(timeout: 20),
-                      "the gate asks for an account without saying what it uploads")
+                      "the gate asks for an account without saying what leaves the phone")
         disclose.tap()
 
         // By identifier, not by visible string: the two lists are `.combine`d for VoiceOver,
         // which replaces their descendant Texts with one element whose label is the whole
         // paragraph. Queried by string these never resolve — caught in review before they had
         // ever run, which is exactly the failure mode an unrun test has.
-        XCTAssertTrue(disclosureList(in: app, "privacy.uploads").waitForExistence(timeout: 5))
+        // S11.16: what is sent to compute and to Anthropic comes first, because it happens
+        // signed out; what an account saves is the opt-in part.
+        XCTAssertTrue(disclosureList(in: app, "privacy.compute").waitForExistence(timeout: 5))
+        XCTAssertTrue(disclosureList(in: app, "privacy.anthropic").exists)
+        XCTAssertTrue(disclosureList(in: app, "privacy.uploads").exists)
+        XCTAssertTrue(disclosureList(in: app, "privacy.notSynced").exists)
         XCTAssertTrue(disclosureList(in: app, "privacy.neverUploads").exists)
     }
 
@@ -131,7 +136,7 @@ final class SignedOutPathUITests: XCTestCase {
         let app = launchSignedOut()
         app.tabBars.buttons["Settings"].tap()
 
-        let disclose = app.buttons["What does an account upload?"]
+        let disclose = app.buttons["What leaves this iPhone?"]
         XCTAssertTrue(disclose.waitForExistence(timeout: 20))
         disclose.tap()
         XCTAssertTrue(disclosureList(in: app, "privacy.neverUploads").waitForExistence(timeout: 5))

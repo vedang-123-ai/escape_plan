@@ -262,9 +262,10 @@ enum SyncReconciler {
     ///
     /// Highest `revision` wins (it has absorbed the most accepted writes), then latest
     /// `updated_at`, then lowest record id as a final deterministic tiebreak. The losing
-    /// record is left on the server rather than deleted: there is no delete endpoint, and
-    /// silently discarding a record that may hold a user's only copy of an edit is worse than
-    /// leaving an orphan.
+    /// record is left on the server rather than deleted: `DELETE /homes/{id}` exists (S11.7) but
+    /// is sent only for a home the user deleted (docs/decisions.md 2026-09-24), and silently
+    /// discarding a record that may hold a user's only copy of an edit is worse than leaving an
+    /// orphan.
     private static func collapseDuplicates(_ remote: [StoredHome]) -> [String: StoredHome] {
         var best: [String: StoredHome] = [:]
         for home in remote {

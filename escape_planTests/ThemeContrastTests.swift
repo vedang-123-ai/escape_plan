@@ -171,6 +171,9 @@ final class ThemeContrastTests: XCTestCase {
                        atLeast: WCAG.Target.bodyText, "white on Theme.accent")
         assertContrast(SRGB(hex: 0xFFFFFF), on: Theme.bubbleUserComponents.dark,
                        atLeast: WCAG.Target.bodyText, "white on Theme.bubbleUser")
+        // The Delete swipe action in "Your homes" (S11.21): iOS 17/18 draw its label white on the tint.
+        assertContrast(SRGB(hex: 0xFFFFFF), on: Theme.destructiveFillComponents.dark,
+                       atLeast: WCAG.Target.bodyText, "white on Theme.destructiveFill")
     }
 
     // MARK: - Inks and state indicators (SC 1.4.11, 3:1 on every surface)

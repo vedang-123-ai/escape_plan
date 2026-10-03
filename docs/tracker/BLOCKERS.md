@@ -95,20 +95,22 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-010 (P3) `/convert` leaks Python text as 422 · S11.31
 - [ ] AUD-011 (P3) `needs_rehash` never called · S11.28
 - [ ] AUD-012 (P3) untrusted `home_id` as filename · S11.41
-- [ ] AUD-013 (P1) House editor overwrites other writers · S11.18, S11.19
+- [x] AUD-013 (P1) House editor overwrites other writers · **fixed 2026-10-01 by S11.19** (evidence under "S11.19 findings")
 - [ ] AUD-014 (P2) home-switch race; cancel shown as offline · S11.23, S11.37
 - [ ] AUD-015 (P2) conflict copies pile up · S11.22
 - [ ] AUD-016 (P2) `POST /homes` lost update · S11.30 (server, deploy first), S11.32 (client)
 - [ ] AUD-017 (P2) re-scan "Add to Home" bypasses the reducer · S11.24
-- [ ] AUD-018 (P3) checklist/drill log/chat never leave the device · S11.16 (disclosure); syncing it: not a task
+- [ ] AUD-018 (P3) checklist/drill log/chat never leave the device · **disclosure half fixed 2026-10-01 by S11.16**
+      (`AccountPrivacy.notSynced`, evidence under "S11.16 findings"); syncing it: not a task, a documented trade-off
       (product decision, accounts demoted; `audit-traceability.md`)
-- [ ] AUD-019 (P3) screens build their own `HomeDocumentStore()` · S11.18
-- [ ] AUD-020 (P1) Profiles unreachable since `87c0610` · S11.20
-- [ ] AUD-021 (P1) no delete/duplicate, blank homes accumulate · S11.21; JSON export/import UI: not a task (no spec
-      requirement)
+- [x] AUD-019 (P3) screens build their own `HomeDocumentStore()` · **fixed 2026-10-01 by S11.18** (evidence under "S11.18 findings")
+- [x] AUD-020 (P1) Profiles unreachable since `87c0610` · **fixed 2026-10-02 by S11.20** (evidence under "S11.20 findings")
+- [x] AUD-021 (P1) no delete/duplicate, blank homes accumulate · **fixed 2026-10-02 by S11.21** (evidence under "S11.21
+      findings"); JSON export/import UI: not a task (no spec requirement)
 - [ ] AUD-022 (P1) `/analyze` `/explain` have no UI · **decided 2026-09-29: Path B, re-word the pitch** (§1,
       `docs/decisions.md`); S11.39 executes, S11.12 takes the claims diff
-- [ ] AUD-023 (P1) AI drafts scored without review · S11.17
+- [x] AUD-023 (P1) AI drafts scored without review · **fixed 2026-10-01 by S11.17** (evidence under "S11.17 findings");
+      the live `/build` → House → confirm path is still owed to S11.49
 - [ ] AUD-024 (P1) photo `/build` mislabelled PNG · S11.26, S11.33, S11.49
 - [x] AUD-025 (P1) drill appends client-written tornado advice · **fixed 2026-09-30 by S11.15** (evidence under
       "S11.15 findings")
@@ -123,18 +125,274 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-035 (P2) no AI timeouts; unbounded inputs · S11.26, S11.29, S11.49
 - [x] AUD-036 (P2) iOS suite red (the 7 in §3) · **fixed 2026-09-30 by S11.8**: 0 failed on three full runs (header stamp)
 - [ ] AUD-037 (P2) Render not gated on CI · S11.31, S11.46
-- [ ] AUD-039 (P3) stale "no delete endpoint" comments · S11.21
+- [x] AUD-039 (P3) stale "no delete endpoint" comments · **fixed 2026-10-02 by S11.21** (`grep -rn "no delete endpoint"
+      escape_plan` returns nothing)
 - [ ] AUD-040 (P3) root scratch scripts rewrite 2.1 to 2.0 · S11.47
 - [ ] AUD-041 (P3) local Python 3.13 vs deploy 3.12 · S11.47
 - [ ] AUD-042 (P3) Mongo index creation never retried · S11.31
 - [ ] AUD-043 (P3) `require_token` duplicated · S11.27
-- [ ] AUD-044 (P3) dead code · S11.20, S11.39, S11.47
-- [ ] AUD-045 (P3) `HouseScreen.swift` 2,726 lines · S11.19 (seam only); full split: not a task (deferred to the House
-      redesign)
+- [ ] AUD-044 (P3) dead code · **Profiles half resolved 2026-10-02 by S11.20** (ProfilesScreen/ProfileEditorView re-wired,
+      not deleted); the rest · S11.39, S11.47
+- [ ] AUD-045 (P3) `HouseScreen.swift` 2,726 lines · seam done 2026-10-01 by S11.19 (`HouseEditorSessionController`
+      owns load/save/registration); full split: not a task (deferred to the House redesign)
 - [ ] AUD-046 (P3) decode errors shown as "can't reach server" · S11.37
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
-- [ ] AUD-050 (P1) privacy copy false · S11.16
+- [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.21 findings (2026-10-02, branch `s11-21-home-delete`)
+
+- [x] **AUD-021 fixed: homes can be deleted and duplicated, and Build Manually writes nothing until the first edit.**
+      Home's home switcher has "Manage homes…" first (the end of a long menu is off screen), opening "Your homes": every
+      home with its room/floor count, a "Demo" tag on the fixed-id starter homes, a check on the current one. Swipe a
+      row left (or press and hold) for Duplicate and Delete; VoiceOver gets both as named actions. Delete asks first,
+      naming the home, and says truthfully what goes (`Sync/HomeDeletionReach.swift`, the rule sync itself uses):
+      "removed from this iPhone" (no account ever held it), "…and from your account" (the signed-in account owns it), or
+      "…from the account it's backed up to the next time that account signs in here" (another account owns it).
+      Placement ("Your homes" list over a context menu on the switcher) and the short wording chosen by Anish in the
+      simulator. Duplicate copies the home and its household, not its checklist ticks, drill log or meeting point
+      (decisions 2026-10-02). Deleting the current home moves Home, its Household row and House to another home.
+      Verified 2026-10-02: EditorCore `SyncDeletionTests` 18/18 against a fake backend (signed out: no DELETE; signed in:
+      DELETE with the owner's record id; owner signed out: DELETE only when that owner next signs in; another owner:
+      never), mutation-checked (flipping the owner rule fails 2); `HomeLibraryEditorSeamTests` (delete moves the active
+      home, a failed delete leaves no tombstone, a blank home is not written before its first save, a deleted starter
+      home is not re-seeded, duplicate keeps the household and not the ticks, and the app's real
+      `HomeDocumentSyncRepository` writes the tombstone the confirmation promised); `HomeDeleteUITests` 3/3 (Build
+      Manually → back leaves no home; duplicate then delete the copy, with the signed-out wording; deleting the current
+      home moves to another). Simulator walk: deleted the current home → the alert read "Delete “New Home”? It's
+      removed from this iPhone. You can't undo this." → Home's Household row changed from "Ada 714" to "Bo 750", the
+      file was gone, sync-state.json held an ownerless tombstone; deleted "Bungalow" (Demo), relaunched → it did not
+      come back (`fixtures.starterHomesSeeded.v1` = true, no file). Full suite: **1065 tests, 1054 passed, 0 failed, 11 skipped** (xcresulttool, `.build-s1121-final.xcresult`, after the review fixes); EditorCore 667 / 0; typecheck ok ×4; swift-scenekit-reviewer and ecc:security-reviewer run, findings fixed or logged below.
+- [x] **AUD-039 fixed:** the five stale "no delete endpoint" comments now describe tombstones and the owned
+      `DELETE /homes/{id}` (two of them outside OWNED FILES, comment-only; decisions 2026-10-02).
+- [x] **Empty library: House's first edit no longer tears the editor down** (swift-scenekit-reviewer). With no homes, the
+      House tab's blank editor saved its first edit, the new home appeared, `HouseTab`'s `.id` changed and the editor was
+      rebuilt, losing that edit's undo (this used to happen at open, before any edit). `HouseTab` now keeps the same
+      identity for the home its blank editor created, and makes it the active home so Home shows it. Checked with a
+      temporary UI test on an empty library (undo still enabled after the first edit, Home no longer says "Map your
+      home"): passes with the fix, fails without it ("the first edit's undo was lost"); the test was removed because
+      the shared simulator library is never empty. Owned-files exception (`ContentView.swift`, decisions 2026-10-02).
+- [ ] **@S11.22: a running sync drops a tombstone written while it runs (ecc:security-reviewer, confirmed by reading
+      `SyncManager.sync()`).** `sync()` loads the sidecar once, then `persist(state)` writes that snapshot back after
+      every action, so a home deleted mid-sync loses its tombstone (and its owner), may even be pushed from the
+      `localByID` snapshot, and is pulled back on the next sync. Same shape as the `forgetAccount` race that
+      `forgottenAccountID` closed. Stopgap in S11.21's files: "Your homes" refuses Delete while `sync.status ==
+      .syncing` ("Your homes are syncing. Try again when the sync finishes."), checked when the swipe is tapped and
+      again on confirm. Next action (S11.22 owns `SyncManager`/`SyncState`): have `persist` merge tombstones (and their
+      cleared `homeOwners` claims) written since the snapshot, skip planned pushes for homes tombstoned since, test it,
+      then remove the stopgap from `HomeScreen.swift` (`ManageHomesSheet.syncIsRunning`).
+- [ ] **@S11.22: `homeWasDeletedLocally` saves the tombstone with `try?`** (`HomeDocumentSyncRepository.swift`). If that
+      write fails the home is gone from disk with no tombstone and may come back once, and a "removed from your
+      account" promise is not kept. Next action (S11.22, owns the file): return the failure so Home can say so.
+- [ ] **@S11.41: delete now reaches `HomeDocumentStore.url(for:)` with an id read from a file's `home_id`**
+      (ecc:security-reviewer). Ids are not validated anywhere (server `home_id: str`), so a synced `"../x"` could be
+      written (pre-existing, `writePulledHome`) and now also deleted from "Your homes". Next action: S11.41's planned
+      validation covers `url(for:)` and `writePulledHome` (reject anything that is not a UUID or a fixture id).
+- [ ] **Per-home data is left behind when a home is deleted:** `RouteCache/<id>.routeplan.json` (seen on disk),
+      checklist ticks (`ChecklistStateStore`), drill log, meeting point (`MeetingPointStore`), score cache and scan
+      freshness, all keyed by home id and in files S11.21 does not own. Harmless for a random-id home; a deleted starter
+      home re-added later with the same fixed id would bring its old ticks back. Next action: S11.47 (cleanup) or the
+      owner of each store adds a `forget(homeID:)` and `HomeLibrary.delete` calls them.
+- [ ] **Duplicating another account's home on a shared phone makes an unclaimed copy** (ecc:security-reviewer, by design):
+      it uploads, household names included, to whichever account syncs next. One tap now, where before it needed the
+      editor. Next action: none unless Anish wants Duplicate hidden for homes `SyncState.ownership` says belong to
+      someone else.
+- [ ] **"…and from your account" is said before the sync that does it.** Offline, or if the DELETE fails, the account
+      copy goes at the next successful sync (the tombstone waits). Accepted wording (Anish chose "Short"); revisit only
+      if the owner wants "will be removed".
+- [ ] **Duplicate does not start a sync** (delete does), so the copy uploads at the next foreground/launch sync. Low.
+- [ ] **Swipe-action contrast:** Delete now uses `Theme.destructiveFill` (#C93A3A, white 5.06:1, asserted in
+      `ThemeContrastTests`); on iOS 26 the label sits under the circle on the list background anyway. Never checked with
+      VoiceOver on a device: S11.10.
+- [ ] **@S11.10: walk "Your homes" on the iPhone** (swipe, press-and-hold menu, VoiceOver Duplicate/Delete actions).
+- [x] **GestureFrameCostUITests still has a home to work on:** it drags inside the editor Build Manually opens; the blank
+      home is drawn from memory, so no file is needed. Green in the full suite.
+- [ ] **@S11.22 @S11.41 @S11.48: S11.21 is merged.** Merge `origin/main` first. What changed for you:
+      `HomeLibrary.delete(homeID:)` returns `Bool` (true only when the file went; the deletion observer is told only
+      then); `HomeLibrary.duplicate(homeID:) -> String?` (new id, newest first, unclaimed by any account);
+      `HomeLibrary.starterHomeIDs` / `isStarterHome`; `Sync/HomeDeletionReach.swift` (pure, EditorCore) and
+      `HomeDocumentSyncRepository.deletionReach(of:signedInUserID:)`; Home → switcher → "Manage homes…" → "Your homes"
+      (`ManageHomesSheet` in `HomeScreen.swift`); a delete starts `sync.syncIfSignedIn()`; House writes a brand-new home
+      only on its first committed edit (no file, no library row, no sync until then). S11.22: the delete stopgap and the
+      `try?` above are yours; conflict copies ("(this device)") can now be deleted by the user, so a preserved-copy id
+      you record may point at a deleted (tombstoned) home. S11.41: delete is one more caller of `url(for:)`. S11.48:
+      "Your homes" reads `library.homes`, so moving `list()` off the main thread must keep the sheet's list current
+      after a delete/duplicate.
+
+### S11.20 findings (2026-10-02, branch `s11-20-profiles-reachable`)
+
+- [x] **AUD-020 fixed: household profiles are reachable again.** A "Household" row on Home under the drill and 3D-house
+      cards (placement chosen by Anish in the simulator over a row at the top of Tasks' "Family plan") pushes the screen,
+      now titled "Household"; the drill's "No family profiles yet" state has an "Add family members" button that opens
+      it as a sheet and reloads the drill when it closes. Leaving the screen after a change hands the saved home to
+      `ReadinessStore.replaceActiveHome` (cancellable rescore, not `load`, which races an in-flight /score: AUD-014).
+      Verified 2026-10-02: `ProfilesEntryUITests` 2/2 (Home row → add → Home row shows the name → drill offers the
+      person; blank home's drill empty state → add → Done → drill offers the person; backend-free). Manual walk
+      (simulator): House opened, Grandma added from Home's Household row, back to House → Grandma in the "Escape
+      routes" person picker and the yellow "changed on another screen or device" line shown; Home's row then read "Ada
+      703, Grandma". Full suite 2026-10-02: **1052 tests, 1041 passed, 0 failed, 11 skipped** (xcresulttool,
+      `.build-s1120-full.xcresult`); typecheck ok ×4. swift-scenekit-reviewer: no must-fix, should-fixes taken.
+- [x] **Accessibility floors on Profiles (B10/B11, ecc:a11y-architect):** Cancel/Save/Done and the tag toggles use
+      `Theme.accentText` (accent text was 3.6:1 on a sheet), the empty state's 20 pt "Add Profile" text button is now
+      `DSPrimaryButton`, the name placeholder uses `Theme.supporting` (system one ~2.4:1), tags wrap as one text line
+      at large sizes instead of truncating, whole rows are tappable, Delete is a VoiceOver custom action, autosave
+      failures are announced, and a rejected save alerts on the editor sheet instead of under it.
+- [ ] **Accessibility left open (not floor-breaking by our reading, or outside owned files).** Owner: whoever takes the
+      next UI polish pass (no session owns it yet; S11.11 to assign). (1) ProfilesScreen and the editor still draw on
+      iOS system surfaces, not `dsPage()`/`dsCard` (the B10 theme gap; contrast is fine on them). (2) `DSPrimaryButton`
+      does not hide its icon from VoiceOver (`DesignKit.swift`, shared). (3) Settings' toggles use the same 2.97:1
+      accent "on" track (`SettingsScreen.swift:138`). (4) The VoiceOver Delete action and the editor's rejection alert
+      were never exercised with VoiceOver on: device pass (S11.10).
+- [x] **S11.19's "A sheet over House is not an appear" does not apply to Profiles:** it opens from Home and the drill,
+      never as a sheet on House, so House needed no change (no owned-files exception taken). That S11.19 line stays
+      open as a warning for the next writer.
+- [ ] **@S11.10: S11.20 changed `DrillMode/DrillScreen.swift`** (empty state button, a Profiles sheet, `reloadAfterProfiles`).
+      Merge `origin/main` before your device pass, and walk the drill's empty state on a home with no people.
+- [ ] **Should a new scan or build ask "Who lives here?"** (MISSION 5, not built). Today a scanned or built home has no
+      people until the user finds Household on Home; the drill then offers "Add family members". Next action: Anish
+      decides; if yes, it is a new session (onboarding and scan flow are not S11.20's files).
+- [ ] **The Household row is hidden for an unreviewed AI draft,** like the score and drill card (AUD-023). Intentional:
+      people are added after the draft is confirmed in House. Revisit only if the owner wants it.
+- [x] **@S11.21: `ProfilesEntryUITests` builds its home with Home "+" → Build Manually → back, with no edit.** Done by
+      S11.21: `buildBlankHome` now adds one object (house.addMenu → Add Object) before going back; 2/2 green. Your
+      "no blank home until the first edit" will make that home vanish, so both tests would find no Household row / an
+      old home. Next action (S11.21): have the tests make one edit in the editor first (e.g. "house.addMenu" → Add
+      Object), or seed a home, and keep them green.
+- [ ] **`escape_planUITests/S44ScreenshotUITests.swift:245` still swipes for a "Profiles" action that was deleted with
+      BetaScreen.** Dead path in a screenshot driver (AUD-044). Next action: S11.47.
+
+### S11.19 findings (2026-10-01, branch `s11-19-house-reload`)
+
+- [x] **AUD-013 fixed: House never autosaves over a home another writer changed.** `HouseEditorSessionController`
+      (`Editor/Core/`, Foundation-only) keeps the file's `HomeFingerprint`; every appear re-arms `library.editor` and sync's
+      `openHomeID` and reloads a changed file (undo cleared, one-line notice); every autosave/undo/redo checks first and
+      reloads instead of writing; a deleted file closes the session and is never re-created. Verified 2026-10-01:
+      `HouseEditorReloadTests.testAnotherWritersChangeSurvivesTheSessionsNextEdit` **fails on origin/main behaviour**
+      ("Shared" is not equal to "Renamed elsewhere") and passes on the branch; `HouseEditorReloadTests` 5/5 (real store,
+      library and `HomeDocumentSyncRepository`), EditorCore `HouseEditorSessionControllerTests` 11/11 (reload, refuse to
+      overwrite, own saves, deleted, new home, unreadable, guard re-armed on every appear, closed after a rejected reload).
+      Final, 2026-10-02: EditorCore **663 / 0**; typecheck ok ×4; full suite **1050 tests, 1039 passed, 0 failed, 11
+      skipped** (xcresulttool, `.build-s1119-final.xcresult`). Manual walk with Anish 2026-10-02 (simulator): House edit → Home tab → home file
+      rewritten from the Mac (renamed, "Grandma" added) → House showed both plus the notice → a second edit kept them on
+      disk. swift-scenekit-reviewer PASS (should-fixes taken, note).
+- [x] **Tab lifecycle (the audit's low-confidence half) confirmed in the simulator:** `onDisappear` fires on every tab
+      switch and `onAppear` on return with the session still alive (temporary `NSLog`, removed). Before this fix the sync
+      guard was gone after the first switch.
+- [ ] **@S11.20 @S11.21 @S11.22 @S11.24: S11.19 is merged, you are unblocked.** Merge `origin/main` first. What changed for
+      you: any write to the active home through `library.store` is picked up when House next appears (or refused at its
+      next autosave), so new writers need no House wiring; the open-home guard is now `HouseEditorAppRegistration`
+      (`Screens/HouseEditorSessionController+App.swift`). S11.21: a blank home's first save now lives in `loadIfNeeded`
+      as `autosave(newSession, controller:)` when `loaded == nil`, and a deleted active home shows "This home was
+      deleted" in House. S11.22: while House is visible `writePulledHome` still refuses its home; while away a pull lands
+      and House reloads it.
+- [ ] **Every autosave now reads the home file once before writing, and House autosaves on every drag frame**
+      (pre-existing: one atomic write per frame). Simulator dragging felt normal; never measured on the iPhone. Next action:
+      the device pass (BLOCKERS §2) drags a room on twostory and watches frame rate; if it stutters, skip the pre-save read
+      when the file's modification date and size are unchanged (`HouseEditorSessionController.checkDisk`).
+- [ ] **A sheet over House is not an appear.** A writer presented as a sheet ON House (none today) would change the file
+      without a disappear/appear; the next autosave catches it and reloads, but the user's edit that triggered it is
+      dropped. Next action: S11.20, if Profiles opens as a sheet from House, calls the reload on the sheet's dismiss
+      (`resumeSession()`).
+
+### S11.18 findings (2026-10-01, branch `s11-18-one-store`)
+
+- [x] **AUD-019 fixed: one `HomeDocumentStore` for the whole app.** HouseScreen uses `library?.store` (its unused
+      second `init()` deleted), ProfilesScreen takes `store:`, Settings / BuildFromPlan / Drill read the
+      `@EnvironmentObject HomeLibrary`, and OnboardingState requires its store, passed by ContentView through
+      `OnboardingFlowView(documentStore:)` (owned-files exception, `docs/decisions.md`). Verified 2026-10-01:
+      `HomeLibraryEditorSeamTests` +3 (saves through House's, Profiles' and onboarding's store land in the library's
+      temp directory); every presenter of the three env-object screens audited inside ContentView's
+      `.environmentObject(library)` subtree (swift-scenekit-reviewer, PASS); simulator smoke: an Add Room in House autosaved to
+      `Documents/Homes` and survived a relaunch. Full suite on the final code: **1034 tests, 1023 passed, 0 failed, 11
+      skipped** (xcresulttool, `.build-s1118-final.xcresult`); EditorCore 652/0; typecheck ok ×4.
+- [x] **Review fix: on the temporary fallback store, onboarding no longer spends `onboarding.completed`.** With one
+      store, the interview now succeeds against the temp directory; the flag is set only when storage is real
+      (`ContentView`, same reason launch skips starter seeding on fallback), so the next good launch asks again.
+- [x] **Done 2026-10-01 by S11.19 (deleted; `docs/decisions.md`).** ~~`HomeLibrary.swift:47` still has `convenience init() throws { self.init(store: try HomeDocumentStore()) }`~~, with no
+      callers in app or tests. It is the last route back to a second Documents store and the only non-preview hit of the
+      acceptance grep. Not in S11.18's OWNED FILES. Next action: S11.19 (owns `HomeLibrary.swift`'s editor API) or whoever
+      next touches the file deletes it.
+- [ ] **@S11.10: `DrillScreen.swift` got a one-line injection** (`@EnvironmentObject private var library: HomeLibrary`;
+      `load()` reads `library.store`; preview injects a library). Merge `origin/main` before your device pass.
+- [ ] **AssistantScreen and ScoreScreen previews host `BackendFailureBanner` without a `HomeLibrary`**, so tapping its
+      "Settings" in those previews would trap (they already lacked AuthSession/SyncManager; preview-only, not runtime).
+      Next action: whoever next touches those previews adds the environment objects.
+
+
+- [x] **AUD-023 fixed.** `ReadinessStore.needsDraftReview` is House's own `HomeModel.hasAIDraftContent`; `load()` and
+      every `/score` path skip an unreviewed draft, including its `ScoreCache` entry and a response that lands after the
+      draft became active. Home, Tasks and Score show the "Review your draft" card (Anish chose it over a one-line row)
+      that routes to House; Import Plan completion selects the draft and opens House. Confirm in House → autosave →
+      `HouseTab.onModelChanged` → `readiness.load` scores it (no S11.18/S11.19 work needed). Verified 2026-10-01:
+      `ReadinessStoreTests` 5/5 (mutation-checked: removing the `fetchScore` guard fails it); simulator, a draft copy of
+      `bungalow` in `Documents/Homes` showed the card with no score, House opened on it, Confirm draft → Home 73/100. Full suite on the final code: **1031 tests, 1020 passed, 0 failed, 11 skipped** (xcresulttool, `.build-s1117/final.xcresult`); EditorCore 652/0; typecheck ok ×4.
+- [ ] **Settings › Share with fire department still snapshots an unreviewed draft.** `SettingsScreen.generateSnapshot`
+      takes `HomeDocumentStore().list().first` (the most recently modified home, so a just-built draft) with no draft
+      check, and `EscapePlanExporter.writeResponderSnapshot` embeds that home's `ScoreCache` score. The Tasks entry
+      points (meeting point → PDF, `ShareWithFireDepartmentCard`) are hidden for a draft; this one is not. Next action:
+      S11.38 (owns that path, AUD-027) shares the active home and refuses when `home.hasAIDraftContent`, saying "Review
+      your draft in House first".
+- [ ] **`DrillScreen.beginDrill` has no draft guard of its own.** It is unreachable for a draft today (every
+      `DrillScreen(homeID:)` call site is on Home or Tasks, all hidden for a draft), but it would POST `/routes` on one.
+      Next action: S11.36 (owns DrillScreen's route-fetch lines) adds `guard !homeModel.hasAIDraftContent`, mirroring
+      `HouseScreen.fetchRoutes`.
+- [ ] **A score cached for a draft by a build before this fix is never deleted.** `ReadinessStore` no longer shows it
+      (not for the draft, and not after confirm in the same launch), but the file stays until the first successful
+      `/score` overwrites it, and `HouseScreen.loadIfNeeded` reads it for hazard emphasis while the draft is open. Only
+      homes drafted on a pre-fix build are affected. Next action: whoever next owns `Persistence/ScoreCache.swift` adds a
+      `remove(homeID:)` and `ReadinessStore.clearScoreForDraft` calls it; HouseScreen's hazard read should skip a draft
+      (S11.18/S11.19 own HouseScreen's load path). _2026-10-01: S11.18 did not take it (store injection only). **House half
+      done 2026-10-01 by S11.19**: `HouseScreen.applyCachedHazardEmphasis` skips a `hasAIDraftContent` home (code-read, not
+      simulator-checked). Still open: `ScoreCache.remove(homeID:)` + `ReadinessStore.clearScoreForDraft` calling it. Next
+      action: S11.23 (owns `ReadinessStore.swift`; `ScoreCache.swift` needs a one-line owned-files exception there)._
+
+### S11.16 findings (2026-10-01, branch `s11-16-privacy-truth`)
+
+- [x] **AUD-050 fixed.** `AccountPrivacy.signedOutSummary` now separates "saved only on this iPhone" from "sent to our
+      server, which does not store it", and names Anthropic for the assistant and Import Plan. The disclosure has five
+      lists (sent to compute; passed to Anthropic; saved to an account; kept on this iPhone; never leaves). Inventory of
+      every request and handler in note `2026-10-01-s11-16-privacy-truth.md`. Verified 2026-10-01: EditorCore **652
+      passed, 0 failures**; `typecheck-ios.sh` ok ×4; simulator `-only-testing` SignedOutPathUITests +
+      AccountPrivacyTests + SignedOutProofTests **29 passed, 0 failed** (xcresulttool); `AccountPrivacyTests` encodes real
+      `ScoreRequest`/`RoutesRequest` (both runners) and the four `Networking/` request types (app runner) and fails if a
+      field is undescribed (mutation-checked).
+- [x] **AUD-018, disclosure half fixed** (`AccountPrivacy.notSynced`: checklist progress, drill history and chats are
+      kept on this iPhone and not copied to your account). The sync half stays a documented trade-off.
+- [ ] **S11.13: the App Store privacy label must match this copy.** Data that leaves the device, signed out: home layout
+      and room names; household composition — member names, **health-related vulnerability tags** (elderly,
+      mobility-limited, hearing- or vision-impaired, child, pet), where each sleeps; checklist progress; assistant
+      messages; the Import Plan photo/PDF page and description (sent to Anthropic), **including any GPS location saved in
+      a picked photo** (see below). No street address: the schema has `meta.address_optional` but no screen sets it.
+      Signed in, also: email and the home stored server-side. Purpose: app functionality. Not used for tracking. Next action: S11.13
+      fills the label from `AccountPrivacy.swift` and the S11.16 note's inventory table, not from memory.
+- [ ] **The acceptance grep still matches two lines this session does not own.** `grep -rn "uploads nothing\|ever
+      sent" escape_plan escape_planTests` also finds `Screens/HouseScreen.swift:800` (a code comment) and
+      `Screens/ConsentSheet.swift:66` ("Nothing is ever sent automatically — you pick the app…", the fire-department
+      snapshot consent). The ConsentSheet line is true (the snapshot only leaves through the share sheet). Next action:
+      none needed for truth; S11.38 (owns the share path) may reword it if it wants the grep fully clean.
+- [ ] **`deletionSummary` says the server copy is erased "permanently"; MongoDB Atlas backups are not covered by the
+      code.** `DELETE /auth/me` deletes the documents; whether the cluster tier keeps snapshots is an Atlas setting.
+      Next action (owner, Atlas console): confirm the tier has no backups/snapshots (M0 has none), or soften the line to
+      "from our database".
+- [ ] **Account deletion can report success while deleting nothing (pitch-truth-auditor, confirmed by reading).**
+      `AuthSession.deleteAccount()` treats ANY 401 as "already gone" and ends the session; `SettingsScreen` then calls
+      `forgetAccount`. Tokens last 60 minutes (`JWT_ACCESS_TTL_MINUTES=60`) and expiry is only checked at launch, so a
+      user signed in for over an hour who taps Delete gets a 401, is shown signed out, and their email and homes stay on
+      the server — `deletionSummary` is then false. Next action: S11.43 (owns session length, AUD-031) checks
+      `token.isExpired()` before the delete and sends the user to sign in again; a 401 on delete must not count as
+      success unless the server says the account is gone.
+- [ ] **Import Plan sends the picked photo's original bytes, metadata and all** (`BuildFromPlanView` `loadTransferable(
+      type: Data.self)`), so a geotagged photo carries its GPS location to our server and Anthropic. The copy now says
+      so. Next action: whoever fixes AUD-024 (photo labelled PNG; S11.26/S11.33/S11.49) re-encodes through `UIImage` to
+      JPEG, which also strips metadata, then removes the "including any location" clause from
+      `AccountPrivacy.sentToAnthropic` and the location line of `notUploaded`.
+- [ ] **The assistant cannot see household members, but its prompt promises personalised answers.** The app never
+      sends `profiles` to `/chat`, so the house context always says "No family profiles configured yet."
+      (`summary.py`), while `CHAT_RULES` (`service.py`) gives examples like "your kids' bedroom". Good for privacy,
+      misleading for a demo. Next action: S11.12 (script) must not demo profile-aware chat; whoever owns the AI layer
+      decides whether to drop the example or send profiles (and update `AccountPrivacy.sentToAnthropic` if so).
+- [ ] **When S11.39 wires `/analyze`, `AccountPrivacy.sentToAnthropic` needs a line** (the agent sends the whole home's
+      tool results to Anthropic). Next action: S11.39 updates the copy in the same change.
 
 ### S11.15 findings (2026-09-30, branch `s11-15-drill-verbatim`)
 
@@ -247,7 +505,12 @@ owning session's merge is on `origin/main` and you verified it.
       60 m span, or a coordinate past ±200 m, and the editor may never have produced one) but nothing
       proves it could not have. **Not fixed here: `HomeModelStore.swift` is not in S11.25's OWNED
       FILES.** Next action: S11.18 or S11.19 (they own the store and the load path) should make the load
-      path surface "this home is too large to edit" instead of a bare throw.
+      path surface "this home is too large to edit" instead of a bare throw. _2026-10-01: S11.18 did not take it
+      (store injection only, no behaviour change). **House load path done 2026-10-01 by S11.19**: `loadIfNeeded` catches
+      `invalidInitialModel` and shows "This home is too large to edit: <the bound's message>." (code-read; no over-bound
+      home was opened in the simulator). A changed file that fails `replaceModel` on reload closes the session with
+      "can't be opened here". Other loaders of a home (Drill, Profiles, onboarding) still throw bare: not in S11.19's
+      files; each owner when next touched._
 - [ ] **`/convert` now 422s a whole scan for a room with more than 64 vertices, with no fallback**
       (schema-contract-guardian, MEDIUM, 2026-09-30). `backend/app/convert/geometry.py:238` already
       degrades gracefully for a degenerate polygon (bounding-box fallback) but has **no** fallback for
@@ -394,7 +657,11 @@ tests), backend green. After the merge into `ui-revamp-1-foundation` (`e64f343`)
 - [ ] Onboarding step-dot labels.
 
 **Found while doing this (not in the audit list):**
-- [ ] **`DrillScreen` still builds its own `HomeDocumentStore()`** (`DrillMode/DrillScreen.swift:721`), as do
+- [x] **Resolved 2026-10-01 (S11.18):** `DrillScreen.load()` (line 756 now; was 755 on 7b22cb6, 721 when written) reads
+      `library.store` through `@EnvironmentObject`, and ProfilesScreen, SettingsScreen, BuildFromPlanView, HouseScreen and
+      OnboardingState all use the launch store; `grep -rn "HomeDocumentStore()" escape_plan` finds no screen. Evidence
+      under "S11.18 findings". _Original line:_
+      **`DrillScreen` still builds its own `HomeDocumentStore()`** (`DrillMode/DrillScreen.swift:721`), as do
       `ProfilesScreen`, `SettingsScreen`, `BuildFromPlanView`, `HouseScreen` — all `try?`/`try`, none a `try!`, so not a
       launch crash, but they bypass the launch store and so ignore the temp fallback. Next action: pass the library's
       store down when those screens are next touched.

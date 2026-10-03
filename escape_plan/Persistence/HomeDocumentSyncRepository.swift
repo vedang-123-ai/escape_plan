@@ -21,8 +21,9 @@ import Observation
 
 /// Told when a home is deleted on this device, so the deletion can be remembered.
 ///
-/// The backend has no delete endpoint, so without this the next sync downloads the deleted
-/// home straight back and it reappears in the library.
+/// Without the tombstone this writes, the next sync downloads the deleted home straight back
+/// and it reappears in the library. The tombstone is also the only thing that sends
+/// `DELETE /homes/{id}`, and only for its owner (docs/decisions.md 2026-09-24).
 @MainActor
 protocol HomeDeletionObserving: AnyObject {
     func homeWasDeletedLocally(homeID: String)
@@ -37,7 +38,10 @@ final class HomeDocumentSyncRepository: SyncHomeRepository, HomeDeletionObservin
 
     /// The home currently open in the editor, or nil.
     ///
-    /// App-scoped and set by `HouseScreen` itself, which is the only thing that actually knows.
+    /// App-scoped and set by House's session (`HouseEditorAppRegistration`, S11.19) on EVERY
+    /// appear, cleared on every disappear. While House is visible with a live session, this
+    /// names its home and `writePulledHome` refuses it; while House is away, a pull may land, and
+    /// the next appear reloads it instead of autosaving over it.
     /// An earlier version resolved this through `HomeLibrary.editor`, which was wrong: the
     /// editor is reachable from three places with three different `HomeLibrary` instances, and
     /// the House tab's own entry point constructs itself with `library: nil`. So for two of the
@@ -141,5 +145,11 @@ final class HomeDocumentSyncRepository: SyncHomeRepository, HomeDeletionObservin
         // scoped to the account the home belonged to rather than suppressing it for everyone.
         state.markDeleted(localHomeID: homeID, at: Date())
         try? stateStore.save(state)
+    }
+
+    /// What deleting `homeID` here would delete, for the confirmation to say (S11.21). Read-only;
+    /// the decision itself is `HomeDeletionReach.of`, tested against a sync.
+    func deletionReach(of homeID: String, signedInUserID: String?) -> HomeDeletionReach {
+        HomeDeletionReach.of(homeID, in: stateStore.load(), signedInUserID: signedInUserID)
     }
 }
