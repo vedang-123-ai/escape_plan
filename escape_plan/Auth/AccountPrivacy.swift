@@ -33,12 +33,13 @@ enum AccountPrivacy {
 
     // MARK: - The headline claim
 
-    /// The one paragraph that has to be on the sign-in screen, because it is the fact that
-    /// makes the gate soft rather than a wall. Each sentence is one row of the S11.16 inventory
-    /// (docs/tracker/notes/2026-10-01-s11-16-privacy-truth.md).
+    /// The paragraph above "What leaves this iPhone?" in Settings. Each sentence is one row of the
+    /// S11.16 inventory (docs/tracker/notes/2026-10-01-s11-16-privacy-truth.md). The name is from
+    /// when it sat on the sign-in gate; accounts were cut from the demo app on 2026-10-02, and Anish
+    /// asked (same day) that the copy not mention accounts at all.
     static let signedOutSummary =
-        "Signed out, your homes are saved only on this iPhone, and you never need an account. "
-        + "To work out routes, your score and the fire drill, the app sends the whole home — "
+        "Your homes are saved on this iPhone. "
+        + "To work out routes, your score and the fire simulation, the app sends the whole home — "
         + "household names and tags included — to our server, which uses it and does not store "
         + "it. The assistant sends your messages and your home's room names on to Anthropic's "
         + "AI service, and Import Plan sends it the picture and description you give it."
@@ -46,7 +47,8 @@ enum AccountPrivacy {
     // MARK: - Sent to compute, not stored
 
     /// Every top-level field of the request bodies that carry a home to a compute endpoint:
-    /// `/score`, `/routes`, `/evacuate`, `/convert`, `/diff_obstructions`, `/chat`, `/build`.
+    /// `/score`, `/routes`, `/evacuate`, `/convert`, `/chat`, `/build`. (`/diff_obstructions`
+    /// left with the re-scan review, cut 2026-10-02.)
     /// None of them needs an account and none of them is stored.
     ///
     /// Pinned by test against real encodes of `ScoreRequest` and `RoutesRequest` (in both
@@ -57,7 +59,6 @@ enum AccountPrivacy {
         "peril", "constraints", "profile_id",                   // /routes
         "origin_room_id", "profile_set_id",                     // /evacuate
         "scan", "home_name",                                    // /convert
-        "stored_model", "scan_model", "target_room_id",         // /diff_obstructions
         "messages",                                             // /chat
         "description", "image_b64", "image_media_type",         // /build
     ]
@@ -68,9 +69,8 @@ enum AccountPrivacy {
             text: "The whole home, every time the server works something out for you: the "
                 + "floor plan and room names, the names you gave household members and pets, "
                 + "their tags (child, elderly, pet, mobility-limited, hearing- or "
-                + "vision-impaired) and the room each one sleeps in. Re-scanning "
-                + "a room sends your saved home and the new scan together, to compare them.",
-            keys: ["home", "stored_model", "scan_model"]),
+                + "vision-impaired) and the room each one sleeps in.",
+            keys: ["home"]),
         Disclosure(
             text: "Which checklist items you have ticked, so the score can count them.",
             keys: ["checklist_state"]),
@@ -81,8 +81,7 @@ enum AccountPrivacy {
             keys: ["scan", "home_name"]),
         Disclosure(
             text: "Which hazard, household member or starting room you are looking at.",
-            keys: ["peril", "constraints", "profile_id", "origin_room_id", "profile_set_id",
-                   "target_room_id"]),
+            keys: ["peril", "constraints", "profile_id", "origin_room_id", "profile_set_id"]),
         Disclosure(
             text: "Your messages to the assistant, and the photo, PDF page or description you "
                 + "give Import Plan. These go on to Anthropic, below.",
@@ -164,7 +163,7 @@ enum AccountPrivacy {
     /// rather than a bug. Deliberately "not copied to your account" and not "never leaves this
     /// iPhone": ticks go to `/score` and messages go to `/chat`, they are just not saved there.
     static let notSynced: [String] = [
-        "Checklist progress, practice-drill history and assistant chats are kept on this "
+        "Checklist progress and assistant chats are kept on this "
             + "iPhone and are not copied to your account, so another device starts without them.",
     ]
 

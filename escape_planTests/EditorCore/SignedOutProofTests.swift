@@ -1,8 +1,8 @@
 //  SignedOutProofTests.swift — S11.7: the app works with no account and no server.
 //
-//  The claim this file exists to keep true is on the sign-in screen, in
-//  `AccountPrivacy.signedOutSummary`: signed out, your homes are saved only on this iPhone and
-//  you never need an account. The soft gate, the pitch and the privacy copy all rest on it.
+//  The claim this file exists to keep true is in Settings' Privacy section,
+//  `AccountPrivacy.signedOutSummary`: your homes are saved on this iPhone. (It sat on the sign-in
+//  screen until accounts were cut, 2026-10-02.)
 //
 //  Scope, corrected in S11.16 (AUD-050): this proves the SYNC half — no token means no `/homes`
 //  request, so nothing is saved to a server. It does NOT prove that nothing leaves the phone,

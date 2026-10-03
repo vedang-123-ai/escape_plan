@@ -55,8 +55,9 @@ talking to an old server gets 422. S11.27 and S11.29 come before S11.39 (spend c
 **If you work top to bottom, this order respects every prerequisite:**
 S11.14 → **S11.8** (existing, with the addendum below) → S11.15 → S11.16 → … → S11.49 (numeric order) → S11.11.
 
-**Minimum before filming** (every P0/P1 item, if the calendar forces a cut): S11.14, S11.8, S11.15-S11.21, S11.25-S11.28,
-S11.33 and S11.39. The owner actions (token, credits, the AUD-022 and AUD-038 answers) sit outside any session.
+**Minimum before filming** (every P0/P1 item, if the calendar forces a cut): S11.14, S11.8, S11.15-S11.21, S11.25-S11.27,
+S11.33 and S11.39. (S11.28 dropped 2026-10-02 with accounts; S11.24, S11.30, S11.32 and S11.43 too. See the demo trim
+rows in `docs/decisions.md`.) The owner actions (token, credits, the AUD-022 and AUD-038 answers) sit outside any session.
 Anything cut gets a BLOCKERS line.
 
 | # | Session | Audit IDs | Top sev | Phase | Lane | Branch | Prereqs | Status |
@@ -72,15 +73,15 @@ Anything cut gets a BLOCKERS line.
 | [S11.21](S11-21.md) | ~~Delete and duplicate homes; no blank home until the first edit~~ **DONE 2026-10-02** | 021, 039 | P1 | 2 Data integrity | D | `s11-21-home-delete` | S11.19 | DONE 2026-10-02 |
 | [S11.22](S11-22.md) | ~~Sync: at most one conflict copy, never while open~~ **DONE 2026-10-02** | 015 | P2 | 2 Data integrity | D | `s11-22-sync-conflict-copies` | S11.19, S11.21 | DONE 2026-10-02 |
 | [S11.23](S11-23.md) | A score belongs to the home it was asked for | 014 | P2 | 2 Data integrity | D | `s11-23-score-race` | S11.17 | |
-| [S11.24](S11-24.md) | Re-check a room end to end | 017, 029, 049 | P2 | 2 Data integrity | D | `s11-24-recheck-flow` | S11.19, S11.23 | |
+| [S11.24](S11-24.md) | ~~Re-check a room end to end~~ | 017, 029, 049 | P2 | 2 Data integrity | D | `s11-24-recheck-flow` | S11.19, S11.23 | **DROPPED 2026-10-02** (re-scan review cut) |
 | [S11.25](S11-25.md) | ~~Residential size bounds, server and editor alike~~ **DONE 2026-09-30** | 004 | P1 | 3 Backend hardening | E | `s11-25-home-bounds` | S11.14 | DONE 2026-09-30 |
 | [S11.26](S11-26.md) | Request size limits and input caps | 004, 035, 024 | P1 | 3 Backend hardening | E | `s11-26-request-limits` | S11.14 | |
 | [S11.27](S11-27.md) | AI spend ceiling; trusted client key; one require_token | 003, 006, 043 | P1 | 3 Backend hardening | E | `s11-27-ai-spend` | S11.14 | |
-| [S11.28](S11-28.md) | Sign-in routes: off the event loop, throttled, rehash | 005, 011 | P1 | 3 Backend hardening | E | `s11-28-auth-throttle` | S11.27 | |
+| [S11.28](S11-28.md) | ~~Sign-in routes: off the event loop, throttled, rehash~~ | 005, 011 | P1 | 3 Backend hardening | E | `s11-28-auth-throttle` | S11.27 | **DROPPED 2026-10-02** (accounts cut; see BLOCKERS: turn the server routes off instead) |
 | [S11.29](S11-29.md) | AI calls time out and stop when the phone gives up | 035 | P2 | 3 Backend hardening | E | `s11-29-ai-deadlines` | S11.26, S11.27 | |
-| [S11.30](S11-30.md) | Cloud homes: quota and compare-and-set revisions | 016, 007 | P2 | 3 Backend hardening | E | `s11-30-homes-cas` | S11.26, S11.28 | |
-| [S11.31](S11-31.md) | Backend hygiene: /convert errors, index retry, /health commit | 010, 042, 037 | P2 | 3 Backend hardening | E | `s11-31-backend-hygiene` | S11.30 | |
-| [S11.32](S11-32.md) | Sync handles a stale revision and a full account | 016, 007 | P2 | 4 Integration | D | `s11-32-sync-cas` | S11.22, S11.30 deployed | |
+| [S11.30](S11-30.md) | ~~Cloud homes: quota and compare-and-set revisions~~ | 016, 007 | P2 | 3 Backend hardening | E | `s11-30-homes-cas` | S11.26, S11.28 | **DROPPED 2026-10-02** (accounts cut) |
+| [S11.31](S11-31.md) | Backend hygiene: /convert errors, index retry, /health commit | 010, 042, 037 | P2 | 3 Backend hardening | E | `s11-31-backend-hygiene` | ~~S11.30~~ (dropped; skip the Mongo index retry) | |
+| [S11.32](S11-32.md) | ~~Sync handles a stale revision and a full account~~ | 016, 007 | P2 | 4 Integration | D | `s11-32-sync-cas` | S11.22, S11.30 deployed | **DROPPED 2026-10-02** (accounts cut) |
 | [S11.33](S11-33.md) | Photo import sends a real JPEG | 024 | P1 | 4 Integration | D | `s11-33-photo-jpeg` | S11.26 | |
 | [S11.34](S11-34.md) | Checklist recurrence through /score (server) | 026 | P2 | 4 Integration | E | `s11-34-recurrence-server` | S11.27 | |
 | [S11.35](S11-35.md) | The app remembers when a recurring task was done | 026 | P2 | 4 Integration | D | `s11-35-recurrence-app` | S11.23, S11.34 deployed | |
@@ -88,10 +89,10 @@ Anything cut gets a BLOCKERS line.
 | [S11.37](S11-37.md) | Failure messages tell the truth | 032, 046, 014 | P2 | 4 Integration | D | `s11-37-honest-failures` | S11.23, S11.29 | |
 | [S11.38](S11-38.md) | Settings share uses the active home, reports failures | 027, 049 | P2 | 4 Integration | D | `s11-38-settings-share` | S11.21 | |
 | [S11.39](S11-39.md) | AI inspector: wire it or cut the claim | 022, 044 | P1 | 4 Integration | D + E | `s11-39-ai-inspector` | S11.14 decision, S11.27, S11.29 | |
-| [S11.40](S11-40.md) | Release builds keep data out of Files; scans cleaned | 008 | P2 | 5 Storage & session | D | `s11-40-release-files` | S11.24 | |
+| [S11.40](S11-40.md) | Release builds keep data out of Files; scans cleaned | 008 | P2 | 5 Storage & session | D | `s11-40-release-files` | ~~S11.24~~ (dropped, prereq lifted) | |
 | [S11.41](S11-41.md) | Home ids validated on every write | 012 | P3 | 5 Storage & session | D | `s11-41-home-id-validation` | S11.21, S11.40 | |
 | [S11.42](S11-42.md) | Server settings: rotation reaches installs, bad URLs refused | 009 | P2 | 5 Storage & session | D | `s11-42-server-settings` | S11.14 owner answers | |
-| [S11.43](S11-43.md) | Signing in lasts; expiry is announced | 031 | P2 | 5 Storage & session | D + E | `s11-43-session-length` | S11.16, S11.28 | |
+| [S11.43](S11-43.md) | ~~Signing in lasts; expiry is announced~~ | 031 | P2 | 5 Storage & session | D + E | `s11-43-session-length` | S11.16, S11.28 | **DROPPED 2026-10-02** (accounts cut) |
 | [S11.44](S11-44.md) | Chat rejects uncited safety claims | 030 | P2 | 6 Grounding & CI | E | `s11-44-chat-citations` | S11.29 | |
 | [S11.45](S11-45.md) | One conversation per home, bounded history | 033, 049 | P3 | 6 Grounding & CI | D | `s11-45-conversation-per-home` | S11.26, S11.37 | |
 | [S11.46](S11-46.md) | Nightly iOS suite; Render deploys only green commits | 037 | P2 | 6 Grounding & CI | any | `s11-46-ci-gating` | S11.8, S11.31 | |

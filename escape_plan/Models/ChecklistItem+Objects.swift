@@ -12,7 +12,7 @@
 //      routes.narrows_route.<room_id>.<object_id>[-<object_id>…]
 //
 //  The route ids join their culprits with "-", and object ids CONTAIN "-" — the converter emits
-//  `obj-<hex>` and the hazard hunt uses a raw `UUID().uuidString`. So the tail cannot be split on
+//  `obj-<hex>` and "Add Object" in House uses a raw `UUID().uuidString`. So the tail cannot be split on
 //  "-" without shredding the ids. It is resolved against the ids the home actually has instead,
 //  which also means a row pointing at an object that has since been deleted resolves to nothing
 //  rather than to a wrong object.

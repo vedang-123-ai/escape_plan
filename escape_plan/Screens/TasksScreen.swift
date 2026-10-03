@@ -54,9 +54,7 @@ struct TasksScreen: View {
             .sheet(item: $detailItem) { item in
                 TaskDetailSheet(item: item,
                                 isDone: readiness.isDone(item),
-                                onPrimary: { perform(item, fromSheet: true) },
-                                onRecheck: item.id == "rescan.home"
-                                    ? { detailItem = nil; router.go(home: .recheckRoom) } : nil)
+                                onPrimary: { perform(item, fromSheet: true) })
             }
             .sheet(isPresented: $showingExportSheet) {
                 if let id = readiness.activeHomeID { ExportPlanSheet(homeID: id, store: library.store) }

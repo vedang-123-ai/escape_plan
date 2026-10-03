@@ -140,6 +140,38 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
 
+### Demo trim 1 findings (2026-10-02, branch `trim-1-demo-cuts`)
+
+Anish cut Hazard Hunt, the re-scan review, the AR walk, the practice log + reminders, and accounts + cloud sync
+(decisions 2026-10-02). This branch does the first two and accounts; AR and the practice log go with the drill
+rewrite (trim 2).
+
+- [x] **Hazard Hunt deleted** (view, `HazardHuntPlan`, its 20 tests). The House object inspector sets the
+      same flags (type, strapped, mounted, elevation); no checklist item became unresolvable.
+- [x] **Re-scan review deleted** (`DiffReviewSheet`, the room picker, `HomeIntent.recheckRoom`, "Re-check a room with
+      the camera", the diff request types and `diffObstructions`). `ScanFreshness` and its nudge stay.
+- [x] **Accounts + sync switched off, code kept.** No gate, no sync badge, no sign-in or delete-account, no sync
+      triggers (Home delete, House close, launch, foreground). `RootView` signs out a stored login once. Settings has a
+      Privacy section with "What leaves this iPhone?" (compute, Anthropic, never leaves; no account lists).
+- [x] **House's error banners fade after 8 s** and have a close button; not for a Settings fix, an offline/saved-routes
+      notice, or under VoiceOver. Opt-in (`autoHides`): elsewhere the banner holds the only Retry, so it stays up.
+- [x] **Deleting a home no longer writes a sync tombstone** (`ContentView` leaves `library.deletionObserver` unset) and
+      the confirmation always says "this iPhone". If accounts come back, re-wire both (`ContentView.swift`, `HomeScreen.swift`).
+- [x] **Only the drill task opens the drill**; meeting point and re-scan tick off in place.
+- [ ] **The server's `/auth/*` and `/homes` routes are still deployed, unthrottled** (S11.28 dropped). No app uses
+      them now. Next action (owner, 2 minutes): Render → escape-plan-backend → Environment → delete `MONGODB_URI`
+      (and optionally `JWT_SECRET_KEY`), then save. `config.cloud_sync_enabled` goes false and those routes answer 503
+      (`backend/app/config.py`). Deleting the code is a later, optional cleanup.
+- [ ] **Backend `/diff_obstructions` is still deployed** with no caller. Harmless (bearer-guarded, pure). Next action:
+      remove with its tests in a backend cleanup, or leave.
+- [ ] **`Capture/` still carries the dead single-room "recheck" mode** (`RoomCaptureController.recheckRoomID`,
+      `ScanFlowView.recheckRoomID`), never set by anything. Next action: S11.47 cleanup.
+- [ ] **The `rescan.home` checklist item now just ticks off** ("Re-scan your home" twice a year). Its wording still
+      fits; the scan it asks for creates a new home rather than refreshing this one. Next action: none unless Anish wants
+      the item dropped from the backend checklist.
+- [ ] **Signed-in phones from earlier builds** are signed out on first launch of this build; their homes stay. Never
+      walked with a real account. Next action: none (no testers have accounts).
+
 ### S11.22 findings (2026-10-02, branch `s11-22-sync-conflict-copies`)
 
 - [x] **AUD-015 fixed: at most one conflict copy, and none while the home is open.** Reproduced first:

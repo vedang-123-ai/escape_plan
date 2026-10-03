@@ -44,14 +44,6 @@ struct HouseScreen: View {
     /// disappear (S11.19); before that it was set once at load and lost on the first tab switch.
     @Environment(HomeDocumentSyncRepository.self) private var syncRepository
 
-    @Environment(SyncManager.self) private var sync
-
-    /// Whether the user actually changed the home since this screen appeared.
-    ///
-    /// Gates the sync on close. Without it, every tab switch away from the House tab would
-    /// fire a `GET /homes` at a free-tier service measured at a 42 s cold start, for a home
-    /// nobody touched.
-    @State private var didCommitSinceAppear = false
 
     @State private var session: EditorSession?
     /// The session's load/save lifecycle (S11.19, AUD-013): re-arms the open-home guard on every
@@ -254,20 +246,6 @@ struct HouseScreen: View {
             sessionController?.disappear()
             // A notice about the last visit; the next appear says again if anything changed.
             externalChangeNotice = nil
-
-            // Closing the editor is the moment to push. Deliberately NOT hooked to autosave:
-            // that fires on a debounce DURING editing, so a push per autosave would mint a
-            // server revision every few seconds for a home nobody has finished changing, and
-            // burn a free-tier service doing it. Closing is the first moment the user is
-            // plausibly done.
-            //
-            // `disappear()` runs first on purpose — it clears the open-home guard, so this sync
-            // is allowed to write a pulled copy of the home just released rather than skipping
-            // it as "open in the editor". The next appear re-arms the guard and reloads it.
-            if didCommitSinceAppear {
-                didCommitSinceAppear = false
-                Task { await sync.syncIfSignedIn() }
-            }
         }
         .sheet(isPresented: $addStairsSheetPresented) {
             if let session {
@@ -706,9 +684,8 @@ struct HouseScreen: View {
             dockModeSwitch
             switch dockMode {
             case .routes:
-                if (Double(store.model.schema_version) ?? 1.0) >= 2.0 {
-                    HazardHuntView(store: store)
-                }
+                // Hazard Hunt sat here until it was cut from the demo app (2026-10-02). The
+                // object inspector still sets everything it did (type, strapped, mounted).
                 if let routePlan {
                     routeControls(for: routePlan)
                 } else if isFetchingRoutes {
@@ -716,6 +693,14 @@ struct HouseScreen: View {
                         .font(.subheadline)
                         .foregroundStyle(DS.supporting)
                         .padding(.top, 4)
+                } else if routesFailure != nil {
+                    // The banner over the model fades (`autoHides`); this keeps a way to try again.
+                    Button("Try loading routes again") { fetchRoutes() }
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.accentText)
+                        .minimumTapTarget()
+                        .padding(.top, 4)
+                        .accessibilityIdentifier("house.routesRetry")
                 }
             case .fire:
                 simulationControls(for: store)
@@ -755,7 +740,7 @@ struct HouseScreen: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
             .padding(.top, 8)
         } else if let routesFailure {
-            BackendFailureBanner(failure: routesFailure, retry: { fetchRoutes() })
+            BackendFailureBanner(failure: routesFailure, retry: { fetchRoutes() }, autoHides: true)
                 .padding(.top, 8)
         }
     }
@@ -867,7 +852,8 @@ struct HouseScreen: View {
             // One classifier, one banner: a 502 (an operator must act) gets no Retry, a 503
             // does. Nothing is invented client-side to paper over either.
             BackendFailureBanner(failure: simulationFailure,
-                                 retry: lastIgnitedRoomID.map { id in { ignite(roomID: id) } })
+                                 retry: lastIgnitedRoomID.map { id in { ignite(roomID: id) } },
+                                 autoHides: true)
         }
     }
 
@@ -2263,7 +2249,6 @@ struct HouseScreen: View {
                 newSession.undoStack.recordCommit(_commit)
                 autosave(newSession, controller: controller)
                 invalidateRoutes()
-                didCommitSinceAppear = true
             }
             session = newSession
             sessionController = controller

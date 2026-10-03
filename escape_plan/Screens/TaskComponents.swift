@@ -181,7 +181,6 @@ struct TaskDetailSheet: View {
     let item: ChecklistItem
     let isDone: Bool
     let onPrimary: () -> Void
-    var onRecheck: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     private var destination: TaskDestination { TaskDestination(item) }
@@ -237,9 +236,6 @@ struct TaskDetailSheet: View {
                     DSPrimaryButton(title: destination.actionTitle(done: isDone),
                                     systemImage: destination.actionSymbol(done: isDone),
                                     action: onPrimary)
-                    if let onRecheck {
-                        DSSecondaryButton(title: "Re-check a room with the camera", action: onRecheck)
-                    }
                 }
                 .padding(.horizontal, DS.pagePadding)
                 .padding(.bottom, 8)

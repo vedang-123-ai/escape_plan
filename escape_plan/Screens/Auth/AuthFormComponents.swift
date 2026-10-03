@@ -160,6 +160,10 @@ struct AuthSubmitButton: View {
 /// three hand-written places is a disclosure that will be true in two of them after the next
 /// schema change.
 ///
+/// Since accounts were cut from the demo app (2026-10-02) it shows three lists, in Settings only:
+/// what is sent to compute, what goes on to Anthropic, and what never leaves. `uploaded` and
+/// `notSynced` stay in `AccountPrivacy` with the switched-off account code.
+///
 /// Collapsed by default. Expanded, it is five short lists on a screen whose job is to let
 /// someone decide about an account — but the summary above it is the fact that actually
 /// decides most of it, and the detail has to be one tap away, not a link to a web page the
@@ -204,7 +208,7 @@ struct AccountPrivacyDisclosure: View {
             }
             .buttonStyle(.plain)
             .minimumTapTarget(44)
-            .accessibilityHint("Lists what is sent to work things out, what an account saves, and what never leaves.")
+            .accessibilityHint("Lists what is sent to work things out and what never leaves.")
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 12) {
@@ -216,14 +220,6 @@ struct AccountPrivacyDisclosure: View {
                                    AccountPrivacy.sentToAnthropic,
                                    symbol: "arrow.up.right.circle",
                                    identifier: AccountPrivacyDisclosure.anthropicIdentifier)
-                    disclosureList("Saved to your account, only if you sign in",
-                                   AccountPrivacy.uploaded.map(\.text),
-                                   symbol: "arrow.up.circle",
-                                   identifier: AccountPrivacyDisclosure.uploadsIdentifier)
-                    disclosureList("Kept on this iPhone, not in your account",
-                                   AccountPrivacy.notSynced,
-                                   symbol: "iphone",
-                                   identifier: AccountPrivacyDisclosure.notSyncedIdentifier)
                     disclosureList("Never leaves this iPhone",
                                    AccountPrivacy.notUploaded,
                                    symbol: "xmark.circle",
