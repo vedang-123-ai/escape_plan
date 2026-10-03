@@ -13,11 +13,12 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.ai.chat.service import ChatGroundingError, ChatMessage, ChatResponse, chat
 from app.ai.grounded import GroundingError
 from app.config import get_settings
+from app.limits import MAX_CHAT_MESSAGES, MAX_CHAT_TOTAL_CHARS
 from app.models import HomeModel, Profile
 from app.rate_limit import ai_concurrency, ai_rate_limit
 from app.routing.plan import RoutePlan
@@ -43,12 +44,31 @@ def require_token(
 
 
 class ChatRequest(BaseModel):
+    """S11.26 (AUD-035): the history is bounded by count and by total length.
+
+    A long thread used to grow until the model itself rejected it, which reached
+    the user as a 502 "AI unavailable" after they had already waited. Refusing
+    with 422 up front lets the client trim and say so (S11.45); the server never
+    truncates silently, because answering a question about a conversation the
+    user did not send is worse on a safety app than an error they can see.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     home: HomeModel
     route_plan: Optional[RoutePlan] = None
     profiles: list[Profile] = Field(default_factory=list)
-    messages: list[ChatMessage] = Field(min_length=1)
+    messages: list[ChatMessage] = Field(min_length=1, max_length=MAX_CHAT_MESSAGES)
+
+    @model_validator(mode="after")
+    def _history_within_total_budget(self) -> "ChatRequest":
+        total = sum(len(message.content) for message in self.messages)
+        if total > MAX_CHAT_TOTAL_CHARS:
+            raise ValueError(
+                f"conversation is {total:,} characters, over the maximum of "
+                f"{MAX_CHAT_TOTAL_CHARS:,}. Send fewer earlier turns."
+            )
+        return self
 
 
 @router.post(
