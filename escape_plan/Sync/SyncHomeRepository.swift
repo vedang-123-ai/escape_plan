@@ -40,6 +40,14 @@ protocol SyncHomeRepository: AnyObject {
     /// the other one: the losing side is somebody's real work, the tiebreak is two devices'
     /// wall clocks, and the badge would otherwise report "Synced" over a silent loss.
     func preserveLocalCopy(of home: HomeModel, named name: String) throws -> String
+
+    /// Throws the reason `writePulledHome(home)` would refuse, without writing anything.
+    ///
+    /// Asked BEFORE a conflict copy is made (S11.22, AUD-015). A pull that preserves first and
+    /// is then refused leaves the sync record unchanged, so the next sync plans the same pull
+    /// and makes another copy: with the home open in House, one more "(this device)" copy per
+    /// sync, each uploaded and downloaded to every other device.
+    func checkCanWritePulledHome(_ home: HomeModel) throws
 }
 
 #if DEBUG
@@ -53,22 +61,60 @@ final class InMemoryHomeRepository: SyncHomeRepository {
     /// path is tested rather than assumed.
     var loadError: Error?
 
+    /// The home open in House. Writes to it are refused exactly as
+    /// `HomeDocumentSyncRepository.writePulledHome` refuses them (S11.22).
+    var openHomeID: String?
+
+    /// Set to make the next `writePulledHome` throw after its open-home check passes, then
+    /// clear: a disk that refuses a write AFTER the conflict copy was made.
+    var failNextWrite: Error?
+
     init(_ homes: [HomeModel] = []) {
         self.homes = Dictionary(homes.map { ($0.home_id, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
+    /// Runs once, just after `loadAllHomes()` has taken its snapshot: something that happens
+    /// while the sync is still waiting on `GET /homes`.
+    var afterLoadAllHomes: (() -> Void)?
+
     func loadAllHomes() throws -> [HomeModel] {
         if let loadError { throw loadError }
-        return homes.values.sorted { $0.home_id < $1.home_id }
+        let snapshot = homes.values.sorted { $0.home_id < $1.home_id }
+        if let hook = afterLoadAllHomes {
+            afterLoadAllHomes = nil
+            hook()
+        }
+        return snapshot
     }
 
     func writePulledHome(_ home: HomeModel) throws {
+        try checkCanWritePulledHome(home)
+        if let failNextWrite {
+            self.failNextWrite = nil
+            throw failNextWrite
+        }
         homes[home.home_id] = home
         writes.append(home)
     }
 
+    func checkCanWritePulledHome(_ home: HomeModel) throws {
+        guard openHomeID != home.home_id else { throw SyncFailure.editorHasTheHomeOpen }
+    }
+
+    /// The user editing a home on this device.
+    func edit(_ home: HomeModel) {
+        homes[home.home_id] = home
+    }
+
+    /// The user deleting a home on this device, e.g. a "(this device)" copy (S11.21).
+    func delete(homeID: String) {
+        homes.removeValue(forKey: homeID)
+    }
+
+    /// A fresh id per copy, as `HomeDocumentStore.duplicate` mints one. A fixed id per home made
+    /// a second copy silently replace the first here, which hid AUD-015 from these tests.
     func preserveLocalCopy(of home: HomeModel, named name: String) throws -> String {
-        let id = "preserved-\(home.home_id)"
+        let id = "preserved-\(home.home_id)-\(preserved.count + 1)"
         var copy = home
         copy.home_id = id
         copy.name = name

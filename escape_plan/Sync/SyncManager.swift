@@ -102,6 +102,15 @@ final class SyncManager {
     /// `forgetAccount`.
     private var forgottenAccountID: String?
 
+    /// The tombstones the running sync started from. A tombstone in the sidecar that is not in
+    /// here was written while the sync ran (a home deleted from "Your homes" mid-sync), and the
+    /// running loop's own `state` does not know about it. See `adoptDeletionsWrittenSinceStart`.
+    private var deletionsAtStart: [String: HomeDeletion] = [:]
+
+    /// The account the running sync is for, so a tombstone written mid-run can be given the
+    /// owner this run just claimed (see `adoptDeletionsWrittenSinceStart`).
+    private var runSubject: String?
+
     /// A sync was asked for while one was already running. Render's free tier has been
     /// measured at a 42 s cold start, which is plenty of time for a user to finish an edit
     /// and tap the badge; dropping that request silently means their edit does not go up and
@@ -195,6 +204,14 @@ final class SyncManager {
             forgottenAccountID = nil
         }
 
+        // Taken BEFORE the library is read. A home deleted after this point, including during
+        // the `GET /homes` below (up to 90 s against a cold Render instance), is then seen as
+        // new by `adoptDeletionsWrittenSinceStart`, even though `local` still lists it. Taken
+        // after the list, its tombstone would read as stale and this run would push it back.
+        // `scoped(to:)` never changes `deletions`, so the unscoped read is the same set.
+        deletionsAtStart = stateStore.load().deletions
+        runSubject = token.subject
+
         let local: [LocalHome]
         do {
             local = try repository.loadAllHomes().map(LocalHome.init)
@@ -236,6 +253,16 @@ final class SyncManager {
         var outcome = SyncOutcome()
 
         for action in plan.actions {
+            // Deleted on this device since the plan was made. Pushing it would put it back in
+            // the account, and pulling it would put it back on disk.
+            // "Since" by value, not by presence: a home whose old tombstone this run cleared (it
+            // was back on disk) and that is then deleted again carries a new `deletedAt`.
+            adoptDeletionsWrittenSinceStart(into: &state)
+            if let current = state.deletions[action.localHomeID],
+               current != deletionsAtStart[action.localHomeID] {
+                outcome.skipped += 1
+                continue
+            }
             do {
                 try await apply(action, localByID: localByID, remoteByRecordID: remoteByRecordID,
                                 token: token, state: &state, outcome: &outcome)
@@ -362,12 +389,17 @@ final class SyncManager {
             // most of a minute to wake up.
             guard let stored = remoteByRecordID[remoteID] else { return }
 
+            // Asked BEFORE any copy is made (S11.22, AUD-015). A copy for a pull that is then
+            // refused (the home is open in House) left the record unchanged, so every later
+            // sync planned the same pull and made one more copy. Refused here, it is a per-home
+            // failure whose message the sync badge already shows, and nothing is copied.
+            try repository.checkCanWritePulledHome(stored.home)
+
             // A pull that overwrites edits this device also has sets the local copy aside
             // first. Last-write-wins decides which copy is CANONICAL; it is not a licence to
             // destroy the other one, least of all on a tiebreak between two devices' clocks.
-            if action.overwritesLocalEdits, let local = localByID[action.localHomeID] {
-                let preservedID = try repository.preserveLocalCopy(
-                    of: local.model, named: "\(local.model.name) (this device)")
+            if action.overwritesLocalEdits, let local = localByID[action.localHomeID],
+               let preservedID = try preserveOnce(local, localByID: localByID, state: &state) {
                 outcome.conflicts.append(HomeSyncConflict(localHomeID: action.localHomeID,
                                                           preservedAs: preservedID))
             }
@@ -377,6 +409,33 @@ final class SyncManager {
             remember(stored, fingerprintOf: stored.home, in: &state)
             outcome.pulled += 1
         }
+    }
+
+    /// Set the local home aside as "<name> (this device)", at most once per version of it.
+    ///
+    /// A copy is recorded in `state` before the pull is written, so if the write then fails the
+    /// next sync finds it instead of making another. Returns the copy's id, or nil when this
+    /// same version was copied before and the user has since deleted that copy (S11.21 lets
+    /// them): they discarded it, so it is neither brought back nor made again.
+    ///
+    /// A local home edited AFTER its copy was made has a new fingerprint, so that version is
+    /// new work and gets a copy of its own. Reachable only when a write failed after the first
+    /// copy, since a refused write is caught before any copy is made.
+    ///
+    /// A copy still on disk but undecodable is absent from `localByID` and read as deleted: no
+    /// new copy is made, and the file itself is left alone.
+    private func preserveOnce(_ local: LocalHome,
+                              localByID: [String: LocalHome],
+                              state: inout SyncState) throws -> String? {
+        if let earlier = state.preservedCopies[local.homeID],
+           earlier.preservedFingerprint == local.fingerprint {
+            return localByID[earlier.copyHomeID] == nil ? nil : earlier.copyHomeID
+        }
+        let copyID = try repository.preserveLocalCopy(
+            of: local.model, named: "\(local.model.name) (this device)")
+        state.preservedCopies[local.homeID] = PreservedCopy(copyHomeID: copyID,
+                                                            preservedFingerprint: local.fingerprint)
+        return copyID
     }
 
     /// Delete EVERY server record for one deleted home, tolerating the failure that means
@@ -426,9 +485,45 @@ final class SyncManager {
     /// possible: a sync that was already running when the account was deleted still holds a
     /// `state` describing it, and applying the same forgetting on the way out is cheaper and
     /// safer than trying to cancel the loop mid-flight.
+    ///
+    /// The same reasoning covers a home deleted while a sync runs (S11.22, a finding from
+    /// S11.21): `HomeDocumentSyncRepository.homeWasDeletedLocally` writes its tombstone straight
+    /// to the sidecar, and writing this sync's older `state` over it would drop the tombstone
+    /// and its owner, so the next sync would download the deleted home again.
     private func persist(_ state: SyncState) {
-        let state = forgottenAccountID.map(state.forgettingAccount) ?? state
+        var state = state
+        adoptDeletionsWrittenSinceStart(into: &state)
+        state = forgottenAccountID.map(state.forgettingAccount) ?? state
         try? stateStore.save(state)
+    }
+
+    /// Copy into `state` every tombstone the sidecar gained since this sync started.
+    ///
+    /// Compared against `deletionsAtStart`, not against `state`, because this sync clears
+    /// tombstones on purpose (a home back on disk); those were in the sidecar at the start and
+    /// must not be put back. A tombstone written during the run wins over anything the run did
+    /// to that home since: the user deleted it after the plan was made.
+    ///
+    /// Owner: `markDeleted` reads the owner from the sidecar, and a home first uploaded by THIS
+    /// run is claimed only in the run's own `state` until the next `persist`. Deleted during
+    /// that upload, its tombstone has no owner, and an ownerless tombstone never deletes the
+    /// server copy, so the home would stay in the account for good. Only a claim by this run's
+    /// own account fills it in; any other owner would let `forgettingAccount` drop it.
+    ///
+    /// Reads the sidecar twice per action (before it and in `persist`), on purpose: a delete
+    /// can land in either gap. The file is small and the read is cheap.
+    private func adoptDeletionsWrittenSinceStart(into state: inout SyncState) {
+        guard isSyncing else { return }
+        for (homeID, written) in stateStore.load().deletions
+        where deletionsAtStart[homeID] != written {
+            var deletion = written
+            if deletion.ownerUserID == nil, let subject = runSubject,
+               state.homeOwners[homeID] == subject {
+                deletion = HomeDeletion(deletedAt: written.deletedAt, ownerUserID: subject)
+            }
+            guard state.deletions[homeID] != deletion else { continue }
+            state.apply(deletion, to: homeID)
+        }
     }
 
     private func fail(with failure: SyncFailure) {

@@ -129,6 +129,66 @@ final class SyncStateStoreTests: XCTestCase {
         XCTAssertTrue(loaded.deletions.isEmpty, "an absent collection must decode as empty")
     }
 
+    // MARK: - Conflict copies (S11.22): a new field, the same version
+
+    /// A sidecar exactly as a build from before S11.22 wrote it: version 3, no
+    /// `preservedCopies`. It must load with every record, tombstone and owner intact. Bumping
+    /// the version instead would discard it, and with it the tombstones that stop deleted homes
+    /// coming back.
+    func testAVersion3SidecarWrittenBeforeConflictCopiesStillLoadsWhole() throws {
+        let old = """
+        {
+          "deletions" : {
+            "home-gone" : { "deletedAt" : "2026-09-30T10:00:00Z", "ownerUserID" : "alice" }
+          },
+          "homeOwners" : { "home-1" : "alice" },
+          "records" : {
+            "home-1" : {
+              "lastSyncedAt" : "2026-09-30T09:00:00Z",
+              "localHomeID" : "home-1",
+              "remoteID" : "srv-1",
+              "syncedFingerprint" : "0123456789abcdef",
+              "syncedRevision" : 4
+            }
+          },
+          "userID" : "alice",
+          "version" : 3
+        }
+        """
+        try Data(old.utf8).write(to: fileURL)
+
+        let loaded = FileSyncStateStore(url: fileURL).load()
+
+        XCTAssertEqual(SyncState.currentVersion, 3, "a bump would discard every phone's sidecar")
+        XCTAssertEqual(loaded.userID, "alice")
+        XCTAssertEqual(loaded.record(for: "home-1")?.syncedRevision, 4)
+        XCTAssertEqual(loaded.deletions["home-gone"]?.ownerUserID, "alice")
+        XCTAssertEqual(loaded.homeOwners["home-1"], "alice")
+        XCTAssertEqual(loaded.preservedCopies, [:])
+    }
+
+    func testARecordedConflictCopySurvivesTheRoundTrip() throws {
+        var state = SyncState(userID: "alice")
+        state.preservedCopies["home-1"] = PreservedCopy(copyHomeID: "copy-1",
+                                                        preservedFingerprint: "fedcba9876543210")
+        try FileSyncStateStore(url: fileURL).save(state)
+
+        XCTAssertEqual(FileSyncStateStore(url: fileURL).load(), state)
+    }
+
+    /// The conflict is over once both sides agree, or once the original is deleted.
+    func testARecordedConflictCopyIsClearedBySyncingOrDeletingTheOriginal() {
+        var state = SyncState(userID: "alice")
+        let copy = PreservedCopy(copyHomeID: "copy-1", preservedFingerprint: "fedcba9876543210")
+        state.preservedCopies["home-1"] = copy
+        state.preservedCopies["home-2"] = copy
+
+        state.remember(makeRecord("home-1"))
+        state.markDeleted(localHomeID: "home-2", at: Date(timeIntervalSince1970: 1_700_000_000))
+
+        XCTAssertEqual(state.preservedCopies, [:])
+    }
+
     func testSavingCreatesTheDirectoryIfItIsMissing() throws {
         let nested = scratch.appendingPathComponent("not/created/yet/sync-state.json")
         try FileSyncStateStore(url: nested).save(SyncState())

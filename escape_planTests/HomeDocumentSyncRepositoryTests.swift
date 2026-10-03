@@ -172,10 +172,41 @@ final class HomeDocumentSyncRepositoryTests: XCTestCase {
         XCTAssertEqual(copy.floors, home.floors, "the copy must be the user's actual content")
     }
 
+    // MARK: - Asked before a conflict copy is made (S11.22, AUD-015)
+
+    /// `SyncManager` asks this before preserving a losing local copy. It must refuse the home
+    /// open in House with the same failure `writePulledHome` throws, and write nothing.
+    func testTheOpenHomeIsRefusedBeforeAnyCopyIsMade() throws {
+        let home = try bungalow()
+        try store.save(model: home, now: home.meta.modified)
+        repository.openHomeID = home.home_id
+        let before = store.list().count
+
+        XCTAssertThrowsError(try repository.checkCanWritePulledHome(home)) { error in
+            XCTAssertEqual(error as? SyncFailure, .editorHasTheHomeOpen)
+        }
+        XCTAssertEqual(store.list().count, before, "a check must not write")
+
+        repository.openHomeID = nil
+        XCTAssertNoThrow(try repository.checkCanWritePulledHome(home), "a closed home may be written")
+    }
+
+    /// The same check covers a document that did not decode.
+    func testAnUndecodableDocumentIsRefusedBeforeAnyCopyIsMade() throws {
+        let home = try bungalow()
+        try Data(#"{"home_id":"\#(home.home_id)","schema_version":"2.1","floors":"not an array"}"#.utf8)
+            .write(to: store.url(for: home.home_id))
+        _ = try repository.loadAllHomes()
+
+        XCTAssertThrowsError(try repository.checkCanWritePulledHome(home)) { error in
+            XCTAssertEqual(error as? SyncFailure, .localCopyUnreadable)
+        }
+    }
+
     // MARK: - Deletion tombstones
 
     func testDeletingAHomeRecordsATombstone() throws {
-        repository.homeWasDeletedLocally(homeID: "home-gone")
+        try repository.homeWasDeletedLocally(homeID: "home-gone")
         XCTAssertTrue(stateStore.load().isDeletedLocally("home-gone"))
     }
 
@@ -191,6 +222,28 @@ final class HomeDocumentSyncRepositoryTests: XCTestCase {
 
         XCTAssertTrue(stateStore.load().isDeletedLocally(home.home_id))
         XCTAssertFalse(store.exists(homeID: home.home_id))
+    }
+
+    /// A tombstone that will not save is no longer swallowed (S11.22): the home is still gone,
+    /// `delete` still says so, and the reason reaches `loadError` for Home to show.
+    func testATombstoneThatWillNotSaveIsReportedNotSwallowed() throws {
+        final class RefusingStore: SyncStateStore {
+            struct Refused: Error {}
+            func load() -> SyncState { .empty }
+            func save(_ state: SyncState) throws { throw Refused() }
+        }
+        let home = try bungalow()
+        try store.save(model: home, now: home.meta.modified)
+        let refusing = HomeDocumentSyncRepository(store: store, stateStore: RefusingStore())
+        let library = HomeLibrary(store: store)
+        library.deletionObserver = refusing
+
+        XCTAssertThrowsError(try refusing.homeWasDeletedLocally(homeID: "x")) { error in
+            XCTAssertEqual(error as? DeletionNotRemembered, DeletionNotRemembered())
+        }
+        XCTAssertTrue(library.delete(homeID: home.home_id), "the file did go")
+        XCTAssertFalse(store.exists(homeID: home.home_id))
+        XCTAssertEqual(library.loadError, DeletionNotRemembered().errorDescription)
     }
 
     /// A delete that FAILS must not leave a tombstone for a home that is still on disk.
