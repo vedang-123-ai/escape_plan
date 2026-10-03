@@ -2758,4 +2758,459 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - cb46502 S11.25: bounds tests, at-bound and over-bound for every bound
   - f180301 S11.25: residential size bounds in pydantic (AUD-004 geometry half)
   - 8f2f251 S11.25 STEP 0: measure fixtures, choose cell-based bounds over area bounds
+## 2026-09-29T23:28:09Z · Anish Yarrakonda · `main` @ `920a326`
+
+**Commits this session**
+  - 920a326 Update activity log with recent session commits and uncommitted changes
+
+## 2026-09-29T23:28:55Z · Anish Yarrakonda · `main` @ `b4aa81c`
+
+**Commits this session**
+  - b4aa81c Merge s11-14-aud001-token
+  - b98c209 BLOCKERS: AUD-001 token fixed on Anish's Mac, preflight passes
+  - 920a326 Update activity log with recent session commits and uncommitted changes
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-09-29T23:29:06Z · Anish Yarrakonda · `main` @ `b4aa81c`
+
+**Commits this session**
+  - b4aa81c Merge s11-14-aud001-token
+  - b98c209 BLOCKERS: AUD-001 token fixed on Anish's Mac, preflight passes
+  - 920a326 Update activity log with recent session commits and uncommitted changes
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-01T04:14:47Z · Anish Yarrakonda · `main` @ `b4aa81c`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-01T04:16:16Z · Anish Yarrakonda · `main` @ `d98f2d8`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-01T04:45:24Z · Anish Yarrakonda · `s11-8-ios-verify` @ `2c9a012`
+
+**Commits this session**
+  - 2c9a012 S11.8: record the green suite, close the first-priority gate, hand off
+  - 560a8e1 S11.8: install a shared system-alert interruption monitor in every UI test class
+  - 42cf1ee S11.8: fix the AUD-036 reds and a parallel-stub race, all test-side
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-01T04:53:44Z · Anish Yarrakonda · `main` @ `7f2c97e`
+
+**Commits this session**
+  - 7f2c97e Merge s11-8-ios-verify (S11.8): iOS suite green, 1008/997/0/11, first-priority gate closed
+  - 5c281c9 S11.8: act on the session-auditor findings (tracker pointers, re-owned PDF eyeball check, note accuracy)
+  - 2c9a012 S11.8: record the green suite, close the first-priority gate, hand off
+  - 560a8e1 S11.8: install a shared system-alert interruption monitor in every UI test class
+  - 42cf1ee S11.8: fix the AUD-036 reds and a parallel-stub race, all test-side
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-01T04:54:27Z · Anish Yarrakonda · `main` @ `7f2c97e`
+
+**Commits this session**
+  - 7f2c97e Merge s11-8-ios-verify (S11.8): iOS suite green, 1008/997/0/11, first-priority gate closed
+  - 5c281c9 S11.8: act on the session-auditor findings (tracker pointers, re-owned PDF eyeball check, note accuracy)
+  - 2c9a012 S11.8: record the green suite, close the first-priority gate, hand off
+  - 560a8e1 S11.8: install a shared system-alert interruption monitor in every UI test class
+  - 42cf1ee S11.8: fix the AUD-036 reds and a parallel-stub race, all test-side
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-01T05:41:30Z · Anish Yarrakonda · `main` @ `7723478`
+
+**Commits this session**
+  - 7723478 Merge s11-15-drill-verbatim (S11.15): drill shows engine findings verbatim, AUD-025 fixed
+  - 46d16a5 S11.15: note — full string sweep, questions for teammates
+  - 942919e S11.15: close out — AUD-025 fixed, BLOCKERS, note, decision, index
+  - e7b6bf9 S11.15: act on the auditor findings
+  - 29713b9 S11.15: drill notices show the engine's finding verbatim (AUD-025)
+
+**Uncommitted working-tree changes (4)**
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+
+## 2026-10-01T07:52:31Z · Anish Yarrakonda · `s11-16-privacy-truth` @ `2e2eadd`
+
+**Commits this session**
+  - 2e2eadd S11.16: privacy copy separates sent-to-compute from saved (AUD-050, AUD-018)
+
+**Uncommitted working-tree changes (11)**
+  - M docs/decisions.md
+  - M docs/playbook/README.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Auth/AccountPrivacy.swift
+  - M escape_plan/Screens/Auth/AuthFormComponents.swift
+  - M escape_planTests/EditorCore/AccountPrivacyTests.swift
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? docs/tracker/notes/2026-10-01-s11-16-privacy-truth.md
+
+## 2026-10-01T08:01:04Z · Anish Yarrakonda · `main` @ `3c32ab4`
+
+**Commits this session**
+  - 3c32ab4 Merge s11-16-privacy-truth (S11.16): privacy copy says what leaves the phone, AUD-050 fixed, AUD-018 disclosure
+  - dde9dc3 S11.16: note — final simulator re-run
+  - 32384b9 S11.16: close out — AUD-050 fixed, AUD-018 disclosure half, BLOCKERS, note, decision, index
+  - b50be33 S11.16: act on the security-reviewer and pitch-truth-auditor findings
+  - 2e2eadd S11.16: privacy copy separates sent-to-compute from saved (AUD-050, AUD-018)
+
+**Uncommitted working-tree changes (4)**
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+
+## 2026-10-01T08:44:33Z · Anish Yarrakonda · `main` @ `3c32ab4`
+
+**Commits this session**
+  - 3c32ab4 Merge s11-16-privacy-truth (S11.16): privacy copy says what leaves the phone, AUD-050 fixed, AUD-018 disclosure
+  - dde9dc3 S11.16: note — final simulator re-run
+
+**Uncommitted working-tree changes (4)**
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+
+## 2026-10-01T08:56:55Z · Anish Yarrakonda · `s11-17-draft-review` @ `3c32ab4`
+
+**Uncommitted working-tree changes (13)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Screens/HomeScreen.swift
+  - M escape_plan/Screens/ReadinessStore.swift
+  - M escape_plan/Screens/ScoreScreen.swift
+  - M escape_plan/Screens/TasksScreen.swift
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117.log
+  - ?? docs/tracker/notes/2026-10-01-s11-17-draft-review.md
+  - ?? escape_planTests/ReadinessStoreTests.swift
+
+## 2026-10-01T09:03:51Z · Anish Yarrakonda · `s11-17-draft-review` @ `670e1d3`
+
+**Commits this session**
+  - 670e1d3 S11.17: close out — AUD-023 fixed, BLOCKERS, note, decision, index
+  - a9992c1 S11.17: an unreviewed AI draft is never scored; Import Plan opens House (AUD-023)
+
+**Uncommitted working-tree changes (9)**
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+
+## 2026-10-01T09:08:08Z · Anish Yarrakonda · `main` @ `7b22cb6`
+
+**Commits this session**
+  - 7b22cb6 Merge s11-17-draft-review (S11.17): an unreviewed AI draft is never scored, Import Plan opens House, AUD-023 fixed
+  - 8163aae S11.17: note — final suite counts
+  - 670e1d3 S11.17: close out — AUD-023 fixed, BLOCKERS, note, decision, index
+  - a9992c1 S11.17: an unreviewed AI draft is never scored; Import Plan opens House (AUD-023)
+
+**Uncommitted working-tree changes (9)**
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+
+## 2026-10-01T09:20:31Z · Anish Yarrakonda · `s11-18-one-store` @ `2c70d19`
+
+**Commits this session**
+  - 2c70d19 S11.18: one HomeDocumentStore for the whole app (AUD-019)
+  - 7b22cb6 Merge s11-17-draft-review (S11.17): an unreviewed AI draft is never scored, Import Plan opens House, AUD-023 fixed
+  - 8163aae S11.17: note — final suite counts
+  - 670e1d3 S11.17: close out — AUD-023 fixed, BLOCKERS, note, decision, index
+  - a9992c1 S11.17: an unreviewed AI draft is never scored; Import Plan opens House (AUD-023)
+
+**Uncommitted working-tree changes (11)**
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+  - ?? .build-s1118.log
+  - ?? docs/tracker/notes/2026-10-01-s11-18-one-store.md
+
+## 2026-10-01T09:22:42Z · Anish Yarrakonda · `s11-18-one-store` @ `8ddbee5`
+
+**Commits this session**
+  - 8ddbee5 S11.18: don't spend onboarding.completed on the fallback store (review)
+  - 2c70d19 S11.18: one HomeDocumentStore for the whole app (AUD-019)
+  - 7b22cb6 Merge s11-17-draft-review (S11.17): an unreviewed AI draft is never scored, Import Plan opens House, AUD-023 fixed
+  - 8163aae S11.17: note — final suite counts
+  - 670e1d3 S11.17: close out — AUD-023 fixed, BLOCKERS, note, decision, index
+  - a9992c1 S11.17: an unreviewed AI draft is never scored; Import Plan opens House (AUD-023)
+
+**Uncommitted working-tree changes (14)**
+  - M docs/decisions.md
+  - M docs/playbook/README.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+  - ?? .build-s1118.log
+  - ?? docs/tracker/notes/2026-10-01-s11-18-one-store.md
+
+## 2026-10-01T09:27:37Z · Anish Yarrakonda · `s11-18-one-store` @ `8ddbee5`
+
+**Commits this session**
+  - 8ddbee5 S11.18: don't spend onboarding.completed on the fallback store (review)
+  - 2c70d19 S11.18: one HomeDocumentStore for the whole app (AUD-019)
+  - 7b22cb6 Merge s11-17-draft-review (S11.17): an unreviewed AI draft is never scored, Import Plan opens House, AUD-023 fixed
+  - 8163aae S11.17: note — final suite counts
+  - 670e1d3 S11.17: close out — AUD-023 fixed, BLOCKERS, note, decision, index
+  - a9992c1 S11.17: an unreviewed AI draft is never scored; Import Plan opens House (AUD-023)
+
+**Uncommitted working-tree changes (16)**
+  - M docs/decisions.md
+  - M docs/playbook/README.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+  - ?? .build-s1118-final.log
+  - ?? .build-s1118-smoke.log
+  - ?? .build-s1118.log
+  - ?? docs/tracker/notes/2026-10-01-s11-18-one-store.md
+
+## 2026-10-01T09:33:35Z · Anish Yarrakonda · `main` @ `14334b7`
+
+**Commits this session**
+  - 14334b7 Merge s11-18-one-store (S11.18): one HomeDocumentStore for the whole app, AUD-019 fixed
+  - b7b7d65 S11.18: close out — AUD-019 fixed, BLOCKERS, note, decision, index
+  - 8ddbee5 S11.18: don't spend onboarding.completed on the fallback store (review)
+  - 2c70d19 S11.18: one HomeDocumentStore for the whole app (AUD-019)
+  - 7b22cb6 Merge s11-17-draft-review (S11.17): an unreviewed AI draft is never scored, Import Plan opens House, AUD-023 fixed
+  - 8163aae S11.17: note — final suite counts
+  - 670e1d3 S11.17: close out — AUD-023 fixed, BLOCKERS, note, decision, index
+  - a9992c1 S11.17: an unreviewed AI draft is never scored; Import Plan opens House (AUD-023)
+
+**Uncommitted working-tree changes (12)**
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+  - ?? .build-s1118-final.log
+  - ?? .build-s1118-smoke.log
+  - ?? .build-s1118.log
+
+## 2026-10-02T06:31:32Z · Anish Yarrakonda · `s11-19-house-reload` @ `2a925d6`
+
+**Commits this session**
+  - 2a925d6 S11.19: House reloads when its home changes underneath it (AUD-013)
+
+**Uncommitted working-tree changes (18)**
+  - M docs/decisions.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+  - ?? .build-s1118-final.log
+  - ?? .build-s1118-smoke.log
+  - ?? .build-s1118.log
+  - ?? .build-s1119-full.log
+  - ?? .build-s1119-probe.log
+  - ?? .build-s1119-unit.log
+  - ?? docs/tracker/notes/2026-10-01-s11-19-house-reload.md
+
+## 2026-10-02T06:36:21Z · Anish Yarrakonda · `s11-19-house-reload` @ `b12dbf1`
+
+**Commits this session**
+  - b12dbf1 S11.19: review fixes — close on a rejected reload, one read per save, plainer copy
+  - 2a925d6 S11.19: House reloads when its home changes underneath it (AUD-013)
+
+**Uncommitted working-tree changes (19)**
+  - M docs/decisions.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+  - ?? .build-s1118-final.log
+  - ?? .build-s1118-smoke.log
+  - ?? .build-s1118.log
+  - ?? .build-s1119-full.log
+  - ?? .build-s1119-probe.log
+  - ?? .build-s1119-unit.log
+  - ?? .build-s1119-unit2.log
+  - ?? docs/tracker/notes/2026-10-01-s11-19-house-reload.md
+
+## 2026-10-02T17:44:41Z · Anish Yarrakonda · `main` @ `5e46008`
+
+**Commits this session**
+  - 5e46008 Merge s11-19-house-reload (S11.19): House reloads when its home changes underneath it, AUD-013 fixed
+  - 0fcc1d6 S11.19: final gate stamps (1050/1039/0/11, EditorCore 663/0)
+  - 0256551 S11.19: close out — AUD-013 fixed, walk passed, BLOCKERS, note, decision, index
+
+**Uncommitted working-tree changes (17)**
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+  - ?? .build-s1118-final.log
+  - ?? .build-s1118-smoke.log
+  - ?? .build-s1118.log
+  - ?? .build-s1119-final.log
+  - ?? .build-s1119-full.log
+  - ?? .build-s1119-probe.log
+  - ?? .build-s1119-unit.log
+  - ?? .build-s1119-unit2.log
+
+## 2026-10-02T18:18:18Z · Anish Yarrakonda · `main` @ `48c62ba`
+
+**Commits this session**
+  - 48c62ba Merge s11-20-profiles-reachable (S11.20): household profiles reachable again, AUD-020 fixed
+  - 8f661b5 S11.20: keep BLOCKERS edits inside the S11.20 section
+  - c4ea09e S11.20: close out — AUD-020 fixed, BLOCKERS, note, decision, index
+  - 6485063 S11.20: household profiles are reachable again (AUD-020)
+  - 5e46008 Merge s11-19-house-reload (S11.19): House reloads when its home changes underneath it, AUD-013 fixed
+  - 0fcc1d6 S11.19: final gate stamps (1050/1039/0/11, EditorCore 663/0)
+  - 0256551 S11.19: close out — AUD-013 fixed, walk passed, BLOCKERS, note, decision, index
+
+**Uncommitted working-tree changes (21)**
+  - M docs/tracker/activity-log.md
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+  - ?? .build-s1118-final.log
+  - ?? .build-s1118-smoke.log
+  - ?? .build-s1118.log
+  - ?? .build-s1119-final.log
+  - ?? .build-s1119-full.log
+  - ?? .build-s1119-probe.log
+  - ?? .build-s1119-unit.log
+  - ?? .build-s1119-unit2.log
+  - ?? .build-s1120-app.log
+  - ?? .build-s1120-full.log
+  - ?? .build-s1120-tc.log
+  - ?? .build-s1120-ui.log
+
+## 2026-10-03T02:28:00Z · Anish Yarrakonda · `s11-21-home-delete` @ `48c62ba`
+
+**Uncommitted working-tree changes (39)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/ContentView.swift
+  - M escape_plan/Persistence/HomeDocumentSyncRepository.swift
+  - M escape_plan/Persistence/HomeLibrary.swift
+  - M escape_plan/Screens/HomeScreen.swift
+  - M escape_plan/Screens/HouseScreen.swift
+  - M escape_plan/Sync/SyncReconciler.swift
+  - M escape_plan/Sync/SyncState.swift
+  - M escape_planTests/EditorCore/SyncDeletionTests.swift
+  - M escape_planTests/HomeLibraryEditorSeamTests.swift
+  - M escape_planUITests/ProfilesEntryUITests.swift
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+  - ?? .build-s1118-final.log
+  - ?? .build-s1118-smoke.log
+  - ?? .build-s1118.log
+  - ?? .build-s1119-final.log
+  - ?? .build-s1119-full.log
+  - ?? .build-s1119-probe.log
+  - …and 14 more
+
+## 2026-10-03T02:48:09Z · Anish Yarrakonda · `s11-21-home-delete` @ `48c62ba`
+
+**Uncommitted working-tree changes (49)**
+  - M docs/decisions.md
+  - M docs/playbook/README.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/activity-log.md
+  - M escape_plan/ContentView.swift
+  - M escape_plan/Persistence/HomeDocumentSyncRepository.swift
+  - M escape_plan/Persistence/HomeLibrary.swift
+  - M escape_plan/Screens/HomeScreen.swift
+  - M escape_plan/Screens/HouseScreen.swift
+  - M escape_plan/Screens/Theme.swift
+  - M escape_plan/Sync/SyncReconciler.swift
+  - M escape_plan/Sync/SyncState.swift
+  - M escape_planTests/EditorCore/SyncDeletionTests.swift
+  - M escape_planTests/HomeLibraryEditorSeamTests.swift
+  - M escape_planTests/ThemeContrastTests.swift
+  - M escape_planUITests/ProfilesEntryUITests.swift
+  - ?? .build-s1115-2.log
+  - ?? .build-s1115-3.log
+  - ?? .build-s1115.log
+  - ?? .build-s1117-b.log
+  - ?? .build-s1117-final.log
+  - ?? .build-s1117-full.log
+  - ?? .build-s1117-mut.log
+  - ?? .build-s1117.log
+  - ?? .build-s1118-final.log
+  - …and 24 more
 
