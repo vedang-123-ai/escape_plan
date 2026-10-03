@@ -85,8 +85,9 @@ owning session's merge is on `origin/main` and you verified it.
 
 **Owned by a session**
 - [ ] AUD-003 (P1) shared token, spoofable limiter, unbounded spend · S11.27
-- [ ] AUD-004 (P1) unbounded geometry/body size · **geometry half fixed 2026-09-30 by S11.25**; body-size half
-      still open · S11.26
+- [x] AUD-004 (P1) unbounded geometry/body size · **geometry half fixed 2026-09-30 by S11.25**; **body-size half
+      fixed 2026-10-03 by S11.26** (8 MiB default / 16 MiB `/build`, 413 before parsing; evidence under
+      "S11.26 findings")
 - [ ] AUD-005 (P1) `/auth/*` unthrottled, Argon2 on the event loop · S11.28
 - [ ] AUD-006 (P2) `/score` recommendations outside the AI guard · S11.27
 - [ ] AUD-007 (P2) no per-user quota on `/homes` · S11.30, S11.32
@@ -111,7 +112,9 @@ owning session's merge is on `origin/main` and you verified it.
       `docs/decisions.md`); S11.39 executes, S11.12 takes the claims diff
 - [x] AUD-023 (P1) AI drafts scored without review · **fixed 2026-10-01 by S11.17** (evidence under "S11.17 findings");
       the live `/build` → House → confirm path is still owed to S11.49
-- [ ] AUD-024 (P1) photo `/build` mislabelled PNG · S11.26, S11.33, S11.49
+- [ ] AUD-024 (P1) photo `/build` mislabelled PNG · **server half fixed 2026-10-03 by S11.26** (media-type
+      allow-list + decoded-size check). **The user-visible symptom is NOT fixed**: the client hardcodes `image/png`, so
+      real HEIC still arrives mislabelled and still reaches Anthropic · S11.33 (client), S11.49 (live)
 - [x] AUD-025 (P1) drill appends client-written tornado advice · **fixed 2026-09-30 by S11.15** (evidence under
       "S11.15 findings")
 - [ ] AUD-026 (P2) checklist recurrence unreachable · S11.34 (server, deploy first), S11.35
@@ -122,7 +125,8 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-031 (P2) 60-minute sessions, no refresh · S11.43
 - [ ] AUD-032 (P2) chat timeout shorter than cold start · S11.37 (Render paid tier: owner, logged for S11.13)
 - [ ] AUD-033 (P3) one conversation slot for all homes · S11.45
-- [ ] AUD-035 (P2) no AI timeouts; unbounded inputs · S11.26, S11.29, S11.49
+- [ ] AUD-035 (P2) no AI timeouts; unbounded inputs · **input-caps half fixed 2026-10-03 by S11.26** (description,
+      image, chat count/per-message/total); the **timeout half is still open** · S11.29, S11.49
 - [x] AUD-036 (P2) iOS suite red (the 7 in §3) · **fixed 2026-09-30 by S11.8**: 0 failed on three full runs (header stamp)
 - [ ] AUD-037 (P2) Render not gated on CI · S11.31, S11.46
 - [x] AUD-039 (P3) stale "no delete endpoint" comments · **fixed 2026-10-02 by S11.21** (`grep -rn "no delete endpoint"
@@ -171,6 +175,53 @@ rewrite (trim 2).
       the item dropped from the backend checklist.
 - [ ] **Signed-in phones from earlier builds** are signed out on first launch of this build; their homes stay. Never
       walked with a real account. Next action: none (no testers have accounts).
+
+### S11.26 findings (2026-10-03, branch `s11-26-request-limits`)
+
+- [x] **AUD-004 body-size half fixed.** `backend/app/limits.py` adds `BodySizeLimitMiddleware`: 413 before anything
+      parses, 8 MiB default and 16 MiB for `/build`. Limits derived from the S11.25 geometry bounds, not guessed — the
+      maximum bounds-valid home measures 1,649,482 bytes compact / 1,780,354 pretty, and the combined `/chat` worst case
+      (home + route_plan + profiles) measures 2,063,742, so the default carries 4.06x headroom. Evidence: 41 tests in
+      `backend/tests/test_request_limits.py`; full suite **973 passed, 1 skipped, 29 deselected** (2026-10-03).
+- [x] **AUD-035 input-caps half fixed.** `description` 20,000 chars; `image_b64` 10,000,000 chars (Anthropic's
+      documented 10 MB base64 maximum — the audit's "~5 MB" is the Bedrock/Vertex figure, confirmed against the official
+      vision docs 2026-10-03); chat 40 messages / 8,000 per message / 100,000 total. All 422, never silent truncation.
+      **The AUD-035 timeout half is untouched** and still belongs to S11.29.
+- [x] **A `Content-Length` bypass of the body limit, found and fixed inside this session.** A request declaring
+      `Content-Length: 10` with a `Transfer-Encoding: chunked` body delivered 12,582,912 bytes through the 8,388,608
+      cap, because a declared length short-circuits the counting path. **It was directly exploitable on our own stack**
+      (verified on installed h11 0.16.0 with `httptools` absent, so uvicorn uses h11: `normalize_and_validate` accepts
+      the CL+TE pair and keeps both, and `_body_framing` returns chunked at its own "T-E beats C-L" step before reading
+      Content-Length). `_declared_length` now refuses to trust the header whenever chunked framing is present, two
+      Content-Length headers disagree, or the value is negative or unparseable. Six ASGI-layer regression tests — the
+      endpoint-level tests could not reach it, because no HTTP client will emit a contradictory framing pair.
+
+- [ ] **iOS has no 413 arm, so the new status reads as a server fault with a Retry that cannot work.**
+      `escape_plan/Networking/BackendFailure.swift:188-193` falls to `default:` — "The server had a problem (413). Try
+      again in a moment." with `isRetryable: true`. A 413 is deterministic: retrying the identical body always fails,
+      and the copy blames the server for a client-side input problem. Next action: S11.37 adds `case 413` with
+      `kind: .rejectedInput`, `isRetryable: false`, and text naming the size. Not editable here (iOS is outside S11.26's
+      OWNED FILES).
+- [ ] **The server's new 422 reasons cannot reach the user on `/chat`.**
+      `BackendFailure.swift:118-119` re-wraps `ChatError.unexpectedStatus` as
+      `APIClientError.unexpectedResponse(statusCode:)` and discards the server's `detail`, so the 422 arm shows the
+      generic "The server couldn't use what we sent for the assistant" instead of the actionable "conversation is N
+      characters… Send fewer earlier turns". Pre-existing (documented at `APIClient+Chat.swift:37-39`) but S11.26 is what
+      makes it matter, and there is no client-side trimming until S11.45. Next action: S11.37 threads `detail` through.
+- [ ] **`RoutePlan`'s lists carry no length caps**, so the 2.06 MB combined worst case is a MEASURED figure for a plan
+      the engine actually produces, not a ceiling any validator enforces. A hand-written enormous `route_plan` is bounded
+      only by the 8 MiB body limit. `backend/app/routing/plan.py` (`routes`, `findings`, `bottlenecks`). Next action:
+      whoever next touches the routing models adds bounds; not urgent, the body limit holds the line.
+- [ ] **The S11.25 bounds budget may be optimistic by ~2x, measured on this Mac.** `backend/app/models.py` says "a home
+      at the maximum finishes a 3-peril `/score` in under ~25 s on a 2026 Mac". Routing the maximum bounds-valid home for
+      **one** peril took **49.7 s** here (2026-10-03, `compute_route_plan`, M-series). Either this machine is slower than
+      the one that set the budget or the budget is wrong; the numbers are far enough apart to matter for a demo. Next
+      action: re-measure on the filming Mac before S11.11, and correct the comment or the bounds.
+- [ ] **`ecc:security-reviewer` does not exist, so S11.26's ACCEPTANCE could not be run as written.** Substituted the
+      `security-review` skill (independent sub-agent review of the diff); it reported no findings at confidence >= 8 on
+      the final tip, after independently confirming the `Content-Length` bypass above. The `grounding-auditor` half ran
+      as specified and returned GROUNDED. This is the same gap already logged under "S11.25 findings"; see that line for
+      the owner action.
 
 ### S11.22 findings (2026-10-02, branch `s11-22-sync-conflict-copies`)
 
