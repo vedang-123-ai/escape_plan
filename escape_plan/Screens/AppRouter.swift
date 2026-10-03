@@ -10,10 +10,10 @@ enum AppTab: Hashable {
     case home, tasks, house, assistant, settings
 }
 
-/// Something Home should do once it is showing: flows it owns (the camera, the room picker).
+/// Something Home should do once it is showing: flows it owns (the camera). The room picker's
+/// `recheckRoom` left with the re-scan review, cut 2026-10-02.
 enum HomeIntent: Equatable {
     case scan
-    case recheckRoom
 }
 
 /// Open the House tab on `homeID`, optionally swinging the camera to a checklist item's object.

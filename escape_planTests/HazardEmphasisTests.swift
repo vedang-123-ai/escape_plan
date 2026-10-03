@@ -4,7 +4,7 @@
 //      RenderOrder untouched.
 //
 //  The route ids join culprits with "-" and object ids CONTAIN "-" (the converter emits
-//  `obj-<hex>`, the hazard hunt a raw UUID), which is the whole reason resolution goes through
+//  `obj-<hex>`, "Add Object" in House a raw UUID), which is the whole reason resolution goes through
 //  the model instead of a string split. The hyphen cases below are the regression guard.
 
 import SceneKit
@@ -47,8 +47,8 @@ final class HazardEmphasisTests: XCTestCase {
                        ["obj-9f8e7d6c", "obj-1a2b3c4d"])
     }
 
-    /// A hazard-hunt object is a raw UUID — hyphens throughout, and uppercase.
-    func testHuntCreatedUUIDObjectResolves() {
+    /// An "Add Object" object is a raw UUID — hyphens throughout, and uppercase.
+    func testAddedObjectUUIDResolves() {
         XCTAssertEqual(
             ChecklistObjectIDs.resolve(itemID: "hazard.topple.3F2A5B10-4C1D-4E2F-9A80-BB1122334455",
                                        known: known),

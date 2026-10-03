@@ -42,8 +42,8 @@ final class AppRouterTests: XCTestCase {
     func testGoHomeSetsTheIntentAndTab() {
         let router = AppRouter()
         router.selectedTab = .tasks
-        router.go(home: .recheckRoom)
-        XCTAssertEqual(router.homeIntent, .recheckRoom)
+        router.go(home: .scan)
+        XCTAssertEqual(router.homeIntent, .scan)
         XCTAssertEqual(router.selectedTab, .home)
     }
 

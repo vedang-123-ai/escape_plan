@@ -137,8 +137,6 @@ final class AccountPrivacyTests: XCTestCase {
 
         assertDisclosed(try topLevelKeys(of: EvacuateRequest(
             home: home, origin_room_id: room, profile_set_id: "p1")), "/evacuate")
-        assertDisclosed(try topLevelKeys(of: DiffRequest(
-            stored_model: home, scan_model: home, target_room_id: room)), "/diff_obstructions")
         assertDisclosed(try topLevelKeys(of: ChatRequest(
             home: home, messages: [ChatMessage(role: .user, content: "hi")])), "/chat")
         assertDisclosed(try topLevelKeys(of: BuildRequest(
@@ -155,14 +153,16 @@ final class AccountPrivacyTests: XCTestCase {
 
     // MARK: - The claims that are not about keys
 
-    /// The soft gate's paragraph. Asserted on substance rather than wording so a copy edit does
-    /// not fail the build, but removing a fact does. It must say: homes are saved only here,
-    /// no account is needed, the server is sent the home and does not keep it, and Anthropic
-    /// gets what the assistant and Import Plan are given.
+    /// The paragraph in Settings' Privacy section (it was the soft gate's until accounts were
+    /// cut, 2026-10-02). Asserted on substance rather than wording so a copy edit does not fail
+    /// the build, but removing a fact does. It must say: homes are saved here, the server is
+    /// sent the home and does not keep it, and Anthropic gets what the assistant and Import Plan
+    /// are given. It must not mention accounts: the app has none, and Anish asked that the copy
+    /// not bring them up (2026-10-02).
     func testTheSignedOutClaimSeparatesSavedFromSent() {
         let text = AccountPrivacy.signedOutSummary.lowercased()
-        XCTAssertTrue(text.contains("saved only on this iphone"))
-        XCTAssertTrue(text.contains("account"))
+        XCTAssertTrue(text.contains("saved on this iphone"))
+        XCTAssertFalse(text.contains("account"))
         XCTAssertTrue(text.contains("sends the whole home"))
         XCTAssertTrue(text.contains("household names"))
         XCTAssertTrue(text.contains("does not store"))
@@ -191,7 +191,6 @@ final class AccountPrivacyTests: XCTestCase {
     func testTheSyncDisclosureSaysWhatStaysOnTheDevice() {
         let text = AccountPrivacy.notSynced.joined(separator: " ").lowercased()
         XCTAssertTrue(text.contains("checklist"))
-        XCTAssertTrue(text.contains("drill"))
         XCTAssertTrue(text.contains("chat"))
         XCTAssertTrue(text.contains("not copied to your account"))
     }

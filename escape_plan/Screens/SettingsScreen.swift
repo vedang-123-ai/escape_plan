@@ -29,9 +29,6 @@ struct SettingsScreen: View {
     @State private var health: HealthState = .unknown
     @State private var showSaved = false
     @State private var showingHowRoutes = false
-    @State private var isPresentingAuth = false
-    @State private var isConfirmingDeletion = false
-    @State private var isDeletingAccount = false
     
     @AppStorage("snapshot_enabled") private var isSnapshotEnabled = false
     @State private var showingConsent = false
@@ -52,7 +49,7 @@ struct SettingsScreen: View {
                         .padding(.top, 12)
                         .accessibilityAddTraits(.isHeader)
 
-                    accountSection
+                    privacySection
 
                     section("Server") {
                         row("Status") { healthBadge }
@@ -204,19 +201,6 @@ struct SettingsScreen: View {
             .navigationTitle("Settings")
             .toolbar(.hidden, for: .navigationBar)
             .onAppear(perform: refreshFields)
-            .sheet(isPresented: $isPresentingAuth) {
-                AuthSheetView()
-            }
-            // An alert, not a sheet: deletion is irreversible and the confirmation must be
-            // something the user cannot dismiss by swiping past it without reading.
-            .alert("Delete your account?", isPresented: $isConfirmingDeletion) {
-                Button("Delete account", role: .destructive) {
-                    Task { await deleteAccount() }
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text(AccountPrivacy.deletionConfirmation)
-            }
             .sheet(isPresented: $showingHowRoutes) { HowRoutesAreComputedSheet() }
             .sheet(isPresented: $showingConsent) {
                 // isEnablingOnly: true — this accepts nothing being shared, only reveals the
@@ -259,128 +243,21 @@ struct SettingsScreen: View {
         }
     }
 
-    /// Delete the account server-side, then make this device forget it.
-    ///
-    /// The sync sidecar has to be cleaned up too, and only after the server confirms: it holds
-    /// ownership claims naming the account's user id, and leaving them would mark this
-    /// device's homes as belonging to an account that can never sign in again — so the next
-    /// person to sign in on this phone could never back up a single home.
-    ///
-    /// The user id is read BEFORE the deletion, because the session is empty afterwards. It is
-    /// the same id the sidecar stores: the backend mints the JWT with `sub = user.id` and
-    /// `/auth/me` returns that same id, so `AuthenticatedUser.id` and `AccessToken.subject`
-    /// are one value.
-    ///
-    /// No home document is touched, which is what `AccountPrivacy.deletionSummary` promises on
-    /// the way in. `AuthSession` surfaces any failure; the row above renders it.
-    private func deleteAccount() async {
-        guard let userID = authSession.state.user?.id else { return }
-        isDeletingAccount = true
-        defer { isDeletingAccount = false }
+    // MARK: - Privacy
 
-        if await authSession.deleteAccount() {
-            syncManager.forgetAccount(userID)
+    /// "What leaves this iPhone?", which used to sit inside the Account section. Accounts and
+    /// cloud sync were cut from the demo app on 2026-10-02 (`Auth/` and `Sync/` are kept,
+    /// switched off), so the disclosure has a section of its own: it is still true for every
+    /// user, because routes, the score and the fire simulation all send the home to compute.
+    private var privacySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Privacy")
+                .sectionHeaderStyle()
+                .padding(.horizontal, DS.pagePadding)
+            AccountPrivacyDisclosure()
+                .padding(.horizontal, DS.pagePadding + 4)
         }
-    }
-
-    // MARK: - Account (S8.3)
-
-    /// Signing in from here, rather than only from the launch gate, is the whole reason the
-    /// gate can be dismissed without consequence: someone who taps "Continue without an
-    /// account" has to be able to change their mind, and this is where they look.
-    @ViewBuilder
-    private var accountSection: some View {
-        if let user = authSession.state.user {
-            section("Account") {
-                // Signed in, but the token could not be written to the Keychain — the session
-                // will not survive a relaunch. Shown HERE rather than on the sign-in form,
-                // because the form dismisses itself the instant sign-in succeeds: the warning's
-                // own success path would destroy its host in the same frame. Settings persists,
-                // and is where someone goes when the app "forgot" them.
-                if let warning = authSession.persistenceWarning {
-                    AuthPersistenceNote(message: warning)
-                        .padding(.horizontal, 18)
-                        .padding(.top, 14)
-                }
-                // A failed deletion leaves the user signed in and needs somewhere to say so.
-                // The same slot serves any other account-level failure.
-                if let failure = authSession.failure {
-                    AuthFailureNote(failure: failure)
-                        .padding(.horizontal, 18)
-                        .padding(.top, 14)
-                        // Tap to dismiss. Nothing else on this screen clears it — `failure` is
-                        // only reset by the next auth operation — so a single failed deletion
-                        // would otherwise leave a red note in the Account section for the rest
-                        // of the launch, across every tab switch.
-                        .onTapGesture { authSession.failure = nil }
-                        .accessibilityAction(named: "Dismiss") { authSession.failure = nil }
-                }
-                row("Signed in as") {
-                    Text(user.email)
-                        .font(.subheadline)
-                        .foregroundStyle(DS.supporting)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                divider
-                actionRow("Sign out") { authSession.signOut() }
-                    .accessibilityHint("Signs out on this iPhone. Your homes stay on this device.")
-                divider
-                deleteAccountRow
-            }
-            // True, and worth saying at the moment someone is deciding: nothing local is lost
-            // by signing out, because the app keeps its own copy either way.
-            footnote("Your homes are saved on this iPhone as well as your account. "
-                   + "Signing out doesn't remove them from this device.")
-            privacyDisclosureBlock
-        } else {
-            section("Account") {
-                actionRow("Sign in or create an account") { isPresentingAuth = true }
-                    .accessibilityHint("Back up your homes and open them on another device.")
-            }
-            footnote("An account backs up your homes and lets you open them on another device. "
-                   + "Everything in Escape Plan works without one.")
-            privacyDisclosureBlock
-        }
-    }
-
-    /// The S11.7 disclosure, in both states. Signed out it answers "what would I be agreeing
-    /// to?"; signed in it answers "what did I agree to?" — which is the question someone
-    /// deciding whether to delete their account is actually asking.
-    private var privacyDisclosureBlock: some View {
-        AccountPrivacyDisclosure()
-            .padding(.horizontal, DS.pagePadding + 16)
-            .padding(.top, 12)
-    }
-
-    /// Apple requires an in-app way to delete an account wherever accounts exist.
-    ///
-    /// `Theme.warning` — the semantic scale's red — rather than the accent, because this is the
-    /// one row on the screen that destroys something. Deliberately NOT a filled red button: it
-    /// sits in a list of ordinary rows, and a filled destructive button in that position reads
-    /// as the section's primary action.
-    private var deleteAccountRow: some View {
-        Button { isConfirmingDeletion = true } label: {
-            HStack {
-                Text("Delete account and data")
-                    .font(.body)
-                    .foregroundStyle(Theme.warning)
-                Spacer()
-                if isDeletingAccount { ProgressView() }
-            }
-            .padding(.horizontal, 18)
-            .frame(minHeight: 60)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(HapticPlainButtonStyle())
-        // Disabled while ANY auth request is in flight, not just this one. `deleteAccount()`
-        // drops a call made while `isWorking` — so without this the user could confirm an
-        // irreversible alert during a launch `refresh()` and get no spinner, no error and no
-        // change: a silent no-op, on the one operation where "it probably worked" is least
-        // acceptable. Found in review, 2026-09-24.
-        .disabled(isDeletingAccount || authSession.isWorking)
-        .accessibilityHint("Permanently erases your account and the homes backed up to it. "
-                         + "The homes on this iPhone are not deleted.")
+        .padding(.top, 26)
     }
 
     // MARK: - Layout pieces

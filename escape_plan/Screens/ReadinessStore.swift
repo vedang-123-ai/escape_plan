@@ -98,7 +98,7 @@ final class ReadinessStore {
         await load(api: api)
     }
 
-    /// A model the Home tab changed outside the editor (the partial re-scan diff).
+    /// A model changed outside the editor (the household editor in Profiles).
     func replaceActiveHome(_ home: HomeModel, api: APIClient) {
         activeHome = home
         rescore(api: api)
@@ -164,7 +164,7 @@ final class ReadinessStore {
 
     private func fetchScore(api: APIClient) async {
         guard let activeHome else { return }
-        // Every path to /score passes here (load, rescore, a ticked task, a re-scan diff).
+        // Every path to /score passes here (load, rescore, a ticked task, a household change).
         guard !needsDraftReview else {
             clearScoreForDraft()
             return
@@ -244,7 +244,10 @@ enum TaskDestination {
 
     init(_ item: ChecklistItem) {
         switch item.category {
-        case .practice: self = .drill
+        // Only the drill item opens the drill. The meeting point and "re-scan your home" are
+        // practice items too, but a drill does neither (the re-scan review was cut 2026-10-02),
+        // so they tick off here.
+        case .practice: self = item.id == "practice.drill_recent" ? .drill : .toggle
         case .smoke_alarm, .routes, .egress, .agent_finding, .recommendation: self = .house
         default: self = .toggle
         }

@@ -55,56 +55,5 @@ private struct ConvertRequest: Encodable {
     let home_name: String
 }
 
-
-
-struct Obstruction: Codable, Equatable {
-    var kind: String
-    var room_id: String
-    var room_name: String
-    var floor_id: String
-    var opening_id: String
-    var object_ids: [String]
-    var object_categories: [String]
-    var passable_width_m: Double
-    var required_width_m: Double
-    var target_width_m: Double
-    var suggested_move_m: Double
-}
-
-struct DiffRequest: Encodable {
-    let stored_model: HomeModel
-    let scan_model: HomeModel
-    let target_room_id: String
-}
-
-struct DiffResult: Decodable {
-    let success: Bool
-    let error: String?
-    let diff_objects: [FloorObject]
-    let obstructions: [Obstruction]
-}
-
-extension APIClient {
-    func diffObstructions(_ request: DiffRequest) async throws -> DiffResult {
-        var req = try authenticatedRequest(path: "diff_obstructions", method: "POST")
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        req.httpBody = try encoder.encode(request)
-        // Same cold-start margin as /convert, which it immediately follows in a re-check.
-        req.timeoutInterval = 90
-
-        let (data, response) = try await session.data(for: req)
-        // The status code, not a bare URLError: `BackendFailure` reads a URLError as "couldn't
-        // reach the server", which is wrong for a 401 or a 422 the server did send.
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIClientError.unexpectedResponse(statusCode: -1)
-        }
-        guard httpResponse.statusCode == 200 else {
-            throw APIClientError.unexpectedResponse(statusCode: httpResponse.statusCode)
-        }
-        
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(DiffResult.self, from: data)
-    }
-}
+// `Obstruction`, `DiffRequest`, `DiffResult` and `diffObstructions` (POST /diff_obstructions) left
+// with the re-scan review, cut from the demo app 2026-10-02. The backend route is still deployed.
