@@ -41,12 +41,14 @@ choosing the message.
 set, the Assistant tab and Import Plan fail in the demo. **Fix (owner):** add `ANTHROPIC_API_KEY` in Render → the
 service → Environment, with credits on the account, then re-run the `/chat` call above.
 
-## 4. Feature trim (owner decision pending)
+## 4. Feature trim — decided 2026-10-02, in progress
 
-Anish thinks Hazard Hunt and some other features are pointless for the demo. The full list with recommendations is
-[`../demo/feature-inventory.md`](../demo/feature-inventory.md). Once its `Decision` column is filled in, one cleanup
-session hides or removes what is cut (Hazard Hunt also feeds earthquake findings and checklist items, so cutting it
-needs a check of what the score loses).
+Anish filled in [`../demo/feature-inventory.md`](../demo/feature-inventory.md). Cut: Hazard Hunt, re-scan review,
+AR walk, practice log + reminders, accounts + cloud sync (switched off, code kept). Changed: the drill becomes a fire
+playback (0.25×–2×). Kept: prevention tips and the fire-department share. **Done in trim 1** (`trim-1-demo-cuts`):
+Hazard Hunt, re-scan review, accounts. **Trim 2** (`trim-2-drill-playback`): the drill, AR, practice log. **Still
+open:** the AI (Assistant, Import Plan) — Anish wants it explained before deciding (next pass). Hazard Hunt's score
+check: no deduction lost (its items are `scoring=False`; the object inspector sets the same flags).
 
 ## 5. Test runs leave leftover homes in the simulator (P3)
 
@@ -60,3 +62,10 @@ from a clean app container, or delete what they create.
 generator `demo-homes/make_ranch_house.py` live only in Anish's working copy. It is valid against the schema, pydantic
 and Swift `EditorValidation`, and routes every room for all three perils. **Decide:** commit it as a fixture or a
 built-in demo home, or leave it local.
+
+## 7. Error pop-ups never went away — fixed in trim 1
+
+Anish (2026-10-02): "why do pop ups like these linger for so long. They should disappear after some time." They only
+cleared on a successful retry. Now House's banners (the ones over the 3D model, where Anish saw them) fade after 8 s
+and have a close button, except for a Settings fix (wrong or missing token), an offline notice and under VoiceOver.
+Other screens keep theirs up: there the banner holds the only Retry button.
