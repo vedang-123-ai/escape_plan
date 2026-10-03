@@ -7,7 +7,7 @@
 //      press      a control was pressed (buttons, rows, tiles, chips)        soft impact
 //      selection  a choice moved between peers (tabs, segments, toggles)      selection
 //      tick       a small state change landed (routes arrived, item done)    light impact
-//      begin      something started (tour, drill step, refresh)              medium impact
+//      begin      something started (tour, fire drill, refresh)               medium impact
 //      hold       a press-and-hold registered                                heavy impact
 //      swipe      a swipe-revealed action fired                              rigid impact
 //      success / warning / error                                            notifications
@@ -33,7 +33,7 @@ enum Haptics {
         impact(.light)
     }
 
-    /// Something began (camera tour, drill step flight, pull-to-refresh).
+    /// Something began (camera tour, a fire simulation starting, pull-to-refresh).
     static func begin() {
         impact(.medium)
     }
@@ -48,7 +48,7 @@ enum Haptics {
         impact(.rigid, intensity: 0.8)
     }
 
-    /// A milestone worth celebrating (drill practiced, plan complete).
+    /// A milestone worth celebrating (a task ticked, plan complete).
     static func success() {
         notify(.success)
     }

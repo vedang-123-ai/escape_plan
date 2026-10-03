@@ -7,7 +7,7 @@
 //  autosaves on every accepted commit — the same store/autosave pattern as EditorScreen.
 //
 //  Reached again since S11.20 (AUD-020): the revamp deleted BetaScreen, its only entry point.
-//  `HouseholdRow` is the entry; the drill's empty state opens it too. Leaving the screen after
+//  `HouseholdRow` on Home is the entry (the old drill's empty state, deleted in trim 2, was another). Leaving the screen after
 //  a change reloads ReadinessStore when this is the active home, so the score and checklist
 //  count the new people. House picks the change up itself when it next appears (S11.19).
 //

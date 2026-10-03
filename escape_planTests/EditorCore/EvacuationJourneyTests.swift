@@ -133,6 +133,41 @@ final class EvacuationJourneyTests: XCTestCase {
                        ["Zed", "Amy"])
     }
 
+    /// Review fix: the engine puts a `room` step at the room's area-weighted centroid, which for
+    /// an L-shaped room lies in the notch, here inside a second room. The step must still name
+    /// the L-shaped room. L = (0..10 x 0..1) + (0..1 x 1..10): centroid ((50 + 4.5) / 19, same)
+    /// = (2.8684, 2.8684), inside "Den" (1..10 x 1..10).
+    func testARoomStepNamesItsOwnRoomEvenWhenItsCentroidIsInAnother() throws {
+        var home = try Fixtures.load("bungalow")
+        let lShape = [Point(0, 0), Point(10, 0), Point(10, 1), Point(1, 1), Point(1, 10), Point(0, 10)]
+        let den = [Point(1, 1), Point(10, 1), Point(10, 10), Point(1, 10)]
+        home.floors[0].rooms = [
+            Room(id: "r_l", name: "Hall", type: .hall, polygon: lShape, source: .manual, confidence: nil),
+            Room(id: "r_den", name: "Den", type: .living, polygon: den, source: .manual, confidence: nil),
+        ]
+        let centroid = EvacuationJourneyNarrator.areaCentroid(lShape)
+        XCTAssertEqual(centroid.x, 54.5 / 19, accuracy: 1e-9)
+        XCTAssertTrue(Geometry.contains(den, Point(2.8684, 2.8684)), "the premise: the centroid is in the Den")
+
+        let steps = [step(2.8684, 2.8684, t: 0, kind: "room"), step(0.5, 5, t: 2),
+                     step(0.5, 9.5, t: 4, kind: "opening")]
+        XCTAssertEqual(EvacuationJourneyNarrator.roomIDs(along: steps, in: home), ["r_l"])
+        // A non-room step at the same point is a real position, so it is in the Den.
+        XCTAssertEqual(EvacuationJourneyNarrator.roomIDs(along: [step(2.8684, 2.8684, t: 0)], in: home),
+                       ["r_den"])
+    }
+
+    /// Review fix: someone the engine found no way out for has no track, only a finding; the
+    /// panel lists exactly those findings, so that person is never missing.
+    func testPeopleWithNoWayOutAreTheNoViableRouteFindings() throws {
+        let stranded = RouteFinding(kind: .no_viable_route, room_id: "r_bath",
+                                    detail: "Bo, starting in 'Bathroom', has no escape route that avoids the rooms this fire reaches first.")
+        let other = RouteFinding(kind: .blocked_opening, room_id: "r_living", detail: "d")
+        let timeline = EvacuationTimeline(home_id: "h", origin_room_id: "r_kitchen", tracks: [],
+                                          hazard: [], duration_s: 10, findings: [other, stranded])
+        XCTAssertEqual(EvacuationJourneyNarrator.peopleWithNoWayOut(in: timeline), [stranded])
+    }
+
     func testListJoinsNamesInPlainEnglish() {
         XCTAssertEqual(EvacuationJourneyNarrator.list([]), "")
         XCTAssertEqual(EvacuationJourneyNarrator.list(["Hall"]), "Hall")

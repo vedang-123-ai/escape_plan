@@ -5,7 +5,7 @@
 //  exists" — with one deliberate difference.
 //
 //  It is NOT a wall. "Continue without an account" is a first-class button, not a buried link,
-//  because this app is local-first: the editor, the routes, the drill and the export all work
+//  because this app is local-first: the editor, the saved routes and the export all work
 //  with no server at all, and the CAC demo must not be one Render cold start away from being a
 //  login screen. An account buys cloud backup and a second device — which is what S8.4 builds
 //  — so that is what this screen offers, honestly, and nothing more.

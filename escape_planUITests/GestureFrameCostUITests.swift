@@ -3,7 +3,7 @@
 // The measurement behind #5: how many SwiftUI update passes actually land on a camera drag's
 // frames. HouseScreen carries ~40 `@State` vars and its own warning about "an endless rebuild
 // loop that starves gesture handling", so the question is not rhetorical — every
-// `updateUIView` runs `rebuildIfNeeded` and, in the drill host, a sweep of every floor.
+// `updateUIView` runs `rebuildIfNeeded` and, in the old drill host (deleted in trim 2), a sweep of every floor.
 //
 // It reads the counter off the scene view's `accessibilityValue`, which the app only writes
 // under `-editor.gestureInstrumentation YES`. That channel exists because log streams do not

@@ -14,6 +14,7 @@ struct HomeScreen: View {
     @Environment(AppRouter.self) private var router
     @EnvironmentObject private var library: HomeLibrary
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     // Adding a home
     @State private var showingNewHome = false
@@ -376,7 +377,8 @@ struct HomeScreen: View {
         .padding(.top, 12)
     }
 
-    /// Who lives here (AUD-020): per-person routes and the drill need at least one profile.
+    /// Who lives here (AUD-020): per-person routes and the fire drill's people come from these
+    /// profiles (with none, the engine puts one stand-in per room).
     @ViewBuilder
     private var household: some View {
         if let home = readiness.activeHome {
@@ -395,7 +397,9 @@ struct HomeScreen: View {
                     Text(title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.text)
                     // Two lines, so the drill card's sentence is not cut off on a narrow phone.
                     Text(subtitle).font(.caption).foregroundStyle(Theme.supporting)
-                        .lineLimit(2, reservesSpace: true)
+                        // At accessibility sizes the line may need more than two lines.
+                        .lineLimit(typeSize.isAccessibilitySize ? 6 : 2,
+                                   reservesSpace: !typeSize.isAccessibilitySize)
                         .multilineTextAlignment(.leading)
                 }
             }

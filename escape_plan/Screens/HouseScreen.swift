@@ -1032,12 +1032,15 @@ struct HouseScreen: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            // Narrates the engine's tracks; never computes a route (EvacuationJourney.swift).
-            if !simulationJourneys.isEmpty {
-                EvacuationPeoplePanel(journeys: simulationJourneys)
-            }
-
+            // The engine's findings first: with one stand-in per room the cards below get long,
+            // and an overtaken or no-way-out finding must not end up at the bottom of the dock.
             simulationFindings(for: store)
+
+            // Narrates the engine's tracks; never computes a route (EvacuationJourney.swift).
+            let noWayOut = playback.timeline.map(EvacuationJourneyNarrator.peopleWithNoWayOut) ?? []
+            if !simulationJourneys.isEmpty || !noWayOut.isEmpty {
+                EvacuationPeoplePanel(journeys: simulationJourneys, noWayOut: noWayOut)
+            }
         }
     }
 

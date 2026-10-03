@@ -240,8 +240,12 @@ struct TaskDetailSheet: View {
                                     systemImage: destination.actionSymbol(done: isDone),
                                     action: onPrimary)
                     if destination == .drill, let onToggle {
-                        DSSecondaryButton(title: TaskDestination.toggle.actionTitle(done: isDone),
+                        // Watching the simulation is not the family practising, so the tick says
+                        // what it records (trim 2 review).
+                        DSSecondaryButton(title: isDone ? "Mark as not done" : "We practiced it for real",
                                           action: onToggle)
+                            .accessibilityHint(isDone ? "Unticks this task."
+                                : "Ticks this task. Watching the simulation does not count as practice.")
                             .accessibilityIdentifier("task.markDone")
                     }
                 }
