@@ -68,7 +68,7 @@ final class HomeLibrary: ObservableObject {
     /// it failed (the reason is in `loadError`).
     ///
     /// Only the home document is copied: household profiles live inside it and come along, but the
-    /// checklist ticks, drill log and meeting point are keyed by home id and start empty, because
+    /// checklist ticks and meeting point are keyed by home id and start empty, because
     /// they are things someone did or decided about the original (docs/decisions.md 2026-10-02).
     @discardableResult
     func duplicate(homeID: String) -> String? {

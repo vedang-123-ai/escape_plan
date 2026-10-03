@@ -166,4 +166,16 @@ struct TaskDestinationTests {
         #expect(TaskDestination(practice("practice.meeting_point")) == .toggle)
         #expect(TaskDestination(practice("rescan.home")) == .toggle)
     }
+
+    @Test("The drill item is ticked by hand (trim 2); engine-audited House items are not")
+    func drillItemIsUserTicked() {
+        let drill = TaskDestination(practice("practice.drill_recent"))
+        #expect(drill.isTickedByUser)
+        #expect(drill.actionTitle(done: false) == "Run a drill")
+        #expect(TaskDestination.toggle.isTickedByUser)
+        let alarm = ChecklistItem(id: "alarm.every_level", category: .smoke_alarm, title: "t",
+                                  detail: "d", done: false, scoring: true)
+        #expect(TaskDestination(alarm) == .house)
+        #expect(!TaskDestination(alarm).isTickedByUser)
+    }
 }

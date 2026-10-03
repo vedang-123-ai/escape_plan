@@ -21,7 +21,6 @@ final class ReadinessStore {
     private(set) var checklistState: [String: Bool] = [:]
     private(set) var isScoring = false
     private(set) var scoreFailure: BackendFailure?
-    private(set) var lastPracticed: Date?
     private(set) var preventionTips: [PreventionTip] = []
 
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
@@ -123,7 +122,6 @@ final class ReadinessStore {
                freshnessStore.recordedWallEdgeCount(homeID: activeHomeID) == nil {
                 freshnessStore.recordWallEdgeCount(ScanFreshness.wallEdgeCount(home), homeID: activeHomeID)
             }
-            refreshLastPracticed()
         } catch {
             // A document on THIS device that won't load. It used to be reported as a backend
             // failure — "couldn't reach the server" — for a file that never left the phone.
@@ -143,14 +141,6 @@ final class ReadinessStore {
             breakdown = cache.load(homeID: activeHomeID)
         }
         await fetchScore(api: api)
-    }
-
-    /// Re-reads the drill log. A drill is run in a pushed `DrillScreen` that writes the log
-    /// itself, so whoever pushed it calls this when it goes away — otherwise Home keeps saying
-    /// "Never practised" until the next full load.
-    func refreshLastPracticed() {
-        guard let activeHomeID else { lastPracticed = nil; return }
-        lastPracticed = (try? DrillLogStore())?.lastPracticed(homeID: activeHomeID)
     }
 
     /// Returns the task so a test can await it instead of sleeping.
@@ -239,14 +229,22 @@ extension ScoreBand {
 /// What completing a checklist item means: look at something in the 3D house, run a drill, or
 /// just tick it off here. Engine-scored spatial items are decided by the model, so they go to
 /// the house; narrative items are the user's word and toggle in place.
+///
+/// The drill item is the user's word too (trim 2, 2026-10-03): the practice log that ticked it is
+/// gone, so it ticks like any manual item, and its button opens House's fire simulation. Nothing
+/// ticks it automatically; it is `scoring=False`, so the score never moves either way.
 enum TaskDestination {
     case house, drill, toggle
 
+    /// Whether the user ticks this item by hand (the row's circle is a button). House items are
+    /// decided by the engine's audit of the model, so they are not.
+    var isTickedByUser: Bool { self != .house }
+
     init(_ item: ChecklistItem) {
         switch item.category {
-        // Only the drill item opens the drill. The meeting point and "re-scan your home" are
-        // practice items too, but a drill does neither (the re-scan review was cut 2026-10-02),
-        // so they tick off here.
+        // Only the drill item opens the drill (House's fire simulation). The meeting point and
+        // "re-scan your home" are practice items too, but a drill does neither (the re-scan review
+        // was cut 2026-10-02), so they only tick off here.
         case .practice: self = item.id == "practice.drill_recent" ? .drill : .toggle
         case .smoke_alarm, .routes, .egress, .agent_finding, .recommendation: self = .house
         default: self = .toggle

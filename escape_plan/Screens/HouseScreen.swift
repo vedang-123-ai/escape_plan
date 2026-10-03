@@ -195,17 +195,23 @@ struct HouseScreen: View {
     @State private var ignitePickerPresented = false
     /// Set while the user drags the scrubber, so playback resumes only if it was playing.
     @State private var wasPlayingBeforeScrub = false
+    /// "Who does what": the loaded timeline's tracks in words, set with the timeline.
+    @State private var simulationJourneys: [EvacuationJourney] = []
 
     /// The library's store, the one store for this launch (AUD-019). Nil only without a
     /// library, which is the preview alone, and then nothing is saved.
     let documentStore: HomeDocumentStore?
 
-    init(homeID: String?, library: HomeLibrary? = nil, initialFocusItemID: String? = nil, onModelChanged: (() -> Void)? = nil) {
+    /// `startsOnFireSimulation`: open with the dock on "Fire simulation" instead of "Escape
+    /// routes". Home's "Run a fire drill" sets it (trim 2, 2026-10-03: the drill IS this playback).
+    init(homeID: String?, library: HomeLibrary? = nil, initialFocusItemID: String? = nil,
+         startsOnFireSimulation: Bool = false, onModelChanged: (() -> Void)? = nil) {
         self.homeID = homeID
         self.library = library
         self.initialFocusItemID = initialFocusItemID
         self.onModelChanged = onModelChanged
         self.documentStore = library?.store
+        _dockMode = State(initialValue: startsOnFireSimulation ? .fire : .routes)
     }
 
     var body: some View {
@@ -668,6 +674,7 @@ struct HouseScreen: View {
                 }
                 .buttonStyle(HapticPlainButtonStyle())
                 .accessibilityAddTraits(selected ? [.isSelected] : [])
+                .accessibilityIdentifier(mode == .routes ? "house.dock.routes" : "house.dock.fire")
             }
         }
         .dsCard(radius: 12, padding: 3)
@@ -864,6 +871,19 @@ struct HouseScreen: View {
         VStack(alignment: .leading, spacing: 10) {
             dockHeader("Fire simulation")
 
+            if store.model.profiles.isEmpty {
+                // The engine puts one stand-in per room when nobody is added (hazard.py), named
+                // after the room. Say so, and where people are added, so "Kitchen" walking out
+                // is not mistaken for a family member (this note replaces the old drill's
+                // empty state, AUD-020).
+                Text("No one is added to this home yet, so the simulation puts one person in "
+                     + "each room. Add your household from the Home tab.")
+                    .font(.caption)
+                    .foregroundStyle(DS.supporting)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("house.simulation.noPeople")
+            }
+
             if playback.hasTimeline {
                 loadedSimulationControls(for: store)
             } else {
@@ -1012,6 +1032,11 @@ struct HouseScreen: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            // Narrates the engine's tracks; never computes a route (EvacuationJourney.swift).
+            if !simulationJourneys.isEmpty {
+                EvacuationPeoplePanel(journeys: simulationJourneys)
+            }
+
             simulationFindings(for: store)
         }
     }
@@ -1096,26 +1121,19 @@ struct HouseScreen: View {
             Picker("Speed", selection: Binding(get: { playback.playbackRate },
                                                set: { playback.playbackRate = $0 })) {
                 ForEach(EvacuationPlaybackModel.supportedRates, id: \.self) { rate in
-                    Text(Self.rateLabel(rate)).tag(rate)
+                    Text(EvacuationPlaybackModel.rateLabel(rate)).tag(rate)
                 }
             }
         } label: {
-            Label("Speed \(Self.rateLabel(playback.playbackRate))", systemImage: "speedometer")
+            Label("Speed \(EvacuationPlaybackModel.rateLabel(playback.playbackRate))",
+                  systemImage: "speedometer")
                 .font(.caption)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityLabel("Playback speed")
-        .accessibilityValue(Self.spokenRateLabel(playback.playbackRate))
+        .accessibilityValue(EvacuationPlaybackModel.spokenRateLabel(playback.playbackRate))
         .accessibilityHint("Choose how fast the simulation runs.")
         .accessibilityIdentifier("house.simulation.rate")
-    }
-
-    private static func rateLabel(_ rate: Double) -> String {
-        rate == rate.rounded() ? "\(Int(rate))×" : "\(rate)×"
-    }
-
-    private static func spokenRateLabel(_ rate: Double) -> String {
-        rate == 1 ? "Normal speed" : "\(rate) times speed"
     }
 
     /// Elapsed and total are rendered as TEXT, not inferred from the bar's position — the
@@ -1466,6 +1484,8 @@ struct HouseScreen: View {
                 // request; showing it would animate the wrong house.
                 guard timeline.home_id == model.home_id else { return }
                 playback.load(timeline)
+                // Worked out once per timeline, not per frame: the dock re-renders every tick.
+                simulationJourneys = EvacuationJourneyNarrator.journeys(for: timeline, in: model)
                 playback.isSteppedMode = reduceMotion
                 playback.play()
                 syncContinuousRendering()
@@ -1486,6 +1506,7 @@ struct HouseScreen: View {
         simulationFailure = nil
         lastIgnitedRoomID = nil
         playback.load(nil)
+        simulationJourneys = []
         syncContinuousRendering()
     }
 

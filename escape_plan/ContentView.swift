@@ -156,7 +156,8 @@ private struct HouseTab: View {
         let homeID = readiness.activeHomeID ?? library.homes.first?.id
         let wasBlank = homeID == nil
         let key = homeID == nil || homeID == homeCreatedByBlankEditor ? "new\(blankGeneration)" : homeID!
-        HouseScreen(homeID: homeID, library: library, initialFocusItemID: request?.focusItemID) {
+        HouseScreen(homeID: homeID, library: library, initialFocusItemID: request?.focusItemID,
+                    startsOnFireSimulation: request?.opensFireSimulation ?? false) {
             library.refresh()
             if wasBlank, homeCreatedByBlankEditor == nil {
                 homeCreatedByBlankEditor = library.homes.first?.id

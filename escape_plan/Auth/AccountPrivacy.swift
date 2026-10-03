@@ -158,7 +158,7 @@ enum AccountPrivacy {
     ]
 
     /// AUD-018. Sync copies the home document and nothing else, so the state that lives beside
-    /// it — `ChecklistStateStore` (UserDefaults), the drill log and `ConversationStore` — is
+    /// it — `ChecklistStateStore` (UserDefaults) and `ConversationStore` — is
     /// not in the account. Said here so a second device showing a different score is expected
     /// rather than a bug. Deliberately "not copied to your account" and not "never leaves this
     /// iPhone": ticks go to `/score` and messages go to `/chat`, they are just not saved there.

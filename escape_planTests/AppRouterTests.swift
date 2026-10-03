@@ -19,6 +19,23 @@ final class AppRouterTests: XCTestCase {
         XCTAssertEqual(router.selectedTab, .house)
     }
 
+    /// Trim 2 (2026-10-03): "Run a fire drill" is House on the fire simulation, not a pushed screen.
+    func testOpenFireDrillAsksHouseForTheFireSimulation() throws {
+        let router = AppRouter()
+        router.selectedTab = .tasks
+        router.openFireDrill(homeID: "home-a")
+
+        let request = try XCTUnwrap(router.houseRequest)
+        XCTAssertEqual(request.homeID, "home-a")
+        XCTAssertNil(request.focusItemID)
+        XCTAssertTrue(request.opensFireSimulation)
+        XCTAssertEqual(router.selectedTab, .house)
+
+        router.openHouse(homeID: "home-a")
+        XCTAssertFalse(try XCTUnwrap(router.houseRequest).opensFireSimulation,
+                       "a plain 'open house' must not land on the fire tab")
+    }
+
     func testClearHouseRequestForgetsItWithoutChangingTab() {
         let router = AppRouter()
         router.openHouse(homeID: "home-a")

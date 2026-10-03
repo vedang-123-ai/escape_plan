@@ -21,6 +21,8 @@ enum HomeIntent: Equatable {
 struct HouseRequest: Equatable {
     let homeID: String?
     let focusItemID: String?
+    /// Open with the dock on the fire simulation: "Run a fire drill" (trim 2, 2026-10-03).
+    var opensFireSimulation = false
     let token = UUID()
 
     /// The request the House tab should act on: `request` only while it is for the active
@@ -41,6 +43,13 @@ final class AppRouter {
 
     func openHouse(homeID: String?, focusItemID: String? = nil) {
         houseRequest = HouseRequest(homeID: homeID, focusItemID: focusItemID)
+        selectedTab = .house
+    }
+
+    /// "Run a fire drill": the House tab on this home, dock on "Fire simulation". The old
+    /// drill screen was replaced by this playback (trim 2, 2026-10-03).
+    func openFireDrill(homeID: String?) {
+        houseRequest = HouseRequest(homeID: homeID, focusItemID: nil, opensFireSimulation: true)
         selectedTab = .house
     }
 

@@ -5,7 +5,7 @@
 //  Four things are asserted here, and each one is a bug the app actually had:
 //
 //  1. A connection-class failure serves the last-good `/routes` plan, so a drill or an export
-//     still has a route to walk. (Only HouseScreen did this; DrillScreen dead-ended.)
+//     still has a route to walk. (Only HouseScreen did this; the old DrillScreen dead-ended.)
 //  2. A 401 or a 422 is NEVER masked by that cache. Falling back on a server *answer* would
 //     hide a wrong bearer token behind a stale plan that looks like it worked.
 //  3. A 502 (an operator must act — no credit, bad key) offers no Retry, while a 503 (busy)
@@ -282,10 +282,13 @@ struct OfflineIntegrityTests {
         #expect(failure.isOfflineFlavoured)
         #expect(failure.symbol == "wifi.slash")
 
-        // The capability note is the honest inventory shown beside such a banner. The drill,
-        // the log and the printable plan have no APIClient anywhere in their path.
-        #expect(OfflineCapabilityNote.worksOffline.contains("practice drill"))
+        // The capability note is the honest inventory shown beside such a banner. The editor,
+        // saved homes and the printable plan have no APIClient anywhere in their path. The fire
+        // drill is the `/evacuate` simulation since trim 2 (2026-10-03), so it needs the server
+        // and must not be promised offline.
         #expect(OfflineCapabilityNote.worksOffline.contains("printable escape plan"))
+        #expect(!OfflineCapabilityNote.worksOffline.contains("drill"))
+        #expect(OfflineCapabilityNote.needsServer.contains("fire drill"))
         #expect(OfflineCapabilityNote.needsServer.contains("escape routes"))
         #expect(OfflineCapabilityNote.needsServer.contains("preparedness score"))
         #expect(OfflineCapabilityNote.needsServer.contains("assistant"))
