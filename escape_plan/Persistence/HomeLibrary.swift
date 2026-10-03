@@ -32,9 +32,10 @@ final class HomeLibrary: ObservableObject {
     let store: HomeDocumentStore
     /// The session of the currently open editor, if any — see `HomeModelPersisting` above.
     weak var editor: HomeModelPersisting?
-    /// Told when a home is deleted here, so cloud sync can remember it (S8.4). The backend has
-    /// no delete endpoint, so without a tombstone the next sync downloads the home straight
-    /// back. Weak, and optional — deleting works exactly as before with nobody listening.
+    /// Told when a home is deleted here, so cloud sync can remember it (S8.4). Without a
+    /// tombstone the next sync downloads the home straight back; with one owned by the signed-in
+    /// account, sync also sends `DELETE /homes/{id}` (docs/decisions.md 2026-09-24). Weak, and
+    /// optional — deleting works exactly as before with nobody listening.
     weak var deletionObserver: HomeDeletionObserving?
 
     init(store: HomeDocumentStore) {
@@ -46,19 +47,41 @@ final class HomeLibrary: ObservableObject {
         homes = store.list()
     }
 
-    func delete(homeID: String) {
+    /// Returns false when the file could not be deleted (the reason is in `loadError`).
+    @discardableResult
+    func delete(homeID: String) -> Bool {
+        var deleted = false
         perform {
             try store.delete(homeID: homeID)
+            deleted = true
             editor?.homeWasDeleted(homeID: homeID)
             // After the delete succeeds, so a failed delete never leaves a tombstone for a
             // home that is still on disk.
             deletionObserver?.homeWasDeletedLocally(homeID: homeID)
         }
+        return deleted
     }
 
-    func duplicate(homeID: String) {
-        perform { _ = try store.duplicate(homeID: homeID) }
+    /// Copies a home under a new id and the name "<name> copy". Returns the copy's id, or nil when
+    /// it failed (the reason is in `loadError`).
+    ///
+    /// Only the home document is copied: household profiles live inside it and come along, but the
+    /// checklist ticks, drill log and meeting point are keyed by home id and start empty, because
+    /// they are things someone did or decided about the original (docs/decisions.md 2026-10-02).
+    @discardableResult
+    func duplicate(homeID: String) -> String? {
+        var copyID: String?
+        perform { copyID = try store.duplicate(homeID: homeID).id }
+        return copyID
     }
+
+    /// The bundled starter homes (`FixtureSeeder`), which keep their fixtures' fixed ids. Labelled
+    /// "Demo" in the home list. A duplicate gets a new id, so it is the user's own home, not a demo.
+    static let starterHomeIDs: Set<String> = Set(HomeFixture.allCases.compactMap {
+        try? FixtureLoader.load($0).home_id
+    })
+
+    static func isStarterHome(_ homeID: String) -> Bool { starterHomeIDs.contains(homeID) }
 
     func export(homeID: String) -> URL? {
         var url: URL?

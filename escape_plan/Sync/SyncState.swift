@@ -70,9 +70,10 @@ struct SyncState: Codable, Equatable, Sendable {
 
     var records: [String: HomeSyncRecord]
 
-    /// Homes deleted on this device, keyed by `home_id`. The backend has no delete endpoint,
-    /// so the server keeps serving a deleted home forever; without a tombstone the next sync
-    /// downloads it again and it reappears in the library. The app already learned this
+    /// Homes deleted on this device, keyed by `home_id`. The server keeps serving a home until
+    /// a sync sends `DELETE /homes/{id}`, which only an owned tombstone does (docs/decisions.md
+    /// 2026-09-24); without a tombstone the next sync downloads it again and it reappears in
+    /// the library. The app already learned this
     /// lesson locally — `FixtureSeeder.starterSeedDefaultsKey` exists so "a home the user
     /// deleted on purpose is never resurrected on the next launch". Sync must honour the same
     /// rule.

@@ -37,6 +37,9 @@ final class ProfilesEntryUITests: XCTestCase {
     }
 
     /// Builds a fresh blank home from Home's "+" menu and comes back to Home with it active.
+    ///
+    /// Makes one committed edit first: since S11.21 a blank home is not written until its first
+    /// edit, so backing straight out would leave no new home to add people to.
     @MainActor
     private func buildBlankHome(_ app: XCUIApplication) {
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 20), "Tab shell did not appear.")
@@ -47,7 +50,12 @@ final class ProfilesEntryUITests: XCTestCase {
         let build = app.buttons["Build Manually"].firstMatch
         XCTAssertTrue(build.waitForExistence(timeout: 10))
         build.tap()
-        XCTAssertTrue(app.buttons["house.addMenu"].waitForExistence(timeout: 20), "The editor never opened.")
+        let addMenu = app.buttons["house.addMenu"]
+        XCTAssertTrue(addMenu.waitForExistence(timeout: 20), "The editor never opened.")
+        addMenu.tap()
+        let addObject = app.buttons["Add Object"]
+        XCTAssertTrue(addObject.waitForExistence(timeout: 10), "Add Object missing from the menu")
+        addObject.tap()
         let back = app.navigationBars.buttons.element(boundBy: 0)
         XCTAssertTrue(back.waitForExistence(timeout: 5))
         back.tap()
