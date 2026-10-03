@@ -26,7 +26,19 @@ import Observation
 /// `DELETE /homes/{id}`, and only for its owner (docs/decisions.md 2026-09-24).
 @MainActor
 protocol HomeDeletionObserving: AnyObject {
-    func homeWasDeletedLocally(homeID: String)
+    /// Throws when the deletion could not be remembered. The home is already gone from disk by
+    /// then, so the caller reports it rather than undoing anything.
+    func homeWasDeletedLocally(homeID: String) throws
+}
+
+/// The tombstone for a deleted home could not be saved (S11.22, a finding from S11.21). The
+/// file is gone, but without the tombstone the next sync downloads the home again, and an owned
+/// home is not removed from the account as the confirmation promised.
+struct DeletionNotRemembered: LocalizedError, Equatable {
+    var errorDescription: String? {
+        "The home is gone from this iPhone, but the app couldn't save a note that you deleted "
+            + "it, so it may come back at the next sync. If it does, delete it again."
+    }
 }
 
 @Observable
@@ -99,6 +111,18 @@ final class HomeDocumentSyncRepository: SyncHomeRepository, HomeDeletionObservin
     // MARK: - Writing
 
     func writePulledHome(_ home: HomeModel) throws {
+        try checkCanWritePulledHome(home)
+
+        // `now:` is the whole point of this line. The default stamps `meta.modified` with the
+        // CURRENT time, which would make a just-pulled home look newer than the server's copy;
+        // the next sync would push it straight back, the server would increment its revision,
+        // and two devices would trade the same home forever with no edit between them.
+        // Passing the home's own timestamp persists it verbatim.
+        try store.save(model: home, now: home.meta.modified)
+        library?.refresh()
+    }
+
+    func checkCanWritePulledHome(_ home: HomeModel) throws {
         // Never overwrite the home the user is editing. The editor holds its working copy in
         // `HomeModelStore` and writes it on autosave, so replacing the file underneath it
         // would either be discarded by the next autosave or — worse — silently reverted on
@@ -114,14 +138,6 @@ final class HomeDocumentSyncRepository: SyncHomeRepository, HomeDeletionObservin
         guard !undecodableHomeIDs.contains(home.home_id) else {
             throw SyncFailure.localCopyUnreadable
         }
-
-        // `now:` is the whole point of this line. The default stamps `meta.modified` with the
-        // CURRENT time, which would make a just-pulled home look newer than the server's copy;
-        // the next sync would push it straight back, the server would increment its revision,
-        // and two devices would trade the same home forever with no edit between them.
-        // Passing the home's own timestamp persists it verbatim.
-        try store.save(model: home, now: home.meta.modified)
-        library?.refresh()
     }
 
     /// Copies the local home under a fresh `home_id` before the server's version replaces it.
@@ -137,14 +153,22 @@ final class HomeDocumentSyncRepository: SyncHomeRepository, HomeDeletionObservin
 
     /// Writes a tombstone so the next sync does not download the home straight back.
     ///
-    /// Best-effort: a sidecar that will not write is not worth failing a deletion over — the
-    /// home is already gone from disk. The cost is that it may reappear once.
-    func homeWasDeletedLocally(homeID: String) {
+    /// The home is already gone from disk, so a sidecar that will not write does not undo the
+    /// deletion. It throws instead of being swallowed (it was `try?` until S11.22): the home may
+    /// reappear once, and the user should hear that from the delete rather than be surprised.
+    ///
+    /// Safe during a sync: the running `SyncManager` adopts tombstones written since it started
+    /// rather than writing its older copy of the sidecar over this one (S11.22).
+    func homeWasDeletedLocally(homeID: String) throws {
         var state = stateStore.load()
         // `markDeleted` reads the home's owner out of the state itself, so the tombstone is
         // scoped to the account the home belonged to rather than suppressing it for everyone.
         state.markDeleted(localHomeID: homeID, at: Date())
-        try? stateStore.save(state)
+        do {
+            try stateStore.save(state)
+        } catch {
+            throw DeletionNotRemembered()
+        }
     }
 
     /// What deleting `homeID` here would delete, for the confirmation to say (S11.21). Read-only;

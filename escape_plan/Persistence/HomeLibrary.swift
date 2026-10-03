@@ -47,7 +47,8 @@ final class HomeLibrary: ObservableObject {
         homes = store.list()
     }
 
-    /// Returns false when the file could not be deleted (the reason is in `loadError`).
+    /// Returns false when the file could not be deleted (the reason is in `loadError`). Returns
+    /// true with `loadError` set when the file went but its deletion could not be remembered.
     @discardableResult
     func delete(homeID: String) -> Bool {
         var deleted = false
@@ -56,8 +57,9 @@ final class HomeLibrary: ObservableObject {
             deleted = true
             editor?.homeWasDeleted(homeID: homeID)
             // After the delete succeeds, so a failed delete never leaves a tombstone for a
-            // home that is still on disk.
-            deletionObserver?.homeWasDeletedLocally(homeID: homeID)
+            // home that is still on disk. A tombstone that will not save lands in `loadError`
+            // while `deleted` stays true: the file is gone either way (S11.22).
+            try deletionObserver?.homeWasDeletedLocally(homeID: homeID)
         }
         return deleted
     }

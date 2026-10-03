@@ -112,7 +112,6 @@ struct HomeScreen: View {
                 ManageHomesSheet(
                     activeHomeID: readiness.activeHomeID,
                     reach: { syncRepository.deletionReach(of: $0, signedInUserID: auth.token?.subject) },
-                    syncIsRunning: { sync.status == .syncing },
                     onOpen: { id in showingManageHomes = false; switchHome(to: id) },
                     onDelete: deleteHome)
             }
@@ -607,10 +606,6 @@ private struct ManageHomesSheet: View {
     let activeHomeID: String?
     /// What deleting a home would delete, read when the confirmation opens.
     let reach: (String) -> HomeDeletionReach
-    /// A running sync writes back the sync state it read when it started, which would drop this
-    /// delete's tombstone and bring the home back (BLOCKERS, S11.21 findings). Until `SyncManager`
-    /// merges tombstones written mid-sync, a delete waits for the sync to finish.
-    let syncIsRunning: () -> Bool
     let onOpen: (String) -> Void
     /// False when the delete failed; `HomeLibrary.loadError` says why.
     let onDelete: (String) -> Bool
@@ -733,17 +728,17 @@ private struct ManageHomesSheet: View {
         "\(home.roomCount) \(home.roomCount == 1 ? "room" : "rooms") · \(home.floorCount) \(home.floorCount == 1 ? "floor" : "floors")"
     }
 
-    private static let waitForSync = "Your homes are syncing. Try again when the sync finishes."
-
+    // A delete during a sync is safe: `SyncManager` snapshots tombstones before it reads the
+    // library and keeps any written after that (S11.22), so S11.21's "wait for the sync"
+    // refusal is gone.
     private func askToDelete(_ home: HomeSummary) {
-        guard !syncIsRunning() else { failure = Self.waitForSync; return }
         pendingDelete = PendingDelete(id: home.id, name: home.name, reach: reach(home.id))
     }
 
     private func delete(_ id: String) {
-        // Checked again: a sync can start while the confirmation is open.
-        guard !syncIsRunning() else { failure = Self.waitForSync; return }
-        failure = onDelete(id) ? nil : "Couldn't delete that home. \(library.loadError ?? "")"
+        // A delete that worked can still carry a reason in `loadError`: the deletion could not be
+        // remembered, so the home may come back at the next sync (S11.22).
+        failure = onDelete(id) ? library.loadError : "Couldn't delete that home. \(library.loadError ?? "")"
     }
 
     private func duplicate(_ id: String) {

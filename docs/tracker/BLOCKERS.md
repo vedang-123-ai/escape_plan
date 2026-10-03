@@ -97,7 +97,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-012 (P3) untrusted `home_id` as filename · S11.41
 - [x] AUD-013 (P1) House editor overwrites other writers · **fixed 2026-10-01 by S11.19** (evidence under "S11.19 findings")
 - [ ] AUD-014 (P2) home-switch race; cancel shown as offline · S11.23, S11.37
-- [ ] AUD-015 (P2) conflict copies pile up · S11.22
+- [x] AUD-015 (P2) conflict copies pile up · **fixed 2026-10-02 by S11.22** (evidence under "S11.22 findings")
 - [ ] AUD-016 (P2) `POST /homes` lost update · S11.30 (server, deploy first), S11.32 (client)
 - [ ] AUD-017 (P2) re-scan "Add to Home" bypasses the reducer · S11.24
 - [ ] AUD-018 (P3) checklist/drill log/chat never leave the device · **disclosure half fixed 2026-10-01 by S11.16**
@@ -140,6 +140,45 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
 
+### S11.22 findings (2026-10-02, branch `s11-22-sync-conflict-copies`)
+
+- [x] **AUD-015 fixed: at most one conflict copy, and none while the home is open.** Reproduced first:
+      `SyncConflictCopyTests.testTwoSyncsWithTheHomeOpenMakeAtMostOneConflictCopy` failed on `ba25d95` with 2 copies,
+      passes now. `SyncManager` asks `SyncHomeRepository.checkCanWritePulledHome` before copying (a refused pull is a
+      per-home failure with the existing "open for editing" message, which the badge already shows); `SyncState.preservedCopies`
+      (version stays 3) copies each version once, and a copy the user deleted is not remade or brought back. Tests:
+      three syncs while open then one closed make exactly one copy; a failed write reuses its copy; a deleted copy stays
+      gone; an old v3 sidecar without the field loads whole. EditorCore 682/0, typecheck green, simulator sync and
+      repository tests green (`xcresulttool`; counts in the note).
+- [x] **Both S11.21 hand-offs done** (tombstones written mid-sync are kept; `homeWasDeletedLocally` no longer swallows a
+      failed save), and S11.21's "Your homes are syncing" stopgap is removed. The reviewer's three findings on the
+      first version (delete during `GET /homes`, during a first upload, and a re-delete) are fixed and each pinned by a
+      mutation-checked test.
+- [x] **The in-memory test double hid AUD-015:** it gave every conflict copy the same id, so a second copy replaced the
+      first. Fixed in `InMemoryHomeRepository` (a new id per copy, as the real store does).
+- [ ] **Never walked on a device or simulator with a real account.** A sync needs a signed-in account and the live
+      backend. Next action: S11.10 device pass, with two devices editing the same home and the home open on one.
+- [ ] **Skipped pulls still say "1 home didn't sync" on every sync while the home is open.** Honest and existing copy,
+      but repeated. Next action: none unless Anish finds it noisy in the walk.
+- [ ] **A sync's per-home failure for the open home does not retry when House closes;** it waits for the next
+      foreground/launch/manual sync. Next action: S11.32 (sync owner next) may start a sync on House disappear.
+
+### Owner review 2026-10-02 (branch `docs-feature-inventory`) · detail in [`end-of-project-fixes.md`](end-of-project-fixes.md)
+
+Anish chose to handle these after the S11 sessions. Each has its evidence and fix options in that file.
+
+- [ ] **Free Render instance cannot keep up with a 12-room home.** Ranch House: `/routes` 6.6–7.6 s, `/score` 20.6 s
+      (demo home 0.39 s); opening House queues score + routes + `/evacuate` and Render answers 503/502. Next action:
+      paid tier before filming (with AUD-032, S11.13), and measure where the 7 s goes.
+- [ ] **`BackendFailure` shows every 502 as "AI features are unavailable"**, including Render gateway 502s on `/routes`,
+      `/score` and `/evacuate`, which use no AI. Next action: AI wording only for the AI operations.
+- [ ] **The live server has no `ANTHROPIC_API_KEY`** (`/chat` → 502 "ANTHROPIC_API_KEY is not configured on the
+      server", 2026-10-02). Sharper than AUD-002's "credits". Next action (owner): set the key in Render's environment.
+- [ ] **Feature trim pending owner decisions** in [`../demo/feature-inventory.md`](../demo/feature-inventory.md)
+      (Hazard Hunt, AR drill, Import Plan, practice log, accounts). Next action: one cleanup session after the marks.
+- [ ] **UI tests leave homes in the simulator** (61 by 2026-10-02, moved to a scratch backup by hand). P3.
+- [ ] **Ranch House test home is uncommitted** (`demo-homes/`, Anish's working copy). Owner decides fixture or demo home.
+
 ### S11.21 findings (2026-10-02, branch `s11-21-home-delete`)
 
 - [x] **AUD-021 fixed: homes can be deleted and duplicated, and Build Manually writes nothing until the first edit.**
@@ -172,7 +211,7 @@ owning session's merge is on `origin/main` and you verified it.
       temporary UI test on an empty library (undo still enabled after the first edit, Home no longer says "Map your
       home"): passes with the fix, fails without it ("the first edit's undo was lost"); the test was removed because
       the shared simulator library is never empty. Owned-files exception (`ContentView.swift`, decisions 2026-10-02).
-- [ ] **@S11.22: a running sync drops a tombstone written while it runs (ecc:security-reviewer, confirmed by reading
+- [x] **@S11.22: a running sync drops a tombstone written while it runs (ecc:security-reviewer, confirmed by reading
       `SyncManager.sync()`).** `sync()` loads the sidecar once, then `persist(state)` writes that snapshot back after
       every action, so a home deleted mid-sync loses its tombstone (and its owner), may even be pushed from the
       `localByID` snapshot, and is pulled back on the next sync. Same shape as the `forgetAccount` race that
@@ -180,10 +219,12 @@ owning session's merge is on `origin/main` and you verified it.
       .syncing` ("Your homes are syncing. Try again when the sync finishes."), checked when the swipe is tapped and
       again on confirm. Next action (S11.22 owns `SyncManager`/`SyncState`): have `persist` merge tombstones (and their
       cleared `homeOwners` claims) written since the snapshot, skip planned pushes for homes tombstoned since, test it,
-      then remove the stopgap from `HomeScreen.swift` (`ManageHomesSheet.syncIsRunning`).
-- [ ] **@S11.22: `homeWasDeletedLocally` saves the tombstone with `try?`** (`HomeDocumentSyncRepository.swift`). If that
+      then remove the stopgap from `HomeScreen.swift` (`ManageHomesSheet.syncIsRunning`). **Done by S11.22** (see its
+      section): tombstones written mid-run are kept, the stopgap is gone.
+- [x] **@S11.22: `homeWasDeletedLocally` saves the tombstone with `try?`** (`HomeDocumentSyncRepository.swift`). If that
       write fails the home is gone from disk with no tombstone and may come back once, and a "removed from your
       account" promise is not kept. Next action (S11.22, owns the file): return the failure so Home can say so.
+      **Done by S11.22:** it throws `DeletionNotRemembered`, which reaches `library.loadError` and "Your homes".
 - [ ] **@S11.41: delete now reaches `HomeDocumentStore.url(for:)` with an id read from a file's `home_id`**
       (ecc:security-reviewer). Ids are not validated anywhere (server `home_id: str`), so a synced `"../x"` could be
       written (pre-existing, `writePulledHome`) and now also deleted from "Your homes". Next action: S11.41's planned
@@ -2135,6 +2176,9 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 
 ## 4 · Flake and process — known, live, will bite during filming
 
+- [ ] **`GestureFrameCostUITests.testACameraDragDoesNotDragSwiftUIUpdatesAlongWithIt` flaked once in a full run after
+      S11.21** (2026-10-02 status check on `91552f3`: 1065 / 1053 / 1 failed / 11; passed 1/1 re-run alone). Passed in
+      S11.22's full run (1083 / 1072 / 0 / 11). A timing test; re-run it alone before believing a failure.
 - [x] ~~**S8.2's auth layer has never met a real MongoDB either.**~~ **MET ONE 2026-09-15.**
       Against a live Atlas M0 (`escape-plan.6bak6dr.mongodb.net`, db `escape_plan`), walked by
       hand: register → **201**, duplicate register → **409** (so `DuplicateKeyError` IS matched
