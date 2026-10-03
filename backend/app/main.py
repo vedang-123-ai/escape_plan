@@ -18,7 +18,7 @@ import anthropic
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.models import HomeModel, FloorObject
 from app.routing.obstructions import Obstruction
 from app.routing.egress import EgressThresholds
@@ -31,6 +31,14 @@ from app.api_chat import router as chat_router
 from app.config import get_settings, get_thresholds, get_object_hazard_thresholds
 from app.convert.converter import convert_scan
 from app.database import CloudSyncDisabled, database
+from app.limits import (
+    BodySizeLimitMiddleware,
+    ImageMediaType,
+    MAX_BUILD_DESCRIPTION_CHARS,
+    MAX_IMAGE_B64_CHARS,
+    MAX_IMAGE_DECODED_BYTES,
+    decoded_image_bytes,
+)
 from app.rate_limit import ai_concurrency, ai_rate_limit
 from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
@@ -85,6 +93,11 @@ app = FastAPI(
 )
 app.include_router(chat_router)
 app.include_router(cloud_router)
+
+# S11.26 (AUD-004): refuse an oversized body with 413 before anything parses it.
+# Added last so it runs outermost — the check has to happen before routing, the
+# bearer-token dependency, and pydantic, which is the whole point of it.
+app.add_middleware(BodySizeLimitMiddleware)
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -428,11 +441,45 @@ def analyze(request: AnalyzeRequest) -> AnalysisResult:
 
 
 class BuildRequest(BaseModel):
+    """S11.26 (AUD-024, AUD-035): every field is bounded, and the media type is an
+    allow-list rather than a string forwarded to Anthropic unchecked.
+
+    `image_media_type` keeps its "image/png" default: the PDF path really does
+    render a PNG, and the photo path is fixed client-side in S11.33.
+
+    Read the allow-list narrowly. It refuses a CORRECTLY LABELLED unsupported
+    type, so a caller that honestly says `image/heic` now gets a 422 naming the
+    problem instead of paying for a model call that returns "AI unavailable".
+    It does NOT fix AUD-024's user-visible symptom: `APIClient+Build.swift`
+    hardcodes `image_media_type = "image/png"` at both the struct and function
+    defaults and `BuildFromPlanView` omits the argument, so real HEIC camera bytes
+    still arrive labelled `image/png`, still pass this allow-list and the base64
+    decode, and still reach Anthropic. The mislabel is a client bug and S11.33
+    owns it; this is the server half only.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
-    description: Optional[str] = None
-    image_b64: Optional[str] = None
-    image_media_type: str = "image/png"
+    description: Optional[str] = Field(
+        default=None, max_length=MAX_BUILD_DESCRIPTION_CHARS
+    )
+    image_b64: Optional[str] = Field(default=None, max_length=MAX_IMAGE_B64_CHARS)
+    image_media_type: ImageMediaType = "image/png"
+
+    @model_validator(mode="after")
+    def _image_is_decodable(self) -> "BuildRequest":
+        """Reject a payload that is not really base64, or that decodes larger than
+        Anthropic accepts, before any model call is made."""
+        if self.image_b64 is None:
+            return self
+        decoded = decoded_image_bytes(self.image_b64)  # ValueError -> 422
+        if decoded > MAX_IMAGE_DECODED_BYTES:
+            raise ValueError(
+                f"image is {decoded:,} bytes decoded, over the maximum of "
+                f"{MAX_IMAGE_DECODED_BYTES:,}. Downscale it (long edge 1568 px) "
+                f"and re-encode as JPEG."
+            )
+        return self
 
 
 @app.post(

@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.ai.grounded import GroundingError, corpus_text, valid_source_ids
 from app.ai.chat.summary import summarize_home, summarize_profiles, summarize_route_plan
 from app.config import get_settings
+from app.limits import MAX_CHAT_MESSAGE_CHARS
 from app.models import HomeModel, Profile
 from app.routing.plan import RoutePlan
 
@@ -83,10 +84,13 @@ Hard rules:
 
 
 class ChatMessage(BaseModel):
+    """S11.26 (AUD-035): `content` is bounded. A field constraint only — no prompt
+    or citation behaviour is touched here."""
+
     model_config = ConfigDict(extra="forbid")
 
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=MAX_CHAT_MESSAGE_CHARS)
 
 
 class ChatResponse(BaseModel):

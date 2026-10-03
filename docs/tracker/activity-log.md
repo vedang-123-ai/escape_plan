@@ -3224,3 +3224,21 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-10-03T04:17:58Z · vedang-123-ai · `main` @ `a4135cf`
+
+**Commits this session**
+  - a4135cf Merge origin/main (S11.16-S11.21) into local main
+  - b1d7257 tracker
+
+## 2026-10-03T16:17:53Z · vedang-123-ai · `s11-26-request-limits` @ `55b7292`
+
+**Commits this session**
+  - 55b7292 S11.26: a lying Content-Length no longer bypasses the body limit
+  - 72a6ea8 S11.26: tests — at the limit, over it, and no client on a rejection
+  - b98ad2e S11.26: bound the chat history by count, per-message and total (AUD-035)
+  - 310a641 S11.26: register the middleware, bound BuildRequest (AUD-024 server half)
+  - a620feb S11.26: limits.py — body-size middleware and the shared caps (AUD-004)
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
