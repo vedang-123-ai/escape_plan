@@ -25,6 +25,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import get_settings
 from app.rate_limit import (
+    BUDGET_COST_SINGLE_CALL,
     ai_budget,
     ai_concurrency,
     ai_rate_limit,
@@ -65,16 +66,23 @@ def require_token(
 #
 #   require_token    no token is a 401 that never touches anyone's budget
 #   ai_rate_limit    one client flooding — keyed on an IP the client cannot set
+#   ai_concurrency   in-flight cap, held until the endpoint returns
 #   ai_budget        total spend for the UTC day, whoever is spending it. The
 #                    only one of these a caller holding the public token cannot
 #                    reset, which is why it was added (S11.27)
-#   ai_concurrency   in-flight cap, held until the endpoint returns. LAST, so a
-#                    request rejected by a cheaper check never occupies a slot
+#
+# The budget comes LAST, after the semaphore, and that ordering was a review fix.
+# It is the only check here that CONSUMES something, so a request turned away by
+# a free check must not have been charged first: with the budget third, a burst
+# that bounced off the concurrency gate still spent the day's allowance while
+# costing zero credit, which let the service switch its own AI off for nothing.
+# The slot a budget-rejected request briefly holds is released immediately by
+# `ai_concurrency`'s finally.
 AI_GUARDS = [
     Depends(require_token),
     Depends(ai_rate_limit),
-    Depends(ai_budget),
     Depends(ai_concurrency),
+    Depends(ai_budget),
 ]
 
 
@@ -99,11 +107,13 @@ def ai_guards_for_optional_call(request: Request) -> Iterator[None]:
     The semaphore is released on the way out, including on an exception.
     """
     enforce_rate_limit(request)
-    enforce_budget()
     semaphore = gate.semaphore(get_settings().ai_max_concurrent)
     if not semaphore.acquire(blocking=False):
         raise busy_exception()
     try:
+        # Same order as AI_GUARDS: charge only once a slot is held, so a request
+        # the gate turns away is not billed for a call it never made.
+        enforce_budget(BUDGET_COST_SINGLE_CALL)
         yield
     finally:
         semaphore.release()

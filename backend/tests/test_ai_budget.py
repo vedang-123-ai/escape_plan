@@ -22,7 +22,12 @@ from app.ai.builder import BuildResult
 from app.ai.chat.service import ChatResponse
 from app.main import app
 from app.models import HomeModel
-from app.rate_limit import DailyAICallBudget
+from app.rate_limit import (
+    BUDGET_COST_ANALYZE,
+    BUDGET_COST_BUILD,
+    BUDGET_COST_SINGLE_CALL,
+    DailyAICallBudget,
+)
 
 TEST_TOKEN = "budget-test-token-not-a-secret"
 AUTH = {"Authorization": f"Bearer {TEST_TOKEN}"}
@@ -121,7 +126,12 @@ def _exhaust(limit: int) -> None:
 
 @pytest.fixture
 def budget_of_one(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("AI_DAILY_CALL_BUDGET", "1")
+    """Exactly enough for one request of the most expensive shape.
+
+    Sized from BUDGET_COST_BUILD rather than hardcoded, so raising a loop's
+    iteration cap does not silently turn these into tests of something else.
+    """
+    monkeypatch.setenv("AI_DAILY_CALL_BUDGET", str(BUDGET_COST_BUILD))
     monkeypatch.setenv("AI_RATE_PER_MIN", "100000")
     monkeypatch.setenv("AI_RATE_BURST", "100000")
     config.get_settings.cache_clear()
@@ -144,28 +154,43 @@ def _stub_everything(monkeypatch: pytest.MonkeyPatch, bungalow: dict) -> None:
     monkeypatch.setattr("app.main.recommendation_items", lambda *a, **k: [])
 
 
+# Each AI call site with what ONE request to it costs, so the budget in the
+# test is sized to that route rather than to a flat 1 (which is the assumption
+# the security review falsified).
 AI_CALL_SITES = [
-    ("/build", lambda home: {"description": "a small bungalow"}),
-    ("/chat", lambda home: {"home": home, "messages": [{"role": "user", "content": "hi"}]}),
+    ("/build", lambda home: {"description": "a small bungalow"}, BUDGET_COST_BUILD),
+    (
+        "/chat",
+        lambda home: {"home": home, "messages": [{"role": "user", "content": "hi"}]},
+        BUDGET_COST_SINGLE_CALL,
+    ),
     (
         "/score",
         lambda home: {"home": home, "include_recommendations": True},
+        BUDGET_COST_SINGLE_CALL,
     ),
 ]
 
 
-@pytest.mark.parametrize("path,body", AI_CALL_SITES, ids=[p for p, _ in AI_CALL_SITES])
+@pytest.mark.parametrize(
+    "path,body,cost", AI_CALL_SITES, ids=[p for p, _, _ in AI_CALL_SITES]
+)
 def test_every_ai_call_site_refuses_once_the_budget_is_spent(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     bungalow: dict,
-    budget_of_one,
     path: str,
     body,
+    cost: int,
 ):
-    """One call succeeds, the next is 429 — on each route that spends credit,
+    """One request fits, the next does not — on each route that spends credit,
     including `/score?include_recommendations` (AUD-006), which used to call the
     AI outside the guard entirely."""
+    monkeypatch.setenv("AI_DAILY_CALL_BUDGET", str(cost))
+    monkeypatch.setenv("AI_RATE_PER_MIN", "100000")
+    monkeypatch.setenv("AI_RATE_BURST", "100000")
+    config.get_settings.cache_clear()
+    rate_limit.budget.reset()
     _stub_everything(monkeypatch, bungalow)
 
     first = client.post(path, json=body(bungalow), headers=AUTH)
@@ -249,7 +274,7 @@ def test_score_with_recommendations_does_charge_the_budget(
         headers=AUTH,
     )
     assert resp.status_code == 200, resp.text
-    assert rate_limit.budget.spent_today() == before + 1
+    assert rate_limit.budget.spent_today() == before + BUDGET_COST_SINGLE_CALL
 
 
 def test_budget_is_charged_before_the_call_not_after_success(
@@ -267,7 +292,7 @@ def test_budget_is_charged_before_the_call_not_after_success(
     before = rate_limit.budget.spent_today()
     resp = client.post("/build", json={"description": "x"}, headers=AUTH)
     assert resp.status_code == 502, resp.text
-    assert rate_limit.budget.spent_today() == before + 1
+    assert rate_limit.budget.spent_today() == before + BUDGET_COST_BUILD
 
 
 # --- /health reports the remaining allowance --------------------------------
@@ -290,8 +315,8 @@ def test_health_budget_moves_as_calls_are_spent(
 
     body = client.get("/health").json()
     limit = config.get_settings().ai_daily_call_budget
-    assert body["ai_calls_spent_today"] == 1
-    assert body["ai_calls_remaining_today"] == limit - 1
+    assert body["ai_calls_spent_today"] == BUDGET_COST_BUILD
+    assert body["ai_calls_remaining_today"] == limit - BUDGET_COST_BUILD
 
 
 # --- configuration -----------------------------------------------------------
@@ -317,3 +342,83 @@ def test_zero_hops_is_allowed_unlike_the_other_limits(monkeypatch: pytest.Monkey
     monkeypatch.setenv("AI_TRUSTED_PROXY_HOPS", "0")
     config.get_settings.cache_clear()
     assert config.get_settings().ai_trusted_proxy_hops == 0
+
+
+# --- the budget unit is a MODEL call, not an HTTP request --------------------
+#
+# Found by security review of this session's first version, and measured: the
+# budget charged one unit per REQUEST while `/build` loops up to
+# `MAX_ITERATIONS` model calls, so a 300-unit ceiling really allowed ~12,000
+# model calls. The docstring claimed otherwise. These pin the correction.
+
+
+def test_build_costs_a_whole_loop_not_one_call(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, bungalow: dict
+):
+    _stub_everything(monkeypatch, bungalow)
+    before = rate_limit.budget.spent_today()
+    resp = client.post("/build", json={"description": "x"}, headers=AUTH)
+    assert resp.status_code == 200, resp.text
+    assert rate_limit.budget.spent_today() == before + BUDGET_COST_BUILD
+
+
+def test_a_malformed_build_costs_only_the_base(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """The reason the loop's cost is charged in the handler and not in the guard.
+
+    The guard runs BEFORE body validation, so if it charged the full loop weight
+    a handful of malformed requests would switch the AI off for the whole day.
+    """
+    before = rate_limit.budget.spent_today()
+    resp = client.post("/build", json={}, headers=AUTH)
+    assert resp.status_code == 422
+    assert rate_limit.budget.spent_today() == before + BUDGET_COST_SINGLE_CALL
+
+
+def test_costs_stay_in_lockstep_with_the_loops_they_mirror():
+    """`rate_limit` deliberately does not import `app.ai`, so the costs are
+    copies. If a loop's cap moves and the cost does not, the bill multiplies
+    silently — this is the test that stops that."""
+    from app.ai.agent import MAX_ITERATIONS as AGENT_ITERS, MAX_SUBMIT_RETRIES
+    from app.ai.builder import MAX_ITERATIONS as BUILDER_ITERS
+
+    assert BUDGET_COST_BUILD == BUILDER_ITERS
+    assert BUDGET_COST_ANALYZE == AGENT_ITERS + MAX_SUBMIT_RETRIES
+
+
+def test_a_charge_that_would_exceed_the_limit_is_refused_whole(
+    monkeypatch: pytest.MonkeyPatch
+):
+    """All-or-nothing: a caller is never told "no" and billed anyway."""
+    b = DailyAICallBudget()
+    assert b.spend(10, cost=8) is True
+    assert b.spend(10, cost=8) is False
+    assert b.spent_today() == 8, "the refused charge must not have been applied"
+
+
+def test_the_concurrency_gate_does_not_charge_the_budget(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, bungalow: dict
+):
+    """Review fix: the budget is the only consuming check, so it goes after the
+    free ones. A request bounced by a full semaphore spends no credit and must
+    therefore cost no budget."""
+    _stub_everything(monkeypatch, bungalow)
+    monkeypatch.setenv("AI_MAX_CONCURRENT", "1")
+    config.get_settings.cache_clear()
+    rate_limit.gate.reset()
+
+    # Fill the single slot and hold it while a second request arrives.
+    semaphore = rate_limit.gate.semaphore(1)
+    assert semaphore.acquire(blocking=False)
+    try:
+        before = rate_limit.budget.spent_today()
+        resp = client.post("/build", json={"description": "x"}, headers=AUTH)
+        assert resp.status_code == 429
+        assert "busy" in resp.json()["detail"].lower()
+        assert rate_limit.budget.spent_today() == before, (
+            "a request the gate turned away must not have been charged"
+        )
+    finally:
+        semaphore.release()
+        rate_limit.gate.reset()

@@ -9,15 +9,13 @@ from __future__ import annotations
 
 import logging
 from app.routing.diff import compute_diff, DiffRequest, DiffResult
-import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Annotated, Any, AsyncIterator, Optional, Literal
+from typing import Any, AsyncIterator, Optional, Literal
 
 import anthropic
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.models import HomeModel, FloorObject
 from app.routing.obstructions import Obstruction
@@ -40,7 +38,13 @@ from app.limits import (
     decoded_image_bytes,
 )
 from app.deps import AI_GUARDS, ai_guards_for_optional_call, require_token
-from app.rate_limit import ai_budget, ai_concurrency, ai_rate_limit, budget
+from app.rate_limit import (
+    BUDGET_COST_ANALYZE,
+    BUDGET_COST_BUILD,
+    BUDGET_COST_SINGLE_CALL,
+    budget,
+    enforce_budget,
+)
 from app.models import HomeModel, Profile
 from app.routing.engine import compute_route_plan
 from app.routing.hazard import EvacuationTimeline, compute_evacuation_timeline
@@ -427,6 +431,9 @@ def analyze(request: AnalyzeRequest) -> AnalysisResult:
     """Agentic safety inspection: tool-use loop over the home, evidence-linked
     findings only (S3.2). The agent never computes routes or egress itself —
     it calls the same deterministic engines /routes and /explain use."""
+    # S11.27: the agent loop makes up to MAX_ITERATIONS model calls plus submit
+    # retries; charge the remainder over the base cost AI_GUARDS already took.
+    enforce_budget(BUDGET_COST_ANALYZE - BUDGET_COST_SINGLE_CALL)
     try:
         return run_agent_analysis(request.home, get_thresholds())
     except AgentError as exc:
@@ -493,6 +500,11 @@ def build(request: BuildRequest) -> BuildResult:
         raise HTTPException(
             status_code=422, detail="provide a description, an image, or both"
         )
+    # S11.27: the builder is a LOOP of up to MAX_ITERATIONS model calls, so the
+    # base cost the guard already charged is not what this request can spend.
+    # Charged here rather than in AI_GUARDS because the guard runs before body
+    # validation, and a malformed request must not cost a full loop's budget.
+    enforce_budget(BUDGET_COST_BUILD - BUDGET_COST_SINGLE_CALL)
     try:
         return run_builder(
             description=request.description,

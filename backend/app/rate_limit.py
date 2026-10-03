@@ -188,13 +188,40 @@ def client_key(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+# How many Anthropic `messages.create` calls one request to each route can make.
+#
+# THIS IS THE UNIT THE BUDGET COUNTS, and getting it wrong is how the first
+# version of this module shipped a ceiling ~40x weaker than its own docstring
+# claimed. A budget unit is not one HTTP request: `/build` and `/analyze` are
+# tool-use LOOPS, so one request to either makes many model calls, each paying
+# full input price (neither loop uses prompt caching). 300 requests to /build
+# would have been ~12,000 model calls.
+#
+# Mirrored from the loops rather than imported, to keep this module free of any
+# dependency on `app.ai`. `test_ai_budget.py` asserts they stay in lockstep, so
+# raising MAX_ITERATIONS without revisiting the cost fails a test rather than
+# quietly multiplying the bill.
+BUDGET_COST_BUILD = 40
+"""`app.ai.builder.MAX_ITERATIONS`."""
+
+BUDGET_COST_ANALYZE = 17
+"""`app.ai.agent.MAX_ITERATIONS` (15) + `MAX_SUBMIT_RETRIES` (2)."""
+
+BUDGET_COST_SINGLE_CALL = 3
+"""/explain, /chat and /score's recommendations: one call plus up to two
+citation retries. Charged by the dependency as the base cost, because it is
+also the floor for the loop routes."""
+
+
 class DailyAICallBudget:
-    """A process-wide ceiling on AI calls per UTC day (S11.27, AUD-003).
+    """A process-wide ceiling on Anthropic model calls per UTC day (S11.27,
+    AUD-003).
 
     Counts CALLS, not tokens. Debiting real token usage would mean every AI
     module reporting its `response.usage` back here, and `app/ai/` is outside
     this session's owned files -- there is a BLOCKERS line for it. A call count
-    still bounds spend, because every call site has its own `max_tokens` cap.
+    bounds spend because every call site caps its own `max_tokens`; what it
+    cannot see is that a long call costs more than a short one.
 
     The day boundary is UTC so the ceiling does not shift with the server's
     timezone, and so "today" means the same thing in a log and in /health. The
@@ -215,13 +242,18 @@ class DailyAICallBudget:
             self._day = today
             self._spent = 0
 
-    def spend(self, limit: int) -> bool:
-        """Charge one call. True if it was within budget, False if exhausted."""
+    def spend(self, limit: int, cost: int = 1) -> bool:
+        """Charge `cost` model calls. True if within budget, False if exhausted.
+
+        All-or-nothing under the lock: a charge that would exceed the limit is
+        refused outright rather than partially applied, so a caller can never be
+        told "no" and billed anyway.
+        """
         with self._lock:
             self._roll()
-            if self._spent >= limit:
+            if self._spent + cost > limit:
                 return False
-            self._spent += 1
+            self._spent += cost
             return True
 
     def remaining(self, limit: int) -> int:
@@ -281,13 +313,24 @@ def enforce_rate_limit(request: Request) -> None:
         )
 
 
-def enforce_budget() -> None:
-    """Charge the daily budget, raising 429 if today's allowance is spent."""
+def enforce_budget(cost: int = 1) -> None:
+    """Charge `cost` against the daily budget, raising 429 if it will not fit.
+
+    Called twice for the loop routes: once by the `ai_budget` dependency for the
+    base cost, and once more inside the handler for the remainder, AFTER the
+    request has been validated. That split is deliberate. The dependency runs
+    BEFORE body validation (measured 2026-10-03: a malformed `/build` already
+    charges), so charging a loop route's full weight there would let eight
+    malformed requests switch the AI off for the day. The base cost alone still
+    bounds a flood of junk; the expensive part is only charged once the request
+    is real.
+    """
     settings = get_settings()
-    if not budget.spend(settings.ai_daily_call_budget):
+    if not budget.spend(settings.ai_daily_call_budget, cost):
         raise _too_many(
-            "The daily AI limit for this server has been reached. "
-            "Routes, scores and the rest of the app are unaffected.",
+            "The daily AI limit for this server has been reached. Routes, "
+            "scores and the rest of the app still work; only AI features are "
+            "paused until the limit resets.",
             _seconds_until_utc_midnight(datetime.now(timezone.utc)),
         )
 
@@ -310,12 +353,16 @@ async def ai_budget() -> None:
     """Global daily ceiling on AI calls. Declare AFTER `require_token`, so an
     unauthenticated request never spends the day's budget.
 
+    Charges BUDGET_COST_SINGLE_CALL, the floor every AI route pays. `/build`
+    and `/analyze` are loops and charge their remainder in the handler, once the
+    request has been validated -- see `enforce_budget`.
+
     Charged on ENTRY, not on success. A call that reaches Anthropic and then
     fails has usually already cost credit, and a budget that refunded failures
     would let a loop of failing calls run unbounded -- which is the exact shape
     of the incident that drained the account.
     """
-    enforce_budget()
+    enforce_budget(BUDGET_COST_SINGLE_CALL)
 
 
 async def ai_concurrency() -> AsyncIterator[None]:

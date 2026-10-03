@@ -26,11 +26,17 @@ def _ai_cost_guard_relaxed(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("AI_RATE_PER_MIN", "100000")
     monkeypatch.setenv("AI_RATE_BURST", "100000")
     monkeypatch.setenv("AI_MAX_CONCURRENT", "1000")
+    # S11.27 added a third piece of guard state. Unlike the bucket and the
+    # semaphore it ACCUMULATES, so without a reset the suite's own AI calls
+    # exhaust the day's allowance partway through and every later test 429s —
+    # a failure that only appears in a full run, never in isolation.
     rate_limit.limiter.reset()
     rate_limit.gate.reset()
+    rate_limit.budget.reset()
     yield
     rate_limit.limiter.reset()
     rate_limit.gate.reset()
+    rate_limit.budget.reset()
 
 
 def load_fixture(name: str) -> dict:
