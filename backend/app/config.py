@@ -45,10 +45,17 @@ class Settings(BaseModel):
     ai_max_concurrent: int = 4
     # S11.27 (AUD-003). The bearer token ships in every app build and is public,
     # so it bounds nobody's spend. These two do.
-    ai_daily_call_budget: int = 300
-    """AI calls allowed per UTC day, server-wide. Sized for filming: a demo run
-    uses a handful, so 300 is roomy for a day of rehearsal and still a ceiling a
-    runaway script hits in minutes rather than draining the account."""
+    ai_daily_call_budget: int = 1000
+    """Anthropic model calls allowed per UTC day, server-wide — MODEL calls, not
+    HTTP requests, because /build and /analyze are loops (see BUDGET_COST_* in
+    app/rate_limit.py).
+
+    Sized from that unit, not guessed. At BUDGET_COST_BUILD = 40, 1000 is ~25
+    photo/text builds a day, or ~333 explain/chat turns, or any mix — roomy for a
+    rehearsal day. And it is still a short fuse for abuse: the per-client bucket
+    allows 6 requests/min, so a script looping /build spends ~240 units a minute
+    and hits the ceiling in about four. 300 would have been only 7 builds, which
+    a single filming day could plausibly exhaust."""
     ai_client_ip_header: str = "cf-connecting-ip"
     """A header the infrastructure overwrites, used as the rate-limit key when
     present. Empty string disables it (then the X-Forwarded-For path is used)."""
@@ -144,7 +151,7 @@ def get_settings() -> Settings:
         ai_rate_per_min=_positive_number("AI_RATE_PER_MIN", "6", float),
         ai_rate_burst=_positive_number("AI_RATE_BURST", "3", int),
         ai_max_concurrent=_positive_number("AI_MAX_CONCURRENT", "4", int),
-        ai_daily_call_budget=_positive_number("AI_DAILY_CALL_BUDGET", "300", int),
+        ai_daily_call_budget=_positive_number("AI_DAILY_CALL_BUDGET", "1000", int),
         # Not _positive_number: an empty value is meaningful (disable the header)
         # and lowercased because ASGI header lookups are case-insensitive but the
         # comparison in client_key is not.
