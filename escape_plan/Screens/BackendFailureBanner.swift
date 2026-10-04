@@ -42,12 +42,15 @@ struct BackendFailureBanner: View {
         !failure.suggestsSettings && failure.kind != .offline && !voiceOverRunning
     }
 
+    /// A cancellation draws nothing: nothing went wrong, and a banner would say otherwise.
+    static func rendersBanner(for failure: BackendFailure) -> Bool { !failure.isSilent }
+
     var body: some View {
         // The reset, the timer and the Settings sheet hang off this outer view, which stays in the
         // tree while the banner is hidden. Inside `banner` they left with it, so a later failure
         // assigned in place never showed (review, 2026-10-02).
         Group {
-            if !isHidden { banner }
+            if !isHidden, Self.rendersBanner(for: failure) { banner }
         }
         .onChange(of: failure.message) { isHidden = false }
         .task(id: failure.message) {
@@ -126,9 +129,10 @@ struct BackendFailureBanner: View {
     /// working exactly as designed.
     private var tint: Color {
         switch failure.kind {
-        case .offline: return .secondary
+        case .offline, .timedOut, .cancelled: return .secondary
         case .unauthorized, .rejectedInput, .localData: return Color(DollhousePalette.warningBadge)
-        case .aiUnavailable, .serverBusy, .server: return Color(DollhousePalette.warningBadge)
+        case .aiUnavailable, .serverBusy, .server, .serverTimedOut, .appServerMismatch:
+            return Color(DollhousePalette.warningBadge)
         }
     }
 }

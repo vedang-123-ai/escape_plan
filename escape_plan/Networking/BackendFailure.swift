@@ -15,6 +15,7 @@
 //  Foundation only: no SwiftUI, so the classification is unit-testable without a view.
 
 import Foundation
+import os
 
 /// A backend failure translated into something a person can act on.
 struct BackendFailure: Equatable {
@@ -41,6 +42,18 @@ struct BackendFailure: Equatable {
         case rejectedInput
         /// Any other non-200.
         case server(statusCode: Int)
+        /// The user (or a screen leaving, or a newer request) cancelled it. Not a fault and not
+        /// news: every screen ignores it, and the banner draws nothing for it (S11.37).
+        case cancelled
+        /// The phone's own timer ran out before the server answered. Almost always the free-tier
+        /// server waking from sleep, so it is its own kind, not "offline" (S11.37).
+        case timedOut
+        /// 504 — the SERVER gave up waiting for the AI (the deadline in backend/app/ai/client.py).
+        /// The phone did get an answer, so this is neither offline nor the waking-up case.
+        case serverTimedOut
+        /// The server answered 200 but the body did not decode: the app and the server disagree
+        /// about the data's shape. Retrying cannot help; updating the app can (S11.37).
+        case appServerMismatch
     }
 
     /// The operation that failed, which supplies the noun and the honest fallback line.
@@ -58,6 +71,19 @@ struct BackendFailure: Equatable {
         /// POST /build — the LLM house builder behind "Import a plan". AI-backed, so it can be
         /// down while everything deterministic is fine.
         case houseBuilder
+
+        /// The endpoint path, for the log line a decoding failure writes. Never a body or a token.
+        var path: String {
+            switch self {
+            case .routes: return "/routes"
+            case .scanConversion: return "/convert"
+            case .score: return "/score"
+            case .analysis: return "/analyze"
+            case .assistant: return "/chat"
+            case .simulation: return "/evacuate"
+            case .houseBuilder: return "/build"
+            }
+        }
 
         var noun: String {
             switch self {
@@ -107,26 +133,54 @@ struct BackendFailure: Equatable {
     /// the only case where listing what still works offline is useful rather than noise.
     var isOfflineFlavoured: Bool { kind == .offline }
 
+    /// True for a cancellation: nothing went wrong, so nothing should be shown.
+    var isSilent: Bool { kind == .cancelled }
+
+    /// A cancelled request throws `CancellationError` when a Swift task is cancelled, but a
+    /// cancelled `URLSession` load throws `URLError(.cancelled)`. Both mean the same thing.
+    static func isCancellation(_ error: Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
+    }
+
+    private static let log = Logger(subsystem: "escape_plan", category: "BackendFailure")
+
     // MARK: - Classification
 
     init(_ error: Error, while operation: Operation) {
         let fallback = operation.fallback.map { " " + $0 } ?? ""
 
-        // The chat client throws its own error type (it keeps the server's 422 detail); the
-        // user-facing meaning is decided here, once, like every other endpoint's.
+        // The chat client throws its own error type; the user-facing meaning is decided here,
+        // once, like every other endpoint's. A 422 keeps the server's own sentence ("the
+        // conversation is N characters, send fewer earlier turns"), which is actionable.
         if let chatError = error as? ChatError {
-            self.init(APIClientError.unexpectedResponse(statusCode: chatError.statusCode),
-                      while: operation)
+            if case .unexpectedStatus(let code, let detail) = chatError, code == 422,
+               let sentence = Self.usableDetail(detail) {
+                self.init(kind: .rejectedInput, message: sentence,
+                          isRetryable: false, suggestsSettings: false,
+                          symbol: "questionmark.folder")
+            } else {
+                self.init(APIClientError.unexpectedResponse(statusCode: chatError.statusCode),
+                          while: operation)
+            }
             return
         }
 
-        if error is CancellationError {
-            // Callers should filter these out before constructing a failure; treat as busy
-            // rather than inventing an alarming message.
-            self.init(kind: .serverBusy,
-                      message: "That took too long. Try again.",
-                      isRetryable: true, suggestsSettings: false,
-                      symbol: "arrow.clockwise")
+        if Self.isCancellation(error) {
+            self.init(kind: .cancelled,
+                      message: "Request cancelled.",
+                      isRetryable: false, suggestsSettings: false,
+                      symbol: "xmark.circle")
+            return
+        }
+
+        if let decoding = error as? DecodingError {
+            // Path and shape only, never the values: a body can hold a home layout.
+            Self.log.error("decode failed for \(operation.path, privacy: .public): \(Self.label(decoding), privacy: .public) at \(Self.codingPath(decoding), privacy: .private)")
+            self.init(kind: .appServerMismatch,
+                      message: "The app and the server disagree about \(operation.noun). "
+                             + "Update the app, then try again.",
+                      isRetryable: false, suggestsSettings: false,
+                      symbol: "arrow.triangle.2.circlepath.circle")
             return
         }
 
@@ -134,9 +188,15 @@ struct BackendFailure: Equatable {
             let urlError = error as? URLError
             let offline = urlError.map {
                 [.notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost,
-                 .timedOut, .dataNotAllowed].contains($0.code)
+                 .dataNotAllowed].contains($0.code)
             } ?? false
-            if offline {
+            if urlError?.code == .timedOut {
+                self.init(kind: .timedOut,
+                          message: "The server didn't answer in time. It may be waking up. Try again in a moment."
+                                 + fallback,
+                          isRetryable: true, suggestsSettings: false,
+                          symbol: "hourglass")
+            } else if offline {
                 self.init(kind: .offline,
                           message: "You're offline. Getting \(operation.noun) needs a "
                                  + "connection — reconnect and try again.",
@@ -172,6 +232,30 @@ struct BackendFailure: Equatable {
                       isRetryable: false, suggestsSettings: false,
                       symbol: "questionmark.folder")
 
+        case 413:
+            // Deterministic: the same body is refused the same way, so no Retry.
+            let detail: String
+            switch operation {
+            case .houseBuilder:
+                detail = "That plan is too large to send. Use a smaller photo or a shorter description."
+            case .assistant:
+                detail = "This conversation is too long for the assistant to take. Start a new chat."
+            case .scanConversion:
+                detail = "The scan is too large to send. Try scanning fewer rooms at a time."
+            default:
+                detail = "What we sent for \(operation.noun) is larger than the server accepts."
+            }
+            self.init(kind: .rejectedInput, message: detail,
+                      isRetryable: false, suggestsSettings: false,
+                      symbol: "questionmark.folder")
+
+        case 504:
+            self.init(kind: .serverTimedOut,
+                      message: "The server stopped waiting for \(operation.noun). Try again."
+                             + fallback,
+                      isRetryable: true, suggestsSettings: false,
+                      symbol: "hourglass")
+
         case 502:
             // The operator-must-act case. Deliberately no Retry.
             self.init(kind: .aiUnavailable,
@@ -192,6 +276,41 @@ struct BackendFailure: Equatable {
                       isRetryable: true, suggestsSettings: false,
                       symbol: "exclamationmark.triangle")
         }
+    }
+
+    /// The server's own 422 sentence, if it is a short plain string. A pydantic validation list
+    /// does not decode to a string, so it never gets here.
+    private static func usableDetail(_ detail: String?) -> String? {
+        guard let text = detail?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty, text.count <= 300 else { return nil }
+        return text
+    }
+
+    private static func context(_ error: DecodingError) -> DecodingError.Context? {
+        switch error {
+        case .typeMismatch(_, let c), .valueNotFound(_, let c), .keyNotFound(_, let c): return c
+        case .dataCorrupted(let c): return c
+        @unknown default: return nil
+        }
+    }
+
+    /// Which kind of mismatch: no keys, no values.
+    private static func label(_ error: DecodingError) -> String {
+        switch error {
+        case .typeMismatch: return "typeMismatch"
+        case .valueNotFound: return "valueNotFound"
+        case .keyNotFound: return "keyNotFound"
+        case .dataCorrupted: return "dataCorrupted"
+        @unknown default: return "unknown"
+        }
+    }
+
+    /// "home.rooms[2].id". Keys only, never values, and `.private` in the log because a
+    /// dictionary key can be something a user typed (a room name).
+    private static func codingPath(_ error: DecodingError) -> String {
+        let path = (context(error)?.codingPath ?? [])
+            .map { $0.intValue.map { "[\($0)]" } ?? ".\($0.stringValue)" }.joined()
+        return path.isEmpty ? "root" : path
     }
 
     private init(kind: Kind, message: String, isRetryable: Bool,

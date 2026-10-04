@@ -1493,9 +1493,9 @@ struct HouseScreen: View {
                 playback.play()
                 syncContinuousRendering()
                 Haptics.tick()
-            } catch is CancellationError {
             } catch {
-                guard !Task.isCancelled else { return }
+                // A cancelled load is URLError(.cancelled) as often as CancellationError (S11.37).
+                guard !BackendFailure.isCancellation(error), !Task.isCancelled else { return }
                 simulationFailure = BackendFailure(error, while: .simulation)
             }
         }
@@ -1686,9 +1686,8 @@ struct HouseScreen: View {
                         personName: model.profiles.first { $0.id == cached.plan.profile_id }?.name)
                 }
                 applyOverlay()
-            } catch is CancellationError {
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !BackendFailure.isCancellation(error), !Task.isCancelled else { return }
                 routesFailure = BackendFailure(error, while: .routes)
             }
         }

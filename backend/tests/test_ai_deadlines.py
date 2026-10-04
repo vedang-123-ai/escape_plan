@@ -268,7 +268,7 @@ def test_iteration_caps_still_apply_with_a_generous_deadline():
 
 # The iOS request.timeoutInterval values read from escape_plan/Networking on 2026-10-04.
 # They are copied here on purpose: the test pins the relationship "server gives up first".
-PHONE_TIMEOUT_S = {"build": 180, "analyze": 90, "chat": 60, "explain": 90}
+PHONE_TIMEOUT_S = {"build": 180, "analyze": 90, "chat": 120, "explain": 90}
 
 
 def test_server_deadlines_are_under_the_phones_timeouts():
@@ -378,3 +378,16 @@ def test_builder_marks_the_image_turn_cacheable_and_text_only_builds_have_no_mar
     text_only = SlowClient(clock, 0.001, turn)
     run_builder(description="x", client=text_only, max_iterations=1, deadline=Deadline(1000, clock=clock))
     assert all("cache_control" not in b for b in text_only.kwargs[0]["messages"][0]["content"])
+
+
+def test_chat_deadline_tracks_the_swift_chat_timeout():
+    """The hardcoded phone numbers above can rot; the chat one is read from the Swift source."""
+    import re
+    from pathlib import Path
+
+    swift = Path(__file__).resolve().parents[2] / "escape_plan/Networking/APIClient+Chat.swift"
+    match = re.search(r"static let chatTimeout: TimeInterval = (\d+)", swift.read_text())
+    assert match, "APIClient.chatTimeout not found: update this test with the rename"
+    phone = int(match.group(1))
+    assert phone == PHONE_TIMEOUT_S["chat"]
+    assert 5 <= phone - CHAT_DEADLINE_S <= 15, "server should give up 5-15 s before the phone"
