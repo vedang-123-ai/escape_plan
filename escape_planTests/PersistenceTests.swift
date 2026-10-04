@@ -48,6 +48,149 @@ final class PersistenceTests: XCTestCase {
         try HomeDocumentStore(directory: directory)
     }
 
+    // MARK: - S11.48: light summary decode, incremental refresh, seeding notice
+
+    /// What `list()` produced before S11.48: a row from the FULL `HomeDocument` decode. The light
+    /// decode must match it for any file, so this is kept here as the reference.
+    private func referenceSummary(of data: Data, id: String, fallback: Date?) -> HomeSummary? {
+        guard let document = try? HomeDocument(data: data),
+              let embedded = document.homeID,
+              embedded.caseInsensitiveCompare(id) == .orderedSame
+        else { return nil }
+        return HomeSummary(id: id, name: document.name ?? "Untitled Home",
+                           floorCount: document.floorCount, roomCount: document.roomCount,
+                           modified: document.modified ?? fallback ?? .distantPast)
+    }
+
+    private func writeRaw(_ json: String, id: String) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data(json.utf8).write(to: directory.appendingPathComponent("\(id).homeplan.json"))
+    }
+
+    func testLightSummaryMatchesFullDecodeForEveryFixture() throws {
+        let fixtureDirectory = PersistenceFixtures.repoRoot.appendingPathComponent("schema/fixtures")
+        let files = try FileManager.default.contentsOfDirectory(at: fixtureDirectory, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "json" }
+        XCTAssertGreaterThanOrEqual(files.count, 7)
+        var expected: [HomeSummary] = []
+        for file in files {
+            let data = try Data(contentsOf: file)
+            let id = try XCTUnwrap(HomeDocument(data: data).homeID, file.lastPathComponent)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let target = directory.appendingPathComponent("\(id).homeplan.json")
+            try data.write(to: target)
+            let stamp = try XCTUnwrap(target.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+            expected.append(try XCTUnwrap(referenceSummary(of: data, id: id, fallback: stamp), file.lastPathComponent))
+        }
+        let listed = try makeStore().list()
+        XCTAssertEqual(Set(listed.map(\.id)), Set(expected.map(\.id)))
+        for row in listed {
+            XCTAssertEqual(row, expected.first { $0.id == row.id }, row.id)
+        }
+        XCTAssertEqual(listed.map(\.modified), listed.map(\.modified).sorted(by: >), "newest first")
+        // A fixture with rooms, so a decoder that returned zeros could not pass.
+        XCTAssertTrue(listed.contains { $0.roomCount > 0 && $0.floorCount > 0 })
+    }
+
+    func testLightSummaryMatchesFullDecodeOnOddShapes() throws {
+        let cases: [String: String] = [
+            // wrong types read as absent, exactly as HomeDocument's accessors do
+            "odd-name-number": #"{"home_id":"odd-name-number","name":42,"floors":[{"rooms":[{},{}]},{"rooms":"x"},7],"meta":{"modified":"2026-07-10T12:00:00Z"}}"#,
+            "odd-floors-object": #"{"home_id":"odd-floors-object","name":"A","floors":{"rooms":[1]},"meta":{"modified":"2026-07-10T12:00:00.250Z"}}"#,
+            "odd-meta-bad-date": #"{"home_id":"odd-meta-bad-date","floors":[],"meta":{"modified":"yesterday"}}"#,
+            "odd-no-meta": #"{"home_id":"odd-no-meta","name":"B","floors":[{"rooms":[null]}]}"#,
+            "odd-meta-string": #"{"home_id":"odd-meta-string","name":"C","meta":"nope"}"#,
+            "ODD-case": #"{"home_id":"odd-case","name":"D"}"#,
+            "odd-mismatch": #"{"home_id":"someone-else","name":"E"}"#,
+            "odd-no-id": #"{"name":"F"}"#,
+            "odd-array-root": "[1,2,3]",
+        ]
+        for (id, json) in cases { try writeRaw(json, id: id) }
+        let store = try makeStore()
+        let listed = Dictionary(uniqueKeysWithValues: store.list().map { ($0.id, $0) })
+        for (id, json) in cases {
+            let url = directory.appendingPathComponent("\(id).homeplan.json")
+            let stamp = try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+            let expected = referenceSummary(of: Data(json.utf8), id: id, fallback: stamp)
+            XCTAssertEqual(listed[id], expected, id)
+        }
+        XCTAssertNotNil(listed["odd-name-number"])
+        XCTAssertEqual(listed["odd-name-number"]?.roomCount, 2)
+        XCTAssertNil(listed["odd-mismatch"])
+    }
+
+    func testRefreshRereadsOnlyTheFileThatChanged() throws {
+        let store = try makeStore()
+        let base = try PersistenceFixtures.document("bungalow")
+        let firstID = try store.save(base).id
+        var others: [String] = []
+        for _ in 0..<4 { others.append(try store.duplicate(homeID: firstID).id) }
+
+        var listing = store.summaries(reusing: [:])
+        XCTAssertEqual(listing.summaries.count, 5)
+        XCTAssertEqual(listing.filesRead, 5)
+
+        let unchanged = store.summaries(reusing: listing.entries)
+        XCTAssertEqual(unchanged.filesRead, 0, "nothing changed, nothing re-read")
+        XCTAssertEqual(unchanged.summaries, listing.summaries)
+
+        // An editor autosave: one home gets a new name.
+        let target = others[2]
+        let edited = try store.load(homeID: target).reidentified(
+            homeID: target, name: "Renamed by autosave", modified: Date().addingTimeInterval(60))
+        try store.save(edited, now: Date().addingTimeInterval(60))
+
+        listing = store.summaries(reusing: listing.entries)
+        XCTAssertEqual(listing.filesRead, 1, "only the saved home is read again")
+        XCTAssertEqual(listing.summaries.first?.id, target, "newest first after the save")
+        XCTAssertEqual(listing.summaries.first?.name, "Renamed by autosave")
+        XCTAssertEqual(listing.summaries.count, 5)
+        XCTAssertEqual(listing.summaries, store.list(), "incremental result equals a cold listing")
+    }
+
+    func testRefreshDropsADeletedHomeAndNeverResurrectsIt() throws {
+        let store = try makeStore()
+        let id = try store.save(try PersistenceFixtures.document("bungalow")).id
+        let copy = try store.duplicate(homeID: id).id
+        let before = store.summaries(reusing: [:])
+        try store.delete(homeID: copy)
+        let after = store.summaries(reusing: before.entries)
+        XCTAssertEqual(after.summaries.map(\.id), [id])
+        XCTAssertNil(after.entries[copy])
+        XCTAssertEqual(after.filesRead, 0)
+    }
+
+    @MainActor
+    func testLibraryRefreshAfterASaveShowsTheChangeImmediately() throws {
+        let store = try makeStore()
+        let id = try store.save(try PersistenceFixtures.document("bungalow")).id
+        let library = HomeLibrary(store: store)
+        XCTAssertEqual(library.homes.map(\.id), [id])
+
+        let copy = try store.duplicate(homeID: id, newName: "Fresh copy", now: Date().addingTimeInterval(120))
+        library.refresh()
+        XCTAssertEqual(Set(library.homes.map(\.id)), [id, copy.id])
+        XCTAssertEqual(library.homes.first?.name, "Fresh copy")
+
+        XCTAssertTrue(library.delete(homeID: copy.id))
+        XCTAssertEqual(library.homes.map(\.id), [id], "a delete shows at once and stays deleted")
+        XCTAssertNotNil(library.duplicate(homeID: id))
+        XCTAssertEqual(library.homes.count, 2)
+    }
+
+    func testSeedingFailureNoticeIsShownOnceAndExplainsItself() throws {
+        let suite = "s11-48-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        struct Boom: Error {}
+
+        let first = StarterSeedingNotice.noticeToShow(for: Boom(), defaults: defaults)
+        XCTAssertEqual(first, StarterSeedingNotice.message)
+        XCTAssertTrue(first?.contains("couldn't be set up") ?? false)
+        XCTAssertNil(StarterSeedingNotice.noticeToShow(for: Boom(), defaults: defaults),
+                     "a failure that repeats every launch is not announced every launch")
+    }
+
     // MARK: - Acceptance: kill and relaunch → everything persists
 
     /// A store instance is per-launch state; a fresh instance over the same

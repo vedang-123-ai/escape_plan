@@ -5,6 +5,7 @@
 //  via FileManager (S2.4), not Core Data — this entry point owns the shared APIClient, and
 //  since S8.3 the AuthSession too.
 
+import os
 import SwiftUI
 
 @main
@@ -14,6 +15,10 @@ import SwiftUI
 @MainActor
 struct escape_planApp: App {
     @State private var apiClient = APIClient()
+
+    /// Set when the starter homes could not be installed and the person has not been told yet.
+    /// Shown once as an alert on the root view; see `StarterSeedingNotice`.
+    @State private var seedingNotice: String?
 
     /// The signed-in account, or the absence of one. Built here rather than in a view so the
     /// Keychain is read once per launch instead of once per view rebuild.
@@ -62,15 +67,18 @@ struct escape_planApp: App {
         // demo. Guarded by a defaults flag, so it happens exactly once — which is also why it
         // is skipped on the temporary fallback store: seeding there would spend the flag on
         // homes that vanish, and the real library would never get them.
+        var seedingNotice: String?
         if !launch.isFallback {
             do {
                 try FixtureSeeder.seedStarterHomes(into: homeStore)
             } catch {
                 // A missing bundled fixture must not stop the app from launching —
-                // the library simply starts empty, exactly as it did before.
-                print("Starter-home seeding skipped: \(error)")
+                // the library simply starts empty, exactly as it did before. It is no longer
+                // silent: the person gets one notice (AUD-049, S11.48).
+                seedingNotice = StarterSeedingNotice.noticeToShow(for: error)
             }
         }
+        _seedingNotice = State(initialValue: seedingNotice)
 
         // One sidecar, shared: the repository writes deletion tombstones into it and the
         // manager reads and writes sync records. Two instances over the same file would
@@ -116,6 +124,34 @@ struct escape_planApp: App {
                 // and cover inherits it.
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
+                .alert("Starter homes unavailable", isPresented: Binding(
+                    get: { seedingNotice != nil },
+                    set: { if !$0 { seedingNotice = nil } }
+                )) {
+                    Button("OK", role: .cancel) {}
+                } message: {
+                    Text(seedingNotice ?? "")
+                }
         }
+    }
+}
+
+/// The one-time notice for a starter-home seeding failure (AUD-049). A failed seed does not spend
+/// the seeding flag, so it is retried every launch; the notice has its own flag so a failure that
+/// keeps happening (a build with a missing fixture, which no one on the device can fix) is said
+/// once and not on every launch.
+enum StarterSeedingNotice {
+    static let shownDefaultsKey = "fixtures.starterSeedingFailureNoticeShown.v1"
+
+    static let message = "The sample homes couldn't be set up. You can still build your own "
+        + "from the Home tab. Restarting the app will try again."
+
+    /// The message, if this failure has not been announced yet, and records that it now has.
+    static func noticeToShow(for error: Error, defaults: UserDefaults = .standard) -> String? {
+        Logger(subsystem: "escape_plan", category: "Launch")
+            .error("Starter-home seeding failed: \(String(describing: error), privacy: .public)")
+        guard !defaults.bool(forKey: shownDefaultsKey) else { return nil }
+        defaults.set(true, forKey: shownDefaultsKey)
+        return message
     }
 }

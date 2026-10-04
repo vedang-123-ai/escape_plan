@@ -84,13 +84,42 @@ struct HomeDocumentStore {
     /// to open. Case is ignored in that comparison (see below). Not repaired: rewriting the embedded id would change the home's identity for sync
     /// and could collide with another file's home. The file is left on disk untouched.
     func list() -> [HomeSummary] {
+        summaries(reusing: [:]).summaries
+    }
+
+    /// What `summaries(reusing:)` remembers about one file: the file's identity on disk (change
+    /// time and size) and the row it produced, or nil when the file is skipped (unreadable, bad
+    /// name, mismatched `home_id`). Skipped files are remembered too, so a bad file is not
+    /// re-read on every refresh.
+    struct SummaryEntry: Equatable, Sendable {
+        let modificationDate: Date?
+        let fileSize: Int?
+        let summary: HomeSummary?
+    }
+
+    /// The listing plus what it learned. `entries` is handed back in as `known` next time, so only
+    /// files whose change time or size moved are read again (AUD-047, S11.48). `filesRead` is how
+    /// many that was.
+    struct Listing: Sendable {
+        let summaries: [HomeSummary]
+        let entries: [String: SummaryEntry]
+        let filesRead: Int
+    }
+
+    /// `list()`, reading again only the files that changed since `known` was produced.
+    ///
+    /// Same rules as `list()`: by file name, invalid ids skipped, a mismatched `home_id` skipped,
+    /// newest first. A file that is gone is dropped from `entries`, so a deleted home cannot come
+    /// back from a stale cache.
+    func summaries(reusing known: [String: SummaryEntry]) -> Listing {
         let urls = (try? fileManager.contentsOfDirectory(
             at: directory,
-            includingPropertiesForKeys: [.contentModificationDateKey],
+            includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
             options: [.skipsHiddenFiles]
         )) ?? []
 
-        var summaries: [HomeSummary] = []
+        var entries: [String: SummaryEntry] = [:]
+        var filesRead = 0
         let suffix = ".\(Self.fileExtension)"
         for url in urls where url.lastPathComponent.hasSuffix(suffix) {
             let homeID = String(url.lastPathComponent.dropLast(suffix.count))
@@ -98,30 +127,53 @@ struct HomeDocumentStore {
                 Self.log.error("Skipped a home file whose name is not a valid home id.")
                 continue
             }
-            guard let data = try? Data(contentsOf: url),
-                  let document = try? HomeDocument(data: data)
-            else { continue }
-            // Case-insensitive: the simulator's (and a Mac's) volume is, so a pull of `ABC…`
-            // over `abc….homeplan.json` can leave the old name on the new contents. Listing the
-            // file name keeps it openable, since `load` opens by name.
-            guard let embedded = document.homeID,
-                  embedded.caseInsensitiveCompare(homeID) == .orderedSame else {
-                Self.log.error("Skipped home file \(homeID, privacy: .public): its home_id does not match its name.")
+            let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+            let modificationDate = values?.contentModificationDate
+            let fileSize = values?.fileSize
+            // Only a file we could stat both ways is trusted as unchanged: without a change time
+            // there is nothing to compare, so it is read every time, as before.
+            if let previous = known[homeID], modificationDate != nil, fileSize != nil,
+               previous.modificationDate == modificationDate, previous.fileSize == fileSize {
+                entries[homeID] = previous
                 continue
             }
-            let fallback = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
-                .contentModificationDate
-            summaries.append(
-                HomeSummary(
-                    id: homeID,
-                    name: document.name ?? "Untitled Home",
-                    floorCount: document.floorCount,
-                    roomCount: document.roomCount,
-                    modified: document.modified ?? fallback ?? .distantPast
-                )
+            filesRead += 1
+            entries[homeID] = SummaryEntry(
+                modificationDate: modificationDate,
+                fileSize: fileSize,
+                summary: Self.readSummary(at: url, homeID: homeID, fallbackModified: modificationDate)
             )
         }
-        return summaries.sorted { $0.modified > $1.modified }
+        // Ties (two homes stamped the same second) fall back to the id, so the order is the same on
+        // every refresh instead of following the directory's enumeration order.
+        let summaries = entries.values.compactMap(\.summary).sorted {
+            $0.modified != $1.modified ? $0.modified > $1.modified : $0.id < $1.id
+        }
+        return Listing(summaries: summaries, entries: entries, filesRead: filesRead)
+    }
+
+    /// One row, from a light decode of one file: only `home_id`, `name`, `floors[].rooms` and
+    /// `meta.modified` are materialised, not the whole document tree (which is most of what
+    /// `list()` used to spend, since it built every home's full `JSONValue`).
+    private static func readSummary(at url: URL, homeID: String, fallbackModified: Date?) -> HomeSummary? {
+        guard let data = try? Data(contentsOf: url),
+              let probe = try? JSONDecoder().decode(SummaryProbe.self, from: data)
+        else { return nil }
+        // Case-insensitive: the simulator's (and a Mac's) volume is, so a pull of `ABC…`
+        // over `abc….homeplan.json` can leave the old name on the new contents. Listing the
+        // file name keeps it openable, since `load` opens by name.
+        guard let embedded = probe.homeID,
+              embedded.caseInsensitiveCompare(homeID) == .orderedSame else {
+            log.error("Skipped home file \(homeID, privacy: .public): its home_id does not match its name.")
+            return nil
+        }
+        return HomeSummary(
+            id: homeID,
+            name: probe.name ?? "Untitled Home",
+            floorCount: probe.floorCount,
+            roomCount: probe.roomCount,
+            modified: probe.modified ?? fallbackModified ?? .distantPast
+        )
     }
 
     /// Loads a home, checking `schema_version` and migrating forward if needed.
@@ -279,5 +331,44 @@ struct HomeDocumentStore {
 
     private func write(_ document: HomeDocument, to url: URL) throws {
         try document.serialized().write(to: url, options: .atomic)
+    }
+}
+
+/// The few fields a library row needs, decoded without building the document tree. Every field is
+/// lenient the same way `HomeDocument`'s accessors are: a value of the wrong type reads as absent.
+private struct SummaryProbe: Decodable {
+    let homeID: String?
+    let name: String?
+    let floorCount: Int
+    let roomCount: Int
+    let modified: Date?
+
+    private enum Keys: String, CodingKey { case home_id, name, floors, meta }
+    private enum MetaKeys: String, CodingKey { case modified }
+    private enum FloorKeys: String, CodingKey { case rooms }
+
+    /// Accepts any JSON value without keeping it.
+    private struct Skipped: Decodable { init(from decoder: Decoder) throws {} }
+
+    /// A floor, reduced to its room count. Never throws, so one malformed floor counts as zero
+    /// rooms instead of failing the whole array.
+    private struct Floor: Decodable {
+        let rooms: Int
+        init(from decoder: Decoder) {
+            let keyed = try? decoder.container(keyedBy: FloorKeys.self)
+            rooms = (keyed.flatMap { try? $0.decode([Skipped].self, forKey: .rooms) })?.count ?? 0
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let root = try decoder.container(keyedBy: Keys.self)
+        homeID = try? root.decode(String.self, forKey: .home_id)
+        name = try? root.decode(String.self, forKey: .name)
+        let floors = (try? root.decode([Floor].self, forKey: .floors)) ?? []
+        floorCount = floors.count
+        roomCount = floors.reduce(0) { $0 + $1.rooms }
+        let meta = try? root.nestedContainer(keyedBy: MetaKeys.self, forKey: .meta)
+        modified = (meta.flatMap { try? $0.decode(String.self, forKey: .modified) })
+            .flatMap(ISO8601DateFormatter.parseHomeModelDate)
     }
 }
