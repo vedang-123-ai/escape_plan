@@ -25,10 +25,16 @@ struct BuildFromPlanView: View {
     /// Already JPEG/PNG and downscaled: raw picker bytes never reach this state (AUD-024).
     @State private var preparedImage: PreparedImage?
     @State private var imageLabel: String?
+    /// The attachment being prepared right now. Build waits for it, and a result whose id no
+    /// longer matches (a newer pick, a PDF, or Remove) is dropped instead of attached late.
+    @State private var preparingAttachment: UUID?
+    /// A photo or PDF that couldn't be attached. Shown in the attach section and announced;
+    /// kept apart from `errorMessage`, which is about the build itself.
+    @State private var attachmentError: String?
     @State private var showingPDFImporter = false
     @State private var isBuilding = false
-    /// Local, non-backend problems: an unreadable PDF, or a draft the builder returned but
-    /// couldn't validate. These are not transport failures and must not borrow their wording.
+    /// Local, non-backend problems with the build: a draft the builder returned but couldn't
+    /// validate. These are not transport failures and must not borrow their wording.
     @State private var errorMessage: String?
     /// Backend failures go through the one classifier. This file used to carry its own
     /// `statusCode == 502 / == 401` ladder, which disagreed with every other screen and — the
@@ -71,6 +77,7 @@ struct BuildFromPlanView: View {
                                 preparedImage = nil
                                 imageLabel = nil
                                 photoItem = nil
+                                preparingAttachment = nil
                             }
                             .font(.caption)
                             .minimumTapTarget()
@@ -78,6 +85,21 @@ struct BuildFromPlanView: View {
                             .accessibilityHint("Detaches the floor plan you attached.")
                         }
                         .accessibilityElement(children: .contain)
+                    }
+                    if preparingAttachment != nil {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                            Text("Preparing your floor plan…")
+                                .font(.caption).foregroundStyle(Theme.supporting)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                    if let attachmentError {
+                        Text(attachmentError)
+                            .font(.caption)
+                            .foregroundStyle(Theme.warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("build.attachmentError")
                     }
                 } header: {
                     Text("Or attach a floor plan").accessibilityAddTraits(.isHeader)
@@ -95,12 +117,15 @@ struct BuildFromPlanView: View {
                             Label("Build draft home", systemImage: "wand.and.stars")
                         }
                     }
-                    .disabled(isBuilding || (trimmedDescription == nil && preparedImage == nil))
+                    .disabled(isBuilding || preparingAttachment != nil
+                              || (trimmedDescription == nil && preparedImage == nil))
                     .accessibilityLabel(isBuilding ? "Building your draft home"
                                                    : "Build draft home")
                     .accessibilityValue(isBuilding ? "In progress, this can take a minute" : "")
                     .accessibilityHint(isBuilding
                                        ? ""
+                                       : preparingAttachment != nil
+                                       ? "Unavailable until your floor plan is ready."
                                        : (trimmedDescription == nil && preparedImage == nil
                                           ? "Unavailable until you describe your home or attach "
                                             + "a floor plan."
@@ -155,7 +180,7 @@ struct BuildFromPlanView: View {
         .fileImporter(isPresented: $showingPDFImporter,
                       allowedContentTypes: [.pdf]) { result in
             if case .success(let url) = result {
-                importPDF(url)
+                Task { await importPDF(url) }
             }
         }
     }
@@ -166,48 +191,65 @@ struct BuildFromPlanView: View {
     }
 
     /// Decodes and re-encodes the picked photo before it is attached, so a photo that cannot be
-    /// read is reported here and never sent. Decoding runs off the main actor.
+    /// read is reported here and never sent.
     private func attachPhoto(_ item: PhotosPickerItem) async {
-        errorMessage = nil
-        let data = try? await item.loadTransferable(type: Data.self)
-        guard photoItem == item else { return }  // a newer pick or Remove superseded this one
-        let result = await Task.detached(priority: .userInitiated) {
-            Result { try ImagePreparation.photo(data ?? Data()) }
-        }.value
-        guard photoItem == item else { return }
-        switch result {
-        case .success(let image):
-            preparedImage = image
-            imageLabel = "Photo attached (\(image.data.count / 1024) KB)"
-        case .failure(let error):
-            preparedImage = nil
-            imageLabel = nil
-            photoItem = nil
-            errorMessage = Self.message(for: error, what: "photo")
+        await prepareAttachment(label: { "Photo attached (\($0.data.count / 1024) KB)" }) {
+            guard let data = try? await item.loadTransferable(type: Data.self) else {
+                throw AttachmentLoadError.notLoaded
+            }
+            return try await Task.detached(priority: .userInitiated) {
+                try ImagePreparation.photo(data)
+            }.value
         }
     }
 
     /// First page of the PDF → PNG, client-side on purpose: the backend gains no PDF dependency.
-    private func importPDF(_ url: URL) {
-        errorMessage = nil
-        let secured = url.startAccessingSecurityScopedResource()
-        defer { if secured { url.stopAccessingSecurityScopedResource() } }
-        do {
-            let image = try ImagePreparation.pdfFirstPage(Data(contentsOf: url))
-            preparedImage = image
-            imageLabel = "PDF page 1 attached"
-            photoItem = nil
-        } catch {
-            errorMessage = Self.message(for: error, what: "PDF")
+    /// Read and rendered off the main actor; a dense CAD page can take a while.
+    private func importPDF(_ url: URL) async {
+        photoItem = nil
+        await prepareAttachment(label: { _ in "PDF page 1 attached" }) {
+            try await Task.detached(priority: .userInitiated) {
+                let secured = url.startAccessingSecurityScopedResource()
+                defer { if secured { url.stopAccessingSecurityScopedResource() } }
+                return try ImagePreparation.pdfFirstPage(Data(contentsOf: url))
+            }.value
         }
     }
 
-    private static func message(for error: Error, what: String) -> String {
-        if case ImagePreparationError.tooLarge = error {
-            return "That \(what) is too large to send, even after shrinking it. Try a smaller one."
+    /// Runs one attachment preparation. On failure the previous attachment (if any) stays, and
+    /// the problem is shown in the attach section and announced to VoiceOver.
+    private func prepareAttachment(label: (PreparedImage) -> String,
+                                   _ prepare: () async throws -> PreparedImage) async {
+        let id = UUID()
+        preparingAttachment = id
+        attachmentError = nil
+        let result: Result<PreparedImage, Error>
+        do { result = .success(try await prepare()) } catch { result = .failure(error) }
+        guard preparingAttachment == id else { return }  // superseded or removed meanwhile
+        preparingAttachment = nil
+        switch result {
+        case .success(let image):
+            preparedImage = image
+            imageLabel = label(image)
+        case .failure(let error):
+            let message = Self.message(for: error)
+            attachmentError = message
+            AccessibilityNotification.Announcement(message).post()
         }
-        return "Couldn't read that \(what). Try a different one, or take a screenshot of the plan "
-            + "and attach that."
+    }
+
+    private enum AttachmentLoadError: Error { case notLoaded }
+
+    private static func message(for error: Error) -> String {
+        switch error {
+        case AttachmentLoadError.notLoaded:
+            return "Couldn't load that photo from your library. Check your connection and try again."
+        case ImagePreparationError.tooLarge:
+            return "That floor plan is too large to send, even after shrinking it. Try a smaller one."
+        default:
+            return "Couldn't read that file as a floor plan. Try a different one, or take a "
+                + "screenshot of the plan and attach that."
+        }
     }
 
     private func buildHome() {

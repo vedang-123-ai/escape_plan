@@ -15,7 +15,7 @@ import UniformTypeIdentifiers
 /// An image that is safe to put on the wire: its bytes are exactly `mediaType`, its long edge is
 /// at most `ImagePreparation.maxLongEdge`, and its base64 form fits the server's cap. The only
 /// way to make one is through `ImagePreparation`, and `APIClient.build` takes nothing else.
-struct PreparedImage: Equatable {
+nonisolated struct PreparedImage: Equatable, Sendable {
     let data: Data
     let mediaType: String
     let pixelWidth: Int
@@ -29,7 +29,7 @@ struct PreparedImage: Equatable {
     }
 }
 
-enum ImagePreparationError: Error, Equatable {
+nonisolated enum ImagePreparationError: Error, Equatable {
     /// The bytes are not an image ImageIO can read (or the PDF has no first page).
     case undecodable
     /// Still over the server's cap after downscaling and the lowest JPEG quality. Not reachable
@@ -37,7 +37,9 @@ enum ImagePreparationError: Error, Equatable {
     case tooLarge
 }
 
-enum ImagePreparation {
+/// `nonisolated`: the app target defaults to MainActor isolation, and this runs in a detached
+/// task so a 48 MP decode never blocks the UI. It is pure ImageIO/CoreGraphics and needs no actor.
+nonisolated enum ImagePreparation {
     /// Anthropic's recommended maximum long edge (vision docs): larger images are downscaled by
     /// the API anyway, so sending more only costs upload time and tokens.
     static let maxLongEdge = 1568
@@ -55,7 +57,8 @@ enum ImagePreparation {
     static func photo(_ data: Data) throws -> PreparedImage {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               CGImageSourceGetCount(source) > 0,
-              let decoded = downscaledImage(from: source) else {
+              let decoded = downscaledImage(from: source,
+                                            index: CGImageSourceGetPrimaryImageIndex(source)) else {
             throw ImagePreparationError.undecodable
         }
         let flat = try flattened(decoded)
@@ -77,7 +80,8 @@ enum ImagePreparation {
               let page = document.page(at: 1) else {
             throw ImagePreparationError.undecodable
         }
-        let box = page.getBoxRect(.mediaBox)
+        // The crop box is what a viewer shows (it defaults to the media box when absent).
+        let box = page.getBoxRect(.cropBox)
         let quarterTurned = (page.rotationAngle / 90) % 2 != 0
         let pageSize = quarterTurned ? CGSize(width: box.height, height: box.width) : box.size
         guard pageSize.width > 0, pageSize.height > 0 else { throw ImagePreparationError.undecodable }
@@ -90,7 +94,7 @@ enum ImagePreparation {
         // getDrawingTransform handles the page's rotation and box origin but never scales up, so
         // it maps the page onto a rect of its own size and the context does the scaling.
         context.scaleBy(x: CGFloat(width) / pageSize.width, y: CGFloat(height) / pageSize.height)
-        context.concatenate(page.getDrawingTransform(.mediaBox, rect: CGRect(origin: .zero, size: pageSize),
+        context.concatenate(page.getDrawingTransform(.cropBox, rect: CGRect(origin: .zero, size: pageSize),
                                                      rotate: 0, preserveAspectRatio: true))
         context.drawPDFPage(page)
         guard let rendered = context.makeImage() else { throw ImagePreparationError.undecodable }
@@ -103,8 +107,8 @@ enum ImagePreparation {
     // MARK: - Steps
 
     /// Decodes at most `maxLongEdge` on the long edge, orientation applied. Never upscales.
-    private static func downscaledImage(from source: CGImageSource) -> CGImage? {
-        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+    private static func downscaledImage(from source: CGImageSource, index: Int) -> CGImage? {
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any]
         let width = properties?[kCGImagePropertyPixelWidth] as? Int ?? 0
         let height = properties?[kCGImagePropertyPixelHeight] as? Int ?? 0
         let longEdge = max(width, height)
@@ -115,11 +119,13 @@ enum ImagePreparation {
             kCGImageSourceShouldCacheImmediately: true,
             kCGImageSourceThumbnailMaxPixelSize: min(longEdge, maxLongEdge),
         ]
-        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+        return CGImageSourceCreateThumbnailAtIndex(source, index, options as CFDictionary)
     }
 
-    /// Draws onto opaque white sRGB. JPEG has no alpha: a transparent PNG (a screenshot of a plan)
-    /// would otherwise come out with a black background behind black walls.
+    /// Draws onto opaque white sRGB. JPEG has no alpha, so a transparent PNG (a screenshot of a
+    /// plan) needs a background. On iOS 26.5 ImageIO's JPEG encoder already composites onto white
+    /// (S11.33 mutation check: removing this step failed no test), but that is undocumented and
+    /// unverified on iOS 17, so the background is set here rather than left to the encoder.
     private static func flattened(_ image: CGImage) throws -> CGImage {
         guard let context = whiteContext(width: image.width, height: image.height) else {
             throw ImagePreparationError.undecodable

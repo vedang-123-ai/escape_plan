@@ -65,6 +65,17 @@ final class ImagePreparationTests: XCTestCase {
         XCTAssertGreaterThan(min(red, green, blue), 240, "transparent area should flatten to white")
     }
 
+    /// Location and camera metadata stay on the phone: the fixture carries GPS and EXIF, the
+    /// output carries neither.
+    func testLocationMetadataIsNotSent() throws {
+        let tagged = try encodedFixture(width: 1200, height: 900, type: UTType.jpeg.identifier, withGPS: true)
+        let inputProps = try XCTUnwrap(properties(of: tagged))
+        XCTAssertNotNil(inputProps[kCGImagePropertyGPSDictionary], "fixture must carry GPS, or this proves nothing")
+        let output = try XCTUnwrap(properties(of: try ImagePreparation.photo(tagged).data))
+        XCTAssertNil(output[kCGImagePropertyGPSDictionary])
+        XCTAssertNil((output[kCGImagePropertyExifDictionary] as? [CFString: Any])?[kCGImagePropertyExifDateTimeOriginal])
+    }
+
     func testUndecodableBytesAreRejected() {
         XCTAssertThrowsError(try ImagePreparation.photo(Data("not an image".utf8))) { error in
             XCTAssertEqual(error as? ImagePreparationError, .undecodable)
@@ -106,6 +117,29 @@ final class ImagePreparationTests: XCTestCase {
         XCTAssertGreaterThan(pixels.rgb(x: pixels.width * 55 / 100, y: pixels.height * 55 / 100).0, 225)
     }
 
+    /// A page with /Rotate 90 displays landscape, turned clockwise: the bottom-left quadrant
+    /// lands top-left. Turning the wrong way would put it bottom-right.
+    func testRotatedPDFPageRendersAsDisplayed() throws {
+        let prepared = try ImagePreparation.pdfFirstPage(handWrittenPDF(rotate: 90))
+        XCTAssertEqual(prepared.pixelWidth, 1568)
+        XCTAssertEqual(prepared.pixelHeight, 1212)
+        let pixels = try decodedPixels(prepared.data)
+        XCTAssertLessThan(pixels.rgb(x: 50, y: 50).0, 30, "top-left should be black")
+        XCTAssertLessThan(pixels.rgb(x: pixels.width * 45 / 100, y: pixels.height * 45 / 100).0, 30)
+        XCTAssertGreaterThan(pixels.rgb(x: pixels.width - 50, y: pixels.height - 50).0, 225,
+                             "bottom-right should be white")
+        XCTAssertGreaterThan(pixels.rgb(x: 50, y: pixels.height - 50).0, 225, "bottom-left should be white")
+    }
+
+    /// The crop box is what a viewer shows. Cropped to the black quadrant, the whole image is black.
+    func testPDFCropBoxIsRespected() throws {
+        let prepared = try ImagePreparation.pdfFirstPage(handWrittenPDF(rotate: 0, cropToQuadrant: true))
+        XCTAssertEqual(prepared.pixelHeight, 1568)
+        let pixels = try decodedPixels(prepared.data)
+        XCTAssertLessThan(pixels.rgb(x: pixels.width - 50, y: 50).0, 30, "top-right is inside the crop")
+        XCTAssertLessThan(pixels.rgb(x: pixels.width / 2, y: pixels.height / 2).0, 30)
+    }
+
     func testNotAPDFIsRejected() {
         XCTAssertThrowsError(try ImagePreparation.pdfFirstPage(Data("%PDF-nope".utf8))) { error in
             XCTAssertEqual(error as? ImagePreparationError, .undecodable)
@@ -143,13 +177,15 @@ final class ImagePreparationTests: XCTestCase {
 /// (a flat colour would compress to nothing and prove nothing about the size cap).
 /// HEIC encoding is not available on every simulator; the test is skipped, not passed, then.
 func encodedFixture(width: Int, height: Int, type: String, orientation: Int? = nil,
-                    redStripeAlongTop: Bool = false, transparent: Bool = false) throws -> Data {
+                    redStripeAlongTop: Bool = false, transparent: Bool = false,
+                    withGPS: Bool = false) throws -> Data {
     let space = CGColorSpace(name: CGColorSpace.sRGB)!
     let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
                             bytesPerRow: 0, space: space,
                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
     if !transparent {
-        var generator = SystemRandomNumberGenerator()
+        // SeededGenerator (StoreInvariantTests): deterministic, so a failure reproduces byte for byte.
+        var generator = SeededGenerator(seed: UInt64(width * 31 + height))
         let tile = 16
         for ty in stride(from: 0, to: height, by: tile) {
             for tx in stride(from: 0, to: width, by: tile) {
@@ -171,6 +207,15 @@ func encodedFixture(width: Int, height: Int, type: String, orientation: Int? = n
     }
     var properties: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.95]
     if let orientation { properties[kCGImagePropertyOrientation] = orientation }
+    if withGPS {
+        properties[kCGImagePropertyGPSDictionary] = [
+            kCGImagePropertyGPSLatitude: 38.8977, kCGImagePropertyGPSLatitudeRef: "N",
+            kCGImagePropertyGPSLongitude: 77.0365, kCGImagePropertyGPSLongitudeRef: "W",
+        ] as [CFString: Any]
+        properties[kCGImagePropertyExifDictionary] = [
+            kCGImagePropertyExifDateTimeOriginal: "2026:10:03 12:00:00",
+        ] as [CFString: Any]
+    }
     CGImageDestinationAddImage(destination, image, properties as CFDictionary)
     guard CGImageDestinationFinalize(destination) else {
         throw XCTSkip("This simulator cannot encode \(type); see BLOCKERS S11.33.")
@@ -190,6 +235,35 @@ func pdfFixture(width: CGFloat, height: CGFloat) throws -> Data {
     context.endPDFPage()
     context.closePDF()
     return output as Data
+}
+
+func properties(of data: Data) -> [CFString: Any]? {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+    return CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+}
+
+/// A one-page US Letter PDF written by hand, because CGContext cannot set /Rotate or /CropBox.
+/// The bottom-left quadrant (0,0)-(306,396) is filled black.
+func handWrittenPDF(rotate: Int, cropToQuadrant: Bool = false) -> Data {
+    let content = "0 0 0 rg 0 0 306 396 re f\n"
+    let crop = cropToQuadrant ? " /CropBox [0 0 306 396]" : ""
+    let objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]\(crop) /Rotate \(rotate) /Contents 4 0 R >>",
+        "<< /Length \(content.utf8.count) >>\nstream\n\(content)endstream",
+    ]
+    var pdf = "%PDF-1.4\n"
+    var offsets: [Int] = []
+    for (index, object) in objects.enumerated() {
+        offsets.append(pdf.utf8.count)
+        pdf += "\(index + 1) 0 obj\n\(object)\nendobj\n"
+    }
+    let xref = pdf.utf8.count
+    pdf += "xref\n0 \(objects.count + 1)\n0000000000 65535 f \n"
+    for offset in offsets { pdf += String(format: "%010d 00000 n \n", offset) }
+    pdf += "trailer\n<< /Size \(objects.count + 1) /Root 1 0 R >>\nstartxref\n\(xref)\n%%EOF\n"
+    return Data(pdf.utf8)
 }
 
 struct DecodedPixels {

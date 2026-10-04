@@ -68,10 +68,11 @@ final class BuildRequestEncodingTests: XCTestCase {
         XCTAssertEqual(Array(bytes.prefix(4)), [0x89, 0x50, 0x4E, 0x47], "the bytes must really be PNG")
     }
 
-    /// Bytes that do not decode never become an attachment, so nothing of them reaches the wire:
-    /// a build with only a description carries neither image bytes nor a media type (the old
-    /// client sent "image/png" even with no image).
-    func testUndecodablePhotoSendsNoImage() async throws {
+    /// Bytes that do not decode never become a `PreparedImage`, and `build` accepts nothing else,
+    /// so a build after a failed pick carries neither image bytes nor a media type (the old
+    /// client sent "image/png" even with no image). The view half (a failed pick attaches nothing
+    /// and shows a message) is not unit-tested; see the S11.33 note.
+    func testFailedPhotoLeavesNoImageFieldsOnTheWire() async throws {
         let garbage = Data("definitely not a photo".utf8)
         XCTAssertThrowsError(try ImagePreparation.photo(garbage))
         let attachment = try? ImagePreparation.photo(garbage)
