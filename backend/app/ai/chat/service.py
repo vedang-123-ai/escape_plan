@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai.grounded import GroundingError, corpus_text, valid_source_ids
 from app.ai.chat.summary import summarize_home, summarize_profiles, summarize_route_plan
+from app.ai.client import CHAT_DEADLINE_S, Deadline, build_client, create_message
 from app.config import get_settings
 from app.limits import MAX_CHAT_MESSAGE_CHARS
 from app.models import HomeModel, Profile
@@ -158,7 +159,7 @@ def _client() -> anthropic.Anthropic:
     settings = get_settings()
     if not settings.anthropic_api_key:
         raise GroundingError("ANTHROPIC_API_KEY is not configured on the server")
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    return build_client(settings.anthropic_api_key)
 
 
 def _log_cache_usage(usage: Any, context: str) -> None:
@@ -182,6 +183,7 @@ def chat(
     profiles: Optional[list[Profile]] = None,
     *,
     client: Optional[anthropic.Anthropic] = None,
+    deadline: Optional[Deadline] = None,
 ) -> ChatResponse:
     """Answer the latest turn in `history`, grounded in this home + corpus.
 
@@ -195,6 +197,7 @@ def chat(
 
     client = client or _client()
     settings = get_settings()
+    deadline = deadline or Deadline(CHAT_DEADLINE_S)
     system = build_chat_system_blocks(home, route_plan, profiles or [])
     messages: list[dict[str, Any]] = [
         {"role": m.role, "content": m.content} for m in history
@@ -202,7 +205,10 @@ def chat(
 
     last_problems: list[str] = []
     for attempt in range(1 + MAX_CITATION_RETRIES):
-        response = client.messages.create(
+        response = create_message(
+            client,
+            deadline,
+            "chat",
             model=settings.anthropic_model,
             max_tokens=MAX_TOKENS,
             thinking=THINKING,

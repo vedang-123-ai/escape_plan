@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.builder import actions
 from app.builder.actions import ActionError
+from app.ai.client import BUILD_DEADLINE_S, Deadline, build_client, create_message
 from app.config import get_settings
 from app.models import HomeModel
 
@@ -373,7 +374,18 @@ def _client() -> anthropic.Anthropic:
     settings = get_settings()
     if not settings.anthropic_api_key:
         raise BuilderError("ANTHROPIC_API_KEY is not configured on the server")
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    return build_client(settings.anthropic_api_key)
+
+
+def _log_cache_usage(usage: Any) -> None:
+    if usage is None:
+        return
+    logger.info(
+        "build: prompt cache (created=%d read=%d input=%d)",
+        getattr(usage, "cache_creation_input_tokens", None) or 0,
+        getattr(usage, "cache_read_input_tokens", None) or 0,
+        getattr(usage, "input_tokens", None) or 0,
+    )
 
 
 def run_builder(
@@ -383,6 +395,7 @@ def run_builder(
     image_media_type: str = "image/png",
     client: Optional[anthropic.Anthropic] = None,
     max_iterations: int = MAX_ITERATIONS,
+    deadline: Optional[Deadline] = None,
     home_id: str | None = None,
     now_iso: str | None = None,
 ) -> BuildResult:
@@ -391,6 +404,7 @@ def run_builder(
         raise BuilderError("provide a description, a floor-plan image, or both")
     client = client or _client()
     settings = get_settings()
+    deadline = deadline or Deadline(BUILD_DEADLINE_S)
     home_id = home_id or str(uuid.uuid4())
     now_iso = now_iso or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     next_id = _make_ids()
@@ -400,6 +414,12 @@ def run_builder(
         content.append({
             "type": "image",
             "source": {"type": "base64", "media_type": image_media_type, "data": image_b64},
+            # The image sits in the first turn and is re-sent on every iteration as the
+            # history grows. Marking it cacheable lets iterations 2..N read tools + system +
+            # image from the prompt cache instead of paying for them again. Whether the cache
+            # really hits is only provable against the live API (S11.49); `_log_cache_usage`
+            # records it.
+            "cache_control": {"type": "ephemeral"},
         })
     if image_b64 and description:
         what = "floor plan and description"
@@ -418,13 +438,18 @@ def run_builder(
     draft: dict | None = None
 
     for _ in range(max_iterations):
-        response = client.messages.create(
+        # Raises DeadlineExceeded (-> 504). Never returns a half-built home.
+        response = create_message(
+            client,
+            deadline,
+            "build",
             model=settings.anthropic_model,
             max_tokens=MAX_TOKENS,
             system=BUILDER_SYSTEM_PROMPT,
             tools=TOOLS,
             messages=messages,
         )
+        _log_cache_usage(getattr(response, "usage", None))
         messages.append({"role": "assistant", "content": response.content})
 
         tool_uses = [b for b in response.content if b.type == "tool_use"]
