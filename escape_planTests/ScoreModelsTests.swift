@@ -188,4 +188,113 @@ final class ScoreModelsTests: XCTestCase {
         let state = try XCTUnwrap(object["checklist_state"] as? [String: Bool])
         XCTAssertEqual(state, ["alarm.every_level": true])
     }
+
+    // MARK: - S11.35: recurrence (the S11.34 contract)
+
+    /// The server 422s the whole request on a string it cannot parse, so pin the exact text:
+    /// UTC, `Z`, whole seconds.
+    func testCompletedMarkEncodesAsExactISO8601UTCString() throws {
+        let home = try FixtureLoader.load(.twostory)
+        // 2026-10-04 12:34:56.789 UTC; the fraction must not reach the wire.
+        let completed = Date(timeIntervalSince1970: 1_791_117_296.789)
+        let request = ScoreRequest(home: home, checklist_state: [
+            "practice.drill_recent": .completed(completed),
+            "alarm.every_level": true,
+            "practice.meeting_point": .flag(false),
+        ])
+
+        let object = try XCTUnwrap(try JSONSerialization.jsonObject(with: HomeModel.encoder().encode(request))
+                                   as? [String: Any])
+        let state = try XCTUnwrap(object["checklist_state"] as? [String: Any])
+        XCTAssertEqual(state["practice.drill_recent"] as? String, "2026-10-04T12:34:56Z")
+        XCTAssertEqual(state["alarm.every_level"] as? Bool, true)
+        XCTAssertEqual(state["practice.meeting_point"] as? Bool, false)
+    }
+
+    func testRecurrenceFieldsDecode() throws {
+        let item = itemJSON(id: "practice.drill_recent", category: "practice",
+                            extra: #", "recurrence_days": 183, "completed_at": "2026-07-04T09:00:00Z""#)
+        let decoded = try XCTUnwrap(try decodeBreakdown(breakdownJSON(checklist: [item])).checklist.first)
+        XCTAssertEqual(decoded.recurrence_days, 183)
+        XCTAssertEqual(decoded.completed_at, "2026-07-04T09:00:00Z")
+        XCTAssertEqual(decoded.completedAt, Date(timeIntervalSince1970: 1_783_155_600))
+    }
+
+    func testFractionalSecondsCompletedAtStillParses() throws {
+        let item = itemJSON(id: "rescan.home", category: "practice",
+                            extra: #", "recurrence_days": 183, "completed_at": "2026-07-04T09:00:00.250000Z""#)
+        let decoded = try XCTUnwrap(try decodeBreakdown(breakdownJSON(checklist: [item])).checklist.first)
+        XCTAssertEqual(try XCTUnwrap(decoded.completedAt).timeIntervalSince1970, 1_783_155_600.25, accuracy: 0.001)
+    }
+
+    /// A ScoreCache file written before S11.35 has neither key; it must still load, and say
+    /// nothing about recurrence.
+    func testCachedPayloadWithoutRecurrenceFieldsStillDecodesAndReEncodes() throws {
+        let breakdown = try decodeBreakdown(breakdownJSON(checklist: [itemJSON(id: "practice.drill_recent",
+                                                                               category: "practice")]))
+        let item = try XCTUnwrap(breakdown.checklist.first)
+        XCTAssertNil(item.recurrence_days)
+        XCTAssertNil(item.completed_at)
+        XCTAssertNil(item.recurrenceLabel(now: Date()))
+
+        // Round-trip through the cache's own coder keeps the new fields when they are present.
+        var dated = item
+        dated.recurrence_days = 30
+        dated.completed_at = "2026-10-01T00:00:00Z"
+        let again = try HomeModel.decoder.decode(ChecklistItem.self, from: HomeModel.encoder().encode(dated))
+        XCTAssertEqual(again, dated)
+    }
+
+    // MARK: Recurrence label (wording: owner, 2026-10-04)
+
+    private func recurring(done: Bool, days: Int = 183, completedAt: String?) -> ChecklistItem {
+        ChecklistItem(id: "practice.drill_recent", category: .practice, title: "Practice a fire drill",
+                      detail: "", done: done, scoring: false, recurrence_days: days, completed_at: completedAt)
+    }
+
+    private let labelNow = Date(timeIntervalSince1970: 1_791_115_200) // 2026-10-04T12:00:00Z
+
+    func testLabelDoneWithDateSaysAgoAndDueIn() {
+        // 92 days before labelNow: 3 months ago, 91 days left of 183 = 3 months.
+        let item = recurring(done: true, completedAt: "2026-07-04T12:00:00Z")
+        XCTAssertEqual(item.recurrenceLabel(now: labelNow), "Done 3 months ago · due in 3 months")
+    }
+
+    /// The server said not done, so the row says due now, whatever the local arithmetic thinks.
+    func testLabelFollowsServerDoneNotLocalArithmetic() {
+        let item = recurring(done: false, completedAt: "2026-07-04T12:00:00Z")
+        XCTAssertEqual(item.recurrenceLabel(now: labelNow), "Done 3 months ago · due again now")
+    }
+
+    func testLabelForTodayAndMonthlyItem() {
+        let item = recurring(done: true, days: 30, completedAt: "2026-10-04T08:00:00Z")
+        XCTAssertEqual(item.recurrenceLabel(now: labelNow), "Done today · due in 1 month")
+    }
+
+    func testLabelWithNoDateSaysHowOftenItRepeats() {
+        XCTAssertEqual(recurring(done: true, completedAt: nil).recurrenceLabel(now: labelNow),
+                       "Repeats every 6 months")
+        XCTAssertEqual(recurring(done: false, days: 30, completedAt: nil).recurrenceLabel(now: labelNow),
+                       "Repeats every month")
+    }
+
+    /// A cached answer read offline can say done after the time is up: never "due within a day".
+    func testOverdueButCachedDoneSaysDueNow() {
+        let item = recurring(done: true, completedAt: "2026-03-18T12:00:00Z") // 200 days before labelNow
+        XCTAssertEqual(item.recurrenceLabel(now: labelNow), "Done 7 months ago · due again now")
+    }
+
+    /// The row's state while a tick waits for the server: the label must agree with the circle.
+    func testLabelFollowsTheRowWhileATickIsPending() {
+        let lapsed = recurring(done: false, completedAt: "2026-03-18T12:00:00Z")
+        XCTAssertEqual(lapsed.recurrenceLabel(now: labelNow, shownDone: true), "Done today · due in 6 months")
+        let fresh = recurring(done: true, completedAt: "2026-07-04T12:00:00Z")
+        XCTAssertEqual(fresh.recurrenceLabel(now: labelNow, shownDone: false), "Repeats every 6 months")
+    }
+
+    func testNonRecurringItemHasNoLabel() {
+        let item = ChecklistItem(id: "alarm.every_level", category: .smoke_alarm, title: "t", detail: "",
+                                 done: true, scoring: true)
+        XCTAssertNil(item.recurrenceLabel(now: labelNow))
+    }
 }

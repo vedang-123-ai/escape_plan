@@ -56,6 +56,8 @@ private final class GatedScoreProtocol: URLProtocol {
     private var clientThread: Thread?
     private var clientModes: [String] = [RunLoop.Mode.default.rawValue]
     private(set) var homeID = ""
+    /// The request's `checklist_state`, as sent (S11.35).
+    private(set) var checklistState: [String: Any] = [:]
 
     static func reset() { lock.withLock { started = [] } }
     static var requests: [GatedScoreProtocol] { lock.withLock { started } }
@@ -66,7 +68,9 @@ private final class GatedScoreProtocol: URLProtocol {
     override func startLoading() {
         clientThread = Thread.current
         if let mode = RunLoop.current.currentMode { clientModes = [mode.rawValue] }
-        homeID = Self.homeID(in: request)
+        let json = Self.body(of: request)
+        homeID = (json?["home"] as? [String: Any])?["home_id"] as? String ?? ""
+        checklistState = json?["checklist_state"] as? [String: Any] ?? [:]
         Self.lock.withLock { Self.started.append(self) }
     }
 
@@ -88,7 +92,7 @@ private final class GatedScoreProtocol: URLProtocol {
     }
 
     /// URLProtocol sees a POST body as a stream, not `httpBody`.
-    private static func homeID(in request: URLRequest) -> String {
+    private static func body(of request: URLRequest) -> [String: Any]? {
         var data = request.httpBody ?? Data()
         if data.isEmpty, let stream = request.httpBodyStream {
             stream.open()
@@ -100,8 +104,7 @@ private final class GatedScoreProtocol: URLProtocol {
                 data.append(buffer, count: count)
             }
         }
-        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        return (json?["home"] as? [String: Any])?["home_id"] as? String ?? ""
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 }
 
@@ -498,5 +501,141 @@ final class ReadinessStoreTests: XCTestCase {
         XCTAssertEqual(readiness.activeHome?.home_id, homes.a)
         XCTAssertFalse(readiness.isScoring)
         XCTAssertEqual(GatedScoreProtocol.requests.count, 1)
+    }
+
+    // MARK: - Recurrence: one clock (S11.35, AUD-026)
+
+    private let drillID = "practice.drill_recent"
+
+    /// A /score answer with the drill item as S11.34 sends it.
+    private func drillScoreJSON(home: String, done: Bool, completedAt: String?) -> Data {
+        let completed = completedAt.map { "\"\($0)\"" } ?? "null"
+        return Data("""
+        {"home_id": "\(home)", "home_name": "\(home)", "score": 70,
+         "sub_scores": {"fire": 70, "earthquake": 70, "severe_weather": 70},
+         "components": [],
+         "checklist": [{"id": "\(drillID)", "category": "practice", "title": "Practice a fire drill",
+                        "detail": "Twice a year.", "done": \(done), "scoring": false,
+                        "recurrence_days": 183, "completed_at": \(completed)}]}
+        """.utf8)
+    }
+
+    private func scorableStore() throws -> ReadinessStore {
+        var model = try Fixtures.load("bungalow")
+        model.home_id = homeID
+        return try store(with: model).0
+    }
+
+    /// The manual acceptance check as a test: a drill done 200 days ago is sent as that date, the
+    /// server says it lapsed, and the task shows not done because the RESPONSE says so.
+    func testStoredDateIsSentAndTheServersAnswerDecidesDone() async throws {
+        let old = Date(timeIntervalSince1970: 1_791_115_200 - 200 * 86_400) // 2026-03-18T12:00:00Z
+        ChecklistStateStore().save([drillID: .completed(old)], homeID: homeID)
+        let readiness = try scorableStore()
+        let api = gatedClient()
+
+        let load = Task { await readiness.load(api: api) }
+        let request = try await gatedRequest(0)
+        XCTAssertEqual(request.checklistState[drillID] as? String, "2026-03-18T12:00:00Z")
+        request.respond(status: 200, body: drillScoreJSON(home: homeID, done: false,
+                                                          completedAt: "2026-03-18T12:00:00Z"))
+        await load.value
+
+        let item = try XCTUnwrap(readiness.items.first)
+        XCTAssertFalse(readiness.isDone(item))
+        XCTAssertEqual(readiness.upNext.map(\.id), [drillID], "a lapsed drill is back on the to-do list")
+        XCTAssertEqual(ChecklistStateStore().load(homeID: homeID)[drillID], .completed(old),
+                       "loading never rewrites the stored date")
+    }
+
+    /// A stale local value must never beat the server for a recurring item: a `true` stored on
+    /// the phone, a server that says not done. Hypothetical today (S11.34 keeps a bare `true`
+    /// done), so it pins the client rule, not the server's answer.
+    func testLocalTickNeverOverridesTheServerForARecurringItem() async throws {
+        ChecklistStateStore().save([drillID: true], homeID: homeID)
+        let readiness = try scorableStore()
+        let api = gatedClient()
+
+        let load = Task { await readiness.load(api: api) }
+        let request = try await gatedRequest(0)
+        XCTAssertEqual(request.checklistState[drillID] as? Bool, true, "a legacy true is sent as is, no date invented")
+        request.respond(status: 200, body: drillScoreJSON(home: homeID, done: false, completedAt: nil))
+        await load.value
+
+        XCTAssertFalse(readiness.isDone(try XCTUnwrap(readiness.items.first)))
+    }
+
+    /// Ticking a recurring item stores the time and sends it; it shows done at once, and once the
+    /// answer lands the answer is what shows.
+    func testTickingARecurringItemStoresAndSendsTheTime() async throws {
+        let readiness = try scorableStore()
+        let api = gatedClient()
+        let ticked = Date(timeIntervalSince1970: 1_791_117_296) // 2026-10-04T12:34:56Z
+        readiness.now = { ticked }
+
+        let load = Task { await readiness.load(api: api) }
+        try await gatedRequest(0).respond(status: 200, body: drillScoreJSON(home: homeID, done: false, completedAt: nil))
+        await load.value
+        let item = try XCTUnwrap(readiness.items.first)
+        XCTAssertFalse(readiness.isDone(item))
+
+        readiness.toggleDone(item, api: api, animated: false)
+        XCTAssertEqual(readiness.checklistState[drillID], .completed(ticked))
+        XCTAssertEqual(ChecklistStateStore().load(homeID: homeID)[drillID], .completed(ticked))
+        XCTAssertTrue(readiness.isDone(item), "the tick shows before the answer arrives")
+        let rescore = try await gatedRequest(1)
+        XCTAssertEqual(rescore.checklistState[drillID] as? String, "2026-10-04T12:34:56Z")
+
+        // The server is the clock: if it says not done, the row says not done.
+        rescore.respond(status: 200, body: drillScoreJSON(home: homeID, done: false,
+                                                          completedAt: "2026-10-04T12:34:56Z"))
+        try await waitUntilScored(readiness)
+        XCTAssertFalse(readiness.isDone(try XCTUnwrap(readiness.items.first)))
+    }
+
+    /// Offline: a tick, then a same-home reload (House autosave) whose /score fails. The tick stays.
+    func testPendingTickSurvivesASameHomeReloadThatFails() async throws {
+        let readiness = try scorableStore()
+        let api = gatedClient()
+        let load = Task { await readiness.load(api: api) }
+        try await gatedRequest(0).respond(status: 200, body: drillScoreJSON(home: homeID, done: false, completedAt: nil))
+        await load.value
+        let item = try XCTUnwrap(readiness.items.first)
+        readiness.toggleDone(item, api: api, animated: false)
+
+        let reload = Task { await readiness.load(api: api) }
+        try await gatedRequest(2).respond(status: 503)
+        await reload.value
+        XCTAssertTrue(readiness.isDone(try XCTUnwrap(readiness.items.first)), "the offline tick vanished on reload")
+    }
+
+    func testUntickingARecurringItemStoresFalse() async throws {
+        ChecklistStateStore().save([drillID: .completed(Date())], homeID: homeID)
+        let readiness = try scorableStore()
+        let api = gatedClient()
+        let load = Task { await readiness.load(api: api) }
+        try await gatedRequest(0).respond(status: 200, body: drillScoreJSON(home: homeID, done: true,
+                                                                             completedAt: "2026-10-04T12:00:00Z"))
+        await load.value
+        let item = try XCTUnwrap(readiness.items.first)
+        XCTAssertTrue(readiness.isDone(item))
+
+        readiness.toggleDone(item, api: api, animated: false)
+        XCTAssertEqual(readiness.checklistState[drillID], .flag(false))
+        XCTAssertFalse(readiness.isDone(item))
+        let rescore = try await gatedRequest(1)
+        XCTAssertEqual(rescore.checklistState[drillID] as? Bool, false)
+    }
+
+    /// The monthly alarm test is ticked by hand (owner, 2026-10-04); the placement items still go
+    /// to House. Decided by the server's recurrence_days, not by an id list.
+    func testRecurringSmokeAlarmItemIsTickedByHand() {
+        let monthly = ChecklistItem(id: "alarm.test_monthly", category: .smoke_alarm, title: "t", detail: "",
+                                    done: false, scoring: true, recurrence_days: 30)
+        let placement = ChecklistItem(id: "alarm.level.f1", category: .smoke_alarm, title: "t", detail: "",
+                                      done: false, scoring: true)
+        XCTAssertEqual(TaskDestination(monthly), .toggle)
+        XCTAssertTrue(TaskDestination(monthly).isTickedByUser)
+        XCTAssertEqual(TaskDestination(placement), .house)
     }
 }

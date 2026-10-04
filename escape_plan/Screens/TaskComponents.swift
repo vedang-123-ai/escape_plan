@@ -61,6 +61,7 @@ struct TaskRow: View {
     let onOpen: () -> Void
 
     private var destination: TaskDestination { TaskDestination(item) }
+    private var recurrence: String? { item.recurrenceLabel(now: Date(), shownDone: done) }
 
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
@@ -80,6 +81,14 @@ struct TaskRow: View {
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
                         }
+                        // S11.35: when a recurring task was done and when it is due again.
+                        if let recurrence {
+                            Text(recurrence)
+                                .font(.caption)
+                                .foregroundStyle(Theme.supporting)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                     Spacer(minLength: 6)
                     if let hazard = item.hazard, hazard != .general {
@@ -98,7 +107,8 @@ struct TaskRow: View {
             }
             .buttonStyle(RowPressStyle())
             .accessibilityLabel(item.title)
-            .accessibilityValue(done ? "Done" : (item.severity == .high ? "Urgent, to do" : "To do"))
+            .accessibilityValue([done ? "Done" : (item.severity == .high ? "Urgent, to do" : "To do"), recurrence?.replacingOccurrences(of: " · ", with: ", ")]
+                .compactMap { $0 }.joined(separator: ". "))
             .accessibilityHint(destination.label.map { "Opens the details. Goes to \($0)." } ?? "Opens the details.")
         }
         .frame(minHeight: 44)
