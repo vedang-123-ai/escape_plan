@@ -93,7 +93,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-007 (P2) no per-user quota on `/homes` · S11.30, S11.32
 - [x] AUD-008 (P2) Documents visible in Files app in Release; scans never cleaned · **fixed for Release 2026-10-03 by
       S11.40** (evidence under "S11.40 findings"); the device check "scan dir deleted after import" is owed (§2 checklist)
-- [ ] AUD-009 (P2) saved token overrides forever; Advanced in Release · S11.42 (owner answers in §1)
+- [x] AUD-009 (P2) saved token overrides forever; Advanced in Release · **fixed 2026-10-04 by S11.42** (evidence under "S11.42 findings"); device check owed: a build with a rotated token on an iPhone that earlier tapped Save
 - [ ] AUD-010 (P3) `/convert` leaks Python text as 422 · S11.31
 - [ ] AUD-011 (P3) `needs_rehash` never called · S11.28
 - [x] AUD-012 (P3) untrusted `home_id` as filename · **fixed 2026-10-04 by S11.41** (evidence under "S11.41 findings")
@@ -145,6 +145,25 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.42 findings (2026-10-04, branch s11-42-server-settings)
+
+AUD-009. `APIClient` keeps the token override behind its own flag; a stored token with no flag is ignored, so a rotated
+bundled token reaches every install. Release ignores all overrides (stored URL, stored token, launch arguments); the
+Advanced and Developer sections are `#if DEBUG`. Bad addresses are refused with a message and "Saved" shows only on
+success. Decisions: 2026-10-04 S11.42 rows. Note: `docs/tracker/notes/2026-10-04-s11-42-server-settings.md`.
+
+- [x] **Verified 2026-10-04:** simulator (iPhone 17 Pro, iOS 26.5) `-only-testing:escape_planTests` + SignedOutPathUITests +
+      EntryPointUITests: **1058 passed, 0 failed, 4 skipped** (scratchpad `g.xcresult`), against S11.41's 1036 / 0 / 3 for
+      unit tests: +22 over S11.41, of which 14 are `APIClientConfigTests` and the rest EntryPointUITests+SignedOutPathUITests counted in this run. `typecheck-ios.sh` ok on four
+      targets; `-default-isolation MainActor` shows only the three known warnings. 4 mutations, all caught (note).
+      ecc:security-reviewer and swift-scenekit-reviewer: no must-fix; the Release-override, placeholder, empty-token and
+      error-colour findings were fixed.
+- [x] `scripts/demo-preflight.py` unchanged; its only failure is the known `/explain` 502 (Anthropic billing).
+- [ ] **Device check (owner):** install a build with a new token on a phone that previously saved settings; confirm
+      requests succeed without opening Settings. Cannot be shown on the simulator.
+- [ ] **Stale `APIClient.bearerToken` value stays on disk** in installs that saved it before; it is ignored, never used.
+      Harmless; no cleanup written. Token is plaintext UserDefaults when overridden (DEBUG only now).
 
 ### S11.41 findings (2026-10-04, branch s11-41-home-id-validation)
 
