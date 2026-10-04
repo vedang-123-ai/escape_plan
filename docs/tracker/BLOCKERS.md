@@ -91,7 +91,8 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-005 (P1) `/auth/*` unthrottled, Argon2 on the event loop · S11.28
 - [ ] AUD-006 (P2) `/score` recommendations outside the AI guard · S11.27
 - [ ] AUD-007 (P2) no per-user quota on `/homes` · S11.30, S11.32
-- [ ] AUD-008 (P2) Documents visible in Files app in Release; scans never cleaned · S11.40
+- [x] AUD-008 (P2) Documents visible in Files app in Release; scans never cleaned · **fixed for Release 2026-10-03 by
+      S11.40** (evidence under "S11.40 findings"); the device check "scan dir deleted after import" is owed (§2 checklist)
 - [ ] AUD-009 (P2) saved token overrides forever; Advanced in Release · S11.42 (owner answers in §1)
 - [ ] AUD-010 (P3) `/convert` leaks Python text as 422 · S11.31
 - [ ] AUD-011 (P3) `needs_rehash` never called · S11.28
@@ -144,6 +145,42 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.40 findings (2026-10-03, branch `s11-40-release-files`)
+
+AUD-008. Release builds no longer set `UIFileSharingEnabled` or `LSSupportsOpeningDocumentsInPlace`, so homes, chats,
+caches and scans in Documents do not show in the Files app or Finder. Raw scans are cleaned up by
+`escape_plan/Capture/Export/ScanCleanup.swift`: deleted once the converted home is saved (`HomeScreen.importScan`), and
+swept at launch when older than 7 days. Debug keeps raw scans by default (UserDefaults `debug.keepRawScans`), so the
+fixture workflow still works. Decisions: 2026-10-03 S11.40 rows.
+
+- [x] **Build settings (2026-10-03):** `xcodebuild -target escape_plan -showBuildSettings -configuration Release | grep
+      -i -E "FileSharing|OpeningDocumentsInPlace"` prints nothing; the same with `-configuration Debug` prints both keys
+      `= YES`.
+- [x] **Verified on the simulator (2026-10-03, iPhone 17 Pro, iOS 26.5):** `ScanExportTests` + `ScanCleanupTests`
+      **16 passed, 0 failed, 0 skipped** (7 format + 9 new cleanup tests, inside `full1.xcresult` below). 13 mutations: 11 caught on their
+      own; the two symlink guards each survive alone because they back each other up, and removing both is caught by
+      `testSymlinkNamedLikeAScanIsNeverDeleted` (see the note). `scripts/typecheck-ios.sh` ok on all four targets, and
+      the app also type-checks clean with `-default-isolation MainActor` for the touched files. **Full suite
+      `-only-testing:escape_planTests`: 1022 passed, 0 failed, 3 skipped** (scratchpad `full1.xcresult`), against the
+      S11.33 stamp of 1013 / 0 / 3: +9, exactly the new tests, no new failures.
+- [x] `scripts/demo-preflight.py` still runs (it never referenced scans); every check passes except `/explain`, the known
+      missing server key (line "The live server has no `ANTHROPIC_API_KEY`").
+- **Note: the demo build is not affected.** Anish films with an Xcode (Debug) build, so file sharing stays on and raw
+      scans are kept there. Only an Archive/TestFlight (Release) build hides Documents and deletes scans. Not a problem,
+      just do not tell judges the demo build hides files.
+- [ ] **Device check owed:** a real scan → import → the `Scans/<stamp>` folder is gone (Release, or Debug with
+      `debug.keepRawScans` set to false). Added to the §2 device-pass checklist as 2.10.
+- [ ] **No toggle for "keep raw scans" in Settings.** Debug uses a UserDefaults key instead (`simctl ... defaults write
+      cac.Escape-Plan debug.keepRawScans -bool NO`). On a physical device in Debug that key cannot be flipped without a
+      toggle. Next action: only if someone needs it, whoever owns `SettingsScreen.swift` adds a toggle in its `#if DEBUG`
+      developer section bound to `ScanRetention.keepRawScansKey`.
+- [ ] **Dead re-check code** in `escape_plan/Capture/RoomCaptureController.swift` (`recheckRoomID`, unused since the
+      re-scan review was cut 2026-10-02). Left alone on purpose: dead code belongs to S11.47.
+- [ ] **A built Release Info.plist has not been inspected.** The build settings prove the keys are gone; the next person
+      to archive a Release build runs `plutil -p <App>.app/Info.plist | grep -i -E "FileSharing|InPlace"` (expect nothing).
+- [ ] **Data is still in device and iCloud backups** (homes, chats, caches; scans until swept). Outside AUD-008, which was
+      about the Files app; noted by the security review.
 
 ### S11.33 findings (2026-10-03, branch `s11-33-photo-jpeg`)
 
@@ -2134,6 +2171,11 @@ because if it fails nothing downstream is worth tuning.
       across a relaunch; chat surviving background/foreground; the backend killed mid-flow
       degrading gracefully; VoiceOver end-to-end with a real screen reader; the per-floor PDF
       printed on actual paper in greyscale.
+- [ ] **2.10 Raw scan deleted after import (S11.40).** In a Release build (or Debug after
+      `defaults write cac.Escape-Plan debug.keepRawScans -bool NO`): scan a room, import it, wait for
+      House to open, then check the app container (Xcode → Devices → Download Container) has no new
+      folder under `Documents/Scans/`. In a normal Debug build the folder must still be there. Also
+      confirm the Files app shows no "Escape Plan" folder in a Release build.
 
 ---
 
