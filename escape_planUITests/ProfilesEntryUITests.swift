@@ -1,16 +1,18 @@
 // ProfilesEntryUITests.swift
 // S11.20 (AUD-020): household profiles were unreachable from 87c0610 (BetaScreen deleted) until
-// this session. The drill said "Add family members in Profiles first" and no Profiles screen
+// that session. The old drill said "Add family members in Profiles first" and no Profiles screen
 // could be opened, so a scanned or blank home could never be drilled.
 //
-// Guards both entry points end to end, on a blank home the test builds itself (a blank home
-// has "Room 1", which a new profile takes as its bedroom):
-//   1. Home → Household → add a person → back → Run a fire drill → the drill offers that person.
-//   2. A blank home's drill empty state → Add family members → add a person → Done → the drill
-//      offers that person, without leaving the drill.
+// Since trim 2 (2026-10-03) "Run a fire drill" opens House on its fire simulation, and the
+// simulation runs with or without people (the engine puts one stand-in per room when nobody is
+// added). What AUD-020 still needs is that a family can be added and the drill knows it:
+//   1. Home → Household → add a person → back → Run a fire drill → House's fire dock, with no
+//      "no one is added" note.
+//   2. A blank home's fire drill says where to add people; after adding one from Home's
+//      Household row, the note is gone.
 //
-// Backend-free on purpose: "reaches the drill" is asserted as the drill's person picker (past
-// the empty state), not as a /routes result, so the localhost base URL never has to answer.
+// Backend-free on purpose: the fire dock's controls and note render before any /evacuate call,
+// so the localhost base URL never has to answer.
 
 import XCTest
 
@@ -78,16 +80,26 @@ final class ProfilesEntryUITests: XCTestCase {
                       "The new profile is not listed after Save.")
     }
 
+    /// The House tab is showing, its dock on "Fire simulation", and the room picker is there.
     @MainActor
-    private func assertDrillOffers(_ name: String, in app: XCUIApplication) {
-        let person = app.buttons["Practice with \(name)"]
-        XCTAssertTrue(person.waitForExistence(timeout: 20),
-                      "The drill did not offer \(name): it is still at the empty state or never loaded.")
-        XCTAssertFalse(app.staticTexts["No family profiles yet"].exists)
+    private func assertFireDrillOpen(in app: XCUIApplication) {
+        let fireTab = app.buttons["house.dock.fire"]
+        XCTAssertTrue(fireTab.waitForExistence(timeout: 20), "Run a fire drill did not open House.")
+        XCTAssertTrue(fireTab.isSelected, "House opened, but not on the fire simulation.")
+        XCTAssertTrue(app.buttons["house.simulation.choose"].waitForExistence(timeout: 10),
+                      "The fire dock has no way to start a fire.")
     }
 
     @MainActor
-    func testHomeHouseholdRowAddsAPersonTheDrillThenOffers() throws {
+    private func tapRunAFireDrill(in app: XCUIApplication) {
+        app.tabBars.buttons["Home"].tap()
+        let drill = app.buttons["home.fireDrill"]
+        XCTAssertTrue(drill.waitForExistence(timeout: 20), "No Run a fire drill card on Home.")
+        drill.tap()
+    }
+
+    @MainActor
+    func testHouseholdPersonReachesTheFireDrill() throws {
         let app = launchPastOnboarding()
         buildBlankHome(app)
 
@@ -105,29 +117,33 @@ final class ProfilesEntryUITests: XCTestCase {
         XCTAssertTrue(updatedRow.waitForExistence(timeout: 10),
                       "Home still shows the old household: ReadinessStore did not reload.")
 
-        let drill = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Run a fire drill'")).firstMatch
-        XCTAssertTrue(drill.waitForExistence(timeout: 10))
-        drill.tap()
-        assertDrillOffers(name, in: app)
+        tapRunAFireDrill(in: app)
+        assertFireDrillOpen(in: app)
+        XCTAssertFalse(app.staticTexts["house.simulation.noPeople"].exists,
+                       "The drill still says no one is added after adding \(name).")
     }
 
     @MainActor
-    func testDrillEmptyStateOpensProfilesAndReloads() throws {
+    func testFireDrillSaysWhereToAddPeople() throws {
         let app = launchPastOnboarding()
         buildBlankHome(app)
 
-        let drill = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Run a fire drill'")).firstMatch
-        XCTAssertTrue(drill.waitForExistence(timeout: 20))
-        drill.tap()
+        tapRunAFireDrill(in: app)
+        assertFireDrillOpen(in: app)
+        XCTAssertTrue(app.staticTexts["house.simulation.noPeople"].waitForExistence(timeout: 10),
+                      "A blank home's fire drill does not say where to add people (AUD-020 is back).")
 
-        let addPeople = app.buttons["drill.addProfiles"]
-        XCTAssertTrue(addPeople.waitForExistence(timeout: 20),
-                      "A blank home's drill has no way to add people (AUD-020 is back).")
-        addPeople.tap()
-
+        app.tabBars.buttons["Home"].tap()
+        let household = app.buttons["household.row"]
+        XCTAssertTrue(household.waitForExistence(timeout: 20))
+        household.tap()
         let name = "Bo \(Int.random(in: 100...999))"
         addProfile(named: name, in: app)
-        app.navigationBars["Household"].buttons["Done"].tap()
-        assertDrillOffers(name, in: app)
+        app.navigationBars["Household"].buttons.element(boundBy: 0).tap()
+
+        tapRunAFireDrill(in: app)
+        assertFireDrillOpen(in: app)
+        XCTAssertFalse(app.staticTexts["house.simulation.noPeople"].waitForExistence(timeout: 3),
+                       "The note stayed after \(name) was added: House did not reload the home.")
     }
 }

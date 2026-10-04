@@ -109,7 +109,7 @@ struct TaskRow: View {
         let icon = TaskStatusIcon(done: done, urgent: item.severity == .high)
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
-        if destination == .toggle {
+        if destination.isTickedByUser {
             Button(action: onToggle) { icon }
                 .buttonStyle(HapticPlainButtonStyle())
                 .accessibilityLabel(done ? "Mark \(item.title) as not done" : "Mark \(item.title) as done")
@@ -181,6 +181,9 @@ struct TaskDetailSheet: View {
     let item: ChecklistItem
     let isDone: Bool
     let onPrimary: () -> Void
+    /// Ticks or unticks the item. Shown as a second button only where the primary does something
+    /// else (the drill item: "Run a drill" opens House, this marks it done).
+    var onToggle: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     private var destination: TaskDestination { TaskDestination(item) }
@@ -236,6 +239,15 @@ struct TaskDetailSheet: View {
                     DSPrimaryButton(title: destination.actionTitle(done: isDone),
                                     systemImage: destination.actionSymbol(done: isDone),
                                     action: onPrimary)
+                    if destination == .drill, let onToggle {
+                        // Watching the simulation is not the family practising, so the tick says
+                        // what it records (trim 2 review).
+                        DSSecondaryButton(title: isDone ? "Mark as not done" : "We practiced it for real",
+                                          action: onToggle)
+                            .accessibilityHint(isDone ? "Unticks this task."
+                                : "Ticks this task. Watching the simulation does not count as practice.")
+                            .accessibilityIdentifier("task.markDone")
+                    }
                 }
                 .padding(.horizontal, DS.pagePadding)
                 .padding(.bottom, 8)

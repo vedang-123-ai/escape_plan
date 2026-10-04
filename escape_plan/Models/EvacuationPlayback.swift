@@ -38,8 +38,9 @@ final class EvacuationPlaybackModel {
 
     // MARK: - Tuning constants
 
-    /// The rate menu offers these; anything outside is clamped to the ends.
-    static let supportedRates: [Double] = [0.5, 1.0, 2.0]
+    /// The speed menu offers these (quarter speed to double, trim 2, 2026-10-03). Any write to
+    /// `playbackRate` outside `minPlaybackRate...maxPlaybackRate` is clamped.
+    static let supportedRates: [Double] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
     static let minPlaybackRate: Double = 0.25
     static let maxPlaybackRate: Double = 4.0
     /// Default granularity of stepped (Reduce Motion) playback, in seconds of modeled time.
@@ -324,6 +325,29 @@ final class EvacuationPlaybackModel {
         guard minutes > 0 else { return secondsPart }
         let minutesPart = "\(minutes) minute\(minutes == 1 ? "" : "s")"
         return secs == 0 ? minutesPart : "\(minutesPart) \(secondsPart)"
+    }
+
+    /// A speed as the menu shows it: "0.25×", "1×", "1.25×", "2×". Up to two decimals, no
+    /// trailing zeros, and never the locale's decimal comma (the rest of the app is English).
+    static func rateLabel(_ rate: Double) -> String {
+        guard rate.isFinite else { return "1×" }
+        var text = String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"), rate)
+        while text.hasSuffix("0") { text.removeLast() }
+        if text.hasSuffix(".") { text.removeLast() }
+        return text + "×"
+    }
+
+    /// A speed as VoiceOver says it. "0.25 times speed" is read digit by digit, so the common
+    /// fractions get words.
+    static func spokenRateLabel(_ rate: Double) -> String {
+        switch rate {
+        case 1: return "Normal speed"
+        case 0.25: return "Quarter speed"
+        case 0.5: return "Half speed"
+        case 0.75: return "Three quarter speed"
+        case 2: return "Double speed"
+        default: return "\(rateLabel(rate).dropLast()) times speed"
+        }
     }
 
     /// Elapsed / total as visible text, e.g. `"0:12 / 1:45"`.

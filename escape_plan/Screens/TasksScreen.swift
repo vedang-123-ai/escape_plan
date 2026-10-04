@@ -3,8 +3,8 @@
 //
 //  Everything the user can do to get more prepared, grouped Urgent / To do / Done, filterable
 //  by peril. Each task knows where it is done (`TaskDestination`): tapping one opens its detail
-//  sheet, whose button sends the user to the right place — the object in the House tab, a drill,
-//  or a tick right here. The family plan's own to-dos sit at the bottom.
+//  sheet, whose button sends the user to the right place — the object in the House tab, the fire
+//  drill (House's fire simulation), or a tick right here. The family plan's own to-dos sit at the bottom.
 
 import SwiftUI
 
@@ -22,7 +22,6 @@ struct TasksScreen: View {
     @AppStorage("tasks.showDetails") private var showDetails = false
 
     @State private var detailItem: ChecklistItem?
-    @State private var drillHomeID: String?
     @State private var showingExportSheet = false
 
     var body: some View {
@@ -54,15 +53,11 @@ struct TasksScreen: View {
             .sheet(item: $detailItem) { item in
                 TaskDetailSheet(item: item,
                                 isDone: readiness.isDone(item),
-                                onPrimary: { perform(item, fromSheet: true) })
+                                onPrimary: { perform(item, fromSheet: true) },
+                                onToggle: { readiness.toggleDone(item, api: apiClient, animated: !reduceMotion) })
             }
             .sheet(isPresented: $showingExportSheet) {
                 if let id = readiness.activeHomeID { ExportPlanSheet(homeID: id, store: library.store) }
-            }
-            .navigationDestination(item: $drillHomeID) { homeID in
-                // The drill writes its own log; refresh the "last practised" the Home tab shows.
-                DrillScreen(homeID: homeID)
-                    .onDisappear { readiness.refreshLastPracticed() }
             }
         }
     }
@@ -290,8 +285,6 @@ struct TasksScreen: View {
             .padding(.bottom, 8)
         VStack(spacing: 8) {
             meetingPointRow(home)
-            PracticeReminderCard(homeID: home.id, homeName: home.name, lastPracticed: readiness.lastPracticed)
-                .dsCard(padding: 14)
             ShareWithFireDepartmentCard(homeID: home.id, store: library.store)
         }
         .padding(.horizontal, DS.pagePadding)
@@ -329,7 +322,7 @@ struct TasksScreen: View {
         let go = {
             switch TaskDestination(item) {
             case .house: router.openHouse(homeID: readiness.activeHomeID, focusItemID: item.id)
-            case .drill: drillHomeID = readiness.activeHomeID
+            case .drill: router.openFireDrill(homeID: readiness.activeHomeID)
             case .toggle: readiness.toggleDone(item, api: apiClient, animated: !reduceMotion)
             }
         }

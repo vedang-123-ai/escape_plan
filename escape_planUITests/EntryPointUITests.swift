@@ -1,10 +1,11 @@
 // EntryPointUITests.swift
 // Guards the two navigation entry points that were missing until 2026-07-22: the RoomPlan
-// LiDAR scan (Capture/) and drill mode (DrillMode/). Both modules were complete, tested, and
+// LiDAR scan (Capture/) and drill mode (DrillMode/, replaced in trim 2 by House's fire simulation,
+// guarded in FireDrillUITests). Both modules were complete, tested, and
 // unreachable — nothing in the app referenced them, so no test could have caught it.
 //
 // These assertions exist so that regression cannot recur silently: if someone removes the
-// toolbar button or the swipe action, this fails.
+// toolbar button, this fails. (The drill entry is now Home's "Run a fire drill" card, guarded by FireDrillUITests.)
 //
 // Deliberately backend-free. The scan entry point is assertable on a simulator (which has no
 // LiDAR) because the flow's first screen is the instructions view, which renders an

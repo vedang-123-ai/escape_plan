@@ -207,7 +207,7 @@ final class S44ScreenshotUITests: XCTestCase {
         sleep(1)
         shoot("10-settings")
 
-        // --- Home swipe actions: Score / Profiles / Drill -------------------
+        // --- Home swipe actions: Score / Profiles; then the fire drill -------
         app.tabBars.buttons["Home"].tap()
         sleep(1)
 
@@ -251,23 +251,22 @@ final class S44ScreenshotUITests: XCTestCase {
             return true
         }
 
-        attempt("drill screen") {
-            guard swipeAction("Drill", row: "Two-Story House") else { return false }
+        // The drill is House's fire simulation since trim 2 (2026-10-03): Home's card opens it.
+        attempt("fire drill") {
+            app.tabBars.buttons["Home"].tap()
+            let drill = app.buttons["home.fireDrill"]
+            guard drill.waitForExistence(timeout: 5) else { return false }
+            drill.tap()
             sleep(3)
             self.shoot("13-drill")
-            // Begin the drill as Maya, then advance one step.
-            let maya = app.buttons["Maya"].firstMatch
-            if maya.waitForExistence(timeout: 3) {
-                maya.tap()
-                sleep(5)
-                self.shoot("14-drill-start")
-                let next = app.buttons["Next"].firstMatch
-                if next.waitForExistence(timeout: 5) {
-                    next.tap()
-                    sleep(4)
-                    self.shoot("15-drill-step")
-                }
-            }
+            let choose = app.buttons["house.simulation.choose"]
+            guard choose.waitForExistence(timeout: 5) else { return true }
+            choose.tap()
+            let room = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Start the fire in'")).firstMatch
+            guard room.waitForExistence(timeout: 5) else { return true }
+            room.tap()
+            sleep(8)
+            self.shoot("14-drill-playing")
             return true
         }
 
@@ -355,16 +354,19 @@ final class S44BackendDownUITests: XCTestCase {
             }
         }
 
-        // Drill: picking a person must surface the route error banner, app stays alive.
-        let cell2 = app.cells.firstMatch
-        if cell2.waitForExistence(timeout: 5) {
-            cell2.swipeRight()
-            let drill = app.buttons["Drill"].firstMatch
-            if drill.waitForExistence(timeout: 3) {
-                drill.tap()
-                let maya = app.buttons["Maya"].firstMatch
-                if maya.waitForExistence(timeout: 5) {
-                    maya.tap()
+        // Fire drill: starting a fire with the server down must surface the error banner, and
+        // the app stays alive (trim 2: the drill is House's fire simulation).
+        app.tabBars.buttons["Home"].tap()
+        let drill = app.buttons["home.fireDrill"]
+        if drill.waitForExistence(timeout: 5) {
+            drill.tap()
+            let choose = app.buttons["house.simulation.choose"]
+            if choose.waitForExistence(timeout: 10) {
+                choose.tap()
+                let room = app.buttons.matching(
+                    NSPredicate(format: "label BEGINSWITH 'Start the fire in'")).firstMatch
+                if room.waitForExistence(timeout: 5) {
+                    room.tap()
                     sleep(8)
                     shoot("offline-04-drill")
                 }

@@ -143,8 +143,8 @@ checked against a real source server-side before it reaches you.
 ## Beat 6 — Montage (2:24–2:44, 41 words over fast cuts)
 
 > **VO:** A preparedness score that tells you why, not just a number. A checklist that's about
-> your house, not a generic list. And a drill you can actually run with your kids on a Saturday,
-> timed, so you find the problems now.
+> your house, not a generic list. And a fire drill you can watch with your kids: a fire starts,
+> and you see who goes where, so you find the problems now.
 
 **Score + checklist resolved — true now.** S3.5 shipped `/score` and the iOS score screen with
 the component breakdown ("tells you why": 30 primary / 25 secondary / 20 findings / 15 alarms /
@@ -153,8 +153,11 @@ the component breakdown ("tells you why": 30 primary / 25 secondary / 20 finding
 edit: the findings component reads full marks until `/analyze` is wired into the score flow —
 film the score after an analyze run, or crop the findings row.
 
-**Drill still pending:** `[PENDING: S4.2]` — not started, first in the cut order. If it's cut,
-delete the drill sentence (last 24 words); the beat still works at two features.
+**Drill line rewritten 2026-10-03 (trim 2).** The timed practice drill was replaced by House's fire
+simulation: "Run a fire drill" starts a fire in a chosen room and plays everyone's way out at 0.25×–2×, with a
+"Who does what" card per person. There is no timer any more, so "timed" was cut from the VO. Film it from Home's
+"Run a fire drill" card; it needs the server (`/evacuate`). If it's cut, delete the drill sentence; the beat still
+works at two features.
 
 ---
 
@@ -197,7 +200,7 @@ disasters are deliberately out of scope — say them as future work, never as fe
 | 12 | "AI never picks the route; the route is math we wrote" | TRUE by architecture | routing = pure Python engine; AI layer explains/audits only; server-side citation validation |
 | 13 | "score that tells you why" | TRUE | S3.5 component breakdown; AI recs non-scoring (decisions.md S3.5) |
 | 14 | "checklist about your house" | TRUE | S3.5 checklist w/ live re-score (findings-row caveat above) |
-| 15 | "a drill you can run… timed" | **[PENDING: S4.2]** — delete if cut | S4.2 not started; cut candidate #1 |
+| 15 | "a fire drill you can watch… who goes where" | TRUE since trim 2 (needs the server) | House fire simulation + "Who does what" (`EvacuationPeoplePanel`); `FireDrillUITests`; trim-2 note. The old "timed" claim is gone with the timer |
 | 16 | "three of us built this / we wrote the routing engine" | TRUE | CLAUDE.md roles |
 | 17 | Android / camera capture / other disasters | TRUE as future work only | scope locks in CLAUDE.md |
 

@@ -7,6 +7,7 @@
 //  sync. Nothing here starts a sync any more.
 
 import SwiftUI
+import UserNotifications
 
 struct RootView: View {
     /// Handed down from the app entry point, which creates the one store per launch.
@@ -22,6 +23,14 @@ struct RootView: View {
                 // screen left to see or end it. Signing out deletes the stored token, so it
                 // happens once and never touches the network.
                 if session.state.isSignedIn { session.signOut() }
+                // Same idea for the practice reminders cut in trim 2 (2026-10-03): a phone that
+                // scheduled one in an earlier build would keep getting it, with no screen left to
+                // turn it off. Their ids were `practice-reminder.<home id>`.
+                let center = UNUserNotificationCenter.current()
+                let stale = await center.pendingNotificationRequests()
+                    .map(\.identifier)
+                    .filter { $0.hasPrefix("practice-reminder.") }
+                if !stale.isEmpty { center.removePendingNotificationRequests(withIdentifiers: stale) }
             }
     }
 }

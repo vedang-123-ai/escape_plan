@@ -138,7 +138,7 @@ struct BackendFailureBanner: View {
 /// It exists because "offline" was being reported as a failure and nothing else — which reads
 /// as "the app is broken" when in fact the entire deterministic half is local. Everything in
 /// `worksOffline` is a real capability with no `APIClient` anywhere in its path (the editor and
-/// `HomeModelStore`, `HomeDocumentStore`, `DrillLogStore`, `EscapePlanExporter`); everything in
+/// `HomeModelStore`, `HomeDocumentStore`, `EscapePlanExporter`); everything in
 /// `needsServer` genuinely round-trips to the backend and is never faked client-side.
 ///
 /// Shown alongside a `BackendFailureBanner` whose failure is offline-flavoured. Collapsed by
@@ -146,10 +146,11 @@ struct BackendFailureBanner: View {
 struct OfflineCapabilityNote: View {
     @State private var isExpanded = false
 
-    static let worksOffline = "the 3D editor, your saved homes, the practice drill and its "
-        + "log, and the printable escape plan"
+    // The practice drill and its log left this list in trim 2 (2026-10-03): the drill is now the
+    // fire simulation, which needs the server (`/evacuate`).
+    static let worksOffline = "the 3D editor, your saved homes, and the printable escape plan"
     static let needsServer = "new escape routes, converting a scan, importing a plan, the "
-        + "preparedness score, the fire simulation, and the assistant"
+        + "preparedness score, the fire drill simulation, and the assistant"
 
     private static let spoken = "Works without a connection: \(worksOffline). "
         + "Needs the server: \(needsServer)."

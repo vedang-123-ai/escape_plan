@@ -2,7 +2,7 @@
 //  Networking — one place that decides what a backend failure means to the user.
 //
 //  Before this, six screens each hand-rolled their own `catch` ladder over raw status codes
-//  (HouseScreen, HomeScreen, DrillScreen, BuildFromPlanView, OnboardingState, the chat
+//  (HouseScreen, HomeScreen, the old DrillScreen, BuildFromPlanView, OnboardingState, the chat
 //  client), and they disagreed: some special-cased 401, some didn't; every one of them
 //  offered a Retry button regardless of whether retrying could possibly help.
 //

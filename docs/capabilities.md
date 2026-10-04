@@ -109,7 +109,7 @@ is the architecture behaving as designed.
 
 | Capability | Status |
 |---|---|
-| Drill mode: rehearse the route from a chosen room, step by step | `BUILT` |
+| Fire drill: start a fire in a chosen room, watch everyone's way out (0.25×–2×) with a "Who does what" card per person (House fire simulation; replaced the step-by-step drill in trim 2, 2026-10-03) | `BUILT` (needs the server) |
 
 First on the cut list if the schedule slips. It is currently ahead of that.
 

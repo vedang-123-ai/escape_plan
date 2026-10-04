@@ -14,6 +14,7 @@ struct HomeScreen: View {
     @Environment(AppRouter.self) private var router
     @EnvironmentObject private var library: HomeLibrary
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     // Adding a home
     @State private var showingNewHome = false
@@ -24,7 +25,6 @@ struct HomeScreen: View {
     @State private var lastScanArtifacts: ScanArtifacts?
 
     @State private var scoreHomeID: String?
-    @State private var drillHomeID: String?
     @State private var profilesHomeID: String?
     @State private var detailItem: ChecklistItem?
     @State private var showingManageHomes = false
@@ -81,7 +81,8 @@ struct HomeScreen: View {
             .sheet(item: $detailItem) { item in
                 TaskDetailSheet(item: item,
                                 isDone: readiness.isDone(item),
-                                onPrimary: { perform(item) })
+                                onPrimary: { perform(item) },
+                                onToggle: { readiness.toggleDone(item, api: apiClient, animated: !reduceMotion) })
             }
             .fullScreenCover(isPresented: $showingScan) {
                 ScanFlowView(
@@ -101,12 +102,6 @@ struct HomeScreen: View {
             // Score reads the shared ReadinessStore (the active home), so the id only drives
             // the push.
             .navigationDestination(item: $scoreHomeID) { _ in ScoreScreen() }
-            .navigationDestination(item: $drillHomeID) { homeID in
-                // The drill writes its own log; "Last: …" on the drill card must not wait
-                // for the next full load to notice.
-                DrillScreen(homeID: homeID)
-                    .onDisappear { readiness.refreshLastPracticed() }
-            }
             .navigationDestination(item: $profilesHomeID) { homeID in
                 ProfilesScreen(homeID: homeID, store: library.store)
             }
@@ -366,10 +361,13 @@ struct HomeScreen: View {
 
     private var quickActions: some View {
         HStack(spacing: 8) {
+            // The drill is House's fire simulation (trim 2, 2026-10-03): the old practice screen,
+            // its log and "Never practised" are gone.
             actionCard(title: "Run a fire drill",
-                       subtitle: lastPracticedText,
+                       subtitle: "See everyone's way out of a fire",
                        symbol: "play.fill",
-                       tint: Theme.accentText) { drillHomeID = readiness.activeHomeID }
+                       tint: Theme.accentText) { router.openFireDrill(homeID: readiness.activeHomeID) }
+                .accessibilityIdentifier("home.fireDrill")
             actionCard(title: "Open 3D house",
                        subtitle: "Routes, exits, hazards",
                        symbol: "cube.fill",
@@ -379,7 +377,8 @@ struct HomeScreen: View {
         .padding(.top, 12)
     }
 
-    /// Who lives here (AUD-020): per-person routes and the drill need at least one profile.
+    /// Who lives here (AUD-020): per-person routes and the fire drill's people come from these
+    /// profiles (with none, the engine puts one stand-in per room).
     @ViewBuilder
     private var household: some View {
         if let home = readiness.activeHome {
@@ -389,11 +388,6 @@ struct HomeScreen: View {
         }
     }
 
-    private var lastPracticedText: String {
-        guard let date = readiness.lastPracticed else { return "Never practised" }
-        return "Last: \(date.formatted(.relative(presentation: .named)))"
-    }
-
     private func actionCard(title: String, subtitle: String, symbol: String, tint: Color,
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -401,7 +395,12 @@ struct HomeScreen: View {
                 DSIconBadge(systemImage: symbol, fill: tint, size: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.text)
-                    Text(subtitle).font(.caption).foregroundStyle(Theme.supporting).lineLimit(1)
+                    // Two lines, so the drill card's sentence is not cut off on a narrow phone.
+                    Text(subtitle).font(.caption).foregroundStyle(Theme.supporting)
+                        // At accessibility sizes the line may need more than two lines.
+                        .lineLimit(typeSize.isAccessibilitySize ? 6 : 2,
+                                   reservesSpace: !typeSize.isAccessibilitySize)
+                        .multilineTextAlignment(.leading)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -480,7 +479,7 @@ struct HomeScreen: View {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(320))
             if destination == .drill {
-                drillHomeID = readiness.activeHomeID
+                router.openFireDrill(homeID: readiness.activeHomeID)
             } else {
                 router.openHouse(homeID: readiness.activeHomeID, focusItemID: item.id)
             }

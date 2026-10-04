@@ -80,7 +80,7 @@ sign-off.** Invariants:
 - **A red iOS run is ~1-in-3 environmental flake.** Re-run once before believing it. True counts come from
   `xcrun xcresulttool get test-results summary --path <bundle>`, never the console tail.
 - **Never re-enable `allowsCameraControl`**, and keep `CameraRigModel` pure (no SceneKit, no UIKit): it is
-  symlinked into a Foundation-only package, as are `Auth/`, `Sync/` and `SemanticMatcher.swift`.
+  symlinked into a Foundation-only package, as are `Auth/` and `Sync/`.
 - **Colour follows three guardrails, not "no new colour"** (retired by the Linear dark-only revamp, 2026-09-25;
   `escape_plan/Screens/Theme.swift` is still the only place a colour is defined): (1) safety colours stay distinct and
   colour-blind-safe: cool is routes, warm is hazard, green is exits; (2) accessibility floors: 4.5:1 text, 3:1

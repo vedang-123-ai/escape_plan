@@ -24,7 +24,7 @@ request, now binding). If a take can't match its path, rename here first, not ad
 | `docs/demo/broll/s32-agent-findings.mov` | 5 | Findings populating in-app + the tool-call trace scrolling (strongest "not a wrapper" visual) | S3.2 (needs live key) |
 | `docs/demo/broll/s34-profile-switch.mov` | 5 | PlanScreen "Who" picker: switch to Grandpa (mobility_limited), routes re-fetch and redraw — **one continuous take**, a cut reads as a cheat | S3.4 |
 | `docs/demo/broll/s35-score-checklist.mov` | 6 | Score screen with component breakdown open; toggle a checklist item, score re-animates | S3.5 |
-| `docs/demo/broll/s42-drill.mov` | 6 | Timed drill run (**[PENDING: S4.2]** — session not started; don't wait on this) | S4.2 |
+| `docs/demo/broll/s42-drill.mov` | 6 | Fire drill: Home → "Run a fire drill" → start a fire → playback with the "Who does what" cards (the timed drill was replaced, trim 2, 2026-10-03; needs the server) | trim 2 |
 | `docs/demo/broll/s12-routing-cli.mov` | 7 | Terminal: `python3 -m app.routing plan ../schema/fixtures/twostory.json --pretty` — **recordable today** | S1.2 |
 | `docs/demo/broll/team-oncamera.mov` | 7 | The three of us in one frame (shootable whenever we're together) | S5.x |
 | `docs/demo/broll/night-house.mov` | 1 | Dark hallway / smoke alarm / house at night — phone footage fine, no app dependency | — |
