@@ -11,6 +11,7 @@ import math
 import statistics
 import uuid
 from dataclasses import dataclass
+from pydantic import ValidationError
 from datetime import datetime
 from typing import Any, Optional
 
@@ -255,6 +256,11 @@ def _convert_opening(
 # Entry point
 # ---------------------------------------------------------------------------
 
+class ConversionError(ValueError):
+    """The scan is malformed in a way the converter can name. Callers treat it as
+    the client's fault (HTTP 422); any other exception out of `convert_scan` is a bug."""
+
+
 def convert_scan(
     export: dict[str, Any] | RPStructure,
     *,
@@ -268,7 +274,13 @@ def convert_scan(
     v1 scope: one floor per scan session (multi-floor homes are scanned one floor at
     a time; stairs are added in the editor).
     """
-    structure = export if isinstance(export, RPStructure) else RPStructure.parse(export)
+    if isinstance(export, RPStructure):
+        structure = export
+    else:
+        try:
+            structure = RPStructure.parse(export)
+        except ValidationError as exc:
+            raise ConversionError("not a valid RoomPlan export") from exc
 
     model_rooms: list[Room] = []
     converted: list[_ConvertedRoom] = []

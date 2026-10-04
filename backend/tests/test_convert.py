@@ -14,6 +14,7 @@ import jsonschema
 import pytest
 
 from app.convert import RPStructure, convert_scan
+from app.convert.converter import ConversionError
 from app.models import EXTERIOR_ID, HomeModel, Opening, is_simple_polygon, signed_area
 from tests.conftest import FIXTURES_DIR, SCHEMA_PATH
 
@@ -115,7 +116,7 @@ def test_all_scan_items_carry_confidence(name):
 # ---------------------------------------------------------------------------
 
 class TestBungalow:
-    @pytest.fixture(scope="class")
+    @pytest.fixture
     def model(self) -> HomeModel:
         return convert("synthetic-bungalow.roomplan.json")
 
@@ -251,7 +252,7 @@ def test_object_rotation_matches_surfaces():
 # ---------------------------------------------------------------------------
 
 class TestMessy:
-    @pytest.fixture(scope="class")
+    @pytest.fixture
     def model(self) -> HomeModel:
         return convert("synthetic-messy.roomplan.json")
 
@@ -290,7 +291,7 @@ class TestMessy:
 # ---------------------------------------------------------------------------
 
 class TestSharedDoorGeometric:
-    @pytest.fixture(scope="class")
+    @pytest.fixture
     def model(self) -> HomeModel:
         return convert("synthetic-shared-door.roomplan.json")
 
@@ -333,3 +334,10 @@ def test_accepts_bare_string_confidence_and_nested_transform():
     reference = convert("synthetic-messy.roomplan.json").model_dump_json(exclude_none=True)
     assert convert_scan(scan, home_name="synthetic-messy.roomplan.json", timestamp=TS)[0].model_dump_json(exclude_none=True) == reference
 
+
+
+def test_malformed_export_raises_conversion_error_without_internals():
+    with pytest.raises(ConversionError) as info:
+        convert_scan({"rooms": "nope"}, timestamp=TS)
+    assert "pydantic" not in str(info.value).lower()
+    assert "rooms" not in str(info.value)
