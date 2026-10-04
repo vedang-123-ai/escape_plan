@@ -3040,7 +3040,7 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 
 - [x] **`backend/.venv` EXISTS and the backend suite runs here.** The 2026-09-10 claim that no
       interpreter on this machine has `pytest` was wrong — it was tested from the repo root, where
-      `.venv` does not exist. The venv is at **`backend/.venv`** (Python 3.13.9, pytest 9.1.1).
+      `.venv` does not exist. The venv is at **`backend/.venv`** (create it with `python3.12 -m venv backend/.venv`).
       Verified 2026-09-14: `cd backend && .venv/bin/python -m pytest tests/ -m "not live" -q` →
       **394 passed, 13 deselected**. Backend work is NOT unverifiable on this machine. Note the
       invocation: bare `python3` is 3.9 and will still say `No module named pytest`.
@@ -3120,3 +3120,25 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
   in `732a5c8` (S6.7). The tracker had carried all four as open.
 - **`.build-assess/` untracked** (`07e413a`), and `AgentFinding.id` threaded through the Swift
   decode (`df9d0a2`).
+
+### Audit S11.29-S11.46 (2026-10-04, branch s11-audit-29-46)
+- **Verified**: 
+  - Backend tests pass (1173 passed, 1 skipped).
+  - iOS tests passed on re-run (1111 passed).
+  - Cross-session interactions (deadlines, home-id validation, ISO-8601 formatting, silent cancel handling) function as intended and do not compromise security or functionality.
+  - No secrets were checked in.
+  - S11.46 `smoke-deploy.sh` script works as intended.
+  - Safety rules intact: no changes to `backend/corpus` outside validation, deferral safety strings accurately reflect prompt rules.
+- **Not Verified**: Live Render deploy step (manual step added by S11.46 is pending user execution).
+### S11.12 findings (2026-10-04, branch s11-12-pitch-v2)
+
+- [ ] **S11.39 claims diff has not landed yet:** I wrote around the AI inspector claim by focusing Beat 5 on the Assistant chat.
+- [ ] **Firefighter quote:** He found the idea "really cool" and pointed to prevention/education. I did not name or quote him. Anish needs to decide if permission will be asked (S11.13).
+- [ ] **tools-used.md missing tools:** Updated per AUD-038 to include Claude and Google Antigravity/Gemini. It needs one more look by Anish after S11.47 lands to confirm accuracy. "Which AI tools did you use, and for what?" is an open question for Anish.
+- [x] **AUD-038 fixed:** Updated tools-used.md.
+### S11.47 findings (2026-10-04, branch s11-47-repo-hygiene)
+- `improved_prompt.md` was moved to `docs/ai-assistance/` instead of deleted. Question for Anish: delete it, or keep it as disclosure?
+- `FixtureLibrary.swift` was NOT deleted because it is still referenced in iOS tests (`CameraGestureFeelTests`, `DollhouseRendererTests`, `RoutePlanTests`).
+- `HomeThumbnailView.swift` and the four `scratch_*.py` files were deleted safely (no external references).
+- `jsonschema` and `pytest` moved to `requirements-dev.txt`.
+- `.github/workflows/gate.yml` was updated to install BOTH `requirements.lock` and `requirements-dev.txt` for tests.

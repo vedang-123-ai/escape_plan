@@ -22,7 +22,7 @@ physical iPhone 17 Pro.** Assign people to lanes however you like; run a session
 | [S11.9](S11-9.md) | Device pass I: camera, frame rate, framing, floors | C | `s11-9-device-camera` | S11.8 |
 | [S11.10](S11-10.md) | Device pass II: real scan, AR Drill, haptics, VoiceOver, print | C | `s11-10-device-drill` | S11.9 |
 | [S11.11](S11-11.md) | Integration gate and golden-path polish | all | `s11-11-integration` | S11.1-S11.10 |
-| [S11.12](S11-12.md) | Pitch v2: script, storyboard, truth audit | any | `s11-12-pitch-v2` | drafts early; truth pass after S11.11 |
+| [S11.12](S11-12.md) | Pitch v2: script, storyboard, truth audit (draft v2 written 2026-10-04) | any | `s11-12-pitch-v2` | drafts early; truth pass after S11.11 |
 | [S11.13](S11-13.md) | Film, edit, submit | all | `s11-13-film-submit` | S11.11, S11.12 |
 
 ```
@@ -102,7 +102,7 @@ task is ticked by hand through `toggleDone`); **S11.36** keys the route cache in
 | [S11.44](S11-44.md) | ~~Chat rejects uncited safety claims~~ **DONE 2026-10-04** | 030 | P2 | 6 Grounding & CI | E | `s11-44-chat-citations` | S11.29 | DONE 2026-10-04 (stub-tested; live check owed to S11.49) |
 | [S11.45](S11-45.md) | ~~One conversation per home, bounded history~~ **DONE 2026-10-04** | 033, 049 | P3 | 6 Grounding & CI | D | `s11-45-conversation-per-home` | S11.26, S11.37 | DONE 2026-10-04 |
 | [S11.46](S11-46.md) | ~~Nightly iOS suite; Render deploys only green commits~~ **DONE 2026-10-04** | 037 | P2 | 6 Grounding & CI | any | `s11-46-ci-gating` | S11.8, S11.31 | DONE 2026-10-04 (Render dashboard setting: owner, BLOCKERS §1) |
-| [S11.47](S11-47.md) | Repo hygiene: scratch scripts, dead code, Python 3.12 | 040, 041, 044, 038 (file) | P3 | 7 Cleanup | any | `s11-47-repo-hygiene` | S11.46 | |
+| [S11.47](S11-47.md) | Repo hygiene: scratch scripts, dead code, Python 3.12 | 040, 041, 044, 038 (file) | P3 | 7 Cleanup | any | `s11-47-repo-hygiene` | S11.46 | **DONE** |
 | [S11.48](S11-48.md) | ~~Library listing off the main thread (optional)~~ **DONE 2026-10-04** | 047, 049 | P3 | 7 Cleanup | D | `s11-48-library-listing` | S11.21, owner agrees | DONE 2026-10-04 |
 | [S11.49](S11-49.md) | Live AI verification once credits exist | 002 (+ live 022, 024, 030, 035) | P1 | 7 Verification | any | `s11-49-live-ai` | owner top-up, S11.29, S11.33, S11.44 | |
 
