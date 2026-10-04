@@ -4,8 +4,14 @@
 #
 #   backend        every push / PR   corpus validator + backend pytest (not live, not mongo)
 #   ios-typecheck  every push / PR   scripts/typecheck-ios.sh + EditorCore `swift test`
-#   ios-tests      manual only       the full xcodebuild suite on a simulator, counts from
-#                                    the result bundle (the console undercounts)
+#   ios-tests      manual + nightly  the full xcodebuild suite on a simulator, counts from
+#                                    the result bundle (the console undercounts). Nightly
+#                                    only when main gained a commit in the last 24 h
+#                                    (nightly-gate), so a quiet night costs no macOS time.
+#
+# Render deploys main only after this workflow's checks pass (render.yaml
+# autoDeployTrigger: checksPass). A skipped job counts as passing for Render, so
+# ios-tests being skipped on push does not hold a deploy back.
 #
 # No secrets are used or needed. The env values below are dummy TEST values so the
 # settings loader is satisfied; they are not credentials for anything.
@@ -16,6 +22,9 @@ on:
     branches: ["**"]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # 07:17 UTC, about midnight US Pacific. Scheduled runs use the default branch.
+    - cron: "17 7 * * *"
 
 concurrency:
   group: gate-${{ github.ref }}-${{ github.event_name }}
@@ -26,14 +35,15 @@ permissions:
 
 jobs:
   backend:
+    if: github.event_name != 'schedule' # the nightly run is ios-tests only
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       BACKEND_BEARER_TOKEN: ci-dummy-bearer-token
       JWT_SECRET_KEY: ci-dummy-jwt-secret-not-a-secret-0123456789abcdef
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12" # render.yaml pins 3.12.6
           cache: pip
@@ -57,10 +67,11 @@ jobs:
         run: python -m pytest tests -m "not live"
 
   ios-typecheck:
+    if: github.event_name != 'schedule' # the nightly run is ios-tests only
     runs-on: macos-26
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Select the newest Xcode
         id: xcode
         run: |
@@ -80,14 +91,41 @@ jobs:
       - name: EditorCore tests (Foundation-only package)
         run: swift test --package-path tools/editorcore
 
+  nightly-gate:
+    # Cheap Linux check so the nightly run spends macOS minutes only when main moved.
+    # macOS minutes bill at 10x on a private repo (docs/tracker/BLOCKERS.md, S11.46).
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.age.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Did main gain a commit in the last 24 hours?
+        id: age
+        run: |
+          head_time="$(git log -1 --format=%ct HEAD)"
+          age=$(( $(date +%s) - head_time ))
+          if [ "$age" -lt 86400 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "main HEAD $(git rev-parse --short HEAD) is $((age / 3600)) h old: running the suite."
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "main HEAD $(git rev-parse --short HEAD) is $((age / 3600)) h old: already tested, skipping tonight."
+          fi
+
   ios-tests:
-    # Manual only: a full simulator run is ~10+ minutes of macOS time and about one red
-    # run in three is environmental. Re-run once before believing a red result.
-    if: github.event_name == 'workflow_dispatch'
+    # Manual, plus nightly when main moved. A full simulator run is ~15 minutes of macOS
+    # time and about one red run in three is environmental. Re-run once before believing
+    # a red result. Never on push or pull_request: those stay as fast as before.
+    needs: nightly-gate
+    if: >-
+      !cancelled() && (github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && needs.nightly-gate.outputs.run == 'true'))
     runs-on: macos-26
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Select the newest Xcode
         run: |
           newest="$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)"
@@ -129,7 +167,7 @@ jobs:
           fi
       - name: Upload the result bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-xcresult
           path: ci.xcresult
