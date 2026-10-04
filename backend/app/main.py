@@ -16,7 +16,7 @@ from typing import Any, AsyncIterator, Optional, Literal
 import anthropic
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from app.models import HomeModel, FloorObject
 from app.routing.obstructions import Obstruction
 from app.routing.egress import EgressThresholds
@@ -59,6 +59,7 @@ from app.routing.plan import RoutePlan, RoutingConstraints
 from app.routing.profiles import find_profile
 from app.scoring.findings import Finding
 from app.scoring.recommend import recommendation_items
+from app.scoring.checklist import parse_completion_time
 from app.scoring.score import ScoreBreakdown, compute_score
 
 logging.basicConfig(level=logging.INFO)
@@ -573,9 +574,12 @@ class ScoreRequest(BaseModel):
         description="Findings from /analyze (S3.2). Omit for a routes-and-checklist "
         "score; the findings component then sits at full marks.",
     )
-    checklist_state: dict[str, bool] = Field(
+    checklist_state: dict[str, bool | str] = Field(
         default_factory=dict,
-        description="item id -> done, as persisted on the home document.",
+        description="item id -> done (true) or, for a recurring item, the ISO-8601 "
+        "UTC time it was last completed. A bare true on a recurring item means "
+        "done at an unknown time and stays done until a timestamp is written. "
+        "A timestamp on a non-recurring item is ignored (not done).",
     )
     include_recommendations: bool = Field(
         default=False,
@@ -583,6 +587,19 @@ class ScoreRequest(BaseModel):
         "They are advisory only and never change the score.",
     )
     profile: Optional[Profile] = None
+
+    @field_validator("checklist_state")
+    @classmethod
+    def _timestamps_parse(cls, state: dict[str, bool | str]) -> dict[str, bool | str]:
+        for item_id, value in state.items():
+            if isinstance(value, str):
+                try:
+                    parse_completion_time(value)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"checklist_state[{item_id!r}] is not an ISO-8601 timestamp"
+                    ) from exc
+        return state
 
 
 @app.post(
@@ -609,7 +626,8 @@ def score(request: ScoreRequest, http_request: Request) -> ScoreBreakdown:
         request.checklist_state,
         thresholds,
         tornado_plan=tornado_plan,
-        earthquake_plan=earthquake_plan
+        earthquake_plan=earthquake_plan,
+        now=datetime.now(timezone.utc),
     )
     if request.include_recommendations:
         # S11.27 (AUD-006): this is an AI call and must obey the AI guards, but
