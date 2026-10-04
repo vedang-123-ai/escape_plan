@@ -501,6 +501,10 @@ struct HomeScreen: View {
             library.refresh()
             scanFailure = nil
             lastScanArtifacts = nil
+            // The home is on disk, so the raw scan has done its job (S11.40, AUD-008). Kept in
+            // Debug for the fixture workflow. Not on Dismiss below: the launch sweep collects a
+            // failed conversion's scan after a week instead, since it is the only copy.
+            ScanStore.discardImportedScanInBackground(at: artifacts.directory)
             await readiness.select(summary.id, api: apiClient)
             router.openHouse(homeID: summary.id)
         } catch {

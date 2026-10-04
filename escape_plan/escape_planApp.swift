@@ -38,6 +38,7 @@ struct escape_planApp: App {
 
     init() {
         AppAppearance.install()
+        ScanStore.sweepStaleScansInBackground() // S11.40: drop raw scans left over a week (Release)
 
         // Created ONCE, here, without a `try!` (audit 2026-09-25). There used to be two
         // instances and two force-tries (here and in ContentView), so an unreachable Documents

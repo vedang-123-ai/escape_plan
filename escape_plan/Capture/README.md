@@ -13,6 +13,7 @@ Treat scan output as **draft input to the editor, never final** (playbook S1.4).
 | `Export/RawScanExport.swift` | The wire format (DTOs + encoding) | no |
 | `Export/ScanExportBuilder.swift` | Source protocols + structure → DTO | no |
 | `Export/ScanStore.swift` | Writes artifacts to the documents directory | no |
+| `Export/ScanCleanup.swift` | Deletes raw scans after import / when stale (Release) | no |
 | `Export/RoomPlanScanSource.swift` | RoomPlan conformances — the whole blast radius | **yes** |
 | `RoomCaptureController.swift` | Session lifecycle + scan state machine | yes |
 | `Views/ScanFlowView.swift` | Instructions → scanning → review → failure | no |
@@ -53,9 +54,25 @@ Documents/Scans/<yyyyMMdd-HHmmss>-<short-id>/
     scan.usdz           ← parametric USDZ
 ```
 
-`UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` are set so a scan
-directory can be dragged off the device via Finder/Files — that is how real scans
-reach `schema/fixtures/scans/`.
+`UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` are set **in Debug
+only** so a scan directory can be dragged off the device via Finder/Files — that is
+how real scans reach `schema/fixtures/scans/`. Release builds have neither key, so
+nothing in Documents (homes, chats, scans) shows up in the Files app or Finder
+(S11.40, AUD-008).
+
+### When raw scans are deleted (`Export/ScanCleanup.swift`, S11.40)
+
+- **Release:** a scan's directory is deleted once its converted home is saved, and
+  at launch any scan directory older than 7 days (by its name stamp) is swept. That
+  collects scans left by a crash, a kill, or a failed conversion the user dismissed.
+  Dismissing a failed conversion does not delete straight away: the raw scan is the
+  only copy of that walk-through.
+- **Debug:** raw scans are **kept** by default, so the fixture workflow above still
+  works with an Xcode build. To try the Release behaviour in Debug:
+  `xcrun simctl spawn booted defaults write cac.Escape-Plan debug.keepRawScans -bool NO`
+  (on a device, there is no switch in Settings; ask whoever owns SettingsScreen).
+- Only directories named `yyyyMMdd-HHmmss-<8 hex>` directly inside `Scans/` are
+  ever deleted.
 
 ## The wire format
 
@@ -123,5 +140,5 @@ never silent.
 - `tools/scan-export-roundtrip/run.sh` — exporter → converter → valid HomeModel.
   **Runs anywhere; run it after touching anything in `Export/`.**
 - `xcodebuild -project escape_plan.xcodeproj -target escape_plan -sdk iphonesimulator26.5 build`
-- `escape_planTests/ScanExportTests.swift` — compiles; **not yet executed** (no
-  simulator runtime on the S1.4 machine).
+- `escape_planTests/ScanExportTests.swift` — format tests (`ScanExportTests`) and
+  the cleanup tests (`ScanCleanupTests`, S11.40); run on the simulator.

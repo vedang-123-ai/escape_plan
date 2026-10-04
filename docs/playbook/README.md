@@ -95,7 +95,7 @@ task is ticked by hand through `toggleDone`); **S11.36** keys the route cache in
 | [S11.37](S11-37.md) | Failure messages tell the truth | 032, 046, 014 | P2 | 4 Integration | D | `s11-37-honest-failures` | S11.23, S11.29 | |
 | [S11.38](S11-38.md) | Settings share uses the active home, reports failures | 027, 049 | P2 | 4 Integration | D | `s11-38-settings-share` | S11.21 | DONE 2026-10-03 (audited, fixed) |
 | [S11.39](S11-39.md) | AI inspector: wire it or cut the claim | 022, 044 | P1 | 4 Integration | D + E | `s11-39-ai-inspector` | S11.14 decision, S11.27, S11.29 | |
-| [S11.40](S11-40.md) | Release builds keep data out of Files; scans cleaned | 008 | P2 | 5 Storage & session | D | `s11-40-release-files` | ~~S11.24~~ (dropped, prereq lifted) | |
+| [S11.40](S11-40.md) | ~~Release builds keep data out of Files; scans cleaned~~ **DONE 2026-10-03** | 008 | P2 | 5 Storage & session | D | `s11-40-release-files` | ~~S11.24~~ (dropped, prereq lifted) | DONE 2026-10-03 |
 | [S11.41](S11-41.md) | Home ids validated on every write | 012 | P3 | 5 Storage & session | D | `s11-41-home-id-validation` | S11.21, S11.40 | |
 | [S11.42](S11-42.md) | Server settings: rotation reaches installs, bad URLs refused | 009 | P2 | 5 Storage & session | D | `s11-42-server-settings` | S11.14 owner answers | |
 | [S11.43](S11-43.md) | ~~Signing in lasts; expiry is announced~~ | 031 | P2 | 5 Storage & session | D + E | `s11-43-session-length` | S11.16, S11.28 | **DROPPED 2026-10-02** (accounts cut) |
