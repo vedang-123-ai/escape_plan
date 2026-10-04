@@ -3078,6 +3078,15 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 - **`.build-assess/` untracked** (`07e413a`), and `AgentFinding.id` threaded through the Swift
   decode (`df9d0a2`).
 
+### Audit S11.29-S11.46 (2026-10-04, branch s11-audit-29-46)
+- **Verified**: 
+  - Backend tests pass (1173 passed, 1 skipped).
+  - iOS tests passed on re-run (1111 passed).
+  - Cross-session interactions (deadlines, home-id validation, ISO-8601 formatting, silent cancel handling) function as intended and do not compromise security or functionality.
+  - No secrets were checked in.
+  - S11.46 `smoke-deploy.sh` script works as intended.
+  - Safety rules intact: no changes to `backend/corpus` outside validation, deferral safety strings accurately reflect prompt rules.
+- **Not Verified**: Live Render deploy step (manual step added by S11.46 is pending user execution).
 ### S11.12 findings (2026-10-04, branch s11-12-pitch-v2)
 
 - [ ] **S11.39 claims diff has not landed yet:** I wrote around the AI inspector claim by focusing Beat 5 on the Assistant chat.
