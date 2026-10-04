@@ -6,6 +6,7 @@ import SwiftUI
 /// on self-reported data unless the family chose, each time, to hand it over.
 struct ConsentSheet: View {
     @Environment(\.dismiss) private var dismiss
+    let homeName: String
     let onAccept: (SnapshotConsentDecision) -> Void
     /// True ONLY for the one-time "turn the feature on" gate in Settings. Accepting there
     /// does NOT generate or share anything — it just reveals the "Share" action, which shows
@@ -27,7 +28,7 @@ struct ConsentSheet: View {
 
                     Text(isEnablingOnly
                          ? "Turning this on adds a \"Share\" action to this screen. Nothing is generated or sent yet — every actual share asks again, right before it happens, and lets you choose what's included."
-                         : "This creates an offline snapshot of your home for first responders — a floor plan, utility shutoffs, and a count of anyone who may need help evacuating. You choose when to send it; nothing leaves this device on its own.")
+                         : "This creates an offline snapshot of \(homeName) for first responders — a floor plan, utility shutoffs, and a count of anyone who may need help evacuating. You choose when to send it; nothing leaves this device on its own.")
                         .font(.body)
                         .foregroundStyle(DS.bodyInk)
 

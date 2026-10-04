@@ -20,6 +20,7 @@ import SwiftUI
 
 struct ShareWithFireDepartmentCard: View {
     let homeID: String
+    let homeName: String
     private let exporter: EscapePlanExporter
 
     @State private var showingConsent = false
@@ -27,14 +28,16 @@ struct ShareWithFireDepartmentCard: View {
     @State private var shareURLs: [URL]?
     @State private var generateError: String?
 
-    init(homeID: String, store: HomeDocumentStore) {
+    init(homeID: String, homeName: String, store: HomeDocumentStore) {
         self.homeID = homeID
+        self.homeName = homeName
         self.exporter = EscapePlanExporter(store: store)
     }
 
     /// Test/preview seam — mirrors `ExportPlanSheet`'s init pattern.
-    init(homeID: String, exporter: EscapePlanExporter) {
+    init(homeID: String, homeName: String, exporter: EscapePlanExporter) {
         self.homeID = homeID
+        self.homeName = homeName
         self.exporter = exporter
     }
 
@@ -99,7 +102,7 @@ struct ShareWithFireDepartmentCard: View {
         }
         .dsCard()
         .sheet(isPresented: $showingConsent) {
-            ConsentSheet { decision in
+            ConsentSheet(homeName: homeName) { decision in
                 Task { await generate(consent: decision) }
             }
         }

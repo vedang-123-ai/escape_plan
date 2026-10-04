@@ -15,6 +15,7 @@ struct SettingsScreen: View {
     @Environment(APIClient.self) private var apiClient
     @Environment(AuthSession.self) private var authSession
     @Environment(SyncManager.self) private var syncManager
+    @Environment(ReadinessStore.self) private var readiness
     @EnvironmentObject private var library: HomeLibrary
 
     private enum HealthState: Equatable {
@@ -29,14 +30,6 @@ struct SettingsScreen: View {
     @State private var health: HealthState = .unknown
     @State private var showSaved = false
     @State private var showingHowRoutes = false
-    
-    @AppStorage("snapshot_enabled") private var isSnapshotEnabled = false
-    @State private var showingConsent = false
-    // S11.6: consent is explicit, per share — a separate sheet from the one-time "enable
-    // the feature" gate above, shown fresh every time a snapshot is about to go out.
-    @State private var showingShareConsent = false
-    @State private var isGeneratingSnapshot = false
-    @State private var shareURLs: [URL]?
 
     var body: some View {
         NavigationStack {
@@ -120,53 +113,16 @@ struct SettingsScreen: View {
                     footnote("Debug builds only. The local option expects `uvicorn app.main:app --port 8000` running on this Mac.")
                     #endif
 
-                    section("Share with your fire department") {
-                        let toggle = Toggle("Enable", isOn: Binding(
-                            get: { isSnapshotEnabled },
-                            set: { newValue in
-                                if newValue {
-                                    showingConsent = true
-                                } else {
-                                    isSnapshotEnabled = false
-                                    ResponderSnapshotStore().clearSnapshots()
-                                }
-                            }
-                        ))
-                        .tint(Theme.accent)
-                        .font(.body).foregroundStyle(DS.ink)
-                        .padding(.horizontal, 18)
-                        .frame(minHeight: 60)
-                        
-                        if isSnapshotEnabled {
-                            VStack(spacing: 0) {
-                                toggle
-                                divider
-                                Button {
-                                    // Explicit, per share: re-confirm every time, even
-                                    // though the feature itself was already enabled above.
-                                    showingShareConsent = true
-                                } label: {
-                                    HStack {
-                                        Text("Share with fire department")
-                                            .font(.body)
-                                            .foregroundStyle(Theme.accentText)
-                                        Spacer()
-                                        if isGeneratingSnapshot {
-                                            ProgressView()
-                                        }
-                                    }
-                                    .padding(.horizontal, 18)
-                                    .frame(minHeight: 60)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(HapticPlainButtonStyle())
-                                .disabled(isGeneratingSnapshot)
-                            }
-                        } else {
-                            toggle
+                    if let home = readiness.activeHome, !readiness.needsDraftReview {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Share with your fire department")
+                                .sectionHeaderStyle()
+                                .padding(.horizontal, DS.pagePadding)
+                            ShareWithFireDepartmentCard(homeID: home.id, homeName: home.name, store: library.store)
+                                .padding(.horizontal, DS.pagePadding)
                         }
+                        .padding(.top, 26)
                     }
-                    footnote("Generate a PDF and JSON package of floor plans, hazard findings and occupant counts by room — never names unless you opt in per share — to hand to first responders. Never transmitted automatically; every share asks first.")
 
                     section("About") {
                         row("Version") {
@@ -202,44 +158,6 @@ struct SettingsScreen: View {
             .toolbar(.hidden, for: .navigationBar)
             .onAppear(perform: refreshFields)
             .sheet(isPresented: $showingHowRoutes) { HowRoutesAreComputedSheet() }
-            .sheet(isPresented: $showingConsent) {
-                // isEnablingOnly: true — this accepts nothing being shared, only reveals the
-                // "Share" action below. Its own CTA reads "Turn On", never "Share", so
-                // accepting it is never mistaken for having shared something
-                // (swift-scenekit-reviewer, S11.6).
-                ConsentSheet(isEnablingOnly: true) { _ in
-                    isSnapshotEnabled = true
-                }
-            }
-            .sheet(isPresented: $showingShareConsent) {
-                ConsentSheet { decision in
-                    Task { await generateSnapshot(consent: decision) }
-                }
-            }
-            .background(ShareSheet(urls: $shareURLs))
-        }
-    }
-
-    private func generateSnapshot(consent: SnapshotConsentDecision) async {
-        isGeneratingSnapshot = true
-        defer { isGeneratingSnapshot = false }
-
-        // Find the most recent home from the library
-        let store = library.store
-        let summaries = store.list()
-        guard let homeID = summaries.first?.id else { return }
-
-        let exporter = EscapePlanExporter(store: store)
-        guard let preview = try? exporter.preview(homeID: homeID) else { return }
-
-        // Small delay to let the progress spinner show if rendering takes time
-        try? await Task.sleep(for: .seconds(0.1))
-
-        do {
-            let urls = try exporter.writeResponderSnapshot(preview: preview, consent: consent)
-            shareURLs = urls
-        } catch {
-            print("Failed to generate snapshot: \(error)")
         }
     }
 

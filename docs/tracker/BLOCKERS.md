@@ -118,7 +118,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] AUD-025 (P1) drill appends client-written tornado advice · **fixed 2026-09-30 by S11.15** (evidence under
       "S11.15 findings")
 - [ ] AUD-026 (P2) checklist recurrence unreachable · S11.34 (server, deploy first), S11.35
-- [ ] AUD-027 (P2) Settings share uses the wrong home, fails silently · S11.38
+- [x] AUD-027 (P2) Settings share uses the wrong home, fails silently · S11.38
 - [x] AUD-028 (P2) offline route cache ignores peril/profile/model · **fixed 2026-10-03 by S11.36**
 - [ ] AUD-029 (P2) re-check failure mislabelled; Retry imports old scan · S11.24
 - [ ] AUD-030 (P2) chat accepts uncited safety claims · S11.44, S11.49
@@ -141,7 +141,7 @@ owning session's merge is on `origin/main` and you verified it.
       owns load/save/registration); full split: not a task (deferred to the House redesign)
 - [ ] AUD-046 (P3) decode errors shown as "can't reach server" · S11.37
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
-- [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38, S11.45, S11.48
+- [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
 
 ### Demo trim 1 findings (2026-10-02, branch `trim-1-demo-cuts`)

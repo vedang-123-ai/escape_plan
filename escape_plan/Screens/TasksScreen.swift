@@ -285,7 +285,7 @@ struct TasksScreen: View {
             .padding(.bottom, 8)
         VStack(spacing: 8) {
             meetingPointRow(home)
-            ShareWithFireDepartmentCard(homeID: home.id, store: library.store)
+            ShareWithFireDepartmentCard(homeID: home.id, homeName: home.name, store: library.store)
         }
         .padding(.horizontal, DS.pagePadding)
     }
