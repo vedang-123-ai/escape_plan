@@ -154,7 +154,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] **Mutation checks** (each made a named test fail, then restored): `commit` hard-coded, 500 turned into 422, `ConversionError` not raised, 422 message leaking exception text.
 - [x] **Gate 2026-10-04:** `pytest backend/tests/ -m "not live" -W error::pytest.PytestRemovedIn10Warning`: 1007 passed, 1 skipped, 29 deselected.
 - [x] iOS `checkHealth` reads only the status code; `scripts/demo-preflight.py` reads `status` with `.get`. Adding `commit` is safe.
-- [ ] **`/health` commit live on Render:** verify after deploy with `curl -s https://escape-plan-backend.onrender.com/health` (not yet done).
+- [x] **`/health` commit live on Render (2026-10-04):** `curl -s https://escape-plan-backend.onrender.com/health` returned `{"status":"ok","version":"1.0","commit":"b1d0c44dd9a43fa227df76ac466ad54a88d9c0aa",...}`, the merge commit.
 - [ ] **Not done on purpose:** Mongo index retry and `/health/db` index readiness (AUD-042): S11.30 dropped, `cloud_repo.py` untouched.
 - [ ] `scoring` of a degenerate-but-parseable scan that fails HomeModel validation now returns 500, not 422; no real scan has done this.
 
