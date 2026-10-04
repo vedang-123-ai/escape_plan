@@ -14,7 +14,8 @@
 #   2  live is up but behind main. Normal for a few minutes after a merge: Render deploys
 #      only after the gate workflow's checks pass (render.yaml autoDeployTrigger: checksPass)
 #   3  live is up but reports no usable commit (RENDER_GIT_COMMIT unset, or a non-Render host)
-#   4  could not read origin/main HEAD (no network to GitHub, or not in the repo)
+#   4  could not read origin/main HEAD (no network to GitHub, or not in the repo), or
+#      SMOKE_EXPECT_COMMIT is shorter than 7 characters
 #
 # Environment overrides:
 #   SMOKE_URL             base URL (default the Render service; an argument wins)
@@ -30,6 +31,10 @@ timeout="${SMOKE_TIMEOUT:-120}"
 if [ -n "${SMOKE_EXPECT_COMMIT:-}" ]; then
   expected="$SMOKE_EXPECT_COMMIT"
   expected_from="SMOKE_EXPECT_COMMIT"
+  if [ "${#expected}" -lt 7 ]; then
+    echo "FAIL: SMOKE_EXPECT_COMMIT must be at least 7 characters of a sha (got '$expected')."
+    exit 4
+  fi
 else
   expected="$(git ls-remote origin refs/heads/main 2>/dev/null | awk '{print $1}')"
   expected_from="origin/main"

@@ -180,13 +180,15 @@ and `scripts/smoke-deploy.sh` checks the live commit. The dashboard half is the 
 - [x] **`scripts/smoke-deploy.sh` against the live service:** `PASS`, live and `origin/main` both
       `9877802907d1553e067460cc64d8427c2bccd4ba`, exit 0 (2026-10-04). Proven to fail: `SMOKE_EXPECT_COMMIT=23e44ce` →
       `BEHIND`, exit 2; a non-existent Render host with `SMOKE_TIMEOUT=6` → `FAIL ... last status: 404`, exit 1; a host
-      whose JSON has no `commit` (httpbin.org/anything) → exit 3. It reads no secrets and sends no token.
+      whose JSON has no `commit` (httpbin.org/anything) → exit 3; run outside the repo, or `SMOKE_EXPECT_COMMIT=9`
+      (too short to mean a commit) → exit 4. It reads no secrets and sends no token.
 - [ ] **Actions minutes: the nightly suite costs money-shaped quota (owner decision if it bites).** The repo is
       **private**, owned by **`vedang-123-ai`**, so minutes come out of that account. GitHub's billing docs (read
       2026-10-04): Free includes 2,000 minutes a month, Pro 3,000; macOS costs $0.062 a minute vs $0.006 for Linux, about
-      10x. One suite run is about 10 to 20 macOS minutes (run 37232672098: 9 min 10 s; earlier runs up to ~16 min), so
-      **about 100 to 200 Linux-equivalent minutes per night that `main` moved**: with daily merges until Oct 24, roughly
-      2,000 to 4,000 a month on top of every push's ~3.5 macOS minutes for `ios-typecheck`. **That can exceed the
+      10x. One suite run is about 10 to 20 macOS minutes (run 37232672098: 9 min 10 s; manual run 36179198283 on
+      2026-09-25 took about 16 min including queueing), so **about 100 to 200 Linux-equivalent minutes per night that
+      `main` moved**: with daily merges for the ~20 nights until Oct 24, roughly 2,000 to 4,000, and 3,000 to 6,000 for a
+      full 30-day month, on top of every push's ~3.5 macOS minutes for `ios-typecheck`. **That can exceed the
       included quota.** With no payment method GitHub then blocks all Actions, and because of `checksPass` **Render then
       stops deploying too** (a blocked or failed check means no deploy). Usage could not be read from here (the API needs
       a scope this token lacks). To make it cheaper: change `cron: "17 7 * * *"` in `.github/workflows/gate.yml` to
@@ -195,8 +197,26 @@ and `scripts/smoke-deploy.sh` checks the live commit. The dashboard half is the 
       values confirmed in Render's blueprint spec with WebFetch, 2026-10-04). A blueprint only applies if the service is
       managed by a Render Blueprint, which nobody has confirmed, and Render's docs do not say whether a sync changes an
       existing service. So the dashboard is the source of truth.
+- [ ] **A red nightly or manual `ios-tests` on `main` can hold back a deploy (inferred from Render's rule, unverified).**
+      Render waits for every check on a commit. If a merge lands shortly before 07:17 UTC, or someone presses "Run
+      workflow" on `main` right after a merge, `ios-tests` attaches a check to that same commit; if it goes red (the
+      §4 flake), that commit never deploys. Recovery: in the Render dashboard, open **escape-plan-backend**, click
+      **Manual Deploy**, then **Deploy latest commit**. Press "Run workflow" on a branch, not on `main`. A manual run
+      also re-runs `backend` and `ios-typecheck` (about 3.5 more macOS minutes); only the nightly skips them.
+- [ ] **`ios-typecheck` failing for runner reasons now blocks deploys too.** Its "runner Xcode is older than 26" error
+      says it is "a runner limitation, not a code failure", but under `checksPass` it still stops a deploy. Same
+      recovery as above (Manual Deploy).
+- [ ] **`nightly-gate` uses the commit time, not the push time.** A commit made more than 24 h before it reaches
+      `main` (a long-lived branch merged fast-forward) is never run by the nightly. Merges here are `--no-ff`, whose
+      merge commit is fresh, so this is narrow. Press "Run workflow" if it matters.
+- [ ] **Not taken by S11.46: the ad-hoc-signed `KeychainTokenStoreTests` step** (the "Owner: S11.46 or any CI session"
+      line in "S11.8 findings"). `ios-tests` is still `CODE_SIGNING_ALLOWED=NO`, so those 3 tests still skip in CI.
+      Owner now: any CI session.
+- [ ] **`backend/README.md` § Deploy still says "Pushes to `main` auto-deploy."** (line 163). Now false once the
+      Render setting is on: pushes deploy after the `gate` checks pass, and `bash scripts/smoke-deploy.sh` confirms the
+      live commit. Not an S11.46 file; whoever next edits the backend README.
 - [x] **S11.47 boundary kept:** the install `run:` steps in `gate.yml` (`pip install -r backend/requirements.lock`,
-      the lock-vs-requirements dry run) are byte-identical to `main`. Only the `uses:` lines above them changed (v5 to v7),
+      the lock-vs-requirements dry run) are byte-identical to `main`. Only the `uses:` lines above them changed (checkout v4 and setup-python v5, both to v7),
       so S11.47 can edit the install steps without a conflict.
 
 ### S11.37 findings (2026-10-04, branch `s11-37-honest-failures`)
@@ -1157,7 +1177,8 @@ EditorCore **609 passed, 0 failed** on `macos-26`). `ios-tests` skipped (manual 
 - [x] **Reproducible deploys.** `backend/requirements.lock` (clean-venv `pip freeze`, CPython 3.12); `render.yaml` installs
       it; CI fails if it no longer satisfies `requirements.txt`. Takes effect on Render at the next deploy of `main`.
 - [x] **CI exists.** `.github/workflows/gate.yml`: `backend` and `ios-typecheck` on every push and PR; `ios-tests`
-      (full simulator suite, counts from `xcresulttool`, bundle uploaded) on `workflow_dispatch` only.
+      (full simulator suite, counts from `xcresulttool`, bundle uploaded) on `workflow_dispatch` only. **Since
+      2026-10-04 (S11.46) also nightly, when `main` moved in the last 24 h** (see "S11.46 findings").
 - [x] **`cloud_repo._is_duplicate_key_error`** uses `isinstance` against pymongo's `DuplicateKeyError` (guarded import),
       class-name match kept as the fallback for the test fake. Test added.
 - [x] **Smoke-checked 2026-09-28 by the audit** (`audit/10_DEPLOYMENT.md`, `audit/17_VERIFICATION_LOG.md`): `GET /health`
@@ -2717,6 +2738,8 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 - [ ] **`GestureFrameCostUITests.testACameraDragDoesNotDragSwiftUIUpdatesAlongWithIt` flaked once in a full run after
       S11.21** (2026-10-02 status check on `91552f3`: 1065 / 1053 / 1 failed / 11; passed 1/1 re-run alone). Passed in
       S11.22's full run (1083 / 1072 / 0 / 11). A timing test; re-run it alone before believing a failure.
+      **Also failed 2026-10-04 on CI** (run 37232672098, S11.46: `editor.scene` not found within 20 s; not re-run). Now
+      that `ios-tests` runs nightly, this flake can turn the nightly run red.
 - [x] ~~**S8.2's auth layer has never met a real MongoDB either.**~~ **MET ONE 2026-09-15.**
       Against a live Atlas M0 (`escape-plan.6bak6dr.mongodb.net`, db `escape_plan`), walked by
       hand: register → **201**, duplicate register → **409** (so `DuplicateKeyError` IS matched
