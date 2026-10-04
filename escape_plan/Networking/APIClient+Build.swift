@@ -10,7 +10,9 @@ import Foundation
 struct BuildRequest: Codable, Equatable {
     var description: String?
     var image_b64: String?
-    var image_media_type: String = "image/png"
+    /// No default (S11.33, AUD-024): a default of image/png once labelled every HEIC photo PNG.
+    /// The type travels with the bytes in `PreparedImage`, never filled in separately.
+    var image_media_type: String?
 }
 
 /// Mirror of the backend's BuildResult, minus the tool trace (which the app doesn't
@@ -39,13 +41,15 @@ struct BuildResponse: Codable, Equatable {
 extension APIClient {
     /// Builds a draft home from a description and/or floor-plan image. The construction
     /// loop is capped server-side (~40 tool calls); generous timeout to match.
-    func build(description: String?, imageData: Data?,
-               imageMediaType: String = "image/png") async throws -> BuildResponse {
+    ///
+    /// Takes a `PreparedImage`, not raw bytes: the only way to attach an image is through
+    /// `ImagePreparation`, which guarantees the bytes are the type they are labelled.
+    func build(description: String?, image: PreparedImage?) async throws -> BuildResponse {
         var request = try authenticatedRequest(path: "build", method: "POST")
         request.httpBody = try HomeModel.encoder().encode(BuildRequest(
             description: description,
-            image_b64: imageData?.base64EncodedString(),
-            image_media_type: imageMediaType
+            image_b64: image?.data.base64EncodedString(),
+            image_media_type: image?.mediaType
         ))
         request.timeoutInterval = 180
         let (data, response) = try await session.data(for: request)

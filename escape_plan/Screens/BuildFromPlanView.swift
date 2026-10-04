@@ -2,12 +2,12 @@
 //  escape_plan
 //
 //  Revamp C2: "describe or import a plan" — the no-LiDAR intake. The user types a
-//  description and/or attaches a floor-plan image (photo or PDF page, rasterized here with
-//  PDFKit — the backend only ever sees PNG/JPEG). POST /build returns a DRAFT home whose
+//  description and/or attaches a floor-plan image (a photo becomes JPEG, a PDF's first page
+//  becomes PNG, both through `ImagePreparation` — the backend only ever sees real PNG/JPEG,
+//  labelled with the type it is). POST /build returns a DRAFT home whose
 //  every element is source=ai_plan; we save it and hand it to the editor, where the review
 //  gate (HouseScreen) blocks route fetching until the user confirms the draft.
 
-import PDFKit
 import PhotosUI
 import SwiftUI
 
@@ -22,7 +22,8 @@ struct BuildFromPlanView: View {
 
     @State private var descriptionText = ""
     @State private var photoItem: PhotosPickerItem?
-    @State private var imageData: Data?
+    /// Already JPEG/PNG and downscaled: raw picker bytes never reach this state (AUD-024).
+    @State private var preparedImage: PreparedImage?
     @State private var imageLabel: String?
     @State private var showingPDFImporter = false
     @State private var isBuilding = false
@@ -67,7 +68,7 @@ struct BuildFromPlanView: View {
                             Text(attachedLabel).font(.caption).foregroundStyle(Theme.supporting)
                             Spacer()
                             Button("Remove") {
-                                imageData = nil
+                                preparedImage = nil
                                 imageLabel = nil
                                 photoItem = nil
                             }
@@ -94,13 +95,13 @@ struct BuildFromPlanView: View {
                             Label("Build draft home", systemImage: "wand.and.stars")
                         }
                     }
-                    .disabled(isBuilding || (trimmedDescription == nil && imageData == nil))
+                    .disabled(isBuilding || (trimmedDescription == nil && preparedImage == nil))
                     .accessibilityLabel(isBuilding ? "Building your draft home"
                                                    : "Build draft home")
                     .accessibilityValue(isBuilding ? "In progress, this can take a minute" : "")
                     .accessibilityHint(isBuilding
                                        ? ""
-                                       : (trimmedDescription == nil && imageData == nil
+                                       : (trimmedDescription == nil && preparedImage == nil
                                           ? "Unavailable until you describe your home or attach "
                                             + "a floor plan."
                                           : "Drafts a 3D model you'll review before any escape "
@@ -149,12 +150,7 @@ struct BuildFromPlanView: View {
         .interactiveDismissDisabled(isBuilding)
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
-            Task {
-                if let data = try? await item.loadTransferable(type: Data.self) {
-                    imageData = data
-                    imageLabel = "Photo attached (\(data.count / 1024) KB)"
-                }
-            }
+            Task { await attachPhoto(item) }
         }
         .fileImporter(isPresented: $showingPDFImporter,
                       allowedContentTypes: [.pdf]) { result in
@@ -169,29 +165,49 @@ struct BuildFromPlanView: View {
         return text.isEmpty ? nil : text
     }
 
-    /// First page of the PDF → PNG. Client-side on purpose: the backend accepts only
-    /// PNG/JPEG and gains no PDF dependency.
+    /// Decodes and re-encodes the picked photo before it is attached, so a photo that cannot be
+    /// read is reported here and never sent. Decoding runs off the main actor.
+    private func attachPhoto(_ item: PhotosPickerItem) async {
+        errorMessage = nil
+        let data = try? await item.loadTransferable(type: Data.self)
+        guard photoItem == item else { return }  // a newer pick or Remove superseded this one
+        let result = await Task.detached(priority: .userInitiated) {
+            Result { try ImagePreparation.photo(data ?? Data()) }
+        }.value
+        guard photoItem == item else { return }
+        switch result {
+        case .success(let image):
+            preparedImage = image
+            imageLabel = "Photo attached (\(image.data.count / 1024) KB)"
+        case .failure(let error):
+            preparedImage = nil
+            imageLabel = nil
+            photoItem = nil
+            errorMessage = Self.message(for: error, what: "photo")
+        }
+    }
+
+    /// First page of the PDF → PNG, client-side on purpose: the backend gains no PDF dependency.
     private func importPDF(_ url: URL) {
+        errorMessage = nil
         let secured = url.startAccessingSecurityScopedResource()
         defer { if secured { url.stopAccessingSecurityScopedResource() } }
-        guard let document = PDFDocument(url: url), let page = document.page(at: 0) else {
-            errorMessage = "Couldn't read that PDF."
-            return
+        do {
+            let image = try ImagePreparation.pdfFirstPage(Data(contentsOf: url))
+            preparedImage = image
+            imageLabel = "PDF page 1 attached"
+            photoItem = nil
+        } catch {
+            errorMessage = Self.message(for: error, what: "PDF")
         }
-        let bounds = page.bounds(for: .mediaBox)
-        // ~150 dpi equivalent: plenty for wall lines without a huge upload.
-        let scale = min(2.0, 3000 / max(bounds.width, bounds.height))
-        let size = CGSize(width: bounds.width * scale, height: bounds.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let image = renderer.image { ctx in
-            UIColor.white.setFill()
-            ctx.fill(CGRect(origin: .zero, size: size))
-            ctx.cgContext.translateBy(x: 0, y: size.height)
-            ctx.cgContext.scaleBy(x: scale, y: -scale)
-            page.draw(with: .mediaBox, to: ctx.cgContext)
+    }
+
+    private static func message(for error: Error, what: String) -> String {
+        if case ImagePreparationError.tooLarge = error {
+            return "That \(what) is too large to send, even after shrinking it. Try a smaller one."
         }
-        imageData = image.pngData()
-        imageLabel = "PDF page 1 attached"
+        return "Couldn't read that \(what). Try a different one, or take a screenshot of the plan "
+            + "and attach that."
     }
 
     private func buildHome() {
@@ -203,7 +219,7 @@ struct BuildFromPlanView: View {
             do {
                 let response = try await apiClient.build(
                     description: trimmedDescription,
-                    imageData: imageData
+                    image: preparedImage
                 )
                 guard let home = response.home else {
                     errorMessage = response.issues.isEmpty
