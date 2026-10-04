@@ -2,8 +2,8 @@
 //  escape_plan — S3.3 iOS half
 //
 //  /chat wire types + endpoint call, kept out of APIClient.swift per the session scope.
-//  The backend is stateless: every call resends the full turn history, which must end with
-//  a user message. Request/response bodies mirror backend/app/api_chat.py exactly — the
+//  The backend is stateless: every call resends the turn history, which must end with a user
+//  message; since S11.45 that is the most recent turns within the server's caps (`ChatHistory`). Request/response bodies mirror backend/app/api_chat.py exactly — the
 //  server's models are `extra="forbid"`, so these structs must never grow extra encoded keys.
 
 import Foundation
@@ -24,6 +24,56 @@ struct ChatMessage: Codable, Equatable {
 struct ChatRequest: Encodable {
     var home: HomeModel
     var messages: [ChatMessage]
+}
+
+/// What one /chat request may carry, and the trimming that keeps a long thread inside it
+/// (S11.45, AUD-033). Every send used to post the whole thread, so a long one hit the server's
+/// caps (a 422) and stayed stuck until "New chat". The thread on screen is never cut; only what
+/// is SENT is: the most recent turns that fit.
+enum ChatHistory {
+    /// These three mirror `backend/app/limits.py` ("/chat inputs (AUD-035)") exactly, and
+    /// `ChatRequestEncodingTests` reads that file to prove it, so they cannot drift silently.
+    /// Characters are counted as the server counts them: Python's `len`, one per Unicode scalar.
+    static let maxMessages = 40           // MAX_CHAT_MESSAGES
+    static let maxMessageChars = 8_000    // MAX_CHAT_MESSAGE_CHARS
+    static let maxTotalChars = 100_000    // MAX_CHAT_TOTAL_CHARS
+
+    /// The history to send, and how many earlier turns were left out of it.
+    struct Trimmed: Equatable {
+        var messages: [ChatMessage]
+        var omittedCount: Int
+    }
+
+    /// The longest run of most-recent turns within every cap, oldest dropped first.
+    ///
+    /// - The final message is always kept, even if it alone breaks a cap: dropping the question
+    ///   the user just asked would answer something else. The server then refuses it with a 422
+    ///   whose sentence the screen shows (S11.37), which is the honest outcome.
+    /// - The run is contiguous: a long turn in the middle ends it rather than being skipped, so
+    ///   the model never sees a conversation with a hole in it.
+    /// - It never starts with an assistant turn (unless that is all there is), so a trimmed
+    ///   request reads as the user opening the conversation. A history that ends with the user's
+    ///   message still does after trimming, which the server requires.
+    static func trimmed(_ history: [ChatMessage]) -> Trimmed {
+        guard let last = history.last else { return Trimmed(messages: [], omittedCount: 0) }
+        var kept: [ChatMessage] = [last]
+        var total = characterCount(last.content)
+        for message in history.dropLast().reversed() {
+            let length = characterCount(message.content)
+            guard kept.count < maxMessages,
+                  length <= maxMessageChars,
+                  total + length <= maxTotalChars else { break }
+            kept.append(message)
+            total += length
+        }
+        kept.reverse()
+        while kept.count > 1, kept.first?.role == .assistant { kept.removeFirst() }
+        return Trimmed(messages: kept, omittedCount: history.count - kept.count)
+    }
+
+    /// Python's `len(str)`: Unicode scalars, not Swift's grapheme clusters (an emoji flag is one
+    /// `Character` but two scalars, and the server would count two).
+    static func characterCount(_ text: String) -> Int { text.unicodeScalars.count }
 }
 
 /// 200 response. Citations appear inline in `reply` as `[cite: source-id]` tags;
