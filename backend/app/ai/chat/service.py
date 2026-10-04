@@ -8,25 +8,35 @@ house/plan/profile summary) is rebuilt from scratch each time.
 
 Citation contract for chat: any inline `[cite: source-id]` tag in the
 assistant's reply must resolve against `sources.json` (same convention as the
-corpus markdown and S3.1's structured citations, see `backend/corpus/`). A
-reply is free to contain zero citations (small talk, clarifying questions,
-911 deferrals need none) — the check only rejects *fabricated* ids, mirroring
-`grounded.find_invalid_citations`. Fabricated citations trigger the same
-reject-and-retry loop as S3.1's /explain.
+corpus markdown and S3.1's structured citations, see `backend/corpus/`).
+Fabricated ids trigger the same reject-and-retry loop as S3.1's /explain.
+
+S11.44 (AUD-030): a reply may still contain zero citations (small talk,
+clarifying questions, the 911 line, honest deferrals need none), but a SAFETY
+CLAIM with no tag is no longer shipped. `claims.uncited_safety_claims` defines
+what a safety claim is; such a reply gets ONE corrective retry, and if it is
+still uncited (or there is no time left to retry) the user receives
+`UNCITED_DEFERRAL` instead. The /chat response shape is unchanged.
 """
 
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any, Literal, Optional
 
 import anthropic
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai.grounded import GroundingError, corpus_text, valid_source_ids
+from app.ai.chat.claims import CITE_RE, uncited_safety_claims
 from app.ai.chat.summary import summarize_home, summarize_profiles, summarize_route_plan
-from app.ai.client import CHAT_DEADLINE_S, Deadline, build_client, create_message
+from app.ai.client import (
+    CHAT_DEADLINE_S,
+    Deadline,
+    DeadlineExceeded,
+    build_client,
+    create_message,
+)
 from app.config import get_settings
 from app.limits import MAX_CHAT_MESSAGE_CHARS
 from app.models import HomeModel, Profile
@@ -40,8 +50,24 @@ logger = logging.getLogger("app.ai.chat")
 THINKING = {"type": "disabled"}
 MAX_TOKENS = 1024
 MAX_CITATION_RETRIES = 2
+"""Total model calls per /chat request stay at 1 + this, whatever the mix of retries: it is what
+S11.27's `BUDGET_COST_SINGLE_CALL` (3) charges for."""
 
-CITE_RE = re.compile(r"\[cite:\s*([a-z0-9-]+)\]")
+# S11.44: at most ONE of those retries is spent on uncited safety claims, and it is a last chance:
+# whatever goes wrong after it (still uncited, a fabricated id, out of time, an API error, or the
+# 911 line dropped) ends in UNCITED_DEFERRAL, never an error, because the user asked something and
+# the deferral is an honest answer to it that leads with the emergency line.
+
+UNCITED_DEFERRAL = (
+    "If anyone is in danger right now, get out if safe, then call 911. "
+    "I don't have a sourced answer for that, so I won't guess. "
+    "For anything else, please consult your local fire department or emergency "
+    "management office."
+)
+"""What the user sees when a reply still carries uncited safety claims. Built only from wording
+CHAT_RULES already uses (rule 4's emergency line, rule 2's deferral); no new advice. Its FIRST
+sentence is the emergency line, because the question that produced the uncited reply may have been
+one, and rule 4 says that line comes first."""
 
 CHAT_RULES = """\
 You are the chat assistant for Escape Plan, a home safety readiness and
@@ -60,7 +86,8 @@ measurements; never imply the app measured something it did not.
 You are talking directly with a family member. You are given this specific
 home's floor plan, its ALREADY-COMPUTED escape routes, and any family
 profiles — use them to give house-specific, personalized answers (e.g. "your
-kids' bedroom is upstairs — practice the window route with an adult").
+kids' bedroom is upstairs, and its second way out is the window; practice
+using it twice a year [cite: nfpa-escape-planning]").
 
 Hard rules:
 
@@ -74,6 +101,9 @@ Hard rules:
 3. Every safety claim you make must carry a citation tag `[cite: source-id]`
    immediately after it, using only ids from this exact list (anything else
    is invalid and will be rejected): {source_ids}
+   Facts about this home's computed routes ("your route goes down the Hall
+   to the front door") come from the engine and need no tag; any advice
+   about what to do does. A safety claim without a tag is rejected.
 4. If the user's message suggests an actual, present emergency (smoke, fire,
    trapped, injury), your FIRST line is always: get out if safe, then call
    911. Give that before anything else, even before corpus citations.
@@ -176,6 +206,10 @@ def _log_cache_usage(usage: Any, context: str) -> None:
     )
 
 
+def _deferral() -> ChatResponse:
+    return ChatResponse(reply=UNCITED_DEFERRAL, citations=[])
+
+
 def chat(
     history: list[ChatMessage],
     home: HomeModel,
@@ -189,8 +223,11 @@ def chat(
 
     Stateless: `history` is the full client-held conversation (last message
     must be from the user); nothing is persisted server-side between calls.
-    Retries (up to MAX_CITATION_RETRIES) when the reply cites a fabricated
-    source id; raises ChatGroundingError if it never produces valid output.
+    Retries (up to MAX_CITATION_RETRIES in total) when the reply cites a
+    fabricated source id, raising ChatGroundingError if it never produces valid
+    output. A reply whose safety claims carry no citation gets one corrective
+    retry, and if that retry fails in any way (or the deadline leaves no room
+    for it), the reply becomes UNCITED_DEFERRAL.
     """
     if not history or history[-1].role != "user":
         raise ValueError("history must be non-empty and end with a user message")
@@ -204,38 +241,83 @@ def chat(
     ]
 
     last_problems: list[str] = []
+    corrected_for_uncited = False
+    rejected_had_911 = False
     for attempt in range(1 + MAX_CITATION_RETRIES):
-        response = create_message(
-            client,
-            deadline,
-            "chat",
-            model=settings.anthropic_model,
-            max_tokens=MAX_TOKENS,
-            thinking=THINKING,
-            system=system,
-            messages=messages,
-        )
+        try:
+            response = create_message(
+                client,
+                deadline,
+                "chat",
+                model=settings.anthropic_model,
+                max_tokens=MAX_TOKENS,
+                thinking=THINKING,
+                system=system,
+                messages=messages,
+            )
+        except (DeadlineExceeded, anthropic.APIError) as exc:
+            if not corrected_for_uncited:
+                raise
+            logger.warning("chat attempt=%d: uncited retry failed (%s); deferring", attempt, exc)
+            return _deferral()
         _log_cache_usage(response.usage, f"chat attempt={attempt}")
         reply = "".join(b.text for b in response.content if b.type == "text")
 
         last_problems = find_invalid_chat_citations(reply)
-        if not last_problems:
+        uncited = [] if last_problems else uncited_safety_claims(reply)
+        if not last_problems and not uncited:
+            if corrected_for_uncited and rejected_had_911 and "911" not in reply:
+                logger.warning("chat attempt=%d: retry dropped the 911 line; deferring", attempt)
+                return _deferral()
             return ChatResponse(reply=reply, citations=sorted(CITE_RE.findall(reply)))
 
-        logger.warning("chat attempt=%d rejected: fabricated citations %s", attempt, last_problems)
+        if corrected_for_uncited:
+            logger.warning(
+                "chat attempt=%d: uncited retry still failed (fabricated=%s, uncited=%d); deferring",
+                attempt,
+                last_problems,
+                len(uncited),
+            )
+            return _deferral()
+
+        if last_problems:
+            logger.warning(
+                "chat attempt=%d rejected: fabricated citations %s", attempt, last_problems
+            )
+            correction = (
+                "That reply cited source id(s) that don't exist: "
+                + ", ".join(last_problems)
+                + ". Every [cite: ...] tag must use one of the source ids "
+                "listed in your instructions. Resubmit your answer to my "
+                "previous question with corrected or removed citations."
+            )
+        else:
+            # No call left (the 3-call budget) or no time to start one: defer. Out of time is
+            # deliberately NOT a 504 here, because an honest answer is already in hand.
+            if attempt == MAX_CITATION_RETRIES or not deadline.can_start():
+                logger.warning(
+                    "chat attempt=%d: %d uncited safety claim(s), no retry left; deferring",
+                    attempt,
+                    len(uncited),
+                )
+                return _deferral()
+            corrected_for_uncited = True
+            rejected_had_911 = "911" in reply
+            logger.warning(
+                "chat attempt=%d rejected: %d uncited safety claim(s)", attempt, len(uncited)
+            )
+            correction = (
+                "These sentences in that reply give safety guidance without a "
+                "[cite: source-id] tag: "
+                + " | ".join(f'"{c}"' for c in uncited[:5])
+                + ". Every safety claim must carry a citation to one of the source "
+                "ids listed in your instructions. Resubmit your answer to my "
+                "previous question: cite each claim, or remove any claim the "
+                "corpus does not support. Keep any emergency line as it was."
+            )
+
         messages.append({"role": "assistant", "content": reply})
-        messages.append(
-            {
-                "role": "user",
-                "content": (
-                    "That reply cited source id(s) that don't exist: "
-                    + ", ".join(last_problems)
-                    + ". Every [cite: ...] tag must use one of the source ids "
-                    "listed in your instructions. Resubmit your answer to my "
-                    "previous question with corrected or removed citations."
-                ),
-            }
-        )
+        messages.append({"role": "user", "content": correction})
 
     raise ChatGroundingError(
         "chat citation validation failed after retries: fabricated ids "

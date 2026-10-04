@@ -99,7 +99,7 @@ task is ticked by hand through `toggleDone`); **S11.36** keys the route cache in
 | [S11.41](S11-41.md) | ~~Home ids validated on every write~~ **DONE 2026-10-04** | 012 | P3 | 5 Storage & session | D | `s11-41-home-id-validation` | S11.21, S11.40 | DONE 2026-10-04 |
 | [S11.42](S11-42.md) | ~~Server settings: rotation reaches installs, bad URLs refused~~ **DONE 2026-10-04** | 009 | P2 | 5 Storage & session | D | `s11-42-server-settings` | S11.14 owner answers | DONE 2026-10-04 |
 | [S11.43](S11-43.md) | ~~Signing in lasts; expiry is announced~~ | 031 | P2 | 5 Storage & session | D + E | `s11-43-session-length` | S11.16, S11.28 | **DROPPED 2026-10-02** (accounts cut) |
-| [S11.44](S11-44.md) | Chat rejects uncited safety claims | 030 | P2 | 6 Grounding & CI | E | `s11-44-chat-citations` | S11.29 | |
+| [S11.44](S11-44.md) | ~~Chat rejects uncited safety claims~~ **DONE 2026-10-04** | 030 | P2 | 6 Grounding & CI | E | `s11-44-chat-citations` | S11.29 | DONE 2026-10-04 (stub-tested; live check owed to S11.49) |
 | [S11.45](S11-45.md) | One conversation per home, bounded history | 033, 049 | P3 | 6 Grounding & CI | D | `s11-45-conversation-per-home` | S11.26, S11.37 | |
 | [S11.46](S11-46.md) | ~~Nightly iOS suite; Render deploys only green commits~~ **DONE 2026-10-04** | 037 | P2 | 6 Grounding & CI | any | `s11-46-ci-gating` | S11.8, S11.31 | DONE 2026-10-04 (Render dashboard setting: owner, BLOCKERS §1) |
 | [S11.47](S11-47.md) | Repo hygiene: scratch scripts, dead code, Python 3.12 | 040, 041, 044, 038 (file) | P3 | 7 Cleanup | any | `s11-47-repo-hygiene` | S11.46 | |

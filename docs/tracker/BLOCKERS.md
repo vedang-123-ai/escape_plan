@@ -123,7 +123,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] AUD-027 (P2) Settings share uses the wrong home, fails silently · S11.38
 - [x] AUD-028 (P2) offline route cache ignores peril/profile/model · **fixed 2026-10-03 by S11.36**
 - [ ] AUD-029 (P2) re-check failure mislabelled; Retry imports old scan · S11.24
-- [ ] AUD-030 (P2) chat accepts uncited safety claims · S11.44, S11.49
+- [ ] AUD-030 (P2) chat accepts uncited safety claims · **fixed under stub tests 2026-10-04 by S11.44**; live check owed · S11.49
 - [ ] AUD-031 (P2) 60-minute sessions, no refresh · S11.43
 - [x] AUD-032 (P2) chat timeout shorter than cold start · S11.37 (Render paid tier: owner, logged for S11.13) · **fixed 2026-10-04 by S11.37** (evidence under "S11.37 findings"); the Render paid-tier decision stays with the owner (S11.13)
 - [ ] AUD-033 (P3) one conversation slot for all homes · S11.45
@@ -218,6 +218,37 @@ and `scripts/smoke-deploy.sh` checks the live commit. The dashboard half is the 
 - [x] **S11.47 boundary kept:** the install `run:` steps in `gate.yml` (`pip install -r backend/requirements.lock`,
       the lock-vs-requirements dry run) are byte-identical to `main`. Only the `uses:` lines above them changed (checkout v4 and setup-python v5, both to v7),
       so S11.47 can edit the install steps without a conflict.
+
+### S11.44 findings (2026-10-04, branch s11-44-chat-citations)
+
+- [x] **AUD-030 fixed under stub tests.** The chat no longer ships a reply that gives safety advice without a source. It
+      asks the model once to add sources; if the second answer still falls short in any way (no source, a made-up
+      source, out of time, an error, or it dropped the "call 911" line), the family gets the fixed answer below instead.
+      The reply shape the iPhone reads is unchanged. Evidence: tests in `backend/tests/test_chat.py`, the two new eval
+      cases, and the grader probes (`test_grader_adversarial.py`).
+- [ ] **For Anish to read: the fallback answer.** This is what a family sees when the AI's answer could not be backed
+      by a source: *"If anyone is in danger right now, get out if safe, then call 911. I don't have a sourced answer for
+      that, so I won't guess. For anything else, please consult your local fire department or emergency management
+      office."* It only reuses wording the chat already had, and the 911 line comes first on purpose (the question may
+      have been an emergency). Say if you want it worded differently.
+- [ ] **Live check owed to S11.49 (billing, AUD-002).** Nobody has seen the real model go through this. Three things to
+      measure: how often a normal question ends in the fallback answer (too often would make the chat feel useless),
+      whether the two new cases `uncited-safety-claim` and `mixed-cited-and-uncited` pass, and whether the retry makes
+      the model attach a source to a route fact that came from the engine.
+- [ ] **Known gaps in the check, on purpose.** Plain statements of fact with no advice in them ("water spreads grease
+      fires") and "you can ..." sentences are not caught. The check is a word-pattern rule, not understanding. The
+      live run shows how much this matters.
+- [ ] **A tag with two ids (`[cite: a, b]`) or capital letters counts as no tag.** This was already true before this
+      session; it now leads to a retry and possibly the fallback, not a pass. The chat prompt asks for one id per tag.
+- [x] **Gate 2026-10-04:** `pytest backend/tests -m "not live"` **1173 passed, 1 skipped, 31 deselected** (before
+      merging origin/main); `python3 backend/corpus/validate.py` valid. Mutation checks: 30 code breaks over three
+      rounds, each turned a named test red, then restored from a backup. Five first survived and got new probes.
+- [x] **Reviewers:** grounding-auditor, two rounds. Round 1, VIOLATIONS: the emergency path could end in an error,
+      and the check was too loose and too strict. Round 2, narrower VIOLATIONS: the fallback did not put 911 first,
+      ordinary 911 lines were flagged, route exemption gaps. Every listed string is now a test; the remaining
+      minor misses are written down as accepted in `claims.py`. No third audit was run. ecc:python-reviewer: curly
+      apostrophes, "I recommend" bypass, route narration blocked; all fixed. The AI still computes no route; no tool
+      was touched.
 
 ### S11.37 findings (2026-10-04, branch `s11-37-honest-failures`)
 
