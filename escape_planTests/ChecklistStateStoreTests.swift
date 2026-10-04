@@ -30,7 +30,7 @@ final class ChecklistStateStoreTests: XCTestCase {
     }
 
     func testSaveLoadRoundTrip() {
-        let state = ["alarm.every_level": true, "practice.meeting_point": false]
+        let state: [String: ChecklistMark] = ["alarm.every_level": true, "practice.meeting_point": false]
         store.save(state, homeID: "home-1")
         XCTAssertEqual(store.load(homeID: "home-1"), state)
     }
@@ -70,6 +70,45 @@ final class ChecklistStateStoreTests: XCTestCase {
 
         defaults.set("not a dictionary", forKey: "checklistState.home-2")
         XCTAssertEqual(store.load(homeID: "home-2"), [:])
+    }
+
+    // MARK: - S11.35: completion dates beside the old Bools
+
+    /// An install from before S11.35 wrote `[String: Bool]` straight into UserDefaults. Every value
+    /// must come back, and saving it again must write the same Bools (no invented dates).
+    func testBoolOnlyStoreWrittenTheOldWayLoadsEveryValueAndResavesWithoutLoss() {
+        let old: [String: Bool] = ["alarm.every_level": true, "practice.drill_recent": true,
+                                   "practice.meeting_point": false]
+        defaults.set(old, forKey: "checklistState.home-1")
+
+        let loaded = store.load(homeID: "home-1")
+        XCTAssertEqual(loaded, ["alarm.every_level": .flag(true), "practice.drill_recent": .flag(true),
+                                "practice.meeting_point": .flag(false)])
+
+        store.save(loaded, homeID: "home-1")
+        XCTAssertEqual(defaults.dictionary(forKey: "checklistState.home-1") as? [String: Bool], old,
+                       "a re-save of migrated state is byte-for-byte the old Bool dictionary")
+    }
+
+    func testMixedBoolAndDateStoreRoundTrips() {
+        let drilled = Date(timeIntervalSince1970: 1_790_000_000)
+        let state: [String: ChecklistMark] = ["alarm.every_level": .flag(true),
+                                              "practice.drill_recent": .completed(drilled),
+                                              "practice.meeting_point": .flag(false)]
+        store.save(state, homeID: "home-1")
+
+        let relaunched = ChecklistStateStore(defaults: UserDefaults(suiteName: suiteName)!)
+        XCTAssertEqual(relaunched.load(homeID: "home-1"), state)
+    }
+
+    /// The old cast dropped the whole home's ticks when one value was unreadable. Now only that
+    /// value is lost.
+    func testOneUnreadableValueDropsOnlyThatValue() {
+        let drilled = Date(timeIntervalSince1970: 1_790_000_000)
+        defaults.set(["alarm.every_level": true, "practice.drill_recent": drilled, "bad": "yes"] as [String: Any],
+                     forKey: "checklistState.home-1")
+        XCTAssertEqual(store.load(homeID: "home-1"),
+                       ["alarm.every_level": .flag(true), "practice.drill_recent": .completed(drilled)])
     }
 
     func testStateSurvivesRelaunch() {

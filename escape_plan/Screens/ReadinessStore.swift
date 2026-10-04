@@ -20,7 +20,12 @@ final class ReadinessStore {
     /// The last score, tagged with the home it was computed for (AUD-014). `ScoreBreakdown` alone
     /// cannot say which request it answered, so the tag is kept beside it.
     private var scored: (homeID: String, breakdown: ScoreBreakdown)?
-    private(set) var checklistState: [String: Bool] = [:]
+    private(set) var checklistState: [String: ChecklistMark] = [:]
+    /// A recurring item ticked or unticked since the last /score answer (S11.35). Shown until the
+    /// answer lands, then dropped: from there the server's `done` is the only clock.
+    private var pendingRecurring: [String: Bool] = [:]
+    /// The time a tick records. A test sets it; nothing else does.
+    @ObservationIgnored var now: () -> Date = { Date() }
     private(set) var isScoring = false
     private(set) var scoreFailure: BackendFailure?
     private(set) var preventionTips: [PreventionTip] = []
@@ -64,7 +69,17 @@ final class ReadinessStore {
     /// draft in House is the only way to clear it, and House's autosave reloads this store.
     var needsDraftReview: Bool { activeHome?.hasAIDraftContent ?? false }
 
-    func isDone(_ item: ChecklistItem) -> Bool { checklistState[item.id] ?? item.done }
+    /// A recurring item follows the server's `done` (it ages out on the server's clock); a stored
+    /// date is only ever sent, never read back as "done". Every other item is the user's word,
+    /// so the local tick wins until the next answer agrees.
+    func isDone(_ item: ChecklistItem) -> Bool {
+        if item.recurrence_days != nil { return pendingRecurring[item.id] ?? item.done }
+        switch checklistState[item.id] {
+        case .flag(let done): return done
+        // A date on an item that does not recur is ignored by the server too; show its answer.
+        case .completed, nil: return item.done
+        }
+    }
 
     /// The items that can cap the score — the backend's own high-severity rule.
     var urgentOpen: [ChecklistItem] { items.filter { $0.severity == .high && !isDone($0) } }
@@ -116,6 +131,7 @@ final class ReadinessStore {
     private func switchActiveHome(to homeID: String?) {
         cancelScoreFetch()
         activeHomeID = homeID
+        pendingRecurring = [:]
         scored = nil
         scoreFailure = nil
     }
@@ -139,6 +155,8 @@ final class ReadinessStore {
             scoreFailure = nil
             return
         }
+        // `pendingRecurring` survives a same-home reload (pull to refresh, House autosave): an
+        // offline tick must not vanish. A home switch clears it in `switchActiveHome`.
         checklistState = stateStore.load(homeID: activeHomeID)
         do {
             let home = try library.store.load(homeID: activeHomeID, as: HomeModel.self)
@@ -219,6 +237,7 @@ final class ReadinessStore {
         switch result {
         case .success(let new):
             scored = (home.id, new)
+            pendingRecurring = [:]
             (try? ScoreCache())?.save(new, for: home.id)
             scoreFailure = nil
         case .failure(let error):
@@ -262,7 +281,13 @@ final class ReadinessStore {
     func toggleDone(_ item: ChecklistItem, api: APIClient, animated: Bool = true) {
         guard let activeHomeID, items.contains(where: { $0.id == item.id }) else { return }
         let newDone = !isDone(item)
-        withAnimation(animated ? .snappy(duration: 0.22) : nil) { checklistState[item.id] = newDone }
+        let recurs = item.recurrence_days != nil
+        // A recurring item records WHEN it was done, so the server can tell when it lapses (S11.35).
+        let mark: ChecklistMark = newDone && recurs ? .completed(now()) : .flag(newDone)
+        withAnimation(animated ? .snappy(duration: 0.22) : nil) {
+            checklistState[item.id] = mark
+            if recurs { pendingRecurring[item.id] = newDone }
+        }
         stateStore.save(checklistState, homeID: activeHomeID)
         if newDone { Haptics.tick() } else { Haptics.selection() }
         rescore(api: api)
@@ -318,7 +343,10 @@ enum TaskDestination {
         // "re-scan your home" are practice items too, but a drill does neither (the re-scan review
         // was cut 2026-10-02), so they only tick off here.
         case .practice: self = item.id == "practice.drill_recent" ? .drill : .toggle
-        case .smoke_alarm, .routes, .egress, .agent_finding, .recommendation: self = .house
+        // The monthly alarm test is the user's word: nothing in the model can say a button was
+        // pressed (S11.35, owner 2026-10-04). Server-driven: a smoke-alarm item that recurs.
+        case .smoke_alarm: self = item.recurrence_days != nil ? .toggle : .house
+        case .routes, .egress, .agent_finding, .recommendation: self = .house
         default: self = .toggle
         }
     }

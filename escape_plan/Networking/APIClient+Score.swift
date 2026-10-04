@@ -8,8 +8,9 @@ import Foundation
 extension APIClient {
     /// Recomputes the preparedness score server-side for `home` with the given checklist
     /// done-state. The backend recomputes the route plan and the full breakdown on every
-    /// call, so the returned score always matches the documented weights exactly.
-    func score(home: HomeModel, checklistState: [String: Bool]) async throws -> ScoreBreakdown {
+    /// call, so the returned score always matches the documented weights exactly. A completed
+    /// recurring item goes out as its completion time (`ChecklistMark`), everything else as a Bool.
+    func score(home: HomeModel, checklistState: [String: ChecklistMark]) async throws -> ScoreBreakdown {
         var request = try authenticatedRequest(path: "score", method: "POST")
         request.httpBody = try HomeModel.encoder().encode(
             ScoreRequest(home: home, checklist_state: checklistState)
