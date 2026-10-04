@@ -90,7 +90,7 @@ task is ticked by hand through `toggleDone`); **S11.36** keys the route cache in
 | [S11.32](S11-32.md) | ~~Sync handles a stale revision and a full account~~ | 016, 007 | P2 | 4 Integration | D | `s11-32-sync-cas` | S11.22, S11.30 deployed | **DROPPED 2026-10-02** (accounts cut) |
 | [S11.33](S11-33.md) | ~~Photo import sends a real JPEG~~ **DONE 2026-10-03** | 024 | P1 | 4 Integration | D | `s11-33-photo-jpeg` | S11.26 | DONE 2026-10-03 |
 | [S11.34](S11-34.md) | ~~Checklist recurrence through /score (server)~~ **DONE 2026-10-04** (deploy to be confirmed before S11.35) | 026 | P2 | 4 Integration | E | `s11-34-recurrence-server` | S11.27 | DONE 2026-10-04 |
-| [S11.35](S11-35.md) | The app remembers when a recurring task was done | 026 | P2 | 4 Integration | D | `s11-35-recurrence-app` | S11.23, S11.34 deployed | |
+| [S11.35](S11-35.md) | ~~The app remembers when a recurring task was done~~ **DONE 2026-10-04** | 026 | P2 | 4 Integration | D | `s11-35-recurrence-app` | S11.23, S11.34 deployed | DONE 2026-10-04 |
 | [S11.36](S11-36.md) | Offline route cache keyed by peril, person and model | 028 | P2 | 4 Integration | D | `s11-36-route-cache-key` | S11.20 | DONE 2026-10-03 (audited, fixed) |
 | [S11.37](S11-37.md) | ~~Failure messages tell the truth~~ **DONE 2026-10-04** | 032, 046, 014 | P2 | 4 Integration | D | `s11-37-honest-failures` | S11.23, S11.29 | DONE 2026-10-04 |
 | [S11.38](S11-38.md) | Settings share uses the active home, reports failures | 027, 049 | P2 | 4 Integration | D | `s11-38-settings-share` | S11.21 | DONE 2026-10-03 (audited, fixed) |

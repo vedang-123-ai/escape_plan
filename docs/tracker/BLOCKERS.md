@@ -119,7 +119,7 @@ owning session's merge is on `origin/main` and you verified it.
       HEIC, a JPEG, a Live Photo and a PDF to a funded `/build` and sees a draft come back
 - [x] AUD-025 (P1) drill appends client-written tornado advice · **fixed 2026-09-30 by S11.15** (evidence under
       "S11.15 findings")
-- [ ] AUD-026 (P2) checklist recurrence unreachable · **server half fixed 2026-10-04 by S11.34** (evidence under "S11.34 findings"); stays open until the deploy is confirmed live and S11.35 ships the app half
+- [x] AUD-026 (P2) checklist recurrence unreachable · **server half fixed 2026-10-04 by S11.34; app half fixed 2026-10-04 by S11.35** (deploy confirmed live; evidence under "S11.35 findings"). The tapped-through-the-screen check is owed to the owner (below)
 - [x] AUD-027 (P2) Settings share uses the wrong home, fails silently · S11.38
 - [x] AUD-028 (P2) offline route cache ignores peril/profile/model · **fixed 2026-10-03 by S11.36**
 - [ ] AUD-029 (P2) re-check failure mislabelled; Retry imports old scan · S11.24
@@ -146,6 +146,43 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] AUD-047 (P3) `list()` on the main thread · **fixed 2026-10-04 by S11.48** (50 homes: 215 ms to 8 ms cold, 1.2 ms per autosave; evidence under "S11.48 findings")
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45 (Assistant item fixed 2026-10-04); the starter-seeding item fixed 2026-10-04 by S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.35 findings (2026-10-04, branch s11-35-recurrence-app)
+
+Evidence: iOS unit suite `-only-testing:escape_planTests` **1114 tests: 1111 passed, 0 failed, 3 skipped**
+(`xcrun xcresulttool get test-results summary` on `.build-s1135/full1.xcresult`, iPhone 17 Pro simulator, after merging
+origin/main a71393d, run 2026-10-04, bundle not committed).
+Owned classes (`ChecklistStateStoreTests`, `ScoreModelsTests`, `ReadinessStoreTests`) 48/48 on `.build-s1135/owned2.xcresult`.
+`scripts/typecheck-ios.sh` ok on all four targets; `swift test --package-path tools/editorcore` 646 tests, 0 failures.
+
+- [x] **Deploy confirmed (S11.34's open line):** `/health` on 2026-10-04 reported `commit` 9877802, a descendant of the
+      S11.34 merge 23e44ce (`git merge-base --is-ancestor`).
+- [x] **AUD-026 app half fixed.** A checklist value is a Bool or a completion date (`ChecklistMark`); a completed recurring
+      item goes to `/score` as `2026-10-04T12:34:56Z` (UTC, whole seconds; exact string pinned by a test). Old installs keep
+      every tick: UserDefaults holds Bools and Dates in one dictionary, so a Bool-only store loads and re-saves unchanged, and
+      a legacy `true` is sent as `true` (no invented date). One unreadable value is now dropped on its own (logged), not the
+      whole home's ticks. `recurrence_days` and `completed_at` decode if present, so old score caches still load.
+- [x] **One clock:** a recurring item shows the server's `done`. A tick shows at once and stays until a `/score` answer lands
+      (it survives a failed or same-home reload); then the answer decides. Which items recur comes from the response.
+- [x] **Monthly alarm test is now tickable** (owner, 2026-10-04): it was sent to House, which cannot tick it, so it could never
+      be done. A smoke-alarm item that recurs ticks in place; the placement items still go to House.
+- [x] **Due label** (wording chosen by the owner): "Done 3 months ago · due in 3 months", "… · due again now" when lapsed,
+      "Repeats every 6 months" when no date is known. Display only; worked out from the response's `completed_at`.
+- [x] **Owner answer to S11.34's question:** a lapsed monthly alarm test **keeps** lowering the smoke-alarm score. No change.
+- [x] **Manual check against the live server (simulator, no code edit):** a drill date written as "now" came back
+      `done: true, completed_at` = that time; the same date moved back 200 days came back `done: false`. The alarm test row
+      showed "Repeats every month" with a tick circle. Done by writing the stored date with `simctl ... defaults write`, so
+      there was no debug edit to remove (`git diff` grep clean).
+- [ ] **Not observed on screen: the drill row itself.** No tap tool was available in this session, so nobody has opened Tasks
+      and seen the drill row's label or ticked it by hand. Owner, about 2 minutes: open the app, Tasks tab, tap the drill
+      task, tap "We practiced it for real", close the sheet. The row should say "Done today · due in 6 months".
+- [ ] **Phone clock wrong by more than a day:** a tick is stamped in the future, the server ignores it, and the row flips back
+      to not done with no explanation (both reviewers). Needs a design call (a "check your date and time" hint); not built.
+- [ ] **Old score cache plus an offline tick:** before the first fresh `/score` after updating, a cached answer has no
+      `recurrence_days`, so a tick in that window is stored as plain `true` (no date). Self-heals on the next tick. Low.
+- [ ] **`alarm.replace_10y` is still not tickable** (sent to House, nothing ticks it). Same shape as the monthly test; not
+      changed because nobody asked. Owner call.
+- [ ] **Title wording:** "Test every smoke alarm this month" is a rolling 30 days. Server copy, not changed (S11.34's line stands).
 
 ### S11.45 findings (2026-10-04, branch s11-45-conversation-per-home)
 
