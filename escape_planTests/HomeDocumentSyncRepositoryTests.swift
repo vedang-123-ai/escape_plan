@@ -191,6 +191,33 @@ final class HomeDocumentSyncRepositoryTests: XCTestCase {
         XCTAssertNoThrow(try repository.checkCanWritePulledHome(home), "a closed home may be written")
     }
 
+    // MARK: - The server's home_id is checked before it becomes a path (S11.41, AUD-012)
+
+    func testAPulledHomeWithATraversalIDIsAPerHomeFailureAndWritesNothing() throws {
+        var hostile = try bungalow()
+        let escapee = "s1141-pull-\(UUID().uuidString)"
+        hostile.home_id = "../\(escapee)"
+        let outside = scratch.deletingLastPathComponent()
+            .appendingPathComponent("\(escapee).\(HomeDocumentStore.fileExtension)")
+        defer { try? FileManager.default.removeItem(at: outside) }
+
+        XCTAssertThrowsError(try repository.checkCanWritePulledHome(hostile)) { error in
+            XCTAssertEqual(error as? SyncFailure, HomeDocumentSyncRepository.pulledHomeIDRefused)
+        }
+        XCTAssertThrowsError(try repository.writePulledHome(hostile)) { error in
+            XCTAssertEqual(error as? SyncFailure, HomeDocumentSyncRepository.pulledHomeIDRefused)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: outside.path))
+        XCTAssertEqual(store.list().count, 0)
+    }
+
+    func testAPulledHomeWithAnUpperCaseUUIDIsStillWritten() throws {
+        var home = try bungalow()
+        home.home_id = UUID().uuidString
+        XCTAssertNoThrow(try repository.writePulledHome(home))
+        XCTAssertEqual(store.list().map(\.id), [home.home_id])
+    }
+
     /// The same check covers a document that did not decode.
     func testAnUndecodableDocumentIsRefusedBeforeAnyCopyIsMade() throws {
         let home = try bungalow()

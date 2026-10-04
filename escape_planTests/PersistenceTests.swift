@@ -346,6 +346,130 @@ final class PersistenceTests: XCTestCase {
         }
     }
 
+    // MARK: - Home ids are file names, so they are checked (S11.41, AUD-012)
+
+    /// A sibling of the Homes directory: where `../<name>` would land if an id were not checked.
+    private func outside(_ name: String) -> URL {
+        directory.deletingLastPathComponent()
+            .appendingPathComponent("\(name).\(HomeDocumentStore.fileExtension)")
+    }
+
+    private func bungalow(id: String) throws -> HomeDocument {
+        try PersistenceFixtures.document("bungalow")
+            .reidentified(homeID: id, name: "Bungalow", modified: Date(timeIntervalSince1970: 1_780_000_000))
+    }
+
+    func testSaveRefusesATraversalIDAndWritesNothingOutsideTheDirectory() throws {
+        let store = try makeStore()
+        let escapee = "s1141-save-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(at: outside(escapee)) }
+
+        XCTAssertThrowsError(try store.save(bungalow(id: "../\(escapee)"))) {
+            XCTAssertEqual($0 as? InvalidHomeID, InvalidHomeID(homeID: "../\(escapee)"))
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: outside(escapee).path))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path), [])
+    }
+
+    /// Delete reads its id from a file (S11.21's "Your homes" row), so it is checked too. Without
+    /// the check, this deletes a file outside the Homes directory.
+    func testDeleteRefusesATraversalIDAndLeavesTheFileOutsideAlone() throws {
+        let store = try makeStore()
+        let victim = "s1141-delete-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(at: outside(victim)) }
+        try Data("keep me".utf8).write(to: outside(victim))
+
+        XCTAssertThrowsError(try store.delete(homeID: "../\(victim)")) {
+            XCTAssertEqual($0 as? InvalidHomeID, InvalidHomeID(homeID: "../\(victim)"))
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outside(victim).path))
+    }
+
+    func testLoadAndExistsRefuseATraversalIDEvenWhenTheFileIsThere() throws {
+        let store = try makeStore()
+        let target = "s1141-load-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(at: outside(target)) }
+        try bungalow(id: target).serialized().write(to: outside(target))
+
+        XCTAssertThrowsError(try store.load(homeID: "../\(target)")) {
+            XCTAssertEqual($0 as? InvalidHomeID, InvalidHomeID(homeID: "../\(target)"))
+        }
+        XCTAssertFalse(store.exists(homeID: "../\(target)"))
+        // The non-throwing path stays inside the directory too.
+        XCTAssertEqual(store.url(for: "../\(target)").deletingLastPathComponent().standardizedFileURL,
+                       directory.standardizedFileURL)
+    }
+
+    /// Import never uses the file's own id, so a hostile one cannot become a path.
+    func testImportOfAFileWithATraversalIDStoresItUnderAFreshValidID() throws {
+        let store = try makeStore()
+        let escapee = "s1141-import-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(at: outside(escapee)) }
+        let source = directory.deletingLastPathComponent()
+            .appendingPathComponent("s1141-import-src-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: source) }
+        try bungalow(id: "../\(escapee)").serialized().write(to: source)
+
+        let imported = try store.importDocument(from: source)
+
+        XCTAssertTrue(HomeID.isValid(imported.id))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: outside(escapee).path))
+        XCTAssertEqual(store.list().map(\.id), [imported.id])
+    }
+
+    /// Existing homes must keep loading: every id format in use today saves, lists and opens.
+    func testEveryCurrentIDFormatSavesListsAndLoads() throws {
+        let store = try makeStore()
+        let ids = [
+            UUID().uuidString.lowercased(),
+            UUID().uuidString,                  // HouseScreen.blankHome
+            "TEST-DEMO-HOME-1234",
+            "9a5e6d34-2c3f-4a1b-8d70-empty-123",
+            "preserved-\(UUID().uuidString.lowercased())-1",
+            "home-1",
+        ]
+        for id in ids { try store.save(bungalow(id: id)) }
+
+        XCTAssertEqual(Set(store.list().map(\.id)), Set(ids))
+        for id in ids {
+            XCTAssertEqual(try store.load(homeID: id).homeID, id)
+            XCTAssertTrue(store.exists(homeID: id), id)
+        }
+    }
+
+    /// A file renamed (or hand-edited) so its name and its `home_id` disagree used to be listed
+    /// under the embedded id, which `load` then could not find.
+    func testAFileWhoseNameAndIDDisagreeIsNotListed() throws {
+        let store = try makeStore()
+        let good = try bungalow(id: "real-home")
+        try store.save(good)
+        try good.serialized().write(to: store.url(for: "renamed-in-files"))
+
+        let listed = store.list()
+        XCTAssertEqual(listed.map(\.id), ["real-home"])
+        for row in listed { XCTAssertNoThrow(try store.load(homeID: row.id), row.id) }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.url(for: "renamed-in-files").path),
+                      "a skipped file is left alone, not deleted")
+    }
+
+    /// A name that differs from the embedded id only in letter case is the same file on a
+    /// case-insensitive volume, so it is listed, under the name `load` opens.
+    func testAFileWhoseNameDiffersOnlyInCaseIsListedAndOpens() throws {
+        let store = try makeStore()
+        try bungalow(id: "ABC-HOME").serialized().write(to: store.url(for: "abc-home"))
+
+        XCTAssertEqual(store.list().map(\.id), ["abc-home"])
+        XCTAssertNoThrow(try store.load(homeID: "abc-home"))
+    }
+
+    func testAFileWhoseNameIsNotAValidIDIsNotListed() throws {
+        let store = try makeStore()
+        try bungalow(id: "a.b").serialized()
+            .write(to: directory.appendingPathComponent("a.b.\(HomeDocumentStore.fileExtension)"))
+
+        XCTAssertEqual(store.list().map(\.id), [])
+    }
+
     // MARK: - Codable HomeModel entry points (S2.1 seam)
 
     /// Stands in for S2.1's `HomeModel` until it lands: any Codable type the
