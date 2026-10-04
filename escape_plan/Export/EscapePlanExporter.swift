@@ -56,7 +56,12 @@ struct EscapePlanExporter {
             throw EscapePlanExportError.homeUnavailable(
                 underlying: (error as? LocalizedError)?.errorDescription ?? String(describing: error))
         }
-        let cached = routeCache?.load(homeID: homeID)
+        // The printout is the household's fire plan, so it asks for exactly that: no person
+        // picked, and only if it was computed from this home as it is now. A plan for one
+        // person, another peril, or a home edited since is a miss, and the page says routes
+        // are not included. A wrong route on paper is worse than none (S11.36).
+        let cached = routeCache?.load(RoutePlanKey(homeID: homeID),
+                                      homeFingerprint: HomeFingerprint.of(home))
         return Preview(home: home,
                        plan: cached?.plan,
                        routesComputedAt: cached?.savedAt,

@@ -390,10 +390,14 @@ struct EscapePlanExportTests {
         let store = try HomeDocumentStore(directory: root.appendingPathComponent("homes"))
         let cache = try RoutePlanCache(directory: root.appendingPathComponent("routes"))
 
-        let home = try FixtureLoader.load(.twostory)
-        try store.save(model: home)
+        let fixture = try FixtureLoader.load(.twostory)
+        try store.save(model: fixture)
+        let home = try store.load(homeID: fixture.home_id, as: HomeModel.self)
+        
         let plan = try Self.routeSample("twostory")
-        try cache.save(plan, now: Date(timeIntervalSince1970: 1_770_000_000))
+        try cache.save(plan, key: RoutePlanKey(homeID: home.home_id),
+                       homeFingerprint: HomeFingerprint.of(home),
+                       now: Date(timeIntervalSince1970: 1_770_000_000))
 
         let exporter = EscapePlanExporter(store: store, routeCache: cache,
                                           meetingPoints: MeetingPointStore())

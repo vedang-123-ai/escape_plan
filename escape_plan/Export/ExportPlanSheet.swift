@@ -172,7 +172,7 @@ struct ExportPlanSheet: View {
         if preview.hasRoutes {
             return "Computed by the routing engine."
         }
-        return "No routes have been computed on this device yet. The plan still prints, and says "
+        return "No routes saved on this device match this home as it is now. The plan still prints, and says "
              + "plainly that the routes are missing — it never invents one."
     }
 

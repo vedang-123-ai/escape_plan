@@ -119,7 +119,7 @@ owning session's merge is on `origin/main` and you verified it.
       "S11.15 findings")
 - [ ] AUD-026 (P2) checklist recurrence unreachable · S11.34 (server, deploy first), S11.35
 - [ ] AUD-027 (P2) Settings share uses the wrong home, fails silently · S11.38
-- [ ] AUD-028 (P2) offline route cache ignores peril/profile/model · S11.36
+- [x] AUD-028 (P2) offline route cache ignores peril/profile/model · **fixed 2026-10-03 by S11.36**
 - [ ] AUD-029 (P2) re-check failure mislabelled; Retry imports old scan · S11.24
 - [ ] AUD-030 (P2) chat accepts uncited safety claims · S11.44, S11.49
 - [ ] AUD-031 (P2) 60-minute sessions, no refresh · S11.43

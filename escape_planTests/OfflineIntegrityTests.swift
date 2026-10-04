@@ -2,16 +2,20 @@
 //  The architectural claim, under test: routing is deterministic and the AI layer is
 //  separable, so the app degrades honestly with the network off instead of dead-ending.
 //
-//  Four things are asserted here, and each one is a bug the app actually had:
+//  Five things are asserted here, and each one is a bug the app actually had:
 //
-//  1. A connection-class failure serves the last-good `/routes` plan, so a drill or an export
-//     still has a route to walk. (Only HouseScreen did this; the old DrillScreen dead-ended.)
+//  1. A connection-class failure serves the last-good `/routes` plan, so House's routes dock
+//     or an export still has a route. (The old DrillScreen dead-ended; it was deleted by
+//     demo trim 2 on 2026-10-03.)
 //  2. A 401 or a 422 is NEVER masked by that cache. Falling back on a server *answer* would
 //     hide a wrong bearer token behind a stale plan that looks like it worked.
 //  3. A 502 (an operator must act — no credit, bad key) offers no Retry, while a 503 (busy)
 //     does. Three screens flattened `BackendFailure` to `.message` and lost that distinction.
 //  4. The offline notice names *when* the cached plan was saved, so nobody mistakes a
-//     three-week-old plan for a fresh one.
+//     three-week-old plan for a fresh one. Since S11.36 it also names the peril and person.
+//  5. (S11.36, AUD-028) The cache was keyed by home alone, so offline it could serve the fire
+//     plan for a tornado, another person's route, or a route through rooms since deleted.
+//     Now an entry is served only for its own home, peril, person and exact model.
 //
 //  The transport is stubbed at `URLProtocol`, which `URLSession.shared` consults — the same
 //  session `APIClient+Routes` uses. Serialized, because that registration is process-global.
@@ -107,6 +111,44 @@ struct OfflineIntegrityTests {
 
     // MARK: - 1. The cache carries the deterministic half through an outage
 
+    /// Saves `plan` the way a live fetch would for this request: under its key, stamped with
+    /// the fingerprint of `home`.
+    private func seed(_ cache: RoutePlanCache, _ plan: RoutePlan, home: HomeModel,
+                      peril: String? = nil, profileID: String? = nil,
+                      now: Date = Date()) throws {
+        try cache.save(plan,
+                       key: RoutePlanKey(homeID: home.home_id, peril: peril, profileID: profileID),
+                       homeFingerprint: HomeFingerprint.of(home), now: now)
+    }
+
+    /// The sample plan relabelled, as the engine would label it for that peril and person.
+    private func relabelled(_ plan: RoutePlan, peril: String?, profileID: String?) -> RoutePlan {
+        var copy = plan
+        copy.peril = peril
+        copy.profile_id = profileID
+        return copy
+    }
+
+    /// Runs one offline `fetchRoutesCached`; nil when it rethrew the connection failure.
+    private func offlineLookup(_ cache: RoutePlanCache, home: HomeModel,
+                               peril: String? = nil, profileID: String? = nil) async throws
+        -> CachedRoutePlan? {
+        OfflineStubProtocol.installFailure(URLError(.notConnectedToInternet))
+        defer { OfflineStubProtocol.remove() }
+        do {
+            let result = try await makeClient().fetchRoutesCached(
+                home: home, peril: peril, profileID: profileID, cache: cache)
+            guard case .cached(let cached) = result else {
+                Issue.record("offline can only ever produce a cached plan")
+                return nil
+            }
+            return cached
+        } catch let error as URLError {
+            #expect(error.code == .notConnectedToInternet, "a miss rethrows the connection failure")
+            return nil
+        }
+    }
+
     @Test("A connection failure serves the last-good plan instead of a dead end")
     func cachedPlanServedWhenOffline() async throws {
         let directory = scratchDirectory()
@@ -114,19 +156,15 @@ struct OfflineIntegrityTests {
         let cache = try RoutePlanCache(directory: directory)
         let plan = try samplePlan()
         let savedAt = Date(timeIntervalSince1970: 1_770_000_000)
-        try cache.save(plan, now: savedAt)
-
         let home = try FixtureLoader.load(.twostory)
-        OfflineStubProtocol.installFailure(URLError(.notConnectedToInternet))
-        defer { OfflineStubProtocol.remove() }
+        try seed(cache, plan, home: home, now: savedAt)
 
-        let result = try await makeClient().fetchRoutesCached(home: home, cache: cache)
-        guard case .cached(let cached) = result else {
-            Issue.record("expected the cached plan, got a live one")
-            return
-        }
+        let cached = try #require(try await offlineLookup(cache, home: home),
+                                  "an exact match (same home, fire, household, unedited) is a hit")
         #expect(cached.plan.rooms.count == plan.rooms.count)
         #expect(cached.savedAt.timeIntervalSince1970 == savedAt.timeIntervalSince1970)
+        // Asking for fire by name is the same request as asking for nothing.
+        #expect(try await offlineLookup(cache, home: home, peril: "fire") != nil)
     }
 
     @Test("An empty cache offline rethrows — it never invents a plan")
@@ -162,9 +200,210 @@ struct OfflineIntegrityTests {
             return
         }
         #expect(live.home_id == plan.home_id)
-        #expect(cache.load(homeID: plan.home_id)?.plan.rooms.count == plan.rooms.count,
+        let hit = cache.load(RoutePlanKey(homeID: home.home_id),
+                             homeFingerprint: HomeFingerprint.of(home))
+        #expect(hit?.plan.rooms.count == plan.rooms.count,
                 "the cache is filled only from real /routes responses")
     }
+
+    // MARK: - 1b. S11.36: a cached plan is only ever served for what it was computed for
+
+    @Test("Tornado requested with only a fire plan cached is a miss")
+    func otherPerilIsAMiss() async throws {
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = try RoutePlanCache(directory: directory)
+        let home = try FixtureLoader.load(.twostory)
+        try seed(cache, try samplePlan(), home: home)  // fire
+
+        #expect(try await offlineLookup(cache, home: home, peril: "tornado") == nil)
+        #expect(try await offlineLookup(cache, home: home, peril: "earthquake") == nil)
+    }
+
+    @Test("Each peril keeps its own plan, and a live fetch for one never overwrites another")
+    func perilsDoNotShareAnEntry() async throws {
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = try RoutePlanCache(directory: directory)
+        let home = try FixtureLoader.load(.twostory)
+        let fire = try samplePlan()
+        let tornado = relabelled(fire, peril: "tornado", profileID: nil)
+
+        OfflineStubProtocol.installStatus(200, body: try HomeModel.encoder().encode(fire))
+        _ = try await makeClient().fetchRoutesCached(home: home, cache: cache)
+        OfflineStubProtocol.installStatus(200, body: try HomeModel.encoder().encode(tornado))
+        _ = try await makeClient().fetchRoutesCached(home: home, peril: "tornado", cache: cache)
+        OfflineStubProtocol.remove()
+
+        #expect(try await offlineLookup(cache, home: home)?.plan.peril == "fire")
+        #expect(try await offlineLookup(cache, home: home, peril: "tornado")?.plan.peril == "tornado")
+    }
+
+    @Test("Another person's plan is a miss, and so is the household's when only a person is cached")
+    func otherPersonIsAMiss() async throws {
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = try RoutePlanCache(directory: directory)
+        let home = try FixtureLoader.load(.twostory)
+        let sam = relabelled(try samplePlan(), peril: "fire", profileID: "sam")
+        try seed(cache, sam, home: home, profileID: "sam")
+
+        #expect(try await offlineLookup(cache, home: home, profileID: "sam") != nil,
+                "the same person is a hit")
+        #expect(try await offlineLookup(cache, home: home, profileID: "leo") == nil,
+                "a wheelchair user must never be handed someone else's route through stairs")
+        #expect(try await offlineLookup(cache, home: home) == nil,
+                "Sam's route is not the household's")
+
+        try seed(cache, try samplePlan(), home: home)  // the household
+        #expect(try await offlineLookup(cache, home: home, profileID: "leo") == nil)
+        #expect(try await offlineLookup(cache, home: home)?.plan.profile_id == nil)
+    }
+
+    @Test("A plan computed before an edit is a miss: no route through rooms that are gone")
+    func editedHomeIsAMiss() async throws {
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = try RoutePlanCache(directory: directory)
+        let home = try FixtureLoader.load(.twostory)
+        try seed(cache, try samplePlan(), home: home)
+        #expect(try await offlineLookup(cache, home: home) != nil)
+
+        var edited = home
+        edited.floors[0].rooms.removeFirst()
+        #expect(try await offlineLookup(cache, home: edited) == nil)
+
+        // Editing it back restores the model the plan was computed from.
+        #expect(try await offlineLookup(cache, home: home) != nil)
+    }
+
+    @Test("A plan whose own peril or person differs from the key's is refused, whatever the file")
+    func tamperedEntryIsAMiss() throws {
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = try RoutePlanCache(directory: directory)
+        let home = try FixtureLoader.load(.twostory)
+        let fingerprint = HomeFingerprint.of(home)
+        let fireKey = RoutePlanKey(homeID: home.home_id)
+        let tornadoKey = RoutePlanKey(homeID: home.home_id, peril: "tornado")
+        let samKey = RoutePlanKey(homeID: home.home_id, profileID: "sam")
+        let fire = try samplePlan()
+
+        // The fire file copied into the tornado and Sam slots: right fingerprint, wrong peril
+        // and person, both inside the file and in the plan it holds.
+        try seed(cache, fire, home: home)
+        try FileManager.default.copyItem(at: cache.url(for: fireKey), to: cache.url(for: tornadoKey))
+        try FileManager.default.copyItem(at: cache.url(for: fireKey), to: cache.url(for: samKey))
+        #expect(cache.load(tornadoKey, homeFingerprint: fingerprint) == nil)
+        #expect(cache.load(samKey, homeFingerprint: fingerprint) == nil)
+
+        // A tornado-labelled plan saved under the fire key (a caller bug) is refused too.
+        try cache.save(relabelled(fire, peril: "tornado", profileID: nil),
+                       key: fireKey, homeFingerprint: fingerprint)
+        #expect(cache.load(fireKey, homeFingerprint: fingerprint) == nil)
+
+        // And so is a plan for a different home.
+        var other = fire
+        other.home_id = "someone-elses-home"
+        try cache.save(other, key: fireKey, homeFingerprint: fingerprint)
+        #expect(cache.load(fireKey, homeFingerprint: fingerprint) == nil)
+    }
+
+    @Test("Old single-key cache files are never served, and are cleaned up")
+    func oldFormatFileIsIgnored() async throws {
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = try RoutePlanCache(directory: directory)
+        let home = try FixtureLoader.load(.twostory)
+        let plan = try samplePlan()
+
+        // Exactly what the pre-S11.36 cache wrote: `<home_id>.routeplan.json`, a plan and a date.
+        struct LegacyEntry: Encodable { var plan: RoutePlan; var savedAt: Date }
+        let legacy = directory.appendingPathComponent("\(home.home_id).routeplan.json")
+        try HomeModel.encoder().encode(LegacyEntry(plan: plan, savedAt: Date())).write(to: legacy)
+
+        #expect(try await offlineLookup(cache, home: home) == nil,
+                "the old file names no key, so it must not stand in for the fire plan")
+
+        // The old shape in a new-format slot cannot decode: it has no fingerprint.
+        try FileManager.default.copyItem(
+            at: legacy, to: cache.url(for: RoutePlanKey(homeID: home.home_id)))
+        #expect(try await offlineLookup(cache, home: home) == nil)
+
+        // The next launch removes it; the new-format file is left alone.
+        _ = try RoutePlanCache(directory: directory)
+        #expect(!FileManager.default.fileExists(atPath: legacy.path))
+        #expect(FileManager.default.fileExists(
+            atPath: cache.url(for: RoutePlanKey(homeID: home.home_id)).path))
+    }
+
+    @Test("A synced home or profile id cannot write outside the cache or collide with another")
+    func hostileIDsStayInsideTheCache() throws {
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = try RoutePlanCache(directory: directory)
+        let plan = try samplePlan()
+
+        let hostile = RoutePlanKey(homeID: "../../x/y", peril: "fire", profileID: "../p.q")
+        let url = cache.url(for: hostile)
+        #expect(url.deletingLastPathComponent().standardizedFileURL
+                == directory.standardizedFileURL)
+        var stored = plan
+        stored.home_id = hostile.homeID
+        stored.profile_id = hostile.profileID
+        try cache.save(stored, key: hostile, homeFingerprint: "fp")
+        #expect(cache.load(hostile, homeFingerprint: "fp") != nil)
+
+        // `a.b` + household and `a` + a person called `b` are different entries.
+        #expect(cache.url(for: RoutePlanKey(homeID: "a.b"))
+                != cache.url(for: RoutePlanKey(homeID: "a", profileID: "b")))
+        #expect(cache.url(for: RoutePlanKey(homeID: "h", profileID: "household"))
+                != cache.url(for: RoutePlanKey(homeID: "h")),
+                "a person whose id is \"household\" is not the household")
+    }
+
+    // MARK: - 1c. The printable plan reads the same cache by the same rules
+
+    private func exporter(_ cache: RoutePlanCache, _ root: URL) throws
+        -> (EscapePlanExporter, HomeDocumentStore) {
+        let store = try HomeDocumentStore(directory: root.appendingPathComponent("homes"))
+        return (EscapePlanExporter(store: store, routeCache: cache,
+                                   meetingPoints: MeetingPointStore()), store)
+    }
+
+    @Test("The printout carries only the household's fire routes for the home as saved")
+    func printablePlanUsesTheKey() throws {
+        let root = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = try RoutePlanCache(directory: root.appendingPathComponent("routes"))
+        let (exporter, store) = try exporter(cache, root)
+        let fixture = try FixtureLoader.load(.twostory)
+        try store.save(model: fixture)
+        let plan = try samplePlan()
+
+        // The fingerprint of the model after a trip through the document store is the one
+        // House stamped on the plan: a printout is not a miss merely for having been saved.
+        let home = try store.load(homeID: fixture.home_id, as: HomeModel.self)
+
+        #expect(try exporter.preview(homeID: home.home_id).hasRoutes == false, "nothing cached")
+
+        // Another peril and one person's route are not the household's fire plan.
+        try seed(cache, relabelled(plan, peril: "tornado", profileID: nil), home: home,
+                 peril: "tornado")
+        try seed(cache, relabelled(plan, peril: "fire", profileID: "sam"), home: home,
+                 profileID: "sam")
+        #expect(try exporter.preview(homeID: home.home_id).hasRoutes == false)
+
+        try seed(cache, plan, home: home)
+        #expect(try exporter.preview(homeID: home.home_id).hasRoutes)
+
+        // Edit the home on disk: the routes were computed for a house that no longer exists.
+        var edited = home
+        edited.floors[0].rooms.removeFirst()
+        try store.save(model: edited)
+        #expect(try exporter.preview(homeID: home.home_id).hasRoutes == false)
+    }
+
 
     // MARK: - 2. A server ANSWER is never masked by the cache
 
@@ -173,7 +412,7 @@ struct OfflineIntegrityTests {
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let cache = try RoutePlanCache(directory: directory)
-        try cache.save(try samplePlan(), now: Date())
+        try seed(cache, try samplePlan(), home: try FixtureLoader.load(.twostory))
 
         let home = try FixtureLoader.load(.twostory)
         OfflineStubProtocol.installStatus(401)
@@ -192,7 +431,7 @@ struct OfflineIntegrityTests {
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let cache = try RoutePlanCache(directory: directory)
-        try cache.save(try samplePlan(), now: Date())
+        try seed(cache, try samplePlan(), home: try FixtureLoader.load(.twostory))
 
         let home = try FixtureLoader.load(.twostory)
         OfflineStubProtocol.installStatus(422)
@@ -265,7 +504,8 @@ struct OfflineIntegrityTests {
     @Test("The cached-routes notice names when the plan was saved")
     func cachedNoticeNamesItsDate() {
         let savedAt = Date(timeIntervalSince1970: 1_770_000_000)
-        let failure = BackendFailure.showingCachedRoutes(savedAt: savedAt)
+        let failure = BackendFailure.showingCachedRoutes(savedAt: savedAt, peril: "fire",
+                                                         personName: nil)
 
         #expect(failure.kind == .offline)
         #expect(failure.isOfflineFlavoured)
@@ -275,6 +515,23 @@ struct OfflineIntegrityTests {
         #expect(failure.message.contains(stamp))
         #expect(failure.isRetryable, "the user can still try for live routes")
     }
+
+    @Test("The cached-routes notice names the peril and the person the plan is for")
+    func cachedNoticeNamesPerilAndPerson() {
+        let savedAt = Date(timeIntervalSince1970: 1_770_000_000)
+        let stamp = savedAt.formatted(date: .abbreviated, time: .shortened)
+
+        let sam = BackendFailure.showingCachedRoutes(savedAt: savedAt, peril: "tornado",
+                                                     personName: "Sam")
+        #expect(sam.message == "You're offline — showing your last saved tornado routes for Sam "
+                             + "from \(stamp).")
+
+        let everyone = BackendFailure.showingCachedRoutes(savedAt: savedAt, peril: "fire",
+                                                          personName: nil)
+        #expect(everyone.message == "You're offline — showing your last saved fire routes for "
+                                  + "everyone from \(stamp).")
+    }
+
 
     @Test("Offline is a state, not a fault — and it says what still works")
     func offlineReadsAsAState() {
