@@ -2997,7 +2997,7 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 
 - [x] **`backend/.venv` EXISTS and the backend suite runs here.** The 2026-09-10 claim that no
       interpreter on this machine has `pytest` was wrong — it was tested from the repo root, where
-      `.venv` does not exist. The venv is at **`backend/.venv`** (Python 3.13.9, pytest 9.1.1).
+      `.venv` does not exist. The venv is at **`backend/.venv`** (create it with `python3.12 -m venv backend/.venv`).
       Verified 2026-09-14: `cd backend && .venv/bin/python -m pytest tests/ -m "not live" -q` →
       **394 passed, 13 deselected**. Backend work is NOT unverifiable on this machine. Note the
       invocation: bare `python3` is 3.9 and will still say `No module named pytest`.
@@ -3077,3 +3077,10 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
   in `732a5c8` (S6.7). The tracker had carried all four as open.
 - **`.build-assess/` untracked** (`07e413a`), and `AgentFinding.id` threaded through the Swift
   decode (`df9d0a2`).
+
+### S11.47 findings (2026-10-04, branch s11-47-repo-hygiene)
+- `improved_prompt.md` was moved to `docs/ai-assistance/` instead of deleted. Question for Anish: delete it, or keep it as disclosure?
+- `FixtureLibrary.swift` was NOT deleted because it is still referenced in iOS tests (`CameraGestureFeelTests`, `DollhouseRendererTests`, `RoutePlanTests`).
+- `HomeThumbnailView.swift` and the four `scratch_*.py` files were deleted safely (no external references).
+- `jsonschema` and `pytest` moved to `requirements-dev.txt`.
+- `.github/workflows/gate.yml` was updated to install BOTH `requirements.lock` and `requirements-dev.txt` for tests.

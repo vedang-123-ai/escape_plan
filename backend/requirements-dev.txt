@@ -2,3 +2,5 @@
 -r requirements.txt
 # fixture graph renderings (scripts/render_graphs.py → docs/graphs/)
 matplotlib>=3.8
+pytest>=8.0
+jsonschema>=4.21
