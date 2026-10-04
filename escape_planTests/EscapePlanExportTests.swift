@@ -396,7 +396,7 @@ struct EscapePlanExportTests {
         
         let plan = try Self.routeSample("twostory")
         try cache.save(plan, key: RoutePlanKey(homeID: home.home_id),
-                       homeFingerprint: HomeFingerprint.of(home),
+                       homeFingerprint: RoutePlanCache.fingerprint(of: home),
                        now: Date(timeIntervalSince1970: 1_770_000_000))
 
         let exporter = EscapePlanExporter(store: store, routeCache: cache,

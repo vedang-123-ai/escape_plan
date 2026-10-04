@@ -118,7 +118,7 @@ struct OfflineIntegrityTests {
                       now: Date = Date()) throws {
         try cache.save(plan,
                        key: RoutePlanKey(homeID: home.home_id, peril: peril, profileID: profileID),
-                       homeFingerprint: HomeFingerprint.of(home), now: now)
+                       homeFingerprint: RoutePlanCache.fingerprint(of: home), now: now)
     }
 
     /// The sample plan relabelled, as the engine would label it for that peril and person.
@@ -201,7 +201,7 @@ struct OfflineIntegrityTests {
         }
         #expect(live.home_id == plan.home_id)
         let hit = cache.load(RoutePlanKey(homeID: home.home_id),
-                             homeFingerprint: HomeFingerprint.of(home))
+                             homeFingerprint: RoutePlanCache.fingerprint(of: home))
         #expect(hit?.plan.rooms.count == plan.rooms.count,
                 "the cache is filled only from real /routes responses")
     }
@@ -277,13 +277,36 @@ struct OfflineIntegrityTests {
         #expect(try await offlineLookup(cache, home: home) != nil)
     }
 
+    @Test("Saving the home does not lose its plan: the printout finds what House just fetched")
+    func savedHomeKeepsItsPlan() throws {
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = try RoutePlanCache(directory: directory.appendingPathComponent("routes"))
+        let store = try HomeDocumentStore(directory: directory.appendingPathComponent("homes"))
+
+        // House's model as the editor leaves it: `meta.modified` stamped with sub-second
+        // precision on the last edit. Routes are fetched (and cached) from this model...
+        var inMemory = try FixtureLoader.load(.twostory)
+        inMemory.meta.modified = Date(timeIntervalSince1970: 1_770_000_000.375)
+        try seed(cache, try samplePlan(), home: inMemory)
+        // ...and autosave writes it with the store's own clock, in whole seconds.
+        try store.save(model: inMemory, now: Date(timeIntervalSince1970: 1_770_000_042.9))
+        let onDisk = try store.load(homeID: inMemory.home_id, as: HomeModel.self)
+        #expect(onDisk.meta.modified != inMemory.meta.modified, "the precondition: meta differs")
+
+        let exporter = EscapePlanExporter(store: store, routeCache: cache,
+                                          meetingPoints: MeetingPointStore())
+        #expect(try exporter.preview(homeID: inMemory.home_id).hasRoutes,
+                "a timestamp is not an edit: the routes still describe this home")
+    }
+
     @Test("A plan whose own peril or person differs from the key's is refused, whatever the file")
     func tamperedEntryIsAMiss() throws {
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let cache = try RoutePlanCache(directory: directory)
         let home = try FixtureLoader.load(.twostory)
-        let fingerprint = HomeFingerprint.of(home)
+        let fingerprint = RoutePlanCache.fingerprint(of: home)
         let fireKey = RoutePlanKey(homeID: home.home_id)
         let tornadoKey = RoutePlanKey(homeID: home.home_id, peril: "tornado")
         let samKey = RoutePlanKey(homeID: home.home_id, profileID: "sam")

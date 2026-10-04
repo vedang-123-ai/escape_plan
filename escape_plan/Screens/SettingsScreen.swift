@@ -113,16 +113,25 @@ struct SettingsScreen: View {
                     footnote("Debug builds only. The local option expects `uvicorn app.main:app --port 8000` running on this Mac.")
                     #endif
 
-                    if let home = readiness.activeHome, !readiness.needsDraftReview {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Share with your fire department")
-                                .sectionHeaderStyle()
-                                .padding(.horizontal, DS.pagePadding)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Share with your fire department")
+                            .sectionHeaderStyle()
+                            .padding(.horizontal, DS.pagePadding)
+                        if let home = Self.shareTarget(readiness) {
                             ShareWithFireDepartmentCard(homeID: home.id, homeName: home.name, store: library.store)
                                 .padding(.horizontal, DS.pagePadding)
+                        } else {
+                            // AUD-027: never a silent gap. Say why there is nothing to share.
+                            Text(readiness.activeHomeID == nil
+                                 ? "Add a home first. The snapshot is made from the home you're looking at."
+                                 : "Confirm the draft floor plan in House first. A snapshot is never made from an unreviewed draft.")
+                                .font(.subheadline)
+                                .foregroundStyle(DS.supporting)
+                                .padding(.horizontal, DS.pagePadding)
                         }
-                        .padding(.top, 26)
                     }
+                    .padding(.top, 26)
+                    footnote("Generate a PDF and JSON package of floor plans, hazard findings and occupant counts by room — never names unless you opt in per share — to hand to first responders. Never transmitted automatically; every share asks first.")
 
                     section("About") {
                         row("Version") {
@@ -225,6 +234,15 @@ struct SettingsScreen: View {
             .foregroundStyle(DS.supporting)
             .padding(.horizontal, DS.pagePadding + 16)
             .padding(.top, 12)
+    }
+
+    /// The home "Share with your fire department" packages from Settings: the active home, the
+    /// same one the Tasks card shares, and never an unreviewed draft. Not `store.list().first`,
+    /// the most recently saved home, which any sync, duplicate or House visit can change (AUD-027).
+    static func shareTarget(_ readiness: ReadinessStore) -> HomeModel? {
+        guard let home = readiness.activeHome, home.id == readiness.activeHomeID,
+              !readiness.needsDraftReview else { return nil }
+        return home
     }
 
     private var versionString: String {

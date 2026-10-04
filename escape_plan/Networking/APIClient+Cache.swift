@@ -114,6 +114,19 @@ struct RoutePlanCache {
         return cached
     }
 
+    /// The fingerprint a cached plan is stamped with and looked up by: `HomeFingerprint` of the
+    /// model with `meta` blanked. `meta` holds only dates and the address, none of which the
+    /// engine routes on, and `meta.modified` changes on every save: the editor stamps it on each
+    /// edit and `HomeDocumentStore.save` stamps it again with its own clock (ISO-8601, whole
+    /// seconds). Fingerprinting it made the model in House and the same model read back from
+    /// disk disagree after any edit, so the printed plan never found the routes House had just
+    /// fetched (audit of S11.36, 2026-10-03).
+    static func fingerprint(of home: HomeModel) -> String {
+        var routed = home
+        routed.meta = Meta(created: .distantPast, modified: .distantPast)
+        return HomeFingerprint.of(routed)
+    }
+
     func url(for key: RoutePlanKey) -> URL {
         let person = key.profileID.map { "p-" + Self.fileSafe($0) } ?? "household"
         let name = [Self.fileSafe(key.homeID), Self.fileSafe(key.peril), person].joined(separator: ".")
@@ -178,7 +191,7 @@ extension APIClient {
         let key = RoutePlanKey(homeID: home.home_id, peril: peril, profileID: profileID)
         // Taken before the request: the plan describes the model as it was sent, even if the
         // caller's model moves while the request is in flight.
-        let fingerprint = HomeFingerprint.of(home)
+        let fingerprint = RoutePlanCache.fingerprint(of: home)
         do {
             let plan = try await fetchRoutes(home: home, peril: peril, profileID: profileID)
             try? cache.save(plan, key: key, homeFingerprint: fingerprint)

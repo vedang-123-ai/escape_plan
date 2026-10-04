@@ -61,7 +61,7 @@ struct EscapePlanExporter {
         // person, another peril, or a home edited since is a miss, and the page says routes
         // are not included. A wrong route on paper is worse than none (S11.36).
         let cached = routeCache?.load(RoutePlanKey(homeID: homeID),
-                                      homeFingerprint: HomeFingerprint.of(home))
+                                      homeFingerprint: RoutePlanCache.fingerprint(of: home))
         return Preview(home: home,
                        plan: cached?.plan,
                        routesComputedAt: cached?.savedAt,
