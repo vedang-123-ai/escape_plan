@@ -142,9 +142,22 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-045 (P3) `HouseScreen.swift` 2,726 lines · seam done 2026-10-01 by S11.19 (`HouseEditorSessionController`
       owns load/save/registration); full split: not a task (deferred to the House redesign)
 - [ ] AUD-046 (P3) decode errors shown as "can't reach server" · S11.37
-- [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
-- [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45, S11.48
+- [x] AUD-047 (P3) `list()` on the main thread · **fixed 2026-10-04 by S11.48** (50 homes: 215 ms to 8 ms cold, 1.2 ms per autosave; evidence under "S11.48 findings")
+- [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45; the starter-seeding item fixed 2026-10-04 by S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.48 findings (2026-10-04, branch s11-48-library-listing)
+
+- [x] **Mission 0, measured first:** `list()` with 50 homes the size of `jagged.json` (14 KB), iPhone 17 Pro simulator: **215 to 224 ms** per call (7 runs). Anish un-deferred it.
+- [x] **After:** cold listing of the same 50 homes **7.5 to 10.5 ms**; the refresh after an editor autosave (one file changed) **1.1 to 1.2 ms**. The cost was building every home's whole JSON tree, not the disk.
+- [x] **Done:** `HomeDocumentStore.summaries(reusing:)` reads a few fields with a light decode (`SummaryProbe`) and re-reads only files whose change time or size moved; `HomeLibrary.refresh()` keeps that cache. `list()` still exists, synchronous, same rules (by file name, S11.41 id rules, newest first).
+- [x] **Not done on purpose, and why:** no background thread. `refresh()` stays synchronous because callers read `library.homes` on the next line (the new-home flow switches to `homes.first`, "Your homes" after delete/duplicate). With the numbers above there is nothing left to hide. Logged in decisions.md.
+- [x] **AUD-049 seeding item:** a failed starter-home seed now logs an error and shows one alert ("Starter homes unavailable") once, from `escape_planApp`. No owned file could show `HomeLibrary.loadError` at launch and `ContentView`'s banner is for the fallback store only.
+- [x] **Gate (2026-10-04, after merging origin/main, bundle `final.xcresult`):** `-only-testing:escape_planTests` plus SignedOutPathUITests and EntryPointUITests: **1066 passed / 0 failed / 4 skipped** (S11.42 stamp 1058 / 0 / 4; +8 new tests). PersistenceTests: 35 tests, all in the 1066 above and green in three separate runs. EditorCore 646 passed. `scripts/typecheck-ios.sh` green; the MainActor-default typecheck shows only the 3 known warnings.
+- [x] **Mutation checks** (each made the named tests fail, then restored; `git diff` clean): reuse disabled, room count wrong, size ignored, change time ignored, unreadable file cached, notice flag set too early.
+- [ ] **Unverified:** the alert's look on a real device/simulator was not screenshotted; the seeding failure cannot happen with a normal build (it needs a missing bundled fixture). The notice logic is unit-tested, the alert wiring is typechecked only.
+- [ ] **Not covered:** a file whose change time cannot be read is re-read every time by design; no test (real files always have one).
+- [x] Reviewer (swift-scenekit-reviewer): no must-fix. Three should-fix items acted on: unreadable files are retried instead of cached as skipped, the notice is marked shown on dismissal, tests now pin both halves of the cache key.
 
 ### S11.42 findings (2026-10-04, branch s11-42-server-settings)
 
@@ -1050,7 +1063,7 @@ tests), backend green. After the merge into `ui-revamp-1-foundation` (`e64f343`)
 - [ ] Sync last-write-wins clock-skew tie-break.
 - [ ] `profile_id` on `/score` (the score is household-level by design).
 - [ ] Put the drill log in the schema (needs a `schema_version` bump and `schema-contract-guardian`).
-- [ ] Move `HomeDocumentStore.list()` off the main thread.
+- [x] Move `HomeDocumentStore.list()` off the main thread. **Un-deferred by the owner 2026-10-04; done by S11.48 another way:** it stays on the main thread but is now ~8 ms for 50 homes cold and ~1 ms per autosave, so the thread move was not needed (see S11.48 findings).
 - [ ] Onboarding step-dot labels.
 
 **Found while doing this (not in the audit list):**
