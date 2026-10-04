@@ -161,9 +161,25 @@ jobs:
         if: always()
         run: |
           if [ -d ci.xcresult ]; then
-            xcrun xcresulttool get test-results summary --path ci.xcresult
+            xcrun xcresulttool get test-results summary --path ci.xcresult | tee "$RUNNER_TEMP/summary.json"
+            # The same counts on the run's summary page, so a nightly result reads at a glance.
+            python3 - "$RUNNER_TEMP/summary.json" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json, sys
+          try:
+              s = json.load(open(sys.argv[1]))
+          except ValueError:
+              print("### iOS suite: xcresulttool could not read the result bundle (see the log)")
+              sys.exit(0)
+          print("### iOS suite: %s" % s.get("result", "?"))
+          print("| total | passed | failed | skipped |\n|---|---|---|---|")
+          print("| %s | %s | %s | %s |" % tuple(s.get(k, "?") for k in
+                ("totalTestCount", "passedTests", "failedTests", "skippedTests")))
+          for f in s.get("testFailures", []):
+              print("- failed: `%s`" % f.get("testIdentifierString", "?"))
+          PY
           else
             echo "::warning::no result bundle was produced"
+            echo "### iOS suite: no result bundle was produced" >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Upload the result bundle
         if: always()
