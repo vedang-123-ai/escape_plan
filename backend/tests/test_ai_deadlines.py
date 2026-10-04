@@ -29,7 +29,7 @@ from app.ai.client import (
     CHAT_DEADLINE_S,
     EXPLAIN_DEADLINE_S,
     MAX_RETRIES,
-    MIN_ATTEMPT_S,
+    MIN_START_S,
     Deadline,
     DeadlineExceeded,
     build_client,
@@ -111,20 +111,24 @@ def test_deadline_counts_down_with_its_clock():
 
 def test_a_call_is_refused_when_too_little_time_is_left():
     clock = FakeClock()
-    d = Deadline(MIN_ATTEMPT_S + 5, clock=clock)
+    d = Deadline(MIN_START_S + 5, clock=clock)
     d.require_time("x")  # plenty
-    clock.now += 6  # now MIN_ATTEMPT_S - 1 left
+    assert d.can_start()
+    clock.now += 6  # now MIN_START_S - 1 left
+    assert not d.can_start()
     with pytest.raises(DeadlineExceeded):
         d.require_time("x")
 
 
 def test_attempt_timeout_leaves_room_for_the_sdk_retry():
-    """Half of what is left, so attempt + one retry stays inside the budget."""
+    """Half of what is left; a call may start only with >= MIN_START_S left, so attempt plus
+    one retry (2 x attempt) never exceeds the remaining budget."""
     clock = FakeClock()
     d = Deadline(100, clock=clock)
     assert d.attempt_timeout() == pytest.approx(50)
-    clock.now += 85  # 15 left: half would be 7.5, under the floor
-    assert d.attempt_timeout() == MIN_ATTEMPT_S
+    clock.now += 100 - MIN_START_S  # the last moment a call may start
+    assert d.can_start()
+    assert 2 * d.attempt_timeout() <= d.remaining() + 1e-9
 
 
 # --- the factory --------------------------------------------------------------
@@ -154,7 +158,8 @@ def test_each_model_call_carries_a_timeout_that_fits_the_remaining_budget():
     stub = SlowClient(clock, 1, lambda n: SimpleNamespace(content=[]))
     ai_client.create_message(stub, d, "x", model="m")
     sent = stub.kwargs[0]["timeout"]
-    assert MIN_ATTEMPT_S <= sent <= 60 / 2 + 1e-6
+    assert sent.read == pytest.approx(30)  # half of the 60 s left
+    assert sent.connect == ai_client.CONNECT_TIMEOUT_S  # not widened to the read timeout
 
 
 # --- each loop stops at its deadline ------------------------------------------
@@ -171,9 +176,9 @@ def test_builder_stops_at_the_deadline_and_never_returns_a_half_built_home():
     )
     with pytest.raises(DeadlineExceeded):
         run_builder(description="x", client=stub, deadline=Deadline(100, clock=clock))
-    # 100 s budget, 30 s per call, 10 s floor: calls start with 100, 70, 40 and 10 s left
-    # (10 is not under the floor); a fifth would start with -20 s and is refused.
-    assert stub.calls == 4
+    # 100 s budget, 30 s per call, 20 s floor: calls start with 100, 70 and 40 s left;
+    # a fourth would start with 10 s left and is refused.
+    assert stub.calls == 3
     assert stub.calls < builder.MAX_ITERATIONS
 
 
@@ -191,7 +196,7 @@ def test_agent_stops_at_the_deadline_with_an_honest_truncated_result():
     assert result.truncated is True
     assert result.findings == []
     assert len(result.trace) == stub.calls  # the evidence gathered so far is kept
-    assert stub.calls == 5  # 100, 80, 60, 40, 20 left; the 6th would start at 0
+    assert stub.calls == 5  # 100, 80, 60, 40, 20 left (20 is allowed); the 6th would start at 0
     assert stub.calls < agent.MAX_ITERATIONS
 
 
@@ -213,7 +218,7 @@ def test_grounded_citation_retries_respect_the_deadline():
     )
     with pytest.raises(DeadlineExceeded):
         grounded.explain_routes(home, plan, client=stub, deadline=Deadline(25, clock=clock))
-    # 25 s budget: first call starts (25 left), runs 20 s, 5 left is under the floor.
+    # 25 s budget: first call starts (25 left >= 20), runs 20 s, 5 left is under the floor.
     assert stub.calls == 1
     assert stub.calls < 1 + grounded.MAX_CITATION_RETRIES
 

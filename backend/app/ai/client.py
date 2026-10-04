@@ -40,9 +40,10 @@ EXPLAIN_DEADLINE_S = 60.0
 MAX_RETRIES = 1
 """SDK retries per call (it defaults to 2). One covers a dropped connection or a 429 blip."""
 
-MIN_ATTEMPT_S = 10.0
-"""Do not START a model call with less than this left. A normal call here (thinking disabled,
-max_tokens <= 4096) takes well under this, so a shorter budget only buys a timeout."""
+MIN_START_S = 20.0
+"""Do not START a model call with less than this left. One attempt gets half the remaining time
+and the SDK may retry once, so with 20 s or more left attempt + retry fit inside the budget.
+A normal call here (thinking disabled, max_tokens <= 4096) takes well under 10 s."""
 
 CONNECT_TIMEOUT_S = 5.0
 
@@ -74,23 +75,26 @@ class Deadline:
     def expired(self) -> bool:
         return self.remaining() <= 0
 
+    def can_start(self) -> bool:
+        """True when a model call could usefully start now. The one threshold every loop uses."""
+        return self.remaining() >= MIN_START_S
+
     def require_time(self, what: str) -> None:
         """Raise DeadlineExceeded unless a model call could usefully start now."""
-        if self.remaining() < MIN_ATTEMPT_S:
+        if not self.can_start():
             raise DeadlineExceeded(
                 f"{what} ran out of time ({self.seconds:.0f} s budget) before the "
                 "next AI call could start"
             )
 
     def attempt_timeout(self) -> float:
-        """Seconds one HTTP attempt may take.
+        """Seconds one HTTP attempt may take: half of what is left.
 
-        Half of what is left (never under MIN_ATTEMPT_S), because the SDK may retry once and a
-        retry that restarts the full remaining time would double the overrun. With
-        MAX_RETRIES = 1 the worst case is the budget plus a short back-off, plus at most
-        MIN_ATTEMPT_S when the budget is nearly spent.
+        The SDK may retry once, and a retry that restarted the full remaining time would double
+        the overrun. Callers start only when `can_start()` (>= MIN_START_S left), so with
+        MAX_RETRIES = 1 attempt + retry stay inside the budget, plus a sub-second back-off.
         """
-        return max(self.remaining() / 2, MIN_ATTEMPT_S)
+        return self.remaining() / 2
 
 
 def build_client(api_key: str) -> anthropic.Anthropic:
@@ -113,5 +117,8 @@ def create_message(
     """
     if deadline is not None:
         deadline.require_time(what)
-        kwargs["timeout"] = deadline.attempt_timeout()
+        # Keep the short connect timeout: a bare float would apply to connect too.
+        kwargs["timeout"] = anthropic.Timeout(
+            deadline.attempt_timeout(), connect=CONNECT_TIMEOUT_S
+        )
     return client.messages.create(**kwargs)

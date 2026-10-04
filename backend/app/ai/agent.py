@@ -24,7 +24,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.ai.grounded import CORPUS_FILE_ORDER, valid_source_ids
 from app.ai.client import (
     ANALYZE_DEADLINE_S,
-    MIN_ATTEMPT_S,
     Deadline,
     build_client,
     create_message,
@@ -605,7 +604,7 @@ def run_agent_analysis(
         # The phone gives up shortly after the deadline. Past it, stop paying for
         # model calls and return the same honest empty+truncated result the
         # iteration cap does (findings only exist once submitted).
-        if deadline.remaining() < MIN_ATTEMPT_S:
+        if not deadline.can_start():
             logger.warning("agent analysis hit its %.0f s deadline without submitting", deadline.seconds)
             return AnalysisResult(findings=[], trace=trace, truncated=True)
         response = create_message(
