@@ -194,6 +194,288 @@ def test_chat_response_with_no_citations_returned_as_is(bungalow_home_and_plan):
     assert result == ChatResponse(reply="Sure, I can help with that.", citations=[])
 
 
+# --- uncited safety claims (S11.44, AUD-030) -----------------------------------
+
+CITED = "Test every smoke alarm once a month [cite: usfa-smoke-alarms]."
+UNCITED = "Test every smoke alarm once a month."
+MIXED = (
+    "Practice the plan twice a year [cite: nfpa-escape-planning]. "
+    "Keep a flashlight under every bed."
+)
+
+
+def test_uncited_safety_claim_is_retried_with_a_corrective_message(bungalow_home_and_plan):
+    home, plan = bungalow_home_and_plan
+    fake = FakeClient([UNCITED, CITED])
+    seen: list[list[dict]] = []
+    create = fake.messages.create
+    fake.messages.create = lambda **kw: (seen.append(list(kw["messages"])), create(**kw))[1]
+    result = chat(_history("How often should I test alarms?"), home, plan, client=fake)  # type: ignore[arg-type]
+    assert fake.calls == 2
+    assert result == ChatResponse(reply=CITED, citations=["usfa-smoke-alarms"])
+    correction = seen[1][-1]["content"]
+    assert UNCITED in correction and "[cite: source-id]" in correction
+
+
+def test_still_uncited_after_one_retry_becomes_the_deferral(bungalow_home_and_plan):
+    home, plan = bungalow_home_and_plan
+    fake = FakeClient([UNCITED, UNCITED, CITED])
+    result = chat(_history("q"), home, plan, client=fake)  # type: ignore[arg-type]
+    # One extra call at most for uncited claims, never the full retry budget.
+    assert fake.calls == 2
+    assert result == ChatResponse(reply=chat_service.UNCITED_DEFERRAL, citations=[])
+
+
+def test_mixed_cited_and_uncited_reply_is_not_shipped(bungalow_home_and_plan):
+    home, plan = bungalow_home_and_plan
+    fake = FakeClient([MIXED, MIXED])
+    result = chat(_history("q"), home, plan, client=fake)  # type: ignore[arg-type]
+    assert fake.calls == 2
+    assert result.reply == chat_service.UNCITED_DEFERRAL
+    assert result.citations == []
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Hi! What would you like to know about your escape plan?",
+        "Get out if you safely can, then call 911.",
+        "Get out now if it is safe. Call 911 from outside.",
+        "My sources don't cover flooding, so I won't guess. Please consult your "
+        "local emergency management office.",
+        "Your Bedroom's primary route goes through the Hall to the front door.",
+        "Do you want me to walk through the Bedroom route?",
+        "From the Bedroom, go down the Hall to the front door.",
+        "Use the Bedroom window as your second way out.",
+        "Feel free to ask anything else!",
+        "Check the Plan tab to see both routes.",
+    ],
+    ids=[
+        "small-talk",
+        "911-one-sentence",
+        "911-two-sentences",
+        "deferral",
+        "route-description",
+        "clarifying-question",
+        "route-narration",
+        "route-window",
+        "sign-off",
+        "app-pointer",
+    ],
+)
+def test_legitimate_uncited_replies_pass_untouched(bungalow_home_and_plan, reply):
+    home, plan = bungalow_home_and_plan
+    fake = FakeClient([reply])
+    result = chat(_history("q"), home, plan, client=fake)  # type: ignore[arg-type]
+    assert fake.calls == 1
+    assert result == ChatResponse(reply=reply, citations=[])
+
+
+def test_fabricated_id_is_still_rejected_before_the_claim_check(bungalow_home_and_plan):
+    """A fabricated id on a cited claim must not be waved through as 'cited'."""
+    home, plan = bungalow_home_and_plan
+    fake = FakeClient(["Test alarms monthly [cite: made-up-source]."] * 3)
+    with pytest.raises(ChatGroundingError, match="made-up-source"):
+        chat(_history("q"), home, plan, client=fake)  # type: ignore[arg-type]
+    assert fake.calls == 3
+
+
+@pytest.mark.parametrize(
+    "replies,calls,deferred",
+    [
+        # Two fabricated retries leave no call for the uncited one: defer, no 4th call.
+        (["X [cite: made-up-a].", "X [cite: made-up-b].", UNCITED, CITED], 3, True),
+        # Fabricated, then uncited: the uncited retry is the 3rd and last call.
+        (["X [cite: made-up-a].", UNCITED, CITED], 3, False),
+        # Uncited, then fabricated: the uncited retry was the last chance, so defer.
+        ([UNCITED, "X [cite: made-up-a].", CITED], 2, True),
+    ],
+    ids=["fab-fab-uncited", "fab-uncited-ok", "uncited-fab-defers"],
+)
+def test_total_calls_never_exceed_the_budgeted_three(bungalow_home_and_plan, replies, calls, deferred):
+    """S11.27 charges BUDGET_COST_SINGLE_CALL (3) per /chat; the mix of retries cannot exceed it."""
+    from app.rate_limit import BUDGET_COST_SINGLE_CALL
+
+    home, plan = bungalow_home_and_plan
+    fake = FakeClient(replies)
+    result = chat(_history("q"), home, plan, client=fake)  # type: ignore[arg-type]
+    assert fake.calls == calls <= BUDGET_COST_SINGLE_CALL == 1 + chat_service.MAX_CITATION_RETRIES
+    assert (result.reply == chat_service.UNCITED_DEFERRAL) is deferred
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def test_no_time_for_the_retry_defers_instead_of_504(bungalow_home_and_plan):
+    """S11.29: with under MIN_START_S left the retry may not start. That is a deferral, not a 504."""
+    from app.ai.client import CHAT_DEADLINE_S, MIN_START_S, Deadline
+
+    home, plan = bungalow_home_and_plan
+    clock = _Clock()
+    fake = FakeClient([UNCITED, CITED])
+    create = fake.messages.create
+
+    def slow_create(**kw):
+        clock.now += CHAT_DEADLINE_S - MIN_START_S + 1  # leaves 19 s: one under the floor
+        return create(**kw)
+
+    fake.messages.create = slow_create
+    result = chat(
+        _history("q"), home, plan, client=fake, deadline=Deadline(CHAT_DEADLINE_S, clock=clock)  # type: ignore[arg-type]
+    )
+    assert fake.calls == 1
+    assert result == ChatResponse(reply=chat_service.UNCITED_DEFERRAL, citations=[])
+
+
+def test_exactly_min_start_left_still_gets_the_retry(bungalow_home_and_plan):
+    from app.ai.client import CHAT_DEADLINE_S, MIN_START_S, Deadline
+
+    home, plan = bungalow_home_and_plan
+    clock = _Clock()
+    fake = FakeClient([UNCITED, CITED])
+    create = fake.messages.create
+
+    def slow_create(**kw):
+        if fake.calls == 0:
+            clock.now += CHAT_DEADLINE_S - MIN_START_S  # leaves exactly the floor
+        return create(**kw)
+
+    fake.messages.create = slow_create
+    result = chat(
+        _history("q"), home, plan, client=fake, deadline=Deadline(CHAT_DEADLINE_S, clock=clock)  # type: ignore[arg-type]
+    )
+    assert fake.calls == 2 and result.reply == CITED
+
+
+# The emergency path after a rejected reply (grounding-auditor, cases A-D). Before S11.44 an
+# emergency reply with one uncited sentence shipped; the retry must never leave the user worse off.
+EMERGENCY_Q = "there's smoke in the hallway what do I do"
+EMERGENCY_UNCITED = "Get out if safe, then call 911. Stay low under the smoke on your way out."
+
+
+def test_retry_out_of_time_after_uncited_rejection_defers_not_504(bungalow_home_and_plan):
+    """A: the retry starts, takes too long, and a further call cannot start."""
+    from app.ai.client import CHAT_DEADLINE_S, Deadline
+
+    home, plan = bungalow_home_and_plan
+    clock = _Clock()
+    fake = FakeClient([EMERGENCY_UNCITED, "Stay low [cite: made-up-a].", CITED])
+    create = fake.messages.create
+
+    def slow_create(**kw):
+        clock.now += 50
+        return create(**kw)
+
+    fake.messages.create = slow_create
+    result = chat(
+        _history(EMERGENCY_Q), home, plan, client=fake, deadline=Deadline(CHAT_DEADLINE_S, clock=clock)  # type: ignore[arg-type]
+    )
+    assert result == ChatResponse(reply=chat_service.UNCITED_DEFERRAL, citations=[])
+
+
+def test_fabricated_id_after_uncited_rejection_defers_not_502(bungalow_home_and_plan):
+    """B: uncited, then fabricated. No further retry, no ChatGroundingError."""
+    home, plan = bungalow_home_and_plan
+    fake = FakeClient([EMERGENCY_UNCITED, "Stay low [cite: made-up-a].", "Stay low [cite: made-up-b]."])
+    result = chat(_history(EMERGENCY_Q), home, plan, client=fake)  # type: ignore[arg-type]
+    assert fake.calls == 2
+    assert result.reply == chat_service.UNCITED_DEFERRAL
+
+
+@pytest.mark.parametrize("exc_kind", ["deadline", "api"])
+def test_retry_call_raising_after_uncited_rejection_defers(bungalow_home_and_plan, exc_kind):
+    """C: the retry call itself fails. The deferral (which leads with 911) is returned instead."""
+    import anthropic
+    import httpx
+
+    from app.ai.client import DeadlineExceeded
+
+    home, plan = bungalow_home_and_plan
+    fake = FakeClient([EMERGENCY_UNCITED])
+    create = fake.messages.create
+
+    def failing_second(**kw):
+        if fake.calls == 1:
+            fake.calls += 1
+            if exc_kind == "deadline":
+                raise DeadlineExceeded("out of time")
+            raise anthropic.APITimeoutError(request=httpx.Request("POST", "https://x"))
+        return create(**kw)
+
+    fake.messages.create = failing_second
+    result = chat(_history(EMERGENCY_Q), home, plan, client=fake)  # type: ignore[arg-type]
+    assert result.reply == chat_service.UNCITED_DEFERRAL
+
+
+def test_first_call_api_error_still_raises(bungalow_home_and_plan):
+    """Without a rejected reply in hand there is nothing to defer from: the endpoint maps the error."""
+    import anthropic
+    import httpx
+
+    home, plan = bungalow_home_and_plan
+    fake = FakeClient([])
+
+    def boom(**kw):
+        raise anthropic.APITimeoutError(request=httpx.Request("POST", "https://x"))
+
+    fake.messages.create = boom
+    with pytest.raises(anthropic.APITimeoutError):
+        chat(_history("q"), home, plan, client=fake)  # type: ignore[arg-type]
+
+
+def test_retry_that_drops_the_911_line_defers(bungalow_home_and_plan):
+    """D: a cited retry that lost the emergency line is not shipped."""
+    home, plan = bungalow_home_and_plan
+    fake = FakeClient(
+        [EMERGENCY_UNCITED, "Stay low under the smoke on your way out [cite: usfa-escape-plans]."]
+    )
+    result = chat(_history(EMERGENCY_Q), home, plan, client=fake)  # type: ignore[arg-type]
+    assert result.reply == chat_service.UNCITED_DEFERRAL
+    assert "call 911" in result.reply
+
+
+def test_retry_that_keeps_the_911_line_and_cites_ships(bungalow_home_and_plan):
+    home, plan = bungalow_home_and_plan
+    fixed = (
+        "Get out if safe, then call 911. Stay low under the smoke on your way out "
+        "[cite: usfa-escape-plans]."
+    )
+    fake = FakeClient([EMERGENCY_UNCITED, fixed])
+    result = chat(_history(EMERGENCY_Q), home, plan, client=fake)  # type: ignore[arg-type]
+    assert result == ChatResponse(reply=fixed, citations=["usfa-escape-plans"])
+
+
+def test_the_deferral_reuses_the_prompts_own_wording_and_cites_nothing():
+    """No new safety advice: both instructions in it already appear in CHAT_RULES."""
+    rules = " ".join(chat_service.CHAT_RULES.lower().split())
+    deferral = chat_service.UNCITED_DEFERRAL.lower()
+    assert "get out if safe, then call 911" in rules and "get out if safe, then call 911" in deferral
+    phrase = "local fire department or emergency management office"
+    assert phrase in rules and phrase in deferral
+    assert "[cite:" not in deferral
+    from app.ai.chat.claims import uncited_safety_claims
+
+    assert uncited_safety_claims(chat_service.UNCITED_DEFERRAL) == []
+    # Rule 4: in an emergency the 911 line comes FIRST. The deferral may be answering one.
+    from tests.evals.graders import says_call_911_first
+
+    assert says_call_911_first(chat_service.UNCITED_DEFERRAL) is None
+
+
+def test_the_prompt_example_obeys_the_rule_it_teaches():
+    """The CHAT_RULES example used to be an uncited imperative, teaching the shape the server rejects."""
+    from app.ai.chat.claims import uncited_safety_claims
+
+    rules = chat_service.CHAT_RULES
+    example = rules[rules.index('(e.g. "') + 7 : rules.index('").')]
+    assert uncited_safety_claims(" ".join(example.split())) == []
+
+
 # --- /chat endpoint ------------------------------------------------------------
 
 
