@@ -124,3 +124,7 @@ backend-as-a-service.
 | Change detection | `escape_plan/Sync/HomeFingerprint.swift` — FNV-1a over a canonical re-encoding | ~15 lines. Non-cryptographic on purpose (a change detector, not a security primitive), which also keeps the directory free of a CryptoKit import so it still compiles as a Foundation-only package |
 | Sync-state persistence | `escape_plan/Sync/SyncState.swift` — `Codable` + `FileManager`, atomic writes | A versioned sidecar file. No database on the client |
 | The fake `/homes` backend the tests run against | `escape_planTests/EditorCore/SyncTestSupport.swift` — `URLProtocol` | Our own ~150-line stand-in implementing the two routes as `api_auth.py` defines them, so the real client is exercised rather than a protocol double. No HTTP-mocking library |
+
+## AI tools used to build the app
+* Claude
+* Google Antigravity/Gemini

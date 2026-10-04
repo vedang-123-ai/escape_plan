@@ -3077,3 +3077,10 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
   in `732a5c8` (S6.7). The tracker had carried all four as open.
 - **`.build-assess/` untracked** (`07e413a`), and `AgentFinding.id` threaded through the Swift
   decode (`df9d0a2`).
+
+### S11.12 findings (2026-10-04, branch s11-12-pitch-v2)
+
+- [ ] **S11.39 claims diff has not landed yet:** I wrote around the AI inspector claim by focusing Beat 5 on the Assistant chat.
+- [ ] **Firefighter quote:** He found the idea "really cool" and pointed to prevention/education. I did not name or quote him. Anish needs to decide if permission will be asked (S11.13).
+- [ ] **tools-used.md missing tools:** Updated per AUD-038 to include Claude and Google Antigravity/Gemini. It needs one more look by Anish after S11.47 lands to confirm accuracy. "Which AI tools did you use, and for what?" is an open question for Anish.
+- [x] **AUD-038 fixed:** Updated tools-used.md.
