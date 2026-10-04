@@ -28,10 +28,9 @@ BUILD_DEADLINE_S = 170.0
 ANALYZE_DEADLINE_S = 80.0
 """iOS /analyze waits 90 s (APIClient+Analyze.swift)."""
 
-CHAT_DEADLINE_S = 50.0
-"""iOS /chat waits 60 s TODAY (APIClient+Chat.swift). S11.37 plans to raise that to 120 s or more;
-when it does, raise this to match (client timeout minus about 10 s). Until then anything above
-60 s here would be pointless for the phone."""
+CHAT_DEADLINE_S = 110.0
+"""iOS /chat waits 120 s (`APIClient.chatTimeout`, APIClient+Chat.swift; raised from 60 s by S11.37,
+AUD-032). Keep this about 10 s under that number: change both together."""
 
 EXPLAIN_DEADLINE_S = 60.0
 """No iOS screen calls /explain directly. /score with `include_recommendations` reaches it through
