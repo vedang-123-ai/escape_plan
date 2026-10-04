@@ -43,8 +43,18 @@ final class HomeLibrary: ObservableObject {
         refresh()
     }
 
+    /// What the last listing learned about each file, so a refresh re-reads only the files that
+    /// changed. Keyed by file change time and size, so it cannot outlive a change on disk.
+    private var summaryEntries: [String: HomeDocumentStore.SummaryEntry] = [:]
+
+    /// Re-lists the library. Synchronous on purpose: the first screen, the delete and duplicate
+    /// sheets and the new-home flow all read `homes` on the next line. It stays cheap by reading
+    /// only the files that changed (usually one, after an editor autosave), not every home.
     func refresh() {
-        homes = store.list()
+        let listing = store.summaries(reusing: summaryEntries)
+        summaryEntries = listing.entries
+        // Skip an identical list so an autosave that changes nothing visible redraws nothing.
+        if homes != listing.summaries { homes = listing.summaries }
     }
 
     /// Returns false when the file could not be deleted (the reason is in `loadError`). Returns

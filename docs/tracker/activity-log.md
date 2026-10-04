@@ -3325,3 +3325,21 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - M escape_plan/Screens/SettingsScreen.swift
   - ?? escape_planTests/APIClientConfigTests.swift
 
+## 2026-10-04T18:07:06Z · Anish Yarrakonda · `main` @ `c061d4e`
+
+**Commits this session**
+  - c061d4e Merge s11-42-server-settings (S11.42): token override flag, Release ignores overrides, server addresses validated (AUD-009)
+  - 04ec67c S11.42: correct BLOCKERS test counts
+  - 2892363 S11.42: token override flag, Release ignores overrides, server address validation (AUD-009)
+
+## 2026-10-04T18:23:14Z · Anish Yarrakonda · `s11-48-library-listing` @ `57365ff`
+
+**Commits this session**
+  - 57365ff S11.48: library listing reads only changed files with a light decode; seeding failure shown once (AUD-047, AUD-049)
+  - c061d4e Merge s11-42-server-settings (S11.42): token override flag, Release ignores overrides, server addresses validated (AUD-009)
+  - 04ec67c S11.42: correct BLOCKERS test counts
+  - 2892363 S11.42: token override flag, Release ignores overrides, server address validation (AUD-009)
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
