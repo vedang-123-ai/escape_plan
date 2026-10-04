@@ -131,7 +131,9 @@ owning session's merge is on `origin/main` and you verified it.
       2026-10-04 by S11.29** (one client factory, per-request deadlines; stub-tested). The live check that a slow
       `/build` really stops server-side is owed to **S11.49** (see "S11.29 findings")
 - [x] AUD-036 (P2) iOS suite red (the 7 in §3) · **fixed 2026-09-30 by S11.8**: 0 failed on three full runs (header stamp)
-- [ ] AUD-037 (P2) Render not gated on CI · `/health` half done 2026-10-04 by S11.31 (`commit` field); CI half S11.46
+- [ ] AUD-037 (P2) Render not gated on CI · `/health` half done 2026-10-04 by S11.31 (`commit` field); **CI half done
+      2026-10-04 by S11.46** (nightly `ios-tests`, `render.yaml` `autoDeployTrigger: checksPass`, `scripts/smoke-deploy.sh`).
+      Stays open until the owner confirms the Render dashboard setting (§1, "S11.46 findings")
 - [x] AUD-039 (P3) stale "no delete endpoint" comments · **fixed 2026-10-02 by S11.21** (`grep -rn "no delete endpoint"
       escape_plan` returns nothing)
 - [ ] AUD-040 (P3) root scratch scripts rewrite 2.1 to 2.0 · S11.47
@@ -146,6 +148,56 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] AUD-047 (P3) `list()` on the main thread · **fixed 2026-10-04 by S11.48** (50 homes: 215 ms to 8 ms cold, 1.2 ms per autosave; evidence under "S11.48 findings")
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45; the starter-seeding item fixed 2026-10-04 by S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.46 findings (2026-10-04, branch s11-46-ci-gating)
+
+AUD-037's CI half is in: `ios-tests` runs nightly when `main` moved, Render is told to deploy only after checks pass,
+and `scripts/smoke-deploy.sh` checks the live commit. The dashboard half is the owner's (§1).
+
+- [x] **Workflow parses.** `actionlint` 1.7.12: clean apart from two `SC2012` info notes on the "Select the newest
+      Xcode" `ls` lines, which `main`'s copy has too (not touched). PyYAML parse OK; the triggers are push, pull_request,
+      workflow_dispatch and `schedule` (`17 7 * * *`, about midnight US Pacific).
+- [x] **Push runs unchanged in speed.** Branch push run
+      [37232464290](https://github.com/vedang-123-ai/escape_plan/actions/runs/37232464290) green: `backend` 1 min 14 s,
+      `ios-typecheck` 3 min 22 s (main's last runs: 1 min 7 s to 1 min 23 s and 3 min 30 s to 4 min 18 s); `ios-tests` and
+      `nightly-gate` skipped.
+- [x] **The dispatched `ios-tests` works on GitHub with the v7 actions and reports counts.** Run
+      [37232672098](https://github.com/vedang-123-ai/escape_plan/actions/runs/37232672098) (dispatched with the owner's OK,
+      branch commit `f50b8f0`, iPhone 17 Pro / iOS 26.5): xcresulttool **1100 total, 1088 passed, 1 failed,
+      11 skipped**; the result bundle uploaded (`ci-xcresult`). The job ran even though `nightly-gate` was skipped, as
+      intended for a manual run.
+- [ ] **That run's one failure is the known flake** `GestureFrameCostUITests.testACameraDragDoesNotDragSwiftUIUpdatesAlongWithIt`
+      (§4): this time `editor.scene` never appeared within 20 s on the CI runner. Not re-run (a second paid run) and not
+      fixed (tests are S11.8's). If it keeps failing on CI, the nightly run is red every night: next action, whoever owns
+      UI tests: re-run that one test alone, and if CI is just slow, raise its 20 s wait.
+- [ ] **The run-summary counts table is unverified on GitHub.** Added after run 37232672098 (commit `903d09b`). Tested
+      locally by running the step's own script (read from the YAML) against that run's real xcresult JSON, an
+      unreadable bundle and no bundle: it prints the table, a "could not read" line and a "no result bundle" line, and
+      exits 0 each time. The first nightly or manual run shows it on GitHub.
+- [ ] **The nightly schedule has not fired yet.** First chance is 07:17 UTC tonight (it reads `gate.yml` from `main`, so
+      only after this merge). `nightly-gate` logic was checked by reading, not by a run: it compares HEAD's commit time
+      with now and skips if older than 24 h.
+- [x] **`scripts/smoke-deploy.sh` against the live service:** `PASS`, live and `origin/main` both
+      `9877802907d1553e067460cc64d8427c2bccd4ba`, exit 0 (2026-10-04). Proven to fail: `SMOKE_EXPECT_COMMIT=23e44ce` →
+      `BEHIND`, exit 2; a non-existent Render host with `SMOKE_TIMEOUT=6` → `FAIL ... last status: 404`, exit 1; a host
+      whose JSON has no `commit` (httpbin.org/anything) → exit 3. It reads no secrets and sends no token.
+- [ ] **Actions minutes: the nightly suite costs money-shaped quota (owner decision if it bites).** The repo is
+      **private**, owned by **`vedang-123-ai`**, so minutes come out of that account. GitHub's billing docs (read
+      2026-10-04): Free includes 2,000 minutes a month, Pro 3,000; macOS costs $0.062 a minute vs $0.006 for Linux, about
+      10x. One suite run is about 10 to 20 macOS minutes (run 37232672098: 9 min 10 s; earlier runs up to ~16 min), so
+      **about 100 to 200 Linux-equivalent minutes per night that `main` moved**: with daily merges until Oct 24, roughly
+      2,000 to 4,000 a month on top of every push's ~3.5 macOS minutes for `ios-typecheck`. **That can exceed the
+      included quota.** With no payment method GitHub then blocks all Actions, and because of `checksPass` **Render then
+      stops deploying too** (a blocked or failed check means no deploy). Usage could not be read from here (the API needs
+      a scope this token lacks). To make it cheaper: change `cron: "17 7 * * *"` in `.github/workflows/gate.yml` to
+      weekly (`"17 7 * * 1"`), or delete the `schedule:` block (the manual button stays).
+- [ ] **Render setting unconfirmed: owner step in §1.** `render.yaml` now says `autoDeployTrigger: checksPass` (field and
+      values confirmed in Render's blueprint spec with WebFetch, 2026-10-04). A blueprint only applies if the service is
+      managed by a Render Blueprint, which nobody has confirmed, and Render's docs do not say whether a sync changes an
+      existing service. So the dashboard is the source of truth.
+- [x] **S11.47 boundary kept:** the install `run:` steps in `gate.yml` (`pip install -r backend/requirements.lock`,
+      the lock-vs-requirements dry run) are byte-identical to `main`. Only the `uses:` lines above them changed (v5 to v7),
+      so S11.47 can edit the install steps without a conflict.
 
 ### S11.37 findings (2026-10-04, branch `s11-37-honest-failures`)
 
@@ -1115,8 +1167,10 @@ EditorCore **609 passed, 0 failed** on `macos-26`). `ios-tests` skipped (manual 
       `escape-plan-backend.onrender.com` (proxy 403 on CONNECT), so neither `GET /health` (expect 200) nor
       `POST /diff_obstructions` with no token (expect 401 after the deploy) could be observed. Next action (owner):
       run both curls once Render shows the deploy of this merge live.
-- [ ] **GitHub Actions warns that `actions/checkout@v4` / `setup-python@v5` target Node 20** and are being forced onto
-      Node 24. Harmless today; bump the major versions when convenient.
+- [x] **GitHub Actions warns that `actions/checkout@v4` / `setup-python@v5` target Node 20** and are being forced onto
+      Node 24. **Fixed 2026-10-04 by S11.46:** `checkout`, `setup-python` and `upload-artifact` are on v7 (`node24`). The
+      warning annotation is on `main`'s push run 37229457418 and absent from branch push run
+      [37232464290](https://github.com/vedang-123-ai/escape_plan/actions/runs/37232464290) (only two GitHub notices remain).
 
 ### Part B · iOS (branch `audit-ios-fixes`, merged into `ui-revamp-1-foundation`, which reached `main` in `6b5eea0` on 2026-09-25)
 
@@ -2143,6 +2197,20 @@ drywall-anchor sentence or a `usgs-earthquake` cite (the injuries claim now cite
       filming.
 
       **Run preflight with `backend/.venv/bin/python`, not `python3`** — see §4.
+
+- [ ] **Render: deploy only after the checks pass (added 2026-10-04 by S11.46, AUD-037).** The code side is done; only
+      the dashboard can confirm it. Steps:
+      1. Go to dashboard.render.com and sign in.
+      2. Click the service **escape-plan-backend**.
+      3. Click **Settings** in the left menu, then scroll to **Build & Deploy**.
+      4. Find **Auto-Deploy**. Click **Edit**, choose **After CI Checks Pass**, and click **Save Changes**.
+      5. Optional: click **Blueprints** in the top menu. If this service appears under a Blueprint, write "managed by a
+         Blueprint" under this line; if not, write "not a Blueprint". Either way step 4 is what counts.
+      6. Write "done 2026-MM-DD, After CI Checks Pass" on this line.
+      After the next merge, the deploy starts about 4 minutes later than before, because it waits for the checks. To
+      check what is live, run `bash scripts/smoke-deploy.sh` from the repo folder. `PASS` means the live server runs the
+      newest `main`. `BEHIND` a few minutes after a merge is normal; if it persists past 15 minutes, open the commit on
+      GitHub and look for a red check.
 
 - [ ] **Run the 3 `-m mongo` account-deletion tests against Atlas** (added 2026-09-25). They need the real
       `MONGODB_URI`; no session holds it. `cd backend && .venv/bin/python -m pytest -m mongo`.

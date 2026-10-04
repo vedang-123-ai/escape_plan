@@ -115,7 +115,7 @@ jobs:
           fi
 
   ios-tests:
-    # Manual, plus nightly when main moved. A full simulator run is ~15 minutes of macOS
+    # Manual, plus nightly when main moved. A full simulator run is ~10 to 20 minutes of macOS
     # time and about one red run in three is environmental. Re-run once before believing
     # a red result. Never on push or pull_request: those stay as fast as before.
     needs: nightly-gate
