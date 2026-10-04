@@ -154,8 +154,10 @@ Advanced and Developer sections are `#if DEBUG`. Bad addresses are refused with 
 success. Decisions: 2026-10-04 S11.42 rows. Note: `docs/tracker/notes/2026-10-04-s11-42-server-settings.md`.
 
 - [x] **Verified 2026-10-04:** simulator (iPhone 17 Pro, iOS 26.5) `-only-testing:escape_planTests` + SignedOutPathUITests +
-      EntryPointUITests: **1058 passed, 0 failed, 4 skipped** (scratchpad `g.xcresult`), against S11.41's 1036 / 0 / 3 for
-      unit tests: +22 over S11.41, of which 14 are `APIClientConfigTests` and the rest EntryPointUITests+SignedOutPathUITests counted in this run. `typecheck-ios.sh` ok on four
+      EntryPointUITests (after the reviewer fixes): **1058 passed, 0 failed, 4 skipped** (scratchpad `g.xcresult`).
+      Before the fixes, `-only-testing:escape_planTests` alone was 1046 / 0 / 3 against S11.41's 1036 / 0 / 3 (+10, the
+      then-new tests); the suite now has 14 `APIClientConfigTests`. EditorCore not re-run (no EditorCore file touched).
+      `typecheck-ios.sh` ok on four
       targets; `-default-isolation MainActor` shows only the three known warnings. 4 mutations, all caught (note).
       ecc:security-reviewer and swift-scenekit-reviewer: no must-fix; the Release-override, placeholder, empty-token and
       error-colour findings were fixed.
