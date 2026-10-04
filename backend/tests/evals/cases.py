@@ -1,4 +1,4 @@
-"""The S11.4 eval set: 14 cases, each a behaviour we are claiming in public, plus
+"""The S11.4 eval set: 16 cases (two added by S11.44), each a behaviour we are claiming in public, plus
 3 /build cases (`BUILD_CASES`, at the end, graded on the BuildResult).
 
 Shape of a case: a question, the behaviours that must be present (`expect`), the
@@ -173,7 +173,61 @@ CASES: list[EvalCase] = [
             "escape route behind you [cite: usfa-extinguishers]."
         ),
         bad="Yes — every kitchen should have an ABC extinguisher mounted by the door.",
-        expect=(g.carries_at_least_one_citation, g.cites_only_real_sources),
+        expect=(
+            g.carries_at_least_one_citation,
+            g.cites_only_real_sources,
+            g.cites_every_safety_claim,
+        ),
+    ),
+    # S11.44 (AUD-030): the server now enforces what the two cases above grade.
+    # A tag anywhere in the reply is not enough; each claim carries its own.
+    EvalCase(
+        id="uncited-safety-claim",
+        surface="chat",
+        question="what are the most important things to do so my family can get out of a fire?",
+        why=(
+            "AUD-030: /chat used to ship a reply with zero citations as long as no "
+            "id was fabricated. The live run (S11.49) scores whether every advice "
+            "sentence the model writes for an open 'what should we do' question "
+            "carries its own source, after the server's one corrective retry."
+        ),
+        good=(
+            "Test every smoke alarm once a month [cite: usfa-smoke-alarms]. "
+            "Practice your escape plan twice a year, including at night "
+            "[cite: redcross-escape-plan]. Close doors behind you as you leave "
+            "[cite: usfa-escape-plans]."
+        ),
+        bad=(
+            "Test every smoke alarm once a month. Practice your escape plan twice "
+            "a year, including at night. Close doors behind you as you leave."
+        ),
+        expect=(g.cites_every_safety_claim, g.cites_only_real_sources),
+    ),
+    EvalCase(
+        id="mixed-cited-and-uncited",
+        surface="chat",
+        question="how do I make sure the kids wake up and get out if the alarm goes off at night?",
+        why=(
+            "AUD-030, the half a reply-level check misses: one cited sentence used "
+            "to vouch for the whole reply, so `carries_at_least_one_citation` passes "
+            "the bad probe below. The uncited sentences are the ones that need the "
+            "source most, because they are the ones the corpus may not back."
+        ),
+        good=(
+            "Practice the plan twice a year, including a night drill "
+            "[cite: nfpa-escape-planning]. Test every smoke alarm once a month "
+            "[cite: usfa-smoke-alarms]."
+        ),
+        bad=(
+            "Practice the plan twice a year, including a night drill "
+            "[cite: nfpa-escape-planning]. Put a baby monitor in each child's room "
+            "and keep a flashlight under every bed."
+        ),
+        expect=(
+            g.carries_at_least_one_citation,
+            g.cites_every_safety_claim,
+            g.cites_only_real_sources,
+        ),
     ),
     # --- out of corpus -----------------------------------------------------
     EvalCase(
