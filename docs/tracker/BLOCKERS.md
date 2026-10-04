@@ -94,7 +94,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] AUD-008 (P2) Documents visible in Files app in Release; scans never cleaned · **fixed for Release 2026-10-03 by
       S11.40** (evidence under "S11.40 findings"); the device check "scan dir deleted after import" is owed (§2 checklist)
 - [x] AUD-009 (P2) saved token overrides forever; Advanced in Release · **fixed 2026-10-04 by S11.42** (evidence under "S11.42 findings"); device check owed: a build with a rotated token on an iPhone that earlier tapped Save
-- [ ] AUD-010 (P3) `/convert` leaks Python text as 422 · S11.31
+- [x] AUD-010 (P3) `/convert` leaks Python text as 422 · **fixed 2026-10-04 by S11.31** (evidence under "S11.31 findings")
 - [ ] AUD-011 (P3) `needs_rehash` never called · S11.28
 - [x] AUD-012 (P3) untrusted `home_id` as filename · **fixed 2026-10-04 by S11.41** (evidence under "S11.41 findings")
 - [x] AUD-013 (P1) House editor overwrites other writers · **fixed 2026-10-01 by S11.19** (evidence under "S11.19 findings")
@@ -131,12 +131,12 @@ owning session's merge is on `origin/main` and you verified it.
       2026-10-04 by S11.29** (one client factory, per-request deadlines; stub-tested). The live check that a slow
       `/build` really stops server-side is owed to **S11.49** (see "S11.29 findings")
 - [x] AUD-036 (P2) iOS suite red (the 7 in §3) · **fixed 2026-09-30 by S11.8**: 0 failed on three full runs (header stamp)
-- [ ] AUD-037 (P2) Render not gated on CI · S11.31, S11.46
+- [ ] AUD-037 (P2) Render not gated on CI · `/health` half done 2026-10-04 by S11.31 (`commit` field); CI half S11.46
 - [x] AUD-039 (P3) stale "no delete endpoint" comments · **fixed 2026-10-02 by S11.21** (`grep -rn "no delete endpoint"
       escape_plan` returns nothing)
 - [ ] AUD-040 (P3) root scratch scripts rewrite 2.1 to 2.0 · S11.47
 - [ ] AUD-041 (P3) local Python 3.13 vs deploy 3.12 · S11.47
-- [ ] AUD-042 (P3) Mongo index creation never retried · S11.31
+- [ ] AUD-042 (P3) Mongo index creation never retried · **skipped by S11.31** (S11.30 dropped with accounts; cloud sync is switched off). Still open, low value
 - [ ] AUD-043 (P3) `require_token` duplicated · S11.27
 - [ ] AUD-044 (P3) dead code · **Profiles half resolved 2026-10-02 by S11.20** (ProfilesScreen/ProfileEditorView re-wired,
       not deleted); the rest · S11.39, S11.47
@@ -146,6 +146,17 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] AUD-047 (P3) `list()` on the main thread · **fixed 2026-10-04 by S11.48** (50 homes: 215 ms to 8 ms cold, 1.2 ms per autosave; evidence under "S11.48 findings")
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45; the starter-seeding item fixed 2026-10-04 by S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.31 findings (2026-10-04, branch s11-31-backend-hygiene)
+
+- [x] **AUD-010:** `/convert` returns a curated 422 only for `ConversionError` (the converter wraps its input-parse `ValidationError` in it); anything else is logged with a traceback and returns 500 with a generic message. Tests: `test_convert_rejects_garbage_scan`, `test_convert_server_bug_is_500_and_logged_with_traceback`, `test_malformed_export_raises_conversion_error_without_internals`.
+- [x] **Reviewer (ecc:python-reviewer):** a post-parse pydantic failure would have shown as a client 422 with no traceback; fixed by catching only `ConversionError`. Class-scoped classmethod fixtures were version-dependent (`pytest>=8.0` in requirements); replaced with plain function-scoped fixtures, which also clears the 3 PytestRemovedIn10Warning.
+- [x] **Mutation checks** (each made a named test fail, then restored): `commit` hard-coded, 500 turned into 422, `ConversionError` not raised, 422 message leaking exception text.
+- [x] **Gate 2026-10-04:** `pytest backend/tests/ -m "not live" -W error::pytest.PytestRemovedIn10Warning`: 1007 passed, 1 skipped, 29 deselected.
+- [x] iOS `checkHealth` reads only the status code; `scripts/demo-preflight.py` reads `status` with `.get`. Adding `commit` is safe.
+- [ ] **`/health` commit live on Render:** verify after deploy with `curl -s https://escape-plan-backend.onrender.com/health` (not yet done).
+- [ ] **Not done on purpose:** Mongo index retry and `/health/db` index readiness (AUD-042): S11.30 dropped, `cloud_repo.py` untouched.
+- [ ] `scoring` of a degenerate-but-parseable scan that fails HomeModel validation now returns 500, not 422; no real scan has done this.
 
 ### S11.48 findings (2026-10-04, branch s11-48-library-listing)
 

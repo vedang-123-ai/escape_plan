@@ -34,7 +34,7 @@ from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
 from app.api_auth import router as cloud_router
 from app.api_chat import router as chat_router
 from app.config import get_settings, get_thresholds, get_object_hazard_thresholds
-from app.convert.converter import convert_scan
+from app.convert.converter import ConversionError, convert_scan
 from app.database import CloudSyncDisabled, database
 from app.limits import (
     BodySizeLimitMiddleware,
@@ -272,8 +272,17 @@ class HealthResponse(BaseModel):
 
     status: str
     version: str
+    commit: str
+    """The deployed git commit (Render sets RENDER_GIT_COMMIT), so a smoke check can
+    tell which build is live. A public commit hash, not a secret."""
     ai_calls_remaining_today: int
     ai_calls_spent_today: int
+
+
+def _deployed_commit() -> str:
+    import os
+
+    return os.environ.get("RENDER_GIT_COMMIT", "").strip() or "unknown"
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -282,6 +291,7 @@ def health() -> HealthResponse:
     return HealthResponse(
         status="ok",
         version=app.version,
+        commit=_deployed_commit(),
         ai_calls_remaining_today=budget.remaining(settings.ai_daily_call_budget),
         ai_calls_spent_today=budget.spent_today(),
     )
@@ -407,9 +417,19 @@ def convert(request: ConvertRequest) -> HomeModel:
         for w in warnings:
             logging.warning(f"convert_scan: {w}")
         return model
-    except Exception as exc:  # malformed exports are a client error, not a 500
+    except ConversionError as exc:
+        # Malformed export: the client's fault. The message is curated, never the
+        # exception text, so no Python internals or field paths reach the phone.
+        logging.warning("convert_scan rejected a scan: %s", exc.__class__.__name__)
         raise HTTPException(
-            status_code=422, detail=f"scan could not be converted: {exc}"
+            status_code=422,
+            detail="This scan could not be converted. Re-scan the home and try again.",
+        ) from exc
+    except Exception as exc:
+        # Anything else is a server bug: log the traceback and say so honestly.
+        logging.error("convert_scan failed unexpectedly", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail="The server failed to convert this scan."
         ) from exc
 
 

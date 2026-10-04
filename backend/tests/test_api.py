@@ -35,6 +35,16 @@ def test_health_is_open(client: TestClient):
     assert resp.json()["status"] == "ok"
 
 
+def test_health_names_the_deployed_commit(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "abc1234deadbeef")
+    assert client.get("/health").json()["commit"] == "abc1234deadbeef"
+
+
+def test_health_commit_is_unknown_off_render(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
+    assert client.get("/health").json()["commit"] == "unknown"
+
+
 def test_routes_requires_token(client: TestClient, bungalow: dict):
     assert client.post("/routes", json={"home": bungalow}).status_code == 401
 
@@ -214,6 +224,25 @@ def test_convert_requires_token(client: TestClient):
 def test_convert_rejects_garbage_scan(client: TestClient):
     resp = client.post("/convert", json={"scan": {"rooms": "nope"}}, headers=AUTH)
     assert resp.status_code == 422
+    # Curated: no Python or pydantic internals, no field paths.
+    detail = resp.json()["detail"]
+    assert "rooms" not in detail and "validation" not in detail.lower()
+
+
+def test_convert_server_bug_is_500_and_logged_with_traceback(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    def boom(*_a, **_k):
+        raise KeyError("secret internal detail")
+
+    monkeypatch.setattr("app.main.convert_scan", boom)
+    # raise_server_exceptions=False: we want the response the phone would see.
+    resp = TestClient(app, raise_server_exceptions=False).post(
+        "/convert", json={"scan": {}}, headers=AUTH
+    )
+    assert resp.status_code == 500
+    assert "secret internal detail" not in resp.text
+    assert any(r.levelname == "ERROR" and r.exc_info for r in caplog.records)
 
 
 def test_missing_token_env_fails_closed(

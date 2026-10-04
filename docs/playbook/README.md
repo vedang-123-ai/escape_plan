@@ -86,7 +86,7 @@ task is ticked by hand through `toggleDone`); **S11.36** keys the route cache in
 | [S11.28](S11-28.md) | ~~Sign-in routes: off the event loop, throttled, rehash~~ | 005, 011 | P1 | 3 Backend hardening | E | `s11-28-auth-throttle` | S11.27 | **DROPPED 2026-10-02** (accounts cut; see BLOCKERS: turn the server routes off instead) |
 | [S11.29](S11-29.md) | ~~AI calls time out and stop when the phone gives up~~ **DONE 2026-10-04** | 035 | P2 | 3 Backend hardening | E | `s11-29-ai-deadlines` | S11.26, S11.27 | DONE 2026-10-04 |
 | [S11.30](S11-30.md) | ~~Cloud homes: quota and compare-and-set revisions~~ | 016, 007 | P2 | 3 Backend hardening | E | `s11-30-homes-cas` | S11.26, S11.28 | **DROPPED 2026-10-02** (accounts cut) |
-| [S11.31](S11-31.md) | Backend hygiene: /convert errors, index retry, /health commit | 010, 042, 037 | P2 | 3 Backend hardening | E | `s11-31-backend-hygiene` | ~~S11.30~~ (dropped; skip the Mongo index retry) | |
+| [S11.31](S11-31.md) | Backend hygiene: /convert errors, index retry, /health commit | 010, 042, 037 | P2 | 3 Backend hardening | E | `s11-31-backend-hygiene` | ~~S11.30~~ (dropped; skip the Mongo index retry) | **DONE 2026-10-04** (index retry skipped) |
 | [S11.32](S11-32.md) | ~~Sync handles a stale revision and a full account~~ | 016, 007 | P2 | 4 Integration | D | `s11-32-sync-cas` | S11.22, S11.30 deployed | **DROPPED 2026-10-02** (accounts cut) |
 | [S11.33](S11-33.md) | ~~Photo import sends a real JPEG~~ **DONE 2026-10-03** | 024 | P1 | 4 Integration | D | `s11-33-photo-jpeg` | S11.26 | DONE 2026-10-03 |
 | [S11.34](S11-34.md) | Checklist recurrence through /score (server) | 026 | P2 | 4 Integration | E | `s11-34-recurrence-server` | S11.27 | |
