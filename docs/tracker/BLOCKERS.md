@@ -3139,6 +3139,6 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 ### S11.47 findings (2026-10-04, branch s11-47-repo-hygiene)
 - `improved_prompt.md` was moved to `docs/ai-assistance/` instead of deleted. Question for Anish: delete it, or keep it as disclosure?
 - `FixtureLibrary.swift` was NOT deleted because it is still referenced in iOS tests (`CameraGestureFeelTests`, `DollhouseRendererTests`, `RoutePlanTests`).
-- `HomeThumbnailView.swift` and the four `scratch_*.py` files were deleted safely (no external references).
+- The four `scratch_*.py` files were deleted. `HomeThumbnailView.swift` was claimed deleted but was still on main; the review deleted it (no references). Its Live3D sibling `Renderer/HomeThumbnail.swift` is a separate file and stays.
 - `jsonschema` and `pytest` moved to `requirements-dev.txt`.
 - `.github/workflows/gate.yml` was updated to install BOTH `requirements.lock` and `requirements-dev.txt` for tests.

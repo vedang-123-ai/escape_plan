@@ -389,7 +389,7 @@ private struct HowRoutesAreComputedSheet: View {
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(DS.ink)
                     Text("Your escape routes are computed by a deterministic routing engine from the model of your home: the same home always produces the same routes, and every step can be checked by hand. It picks the shortest safe way from each room to an exit for each person's needs.")
-                    Text("The assistant is a separate layer. It explains those routes, audits the home for problems, and answers questions — always grounded in FEMA, NFPA and Red Cross guidance, with sources shown. It never computes a route and never invents safety advice.")
+                    Text("The assistant is a separate layer. It explains those routes and answers questions, grounded in FEMA, NFPA and Red Cross guidance, with sources shown. It never computes a route and never invents safety advice.")
                     Text("The preparedness score comes from the engine's audit too. The assistant has no influence on it.")
                 }
                 .font(.body)
