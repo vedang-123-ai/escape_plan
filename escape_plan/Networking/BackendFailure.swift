@@ -175,7 +175,7 @@ struct BackendFailure: Equatable {
 
         if let decoding = error as? DecodingError {
             // Path and shape only, never the values: a body can hold a home layout.
-            Self.log.error("decode failed for \(operation.path, privacy: .public): \(Self.describe(decoding), privacy: .public)")
+            Self.log.error("decode failed for \(operation.path, privacy: .public): \(Self.label(decoding), privacy: .public) at \(Self.codingPath(decoding), privacy: .private)")
             self.init(kind: .appServerMismatch,
                       message: "The app and the server disagree about \(operation.noun). "
                              + "Update the app, then try again.",
@@ -192,7 +192,8 @@ struct BackendFailure: Equatable {
             } ?? false
             if urlError?.code == .timedOut {
                 self.init(kind: .timedOut,
-                          message: "The server is waking up. Try again in a moment.",
+                          message: "The server didn't answer in time. It may be waking up. Try again in a moment."
+                                 + fallback,
                           isRetryable: true, suggestsSettings: false,
                           symbol: "hourglass")
             } else if offline {
@@ -285,19 +286,31 @@ struct BackendFailure: Equatable {
         return text
     }
 
-    /// "keyNotFound at home.rooms[2].id": the shape of the mismatch with no values in it.
-    private static func describe(_ error: DecodingError) -> String {
-        let (label, context): (String, DecodingError.Context) = {
-            switch error {
-            case .typeMismatch(_, let c): return ("typeMismatch", c)
-            case .valueNotFound(_, let c): return ("valueNotFound", c)
-            case .keyNotFound(_, let c): return ("keyNotFound", c)
-            case .dataCorrupted(let c): return ("dataCorrupted", c)
-            @unknown default: return ("unknown", DecodingError.Context(codingPath: [], debugDescription: ""))
-            }
-        }()
-        let path = context.codingPath.map { $0.intValue.map { "[\($0)]" } ?? ".\($0.stringValue)" }.joined()
-        return "\(label) at \(path.isEmpty ? "root" : path)"
+    private static func context(_ error: DecodingError) -> DecodingError.Context? {
+        switch error {
+        case .typeMismatch(_, let c), .valueNotFound(_, let c), .keyNotFound(_, let c): return c
+        case .dataCorrupted(let c): return c
+        @unknown default: return nil
+        }
+    }
+
+    /// Which kind of mismatch: no keys, no values.
+    private static func label(_ error: DecodingError) -> String {
+        switch error {
+        case .typeMismatch: return "typeMismatch"
+        case .valueNotFound: return "valueNotFound"
+        case .keyNotFound: return "keyNotFound"
+        case .dataCorrupted: return "dataCorrupted"
+        @unknown default: return "unknown"
+        }
+    }
+
+    /// "home.rooms[2].id". Keys only, never values, and `.private` in the log because a
+    /// dictionary key can be something a user typed (a room name).
+    private static func codingPath(_ error: DecodingError) -> String {
+        let path = (context(error)?.codingPath ?? [])
+            .map { $0.intValue.map { "[\($0)]" } ?? ".\($0.stringValue)" }.joined()
+        return path.isEmpty ? "root" : path
     }
 
     private init(kind: Kind, message: String, isRetryable: Bool,

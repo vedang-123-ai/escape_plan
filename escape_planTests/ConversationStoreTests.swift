@@ -150,7 +150,10 @@ final class ConversationStoreTests: XCTestCase {
             (.unauthorized, 401),
             (.aiUnavailable(statusCode: 502), 502),
             (.aiUnavailable(statusCode: 503), 503),
-            (.unexpectedStatus(statusCode: 422, detail: "history must end with a user message"), 422),
+            // A 422 WITH a detail is deliberately not here any more: S11.37 shows the server's own
+            // sentence (BackendFailureTests.chatUnprocessableKeepsDetail). Without one it is generic.
+            (.unexpectedStatus(statusCode: 422, detail: nil), 422),
+            (.unexpectedStatus(statusCode: 413, detail: "Request body too large."), 413),
             (.unexpectedStatus(statusCode: 429, detail: nil), 429),
         ]
         for (error, status) in cases {

@@ -230,7 +230,7 @@ final class ReadinessStore {
     }
 
     nonisolated static func isCancellation(_ error: Error) -> Bool {
-        error is CancellationError || (error as? URLError)?.code == .cancelled
+        BackendFailure.isCancellation(error)
     }
 
     /// Stops the in-flight request counting. It changes no score and shows no failure.

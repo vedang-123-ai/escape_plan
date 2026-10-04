@@ -508,6 +508,7 @@ struct HomeScreen: View {
             await readiness.select(summary.id, api: apiClient)
             router.openHouse(homeID: summary.id)
         } catch {
+            guard !BackendFailure.isCancellation(error) else { return }
             scanFailure = BackendFailure(error, while: .scanConversion)
         }
     }

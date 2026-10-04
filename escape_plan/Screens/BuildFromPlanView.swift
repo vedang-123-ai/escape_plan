@@ -272,8 +272,9 @@ struct BuildFromPlanView: View {
                 try library.store.save(model: home)
                 dismiss()
                 onBuilt(home.home_id)
-            } catch is CancellationError {
             } catch {
+                // A cancelled request (CancellationError or URLError.cancelled) is not a failure.
+                guard !BackendFailure.isCancellation(error) else { return }
                 // One classifier for every status: 502 gets no Retry and says the editor still
                 // works, 503 gets one, 401 points at Settings, offline reads as a state.
                 buildFailure = BackendFailure(error, while: .houseBuilder)

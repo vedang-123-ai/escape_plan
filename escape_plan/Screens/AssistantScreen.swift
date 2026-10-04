@@ -373,7 +373,7 @@ struct AssistantScreen: View {
                 )
                 persist()
             } catch {
-                if readiness.activeHomeID == askedAbout {
+                if readiness.activeHomeID == askedAbout, !BackendFailure.isCancellation(error) {
                     failure = BackendFailure(error, while: .assistant)
                     Haptics.warning()
                 }

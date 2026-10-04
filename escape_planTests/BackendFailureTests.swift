@@ -167,6 +167,8 @@ struct BackendFailureTests {
         #expect(f.isRetryable)
         #expect(f.isOfflineFlavoured == false)
         #expect(f.suggestsSettings == false)
+        #expect(BackendFailure(URLError(.timedOut), while: .houseBuilder).message
+            .contains("build this home by hand"), "a slow AI import still says the editor works")
     }
 
     @Test("Real connection loss keeps the offline copy")

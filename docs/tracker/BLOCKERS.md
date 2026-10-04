@@ -98,7 +98,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-011 (P3) `needs_rehash` never called · S11.28
 - [x] AUD-012 (P3) untrusted `home_id` as filename · **fixed 2026-10-04 by S11.41** (evidence under "S11.41 findings")
 - [x] AUD-013 (P1) House editor overwrites other writers · **fixed 2026-10-01 by S11.19** (evidence under "S11.19 findings")
-- [ ] AUD-014 (P2) home-switch race; cancel shown as offline · **late-response half fixed 2026-10-03 by S11.23** (evidence under "S11.23 findings"); the shared classifier half (`BackendFailure` reads `URLError.cancelled` as offline) stays with S11.37
+- [x] AUD-014 (P2) home-switch race; cancel shown as offline · **late-response half fixed 2026-10-03 by S11.23** (evidence under "S11.23 findings"); the shared classifier half (`BackendFailure` reads `URLError.cancelled` as offline) stays with S11.37 · **fixed 2026-10-04 by S11.37** (evidence under "S11.37 findings")
 - [x] AUD-015 (P2) conflict copies pile up · **fixed 2026-10-02 by S11.22** (evidence under "S11.22 findings")
 - [ ] AUD-016 (P2) `POST /homes` lost update · S11.30 (server, deploy first), S11.32 (client)
 - [ ] AUD-017 (P2) re-scan "Add to Home" bypasses the reducer · S11.24
@@ -125,7 +125,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-029 (P2) re-check failure mislabelled; Retry imports old scan · S11.24
 - [ ] AUD-030 (P2) chat accepts uncited safety claims · S11.44, S11.49
 - [ ] AUD-031 (P2) 60-minute sessions, no refresh · S11.43
-- [ ] AUD-032 (P2) chat timeout shorter than cold start · S11.37 (Render paid tier: owner, logged for S11.13)
+- [x] AUD-032 (P2) chat timeout shorter than cold start · S11.37 (Render paid tier: owner, logged for S11.13) · **fixed 2026-10-04 by S11.37** (evidence under "S11.37 findings"); the Render paid-tier decision stays with the owner (S11.13)
 - [ ] AUD-033 (P3) one conversation slot for all homes · S11.45
 - [x] AUD-035 (P2) no AI timeouts; unbounded inputs · input-caps half fixed 2026-10-03 by S11.26; **timeout half fixed
       2026-10-04 by S11.29** (one client factory, per-request deadlines; stub-tested). The live check that a slow
@@ -142,10 +142,52 @@ owning session's merge is on `origin/main` and you verified it.
       not deleted); the rest · S11.39, S11.47
 - [ ] AUD-045 (P3) `HouseScreen.swift` 2,726 lines · seam done 2026-10-01 by S11.19 (`HouseEditorSessionController`
       owns load/save/registration); full split: not a task (deferred to the House redesign)
-- [ ] AUD-046 (P3) decode errors shown as "can't reach server" · S11.37
+- [x] AUD-046 (P3) decode errors shown as "can't reach server" · S11.37 · **fixed 2026-10-04 by S11.37** (evidence under "S11.37 findings")
 - [x] AUD-047 (P3) `list()` on the main thread · **fixed 2026-10-04 by S11.48** (50 homes: 215 ms to 8 ms cold, 1.2 ms per autosave; evidence under "S11.48 findings")
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45; the starter-seeding item fixed 2026-10-04 by S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.37 findings (2026-10-04, branch `s11-37-honest-failures`)
+
+Evidence: iOS unit suite `-only-testing:escape_planTests` **1075 tests: 1072 passed, 0 failed, 3 skipped**
+(`xcrun xcresulttool get test-results summary` on `.build-s1137/full2.xcresult`, iPhone 17 Pro simulator, iOS 26.5,
+`CODE_SIGNING_ALLOWED=NO`, run 2026-10-04, bundle not committed). UI tests were not run (not needed: no UI-test file changed).
+Backend `pytest backend/tests -m "not live"` **1029 passed, 1 skipped, 29 deselected**. `scripts/typecheck-ios.sh` ok on
+all four targets. The first full run had one failure, `ConversationStoreTests` pinning the old 422 behaviour that this
+session changes on purpose; that test was updated.
+
+- [x] **AUD-014 classifier half, AUD-032, AUD-046 fixed.** Cancelled (`CancellationError`, `URLError.cancelled`) is
+      kind `.cancelled` and the banner draws nothing. A phone timeout is `.timedOut` ("didn't answer in time, may be
+      waking up", with the operation's fallback line), removed from the offline set. A `DecodingError` is
+      `.appServerMismatch` ("Update the app"), no Retry, never Settings, logged with the endpoint and the failure type
+      (coding path marked private, no values). 504 is `.serverTimedOut`, distinct from both. 413 is `.rejectedInput`
+      with per-operation text and no Retry. A chat 422 shows the server's own sentence.
+- [x] **Chat timeout 60 s to 120 s** (`APIClient.chatTimeout`); `CHAT_DEADLINE_S` 50 s to 110 s in the same change.
+      `test_chat_deadline_tracks_the_swift_chat_timeout` reads the Swift constant, so they cannot drift silently.
+- [x] **Other endpoint timeouts, reviewed against the 51 s cold start, all keep:** /build 180 s (server 170), /analyze
+      90 s (server 80), /routes /evacuate /score /convert 90 s. The deterministic ones answer in milliseconds once awake,
+      so 90 s covers the cold start with 39 s to spare. The server deadline clock starts when the handler runs.
+- [ ] **Manual simulator check not done: "a host that never answers shows the waking-up copy."** The behaviour is
+      covered by `ChatTimeoutTests.testSlowChatReadsAsWakingUpNotOffline` through the real client with a stub session
+      that fails `.timedOut`, but nobody has watched the Assistant screen do it. Next action: the device pass.
+- [ ] **A 502 from a proxy (Render edge) on a slow call reads as "the server needs attention", with no Retry.** The
+      classifier cannot tell a proxy 502 from the app's own deliberate 502. Unverified whether Render cuts a request
+      near 100 s. Next action: measure on the deployed server (S11.49). See also the older 502 line below.
+- [ ] **A `DecodingError` from a truncated proxy body (200 with garbage) also says "Update the app".** Accurate for a
+      real shape mismatch, wrong for a transient cut. Left non-retryable per the playbook. Next action: judgment call
+      for whoever next edits the copy.
+- [ ] **`EncodingError` and local file-read errors still fall into "Couldn't reach the server, check Settings".** The
+      classifier's generic branch has no case for a fault on this phone (pre-existing, not new). Next action: a
+      `.localFault` kind; the reviewer found it, no screen produces it today.
+- [ ] **`BuildFromPlanView` still maps a non-network error such as `InvalidHomeID` to the server copy** (earlier line,
+      not done: it needs the screen's own error, outside this session's files). Next action: the owner of that screen.
+- [ ] **The analyze screen can still read an empty `truncated` result as "no problems found"**
+      (`escape_plan/Models/AnalyzeModels.swift`, still calls it the iteration cap). The 80 s server deadline now returns
+      exactly that shape. Not touched: `Models/` is schema territory. Next action: whoever next touches the analyze
+      screen (S11.39).
+- [ ] **Screens that show `failure.message` outside the banner would print "Request cancelled."** Every current site
+      filters cancellation first (guards added in this session); a new screen must do the same. `BackendFailure.isSilent`
+      and `rendersBanner(for:)` are the contract.
 
 ### S11.31 findings (2026-10-04, branch s11-31-backend-hygiene)
 
@@ -379,7 +421,7 @@ AUD-014's late-response half. Note: `notes/2026-10-03-s11-23-score-race.md`.
       re-read the file). Next action: the next session that owns ProfilesScreen fixes the comment.
 - [ ] **Never watched on a device against the cold Render server** (the 51 s case the audit measured). Next action:
       S11.10 device pass: switch homes while the first score is loading; the second home's score must stay.
-- [ ] **`URLError.cancelled` still reads as "Couldn't reach the server" in `BackendFailure`** for every other caller.
+- [x] **`URLError.cancelled` still reads as "Couldn't reach the server" in `BackendFailure`** for every other caller. Fixed 2026-10-04 by S11.37: it is `BackendFailure.Kind.cancelled`, silent.
       ReadinessStore no longer passes it there. Next action: S11.37 (owns the classifier).
 
 ### Demo trim 2 findings (2026-10-03, branch `trim-2-drill-playback`)
@@ -417,7 +459,7 @@ reminders are deleted (decisions 2026-10-03). Note: `notes/2026-10-03-trim-2-dri
 - [ ] **Live check owed to S11.49:** a funded, deliberately slow `/build` stops server-side at 170 s and the phone's
       Retry does not leave a second loop running; the image prompt-cache marker really produces cache reads
       (the log line `build: prompt cache (created=… read=…)` shows it). A stub cannot prove either.
-- [ ] **Chat deadline is 50 s because the phone waits 60 s TODAY.** `CHAT_DEADLINE_S` in `app/ai/client.py` is the one
+- [x] **Chat deadline is 50 s because the phone waits 60 s TODAY.** `CHAT_DEADLINE_S` in `app/ai/client.py` is the one Fixed 2026-10-04 by S11.37: `APIClient.chatTimeout` is 120 s and `CHAT_DEADLINE_S` is 110 s.
       place to change. **S11.37** raises the iOS chat timeout; when it does, raise `CHAT_DEADLINE_S` to the new timeout
       minus about 10 s in the same change. Until then a chat deadline above 60 s would be pointless.
 - [ ] **Deadline outcomes differ by endpoint, on purpose.** `/analyze` returns 200 with `truncated=true` and no
@@ -508,13 +550,13 @@ reminders are deleted (decisions 2026-10-03). Note: `notes/2026-10-03-trim-2-dri
       Content-Length headers disagree, or the value is negative or unparseable. Six ASGI-layer regression tests — the
       endpoint-level tests could not reach it, because no HTTP client will emit a contradictory framing pair.
 
-- [ ] **iOS has no 413 arm, so the new status reads as a server fault with a Retry that cannot work.**
+- [x] **iOS has no 413 arm, so the new status reads as a server fault with a Retry that cannot work.** Fixed 2026-10-04 by S11.37 (`case 413`, `.rejectedInput`, no Retry).
       `escape_plan/Networking/BackendFailure.swift:188-193` falls to `default:` — "The server had a problem (413). Try
       again in a moment." with `isRetryable: true`. A 413 is deterministic: retrying the identical body always fails,
       and the copy blames the server for a client-side input problem. Next action: S11.37 adds `case 413` with
       `kind: .rejectedInput`, `isRetryable: false`, and text naming the size. Not editable here (iOS is outside S11.26's
       OWNED FILES).
-- [ ] **The server's new 422 reasons cannot reach the user on `/chat`.**
+- [x] **The server's new 422 reasons cannot reach the user on `/chat`.** Fixed 2026-10-04 by S11.37 (the server sentence, up to 300 characters, is shown).
       `BackendFailure.swift:118-119` re-wraps `ChatError.unexpectedStatus` as
       `APIClientError.unexpectedResponse(statusCode:)` and discards the server's `detail`, so the 422 arm shows the
       generic "The server couldn't use what we sent for the assistant" instead of the actionable "conversation is N

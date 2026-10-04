@@ -64,7 +64,7 @@ extension APIClient {
     /// How long the phone waits for /chat. Must stay above the server's chat deadline
     /// (`CHAT_DEADLINE_S` in backend/app/ai/client.py, 110 s) so the server gives up first and
     /// answers 504, rather than the phone giving up first and leaving the server working
-    /// (S11.37, AUD-032). Two attempts at a 51 s cold start would not fit in the old 60 s.
+    /// (S11.37, AUD-032). A 51 s cold start plus a real answer did not fit in the old 60 s.
     static let chatTimeout: TimeInterval = 120
 
     /// Sends the full conversation (ending with the user's latest message) grounded in `home`.
