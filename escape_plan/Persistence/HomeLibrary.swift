@@ -37,6 +37,9 @@ final class HomeLibrary: ObservableObject {
     /// account, sync also sends `DELETE /homes/{id}` (docs/decisions.md 2026-09-24). Weak, and
     /// optional — deleting works exactly as before with nobody listening.
     weak var deletionObserver: HomeDeletionObserving?
+    /// Each home's assistant conversation (S11.45): deleting a home deletes its thread. nil when
+    /// `Documents/Assistant` could not be opened at launch; then the delete cannot reach a thread.
+    var conversations: ConversationStore? = try? ConversationStore()
 
     init(store: HomeDocumentStore) {
         self.store = store
@@ -69,7 +72,10 @@ final class HomeLibrary: ObservableObject {
             // After the delete succeeds, so a failed delete never leaves a tombstone for a
             // home that is still on disk. A tombstone that will not save lands in `loadError`
             // while `deleted` stays true: the file is gone either way (S11.22).
+            // The thread goes whether or not the tombstone saves, and neither failure stops the other (S11.45).
+            let threadDeletion = Result { try conversations?.deleteConversation(homeID: homeID) }
             try deletionObserver?.homeWasDeletedLocally(homeID: homeID)
+            try threadDeletion.get()
         }
         return deleted
     }
