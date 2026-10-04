@@ -3283,3 +3283,21 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-10-04T08:19:49Z · Anish Yarrakonda · `main` @ `91d85bf`
+
+**Commits this session**
+  - 91d85bf Merge s11-40-release-files (S11.40): Release keeps Documents out of Files; raw scans cleaned up (AUD-008)
+
+## 2026-10-04T08:37:47Z · Anish Yarrakonda · `s11-41-home-id-validation` @ `b87c339`
+
+**Commits this session**
+  - b87c339 S11.41: validate home ids on every store path; list() lists by filename (AUD-012)
+  - 91d85bf Merge s11-40-release-files (S11.40): Release keeps Documents out of Files; raw scans cleaned up (AUD-008)
+
+**Uncommitted working-tree changes (5)**
+  - M docs/decisions.md
+  - M docs/playbook/README.md
+  - M docs/tracker/BLOCKERS.md
+  - M docs/tracker/activity-log.md
+  - ?? docs/tracker/notes/2026-10-04-s11-41-home-id-validation.md
+
