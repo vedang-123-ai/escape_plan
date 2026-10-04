@@ -119,7 +119,7 @@ owning session's merge is on `origin/main` and you verified it.
       HEIC, a JPEG, a Live Photo and a PDF to a funded `/build` and sees a draft come back
 - [x] AUD-025 (P1) drill appends client-written tornado advice · **fixed 2026-09-30 by S11.15** (evidence under
       "S11.15 findings")
-- [ ] AUD-026 (P2) checklist recurrence unreachable · S11.34 (server, deploy first), S11.35
+- [ ] AUD-026 (P2) checklist recurrence unreachable · **server half fixed 2026-10-04 by S11.34** (evidence under "S11.34 findings"); stays open until the deploy is confirmed live and S11.35 ships the app half
 - [x] AUD-027 (P2) Settings share uses the wrong home, fails silently · S11.38
 - [x] AUD-028 (P2) offline route cache ignores peril/profile/model · **fixed 2026-10-03 by S11.36**
 - [ ] AUD-029 (P2) re-check failure mislabelled; Retry imports old scan · S11.24
@@ -146,6 +146,19 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] AUD-047 (P3) `list()` on the main thread · **fixed 2026-10-04 by S11.48** (50 homes: 215 ms to 8 ms cold, 1.2 ms per autosave; evidence under "S11.48 findings")
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45; the starter-seeding item fixed 2026-10-04 by S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.34 findings (2026-10-04, branch `s11-34-recurrence-server`)
+
+- [x] **Done:** `ScoreRequest.checklist_state` is `dict[str, bool | str]`; a string must be ISO-8601 or the request is 422. `/score` passes `now=datetime.now(timezone.utc)`; the scoring functions still take `now` as a parameter. A naive timestamp is read as UTC.
+- [x] **STEP 0 = option (a):** a legacy bare `true` on a recurring item stays done until a timestamp replaces it (decisions.md, 2026-10-04). Until S11.35 ships, the live app only sends `true`, so nothing goes stale in production yet.
+- [x] **`alarm.test_monthly` recurs every 30 days** (corpus `usfa-smoke-alarms`: "Test every alarm monthly"; 30 days is our reading of "monthly"). `alarm.replace_10y` has no recurrence: it runs from manufacture date and no source gives a tick interval.
+- [x] **Contract for S11.35:** send `checklist_state[id]` as an ISO-8601 UTC string when a recurring item is completed (`practice.drill_recent`, `rescan.home`, `alarm.test_monthly`), `true` for everything else. Each `/score` checklist item now carries `recurrence_days` (int or null) and `completed_at` (UTC string or null; null for a legacy `true`, never completed, or non-recurring). A timestamp on a non-recurring id is ignored (not done). A timestamp more than 1 day in the future counts as not done.
+- [x] **Gate (2026-10-04, after merging origin/main):** `pytest backend/tests/ -m "not live"` 1045 passed / 1 skipped / 29 deselected; `python3 backend/corpus/validate.py` valid. 21 new tests in `backend/tests/test_recurrence.py`, all through `TestClient`.
+- [x] **Mutation checks** (each made a named test fail, then restored): no clock passed to `compute_score`, legacy `true` made stale, monthly recurrence removed, timestamp validator removed, staleness comparison inverted, `completed_at` dropped from the drill item, naive timestamp not read as UTC, future-timestamp guard removed. One did NOT change the result: replacing `age < timedelta(days=N)` with `age.days < N`, because they agree for non-negative ages (the reviewer's "floor stretches the window" finding was wrong; the boundary test stays as a pin only).
+- [x] **Reviewers:** grounding-auditor: GROUNDED, no violations. ecc:python-reviewer: approve with warnings; acted on future timestamps, the non-recurring-timestamp note and five weaker tests; declined the `.days` change as a bug (above) and left `now=None` meaning "truthy is done" (only `/score` calls it and it passes `now`).
+- [ ] **Owner decision (product):** `alarm.test_monthly` is a scoring item, so a lapsed monthly test now lowers the smoke-alarm score, unlike the drill and rescan (non-punitive). Weights are unchanged; say if the monthly test should be `scoring: false` too.
+- [ ] **Not done: deploy not confirmed.** The branch is merged to main; whether the live service runs it was not checked in this session (`/health` `commit` is the proof). S11.35 must not ship before that is confirmed.
+- [ ] **Title wording:** "Test every smoke alarm this month" is a rolling 30 days, not a calendar month. Copy left as is.
 
 ### S11.48 findings (2026-10-04, branch s11-48-library-listing)
 
