@@ -6,14 +6,16 @@
 //  and the backend's replies are grounded in the FEMA/NFPA/Red Cross corpus with inline
 //  [cite: source-id] tags, which are rendered exactly as returned.
 //
-//  The server is stateless: every send resends the full history (ending with a user
-//  message). The thread is persisted locally after every appended message, so it survives
-//  backgrounding and force-quit.
+//  The server is stateless: every send resends the history (ending with a user message), trimmed
+//  to the most recent turns within the server's caps (`ChatHistory`, S11.45); the whole thread
+//  stays on screen. The thread is persisted locally after every appended message, so it survives
+//  backgrounding and force-quit, and a save that fails is shown, not swallowed (AUD-049).
 //
 //  Grounding (audit 2026-09-25): the chat is about the ACTIVE home — `ReadinessStore.activeHome`,
 //  the one Home, Tasks and House show — and follows it when it changes. It used to load the most
 //  recently modified home once and never again, so it could answer about a different house from
-//  the one on screen. A saved thread resumes only for the home it was about.
+//  the one on screen. Each home keeps its own thread (S11.45, AUD-033): switching homes swaps
+//  threads instead of overwriting one.
 
 import SwiftUI
 
@@ -29,6 +31,16 @@ struct AssistantScreen: View {
     /// Classified by the shared `BackendFailure`, so the assistant's 401/429/502/503 read
     /// exactly as they do on every other screen, and Retry appears only when it can help.
     @State private var failure: BackendFailure?
+    /// The home whose thread `messages` holds, so coming back to the tab does not re-read the
+    /// file over a thread that could not be saved.
+    @State private var loadedHomeID: String?
+    /// Set when this home's thread could not be saved or cleared; cleared by the next success.
+    @State private var historyProblem: String?
+    /// Set when this home's saved thread could not be opened (it is kept aside, not lost).
+    @State private var loadNotice: String?
+    /// A home whose thread file is still on disk but could not be read. Nothing is saved or
+    /// cleared for it until a later load succeeds, so the unread file is never written over.
+    @State private var blockedHomeID: String?
 
     @FocusState private var composerFocused: Bool
 
@@ -69,8 +81,14 @@ struct AssistantScreen: View {
                             .padding(.horizontal, DS.pagePadding)
                             .padding(.bottom, 6)
                     }
-                    if store == nil {
-                        Label("Chat history can't be saved on this device.", systemImage: "externaldrive.badge.xmark")
+                    if let note = historyNote {
+                        Label(note, systemImage: "externaldrive.badge.xmark")
+                            .font(.caption)
+                            .foregroundStyle(DS.supporting)
+                            .padding(.horizontal, DS.pagePadding)
+                    }
+                    if omittedTurns > 0 {
+                        Text("Older messages stay here but aren't sent with new questions.")
                             .font(.caption)
                             .foregroundStyle(DS.supporting)
                             .padding(.horizontal, DS.pagePadding)
@@ -123,7 +141,8 @@ struct AssistantScreen: View {
                     .foregroundStyle(Theme.accentText)
                     .frame(width: 44, height: 44)
             }
-            .disabled(messages.isEmpty && failure == nil)
+            // Not while a reply is on its way: it would land at the top of the new thread.
+            .disabled((messages.isEmpty && failure == nil) || isSending)
             .hapticTap()
             .accessibilityLabel("New chat")
             .accessibilityHint("Clears this conversation and starts a fresh one.")
@@ -317,6 +336,18 @@ struct AssistantScreen: View {
         .padding(.vertical, 10)
     }
 
+    /// The screen's one "history can't be saved" line: no store at all, a failed save or clear,
+    /// or a saved thread that could not be opened.
+    private var historyNote: String? {
+        if store == nil { return "Chat history can't be saved on this device." }
+        return historyProblem ?? loadNotice
+    }
+
+    /// How many earlier turns the next send leaves out (the quiet line above the composer).
+    private var omittedTurns: Int {
+        ChatHistory.trimmed(messages.map(\.wireMessage)).omittedCount
+    }
+
     private var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !isSending
@@ -329,11 +360,39 @@ struct AssistantScreen: View {
     /// Called on appear (every tab switch back here, so it must be cheap and must not eat a
     /// half-typed question) and whenever the active home changes.
     private func loadThread(homeChanged: Bool = false) {
-        messages = store?.load(forHomeID: readiness.activeHomeID)?.messages ?? []
+        let homeID = readiness.activeHomeID
         if homeChanged {
             failure = nil
             draft = ""
+            historyProblem = nil
+            loadNotice = nil
+        } else if loadedHomeID != nil, loadedHomeID == homeID, blockedHomeID != homeID {
+            return  // already showing this home's thread, saved or not
         }
+        loadedHomeID = homeID
+        messages = []
+        guard let store else { return }
+        var notices: [String] = []
+        do {
+            // The pre-S11.45 single file goes to its own home first (one existence check after).
+            if case .keptAside = try store.migrateLegacyConversation() {
+                notices.append("An earlier chat couldn't be matched to a home, so it was kept aside.")
+            }
+        } catch {
+            notices.append("An earlier chat couldn't be moved to its home. It is still on this iPhone.")
+        }
+        do {
+            messages = try store.load(forHomeID: homeID)?.messages ?? []
+            blockedHomeID = nil
+        } catch let unreadable as UnreadableConversation {
+            blockedHomeID = nil  // the file was moved aside, so saving can no longer overwrite it
+            notices.append(unreadable.errorDescription ?? "")
+        } catch {
+            // The file is still there, unread: block saving so it is not replaced by this new thread.
+            blockedHomeID = homeID
+            notices.append("This home's earlier chat couldn't be opened, so new messages won't be saved until it can be.")
+        }
+        loadNotice = notices.isEmpty ? nil : notices.joined(separator: " ")
     }
 
     private func send() {
@@ -357,7 +416,8 @@ struct AssistantScreen: View {
         guard let home else { return }
         isSending = true
         failure = nil
-        let history = messages.map(\.wireMessage)
+        // The most recent turns that fit the server's caps; the full thread stays on screen.
+        let history = ChatHistory.trimmed(messages.map(\.wireMessage)).messages
         let askedAbout = home.home_id
 
         Task {
@@ -371,7 +431,7 @@ struct AssistantScreen: View {
                                      content: response.reply,
                                      citations: response.citations)
                 )
-                persist()
+                persist(homeID: askedAbout)
             } catch {
                 if readiness.activeHomeID == askedAbout, !BackendFailure.isCancellation(error) {
                     failure = BackendFailure(error, while: .assistant)
@@ -385,12 +445,29 @@ struct AssistantScreen: View {
     private func newChat() {
         messages = []
         failure = nil
-        try? store?.clear()
+        // While blocked the notice stays: it is why this new chat is not being saved.
+        guard let store, let homeID = loadedHomeID, blockedHomeID != homeID else { return }
+        loadNotice = nil
+        do {
+            try store.clear(homeID: homeID)
+            historyProblem = nil
+        } catch {
+            historyProblem = "The old chat couldn't be removed from this iPhone, so it may come back."
+        }
     }
 
-    private func persist() {
-        guard let store else { return }
-        try? store.save(ConversationDocument(homeID: readiness.activeHomeID, messages: messages))
+    /// Saves the thread to its home's file. A failure is shown above the composer and cleared by
+    /// the next save that works (AUD-049: this was a silent `try?`).
+    private func persist(homeID: String? = nil) {
+        guard let store, let homeID = homeID ?? loadedHomeID else { return }
+        // loadNotice already says why: the unread file must not be written over.
+        guard blockedHomeID != homeID else { return }
+        do {
+            try store.save(ConversationDocument(homeID: homeID, messages: messages))
+            historyProblem = nil
+        } catch {
+            historyProblem = "This chat couldn't be saved on this iPhone, so it may be gone next time."
+        }
     }
 }
 

@@ -103,7 +103,12 @@ def test_the_set_covers_the_behaviours_the_session_asked_for() -> None:
     ids = set(CASE_IDS)
     required = {
         "emergency": {"emergency-smoke-now", "emergency-trapped-upstairs"},
-        "uncited claim": {"fabricated-citation-rejected", "uncited-claim-rejected"},
+        "uncited claim": {
+            "fabricated-citation-rejected",
+            "uncited-claim-rejected",
+            "uncited-safety-claim",
+            "mixed-cited-and-uncited",
+        },
         "out of corpus": {"out-of-corpus-wiring", "out-of-corpus-flood"},
         "route from the engine": {
             "route-question-must-come-from-the-engine",
@@ -116,7 +121,8 @@ def test_the_set_covers_the_behaviours_the_session_asked_for() -> None:
     }
     for kind, needed in required.items():
         assert needed <= ids, f"no case covers {kind}: missing {sorted(needed - ids)}"
-    assert 12 <= len(CASES) <= 15, f"the session asked for 12-15 cases; found {len(CASES)}"
+    # S11.4 asked for 12-15; S11.44 added two for AUD-030 on purpose.
+    assert 12 <= len(CASES) <= 17, f"expected 12-17 cases; found {len(CASES)}"
 
 
 @pytest.mark.parametrize("case", CASES, ids=CASE_IDS)
@@ -251,6 +257,32 @@ def test_a_fabricated_citation_is_retried_by_the_service_not_just_graded(
     result = chat([ChatMessage(role="user", content=case.question)], home, plan, client=stub)
     assert stub.calls == 2, "the fabricated citation was not retried"
     assert g.cites_only_real_sources(result.reply) is None
+
+
+UNCITED_CASES = [c for c in CHAT_CASES if g.cites_every_safety_claim in c.expect]
+
+
+@pytest.mark.parametrize("case", UNCITED_CASES, ids=[c.id for c in UNCITED_CASES])
+def test_an_uncited_claim_is_retried_then_deferred_by_the_service(case: EvalCase, home_and_plan):
+    """S11.44: the grader and the server-side check are one function; prove the service acts on it.
+
+    The `bad` probe is retried once; a cited `good` retry ships, and a second
+    uncited reply becomes the deferral rather than reaching the user.
+    """
+    from app.ai.chat.service import UNCITED_DEFERRAL
+
+    home, plan = home_and_plan
+    q = [ChatMessage(role="user", content=case.question)]
+    assert g.cites_every_safety_claim(case.bad) is not None, f"{case.id}: bad probe is cited"
+
+    stub = StubAnthropic([case.bad, case.good])
+    assert chat(q, home, plan, client=stub).reply == case.good
+    assert stub.calls == 2
+
+    stub = StubAnthropic([case.bad, case.bad])
+    result = chat(q, home, plan, client=stub)
+    assert stub.calls == 2
+    assert result.reply == UNCITED_DEFERRAL and result.citations == []
 
 
 def test_the_service_gives_up_rather_than_shipping_a_fabricated_citation(home_and_plan):

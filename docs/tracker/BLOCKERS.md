@@ -123,10 +123,10 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] AUD-027 (P2) Settings share uses the wrong home, fails silently · S11.38
 - [x] AUD-028 (P2) offline route cache ignores peril/profile/model · **fixed 2026-10-03 by S11.36**
 - [ ] AUD-029 (P2) re-check failure mislabelled; Retry imports old scan · S11.24
-- [ ] AUD-030 (P2) chat accepts uncited safety claims · S11.44, S11.49
+- [ ] AUD-030 (P2) chat accepts uncited safety claims · **fixed under stub tests 2026-10-04 by S11.44**; live check owed · S11.49
 - [ ] AUD-031 (P2) 60-minute sessions, no refresh · S11.43
 - [x] AUD-032 (P2) chat timeout shorter than cold start · S11.37 (Render paid tier: owner, logged for S11.13) · **fixed 2026-10-04 by S11.37** (evidence under "S11.37 findings"); the Render paid-tier decision stays with the owner (S11.13)
-- [ ] AUD-033 (P3) one conversation slot for all homes · S11.45
+- [x] AUD-033 (P3) one conversation slot for all homes · **fixed 2026-10-04 by S11.45** (evidence under "S11.45 findings")
 - [x] AUD-035 (P2) no AI timeouts; unbounded inputs · input-caps half fixed 2026-10-03 by S11.26; **timeout half fixed
       2026-10-04 by S11.29** (one client factory, per-request deadlines; stub-tested). The live check that a slow
       `/build` really stops server-side is owed to **S11.49** (see "S11.29 findings")
@@ -144,8 +144,77 @@ owning session's merge is on `origin/main` and you verified it.
       owns load/save/registration); full split: not a task (deferred to the House redesign)
 - [x] AUD-046 (P3) decode errors shown as "can't reach server" · S11.37 · **fixed 2026-10-04 by S11.37** (evidence under "S11.37 findings")
 - [x] AUD-047 (P3) `list()` on the main thread · **fixed 2026-10-04 by S11.48** (50 homes: 215 ms to 8 ms cold, 1.2 ms per autosave; evidence under "S11.48 findings")
-- [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45; the starter-seeding item fixed 2026-10-04 by S11.48
+- [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45 (Assistant item fixed 2026-10-04); the starter-seeding item fixed 2026-10-04 by S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.45 findings (2026-10-04, branch s11-45-conversation-per-home)
+
+Evidence: iOS unit suite `-only-testing:escape_planTests` **1094 tests: 1091 passed, 0 failed, 3 skipped**
+(`xcrun xcresulttool get test-results summary` on `/tmp/s1145-full.xcresult`, iPhone 17 Pro simulator, iOS 26.5,
+`CODE_SIGNING_ALLOWED=NO`, run 2026-10-04 after merging origin/main @ e776e28; bundle not committed). Targeted
+`ConversationStoreTests` + `ChatRequestEncodingTests` **34 passed, 0 failed** (`/tmp/s1145-it2.xcresult`).
+`scripts/typecheck-ios.sh` ok on all four targets. Every new test was seen red under a mutation (runs mutA, mutB,
+mutC, mutD; details in the note). UI tests not run (no UI-test file changed).
+
+- [x] **AUD-033 fixed.** One file per home, `Documents/Assistant/<home_id>.json`, ids checked by S11.41's `HomeID`
+      (plus `conversation`, which would collide with the old file). Chatting about B no longer overwrites A.
+- [x] **Old single file moved.** `conversation.json` moves to its home on first launch; one with no home, a bad id,
+      bad JSON, or a home that already has a thread is renamed `conversation.unmigrated-<uuid>.json`, never deleted,
+      and the screen says so. A file that cannot be read at all is left where it is.
+- [x] **Bounded history.** `ChatHistory` (APIClient+Chat.swift) sends the newest turns within the server's caps:
+      40 messages, 8,000 characters each, 100,000 total, counted as Python counts (Unicode scalars). A test reads
+      `backend/app/limits.py` so the numbers cannot drift. The final user message is always sent; the run has no
+      gaps and never opens on an assistant turn. The full thread stays on screen with one quiet line when older
+      turns are not sent.
+- [x] **AUD-049 Assistant item fixed.** Save and New chat failures show in the screen's existing "history can't be
+      saved" line (no `try?`). A thread that does not decode is renamed `<id>.unreadable-<uuid>.json` and the user is
+      told. A thread that cannot be READ blocks saving and clearing for that home until it reads, so it is never
+      written over (both reviewers found this gap in the first draft; fixed and tested).
+- [x] **Delete and duplicate.** Deleting a home deletes its thread and its kept-aside copies, even if the sync
+      tombstone fails. Duplicating does not copy the thread (tested).
+- [x] **New chat disabled while a reply is on its way** (a late reply used to open the new thread).
+- [ ] **Screen-level behaviour is not unit-tested.** The blocked-save rule, the quiet line and the notices live in
+      `AssistantScreen` (a view); the store throws and the screen catches, but nothing drives the view. Verify on a
+      device: long chat shows the line; switching homes keeps both threads.
+- [ ] **Tests that delete homes touch the test host's real `Documents/Assistant`.** `HomeLibrary.conversations`
+      defaults to the real store; only the S11.45 tests inject a temp one. Harmless (deletes `<id>.json` for test
+      ids inside the simulator test host) but not hermetic. Fix would be an init parameter on `HomeLibrary`.
+- [ ] **Kept-aside files are never shown or cleaned** (except on home delete), and a moved old thread whose home was
+      already deleted becomes an orphan file. Small; disk only.
+- [ ] **A final user message over 8,000 characters is still sent** (on purpose, never silently cut) and the server
+      answers 422, which S11.37 shows as the server's sentence. The composer has no length limit; a counter would
+      be kinder (not owned here).
+
+### S11.44 findings (2026-10-04, branch s11-44-chat-citations)
+
+- [x] **AUD-030 fixed under stub tests.** The chat no longer ships a reply that gives safety advice without a source. It
+      asks the model once to add sources; if the second answer still falls short in any way (no source, a made-up
+      source, out of time, an error, or it dropped the "call 911" line), the family gets the fixed answer below instead.
+      The reply shape the iPhone reads is unchanged. Evidence: tests in `backend/tests/test_chat.py`, the two new eval
+      cases, and the grader probes (`test_grader_adversarial.py`).
+- [ ] **For Anish to read: the fallback answer.** This is what a family sees when the AI's answer could not be backed
+      by a source: *"If anyone is in danger right now, get out if safe, then call 911. I don't have a sourced answer for
+      that, so I won't guess. For anything else, please consult your local fire department or emergency management
+      office."* It only reuses wording the chat already had, and the 911 line comes first on purpose (the question may
+      have been an emergency). Say if you want it worded differently.
+- [ ] **Live check owed to S11.49 (billing, AUD-002).** Nobody has seen the real model go through this. Three things to
+      measure: how often a normal question ends in the fallback answer (too often would make the chat feel useless),
+      whether the two new cases `uncited-safety-claim` and `mixed-cited-and-uncited` pass, and whether the retry makes
+      the model attach a source to a route fact that came from the engine.
+- [ ] **Known gaps in the check, on purpose.** Plain statements of fact with no advice in them ("water spreads grease
+      fires") and "you can ..." sentences are not caught. The check is a word-pattern rule, not understanding. The
+      live run shows how much this matters.
+- [ ] **A tag with two ids (`[cite: a, b]`) or capital letters counts as no tag.** This was already true before this
+      session; it now leads to a retry and possibly the fallback, not a pass. The chat prompt asks for one id per tag.
+- [x] **Gate 2026-10-04:** `pytest backend/tests -m "not live"` **1173 passed, 1 skipped, 31 deselected** (before
+      merging origin/main); `python3 backend/corpus/validate.py` valid. Mutation checks: 30 code breaks over three
+      rounds, each turned a named test red, then restored from a backup. Five first survived and got new probes.
+- [x] **Reviewers:** grounding-auditor, two rounds. Round 1, VIOLATIONS: the emergency path could end in an error,
+      and the check was too loose and too strict. Round 2, narrower VIOLATIONS: the fallback did not put 911 first,
+      ordinary 911 lines were flagged, route exemption gaps. Every listed string is now a test; the remaining
+      minor misses are written down as accepted in `claims.py`. No third audit was run. ecc:python-reviewer: curly
+      apostrophes, "I recommend" bypass, route narration blocked; all fixed. The AI still computes no route; no tool
+      was touched.
 
 ### S11.37 findings (2026-10-04, branch `s11-37-honest-failures`)
 
