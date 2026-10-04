@@ -11,6 +11,11 @@ services:
     buildCommand: pip install -r requirements.lock
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
+    # Deploy a commit to main only after its GitHub checks pass (the `gate` workflow).
+    # Without this Render deployed every push, and a merge that broke pytest reached
+    # production on 2026-09-19 (AUD-037). Skipped jobs count as passing; zero checks or
+    # any failed check means no deploy. The dashboard setting must agree: see BLOCKERS.
+    autoDeployTrigger: checksPass
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.6
