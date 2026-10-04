@@ -176,6 +176,36 @@ rewrite (trim 2).
 - [ ] **Signed-in phones from earlier builds** are signed out on first launch of this build; their homes stay. Never
       walked with a real account. Next action: none (no testers have accounts).
 
+### Audit of S11.36 + S11.38 (2026-10-03, branch `audit-s11-36-38-fixes`)
+
+Both sessions were run by another agent and wrote no findings section here; S11.38 was committed straight to `main`
+with no branch. Note: `notes/2026-10-03-audit-s11-36-38.md`.
+
+- [x] **S11.36 bug: after any edit, the printed plan silently dropped its routes.** The cache was stamped with
+      `HomeFingerprint.of(home)`, which covers `meta.modified`. The editor stamps that on every edit and
+      `HomeDocumentStore.save` re-stamps it with its own clock (whole seconds), so House's model and the same home read
+      from disk never matched: House cached a plan the exporter could never find. Fixed with
+      `RoutePlanCache.fingerprint(of:)` (the model with `meta` blanked; nothing in `meta` is routed on). Evidence: new
+      `OfflineIntegrityTests.savedHomeKeepsItsPlan` fails on the old fingerprint (mutation run) and passes on the fix.
+      v2 cache files written before this fix read as a miss once (safe direction).
+- [x] **S11.38 test was vacuous** (it built a card and read back its own init arguments). Replaced by three
+      `SettingsShareTests`, including the playbook's: two homes, the newest not active, Settings packages the active one.
+- [x] **S11.38 left Settings blank with no home or a draft** (the session's title says "or says why it can't").
+      Settings now says why. The privacy footnote S11.38 deleted is restored.
+- [x] **S11.38 removed Settings' one-time "turn it on" gate**, against its RULES line ("keep two ConsentSheet
+      presentations"). Kept removed on purpose: the Tasks card never had that gate, so it protected nothing, and per-share
+      consent is unchanged. Logged in `docs/decisions.md`; `ConsentSheet.isEnablingOnly`, now unreachable, deleted.
+- Full suite on the fixed branch 2026-10-03: **1000 tests, 997 passed, 0 failed, 3 skipped** (xcresulttool,
+  `.build-merge/audit.xcresult`, `-only-testing:escape_planTests`, so the UI-test drivers are not in this count);
+  EditorCore 642/0; typecheck ok ×4.
+- [ ] **S11.36's manual check was never done:** fetch fire routes online, go offline, confirm House's banner names the
+      peril and person and a printed plan still has routes. Next action: the next device/simulator pass (S11.10).
+- [ ] **S11.38's "choose with Anish in the simulator" step was skipped**; option (a), reuse the card, was taken. Next
+      action: Anish looks at Settings › Share once in the simulator; nothing to change unless they dislike it.
+- [ ] **The required reviewer agents (swift-scenekit-reviewer for both, ecc:silent-failure-hunter for S11.38) were not
+      run by either session.** The audit was a line-by-line manual review instead. Next action: run them in the next
+      session that touches these files if wanted.
+
 ### S11.23 findings (2026-10-03, branch `s11-23-score-race`)
 
 AUD-014's late-response half. Note: `notes/2026-10-03-s11-23-score-race.md`.
@@ -557,7 +587,9 @@ Anish chose to handle these after the S11 sessions. Each has its evidence and fi
       `HouseTab.onModelChanged` → `readiness.load` scores it (no S11.18/S11.19 work needed). Verified 2026-10-01:
       `ReadinessStoreTests` 5/5 (mutation-checked: removing the `fetchScore` guard fails it); simulator, a draft copy of
       `bungalow` in `Documents/Homes` showed the card with no score, House opened on it, Confirm draft → Home 73/100. Full suite on the final code: **1031 tests, 1020 passed, 0 failed, 11 skipped** (xcresulttool, `.build-s1117/final.xcresult`); EditorCore 652/0; typecheck ok ×4.
-- [ ] **Settings › Share with fire department still snapshots an unreviewed draft.** `SettingsScreen.generateSnapshot`
+- [x] **Done 2026-10-03 (S11.38 + its audit):** Settings now shares `SettingsScreen.shareTarget`, which is nil for a
+      draft, and says "Confirm the draft floor plan in House first" instead; `SettingsShareTests.testNothingIsSharedFromAnUnreviewedDraft`.
+      ~~Settings › Share with fire department still snapshots an unreviewed draft.~~ `SettingsScreen.generateSnapshot`
       takes `HomeDocumentStore().list().first` (the most recently modified home, so a just-built draft) with no draft
       check, and `EscapePlanExporter.writeResponderSnapshot` embeds that home's `ScoreCache` score. The Tasks entry
       points (meeting point → PDF, `ShareWithFireDepartmentCard`) are hidden for a draft; this one is not. Next action:
