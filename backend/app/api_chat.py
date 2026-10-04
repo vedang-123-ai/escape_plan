@@ -13,6 +13,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.ai.client import CHAT_DEADLINE_S, Deadline
 from app.ai.chat.service import ChatGroundingError, ChatMessage, ChatResponse, chat
 from app.ai.grounded import GroundingError
 from app.deps import AI_GUARDS
@@ -66,6 +67,7 @@ def post_chat(request: ChatRequest) -> ChatResponse:
             request.home,
             request.route_plan,
             request.profiles,
+            deadline=Deadline(CHAT_DEADLINE_S),
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

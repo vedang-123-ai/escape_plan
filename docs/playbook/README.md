@@ -84,7 +84,7 @@ task is ticked by hand through `toggleDone`); **S11.36** keys the route cache in
 | [S11.26](S11-26.md) | ~~Request size limits and input caps~~ **DONE 2026-10-03** | 004, 035, 024 | P1 | 3 Backend hardening | E | `s11-26-request-limits` | S11.14 | DONE 2026-10-03 |
 | [S11.27](S11-27.md) | ~~AI spend ceiling; trusted client key; one require_token~~ **DONE 2026-10-03** | 003, 006, 043 | P1 | 3 Backend hardening | E | `s11-27-ai-spend` | S11.14 | DONE 2026-10-03 |
 | [S11.28](S11-28.md) | ~~Sign-in routes: off the event loop, throttled, rehash~~ | 005, 011 | P1 | 3 Backend hardening | E | `s11-28-auth-throttle` | S11.27 | **DROPPED 2026-10-02** (accounts cut; see BLOCKERS: turn the server routes off instead) |
-| [S11.29](S11-29.md) | AI calls time out and stop when the phone gives up | 035 | P2 | 3 Backend hardening | E | `s11-29-ai-deadlines` | S11.26, S11.27 | |
+| [S11.29](S11-29.md) | ~~AI calls time out and stop when the phone gives up~~ **DONE 2026-10-04** | 035 | P2 | 3 Backend hardening | E | `s11-29-ai-deadlines` | S11.26, S11.27 | DONE 2026-10-04 |
 | [S11.30](S11-30.md) | ~~Cloud homes: quota and compare-and-set revisions~~ | 016, 007 | P2 | 3 Backend hardening | E | `s11-30-homes-cas` | S11.26, S11.28 | **DROPPED 2026-10-02** (accounts cut) |
 | [S11.31](S11-31.md) | Backend hygiene: /convert errors, index retry, /health commit | 010, 042, 037 | P2 | 3 Backend hardening | E | `s11-31-backend-hygiene` | ~~S11.30~~ (dropped; skip the Mongo index retry) | |
 | [S11.32](S11-32.md) | ~~Sync handles a stale revision and a full account~~ | 016, 007 | P2 | 4 Integration | D | `s11-32-sync-cas` | S11.22, S11.30 deployed | **DROPPED 2026-10-02** (accounts cut) |
