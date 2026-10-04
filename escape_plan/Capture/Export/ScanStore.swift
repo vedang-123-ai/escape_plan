@@ -16,7 +16,7 @@
 import Foundation
 
 /// Everything one scan produced on disk.
-struct ScanArtifacts: Equatable {
+nonisolated struct ScanArtifacts: Equatable {
     var directory: URL
     var rawJSON: URL
     /// nil when Apple's encoder threw — never fatal, it is a diagnostic aid.
@@ -27,7 +27,7 @@ struct ScanArtifacts: Equatable {
     var exportedAt: Date
 }
 
-enum ScanStoreError: LocalizedError {
+nonisolated enum ScanStoreError: LocalizedError {
     case noRoomsCaptured
     case documentsDirectoryUnavailable
 
@@ -43,16 +43,32 @@ enum ScanStoreError: LocalizedError {
 
 /// File I/O for scans. Kept separate from `ScanExportBuilder` (which is pure) so
 /// the format logic stays testable without touching a filesystem.
-struct ScanStore {
+///
+/// `nonisolated` because the cleanup in `ScanCleanup.swift` runs off the main actor
+/// (the app target defaults to MainActor isolation).
+nonisolated struct ScanStore {
     var fileManager: FileManager = .default
+    /// Stands in for the Documents directory, so tests work in a temporary folder and
+    /// never touch the real one. nil in the app.
+    var rootOverride: URL?
+
+    /// `<root>/Scans`, without creating it.
+    func scansRoot() throws -> URL {
+        let documents: URL
+        if let rootOverride {
+            documents = rootOverride
+        } else {
+            guard let url = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+                throw ScanStoreError.documentsDirectoryUnavailable
+            }
+            documents = url
+        }
+        return documents.appendingPathComponent("Scans", isDirectory: true)
+    }
 
     /// Root for all scans. Created lazily.
     func scansDirectory() throws -> URL {
-        guard let documents = fileManager.urls(for: .documentDirectory,
-                                               in: .userDomainMask).first else {
-            throw ScanStoreError.documentsDirectoryUnavailable
-        }
-        let root = documents.appendingPathComponent("Scans", isDirectory: true)
+        let root = try scansRoot()
         try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
         return root
     }
@@ -68,8 +84,9 @@ struct ScanStore {
     }
 
     /// Write the converter-facing JSON. This is the one artifact S1.5 consumes;
-    /// a failure here fails the scan.
-    @discardableResult
+    /// a failure here fails the scan. `@MainActor` because `RawScanExport.encoded()` is
+    /// (the target's default isolation); its one caller, RoomCaptureController, is too.
+    @MainActor @discardableResult
     func writeRawJSON(_ export: RawScanExport, to directory: URL) throws -> URL {
         let url = directory.appendingPathComponent("raw.roomplan.json")
         try export.encoded().write(to: url, options: .atomic)
@@ -98,7 +115,7 @@ struct ScanStore {
     }
 }
 
-extension DateFormatter {
+nonisolated extension DateFormatter {
     static let scanDirectoryStamp: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
