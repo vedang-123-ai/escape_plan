@@ -127,8 +127,9 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-031 (P2) 60-minute sessions, no refresh · S11.43
 - [ ] AUD-032 (P2) chat timeout shorter than cold start · S11.37 (Render paid tier: owner, logged for S11.13)
 - [ ] AUD-033 (P3) one conversation slot for all homes · S11.45
-- [ ] AUD-035 (P2) no AI timeouts; unbounded inputs · **input-caps half fixed 2026-10-03 by S11.26** (description,
-      image, chat count/per-message/total); the **timeout half is still open** · S11.29, S11.49
+- [x] AUD-035 (P2) no AI timeouts; unbounded inputs · input-caps half fixed 2026-10-03 by S11.26; **timeout half fixed
+      2026-10-04 by S11.29** (one client factory, per-request deadlines; stub-tested). The live check that a slow
+      `/build` really stops server-side is owed to **S11.49** (see "S11.29 findings")
 - [x] AUD-036 (P2) iOS suite red (the 7 in §3) · **fixed 2026-09-30 by S11.8**: 0 failed on three full runs (header stamp)
 - [ ] AUD-037 (P2) Render not gated on CI · `/health` half done 2026-10-04 by S11.31 (`commit` field); CI half S11.46
 - [x] AUD-039 (P3) stale "no delete endpoint" comments · **fixed 2026-10-02 by S11.21** (`grep -rn "no delete endpoint"
@@ -405,6 +406,36 @@ reminders are deleted (decisions 2026-10-03). Note: `notes/2026-10-03-trim-2-dri
 - [ ] **The fire drill needs the server** (`/evacuate`); offline it shows the failure banner. The offline note now says so.
       With the free Render tier, a 12-room home can be slow (see "Owner review 2026-10-02"). Next action: owner, paid tier
       before filming.
+
+### S11.29 findings (2026-10-04, branch `s11-29-ai-deadlines`)
+
+- [x] **AUD-035 timeout half fixed, verified by stub only.** `backend/app/ai/client.py` is the one place an Anthropic
+      client is built (`grep -rn "Anthropic(" backend/app/ai` finds only it): explicit timeout, `max_retries=1`. Every
+      model call goes through `create_message`, which checks a wall-clock `Deadline` first, so citation retries and
+      submit retries are covered too. Backend gate 2026-10-04: 1024 passed, 1 skipped, 29 deselected
+      (`pytest -m "not live"`). Nothing ran against Anthropic (billing-blocked, AUD-002).
+- [ ] **Live check owed to S11.49:** a funded, deliberately slow `/build` stops server-side at 170 s and the phone's
+      Retry does not leave a second loop running; the image prompt-cache marker really produces cache reads
+      (the log line `build: prompt cache (created=… read=…)` shows it). A stub cannot prove either.
+- [ ] **Chat deadline is 50 s because the phone waits 60 s TODAY.** `CHAT_DEADLINE_S` in `app/ai/client.py` is the one
+      place to change. **S11.37** raises the iOS chat timeout; when it does, raise `CHAT_DEADLINE_S` to the new timeout
+      minus about 10 s in the same change. Until then a chat deadline above 60 s would be pointless.
+- [ ] **Deadline outcomes differ by endpoint, on purpose.** `/analyze` returns 200 with `truncated=true` and no
+      findings (the same shape as hitting the 15-iteration cap, so the client cannot tell them apart); `/build`,
+      `/chat`, `/explain` return 504 `{detail}`. Next action (iOS, not owned here): check that the analyze screen never
+      reads an empty `truncated` result as "no problems found". `escape_plan/Models/AnalyzeModels.swift` ~line 67 still
+      describes `truncated` as the iteration cap. Owner: whoever next touches the analyze screen (S11.37 or S11.39).
+- [ ] **Budget still counts calls, not tokens.** S11.27 asked S11.29 to thread real `response.usage` into
+      `DailyAICallBudget`. Not done: it needs `spend()` changes in `backend/app/rate_limit.py`, which is not in S11.29's
+      owned files, and the call count already bounds spend (every call site has its own `max_tokens`). Next action:
+      only if the daily budget proves too loose in practice; a session that owns `rate_limit.py` does it.
+- [ ] **Request-disconnect polling not done.** Endpoints are sync `def`, so a dropped phone connection cannot cancel a
+      running loop; the server-side deadline (10 s under the phone) is the stop. Worst-case overrun is one SDK retry.
+- [ ] **The deadline starts when the handler runs, after the body is uploaded.** On a slow cellular upload of a large
+      `/build` image, upload time eats into the 10 s margin; the phone may give up a little before the server does.
+- [ ] **Shared working tree hazard (process).** While this session ran, a parallel S11.34 session switched the shared
+      checkout to its own branch and had uncommitted edits to `backend/app/main.py`. S11.29 finished in a separate git
+      worktree (`../ep-s11-29`). Parallel sessions should each use a worktree, as CLAUDE.md allows.
 
 ### S11.27 findings (2026-10-03, branch `s11-27-ai-spend`)
 

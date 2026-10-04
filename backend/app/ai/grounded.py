@@ -20,6 +20,7 @@ from typing import Any, Optional
 import anthropic
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.ai.client import EXPLAIN_DEADLINE_S, Deadline, build_client, create_message
 from app.config import CORPUS_DIR, get_settings
 from app.models import HomeModel, Profile
 from app.routing.plan import RoutePlan
@@ -226,7 +227,7 @@ def _client() -> anthropic.Anthropic:
     settings = get_settings()
     if not settings.anthropic_api_key:
         raise GroundingError("ANTHROPIC_API_KEY is not configured on the server")
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    return build_client(settings.anthropic_api_key)
 
 
 def explain_routes(
@@ -235,6 +236,7 @@ def explain_routes(
     profile: Optional[Profile] = None,
     *,
     client: Optional[anthropic.Anthropic] = None,
+    deadline: Optional[Deadline] = None,
 ) -> ExplainResponse:
     """Explain a computed RoutePlan with cited recommendations.
 
@@ -244,6 +246,7 @@ def explain_routes(
     """
     client = client or _client()
     settings = get_settings()
+    deadline = deadline or Deadline(EXPLAIN_DEADLINE_S)
 
     user_payload = {
         "home_model": home.model_dump(mode="json"),
@@ -264,7 +267,10 @@ def explain_routes(
 
     last_problems: list[str] = []
     for attempt in range(1 + MAX_CITATION_RETRIES):
-        response = client.messages.create(
+        response = create_message(
+            client,
+            deadline,
+            "explain",
             model=settings.anthropic_model,
             max_tokens=MAX_TOKENS,
             thinking=THINKING,
@@ -320,7 +326,10 @@ def explain_routes(
 
 
 def answer_grounded_question(
-    question: str, *, client: Optional[anthropic.Anthropic] = None
+    question: str,
+    *,
+    client: Optional[anthropic.Anthropic] = None,
+    deadline: Optional[Deadline] = None,
 ) -> str:
     """Answer a free-form safety question under the same grounding rules.
 
@@ -329,7 +338,10 @@ def answer_grounded_question(
     """
     client = client or _client()
     settings = get_settings()
-    response = client.messages.create(
+    response = create_message(
+        client,
+        deadline or Deadline(EXPLAIN_DEADLINE_S),
+        "answer",
         model=settings.anthropic_model,
         max_tokens=1024,
         thinking=THINKING,

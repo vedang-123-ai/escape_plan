@@ -23,6 +23,13 @@ from app.routing.egress import EgressThresholds
 
 from app.ai.agent import AgentError, AnalysisResult, run_agent_analysis
 from app.ai.builder import BuilderError, BuildResult, run_builder
+from app.ai.client import (
+    ANALYZE_DEADLINE_S,
+    BUILD_DEADLINE_S,
+    EXPLAIN_DEADLINE_S,
+    Deadline,
+    DeadlineExceeded,
+)
 from app.ai.grounded import ExplainResponse, GroundingError, explain_routes
 from app.api_auth import router as cloud_router
 from app.api_chat import router as chat_router
@@ -160,6 +167,17 @@ def anthropic_error(_request: Request, exc: anthropic.APIError) -> JSONResponse:
     return JSONResponse(
         status_code=502,
         content={"detail": f"The AI service rejected the request: {detail}"},
+    )
+
+
+@app.exception_handler(DeadlineExceeded)
+def ai_deadline_exceeded(_request: Request, exc: DeadlineExceeded) -> JSONResponse:
+    """S11.29: an AI loop ran out of its wall-clock budget. Same `{detail}` shape as every
+    other AI error; 504 because the work timed out, not because the AI refused."""
+    logging.warning("AI deadline exceeded: %s", exc)
+    return JSONResponse(
+        status_code=504,
+        content={"detail": f"The AI took too long and was stopped: {exc}"},
     )
 
 
@@ -431,7 +449,12 @@ class ExplainRequest(BaseModel):
 def explain(request: ExplainRequest) -> ExplainResponse:
     """Grounded, cited explanation of an already-computed RoutePlan (S3.1)."""
     try:
-        return explain_routes(request.home, request.route_plan, request.profile)
+        return explain_routes(
+            request.home,
+            request.route_plan,
+            request.profile,
+            deadline=Deadline(EXPLAIN_DEADLINE_S),
+        )
     except GroundingError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -454,8 +477,11 @@ def analyze(request: AnalyzeRequest) -> AnalysisResult:
     # S11.27: the agent loop makes up to MAX_ITERATIONS model calls plus submit
     # retries; charge the remainder over the base cost AI_GUARDS already took.
     enforce_budget(BUDGET_COST_ANALYZE - BUDGET_COST_SINGLE_CALL)
+    # S11.29: the deadline starts when the request is handled, a few seconds under the
+    # phone's own timeout, so the loop stops instead of running on for nobody.
+    deadline = Deadline(ANALYZE_DEADLINE_S)
     try:
-        return run_agent_analysis(request.home, get_thresholds())
+        return run_agent_analysis(request.home, get_thresholds(), deadline=deadline)
     except AgentError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -525,11 +551,13 @@ def build(request: BuildRequest) -> BuildResult:
     # Charged here rather than in AI_GUARDS because the guard runs before body
     # validation, and a malformed request must not cost a full loop's budget.
     enforce_budget(BUDGET_COST_BUILD - BUDGET_COST_SINGLE_CALL)
+    deadline = Deadline(BUILD_DEADLINE_S)
     try:
         return run_builder(
             description=request.description,
             image_b64=request.image_b64,
             image_media_type=request.image_media_type,
+            deadline=deadline,
         )
     except BuilderError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
