@@ -22,6 +22,13 @@ import anthropic
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai.grounded import CORPUS_FILE_ORDER, valid_source_ids
+from app.ai.client import (
+    ANALYZE_DEADLINE_S,
+    MIN_ATTEMPT_S,
+    Deadline,
+    build_client,
+    create_message,
+)
 from app.config import CORPUS_DIR, get_settings
 from app.models import HomeModel
 from app.routing.egress import EgressThresholds, check_egress
@@ -566,7 +573,7 @@ def _client() -> anthropic.Anthropic:
     settings = get_settings()
     if not settings.anthropic_api_key:
         raise AgentError("ANTHROPIC_API_KEY is not configured on the server")
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    return build_client(settings.anthropic_api_key)
 
 
 def run_agent_analysis(
@@ -575,10 +582,12 @@ def run_agent_analysis(
     *,
     client: Optional[anthropic.Anthropic] = None,
     max_iterations: int = MAX_ITERATIONS,
+    deadline: Optional[Deadline] = None,
 ) -> AnalysisResult:
     """Run the tool-use inspection loop and return validated findings + trace."""
     client = client or _client()
     settings = get_settings()
+    deadline = deadline or Deadline(ANALYZE_DEADLINE_S)
 
     messages: list[dict[str, Any]] = [
         {
@@ -593,7 +602,16 @@ def run_agent_analysis(
     resubmits_left = MAX_SUBMIT_RETRIES
 
     for _ in range(max_iterations):
-        response = client.messages.create(
+        # The phone gives up shortly after the deadline. Past it, stop paying for
+        # model calls and return the same honest empty+truncated result the
+        # iteration cap does (findings only exist once submitted).
+        if deadline.remaining() < MIN_ATTEMPT_S:
+            logger.warning("agent analysis hit its %.0f s deadline without submitting", deadline.seconds)
+            return AnalysisResult(findings=[], trace=trace, truncated=True)
+        response = create_message(
+            client,
+            deadline,
+            "analysis",
             model=settings.anthropic_model,
             max_tokens=MAX_TOKENS,
             thinking=THINKING,
