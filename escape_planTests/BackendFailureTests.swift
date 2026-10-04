@@ -104,14 +104,16 @@ struct BackendFailureTests {
     func offlineFlavour() {
         #expect(BackendFailure(URLError(.notConnectedToInternet), while: .routes)
             .isOfflineFlavoured)
-        #expect(BackendFailure.showingCachedRoutes(savedAt: Date()).isOfflineFlavoured)
+        #expect(BackendFailure.showingCachedRoutes(savedAt: Date(), peril: "fire", personName: nil)
+            .isOfflineFlavoured)
         #expect(failure(502).isOfflineFlavoured == false)
         #expect(failure(401).isOfflineFlavoured == false)
     }
 
     @Test("Cached routes are a notice, not an error")
     func cachedRoutes() {
-        let f = BackendFailure.showingCachedRoutes(savedAt: Date(timeIntervalSince1970: 0))
+        let f = BackendFailure.showingCachedRoutes(savedAt: Date(timeIntervalSince1970: 0),
+                                                  peril: "fire", personName: nil)
         #expect(f.kind == .offline)
         #expect(f.isRetryable, "the user can still try to get live routes")
     }
@@ -147,7 +149,8 @@ struct BackendFailureTests {
         #expect(!BackendFailureBanner.hidesAutomatically(
                     BackendFailure(URLError(.notConnectedToInternet), while: .routes), voiceOverRunning: false),
                 "offline is what says the routes on screen are saved, not live")
-        #expect(!BackendFailureBanner.hidesAutomatically(.showingCachedRoutes(savedAt: Date()),
+        #expect(!BackendFailureBanner.hidesAutomatically(
+                    .showingCachedRoutes(savedAt: Date(), peril: "fire", personName: nil),
                                                          voiceOverRunning: false))
         #expect(BackendFailureBanner.autoHideDelay == .seconds(8))
     }

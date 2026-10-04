@@ -216,11 +216,15 @@ struct BackendFailure: Equatable {
     }
 
     /// Not a failure: routes are being shown from the offline cache. Same banner treatment so
-    /// there is one notice component rather than two that drift apart.
-    static func showingCachedRoutes(savedAt: Date) -> BackendFailure {
+    /// there is one notice component rather than two that drift apart. Names the peril and
+    /// the person the saved plan was computed for (S11.36), because "your last saved routes"
+    /// used to be true of any plan: nil `personName` is the whole household.
+    static func showingCachedRoutes(savedAt: Date, peril: String,
+                                    personName: String?) -> BackendFailure {
         BackendFailure(
             kind: .offline,
-            message: "You're offline — showing your last saved routes from "
+            message: "You're offline — showing your last saved \(peril) routes for "
+                   + (personName ?? "everyone") + " from "
                    + savedAt.formatted(date: .abbreviated, time: .shortened) + ".",
             isRetryable: true, suggestsSettings: false,
             symbol: "arrow.down.circle")

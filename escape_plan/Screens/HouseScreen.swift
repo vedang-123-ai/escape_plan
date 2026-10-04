@@ -1673,10 +1673,17 @@ struct HouseScreen: View {
                     routePlan = plan
                     Haptics.tick()
                 case .cached(let cached):
-                    guard cached.plan.home_id == model.home_id else { return }
+                    // The cache already answers only for this home, the fire peril, the
+                    // picked person and this exact model (S11.36); these guards are the
+                    // last line if a stale answer for another request lands late.
+                    guard cached.plan.home_id == model.home_id,
+                          cached.plan.profile_id == selectedProfileID else { return }
                     cachedPlanDate = cached.savedAt
                     routePlan = cached.plan
-                    routesFailure = .showingCachedRoutes(savedAt: cached.savedAt)
+                    routesFailure = .showingCachedRoutes(
+                        savedAt: cached.savedAt,
+                        peril: cached.plan.peril ?? RoutePlanKey.defaultPeril,
+                        personName: model.profiles.first { $0.id == cached.plan.profile_id }?.name)
                 }
                 applyOverlay()
             } catch is CancellationError {

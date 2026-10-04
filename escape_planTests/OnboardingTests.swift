@@ -165,10 +165,11 @@ final class OnboardingTests: XCTestCase {
     func testRoutePlanCacheRoundTrip() throws {
         let cache = try RoutePlanCache(directory: scratch)
         let plan = try loadSamplePlan()
+        let key = RoutePlanKey(homeID: plan.home_id)
         let stamp = Date(timeIntervalSince1970: 1_750_000_000)
 
-        try cache.save(plan, now: stamp)
-        let cached = try XCTUnwrap(cache.load(homeID: plan.home_id))
+        try cache.save(plan, key: key, homeFingerprint: "fp-1", now: stamp)
+        let cached = try XCTUnwrap(cache.load(key, homeFingerprint: "fp-1"))
         XCTAssertEqual(cached.plan, plan)
         XCTAssertEqual(cached.savedAt.timeIntervalSince1970,
                        stamp.timeIntervalSince1970, accuracy: 1)
@@ -176,10 +177,12 @@ final class OnboardingTests: XCTestCase {
 
     func testRoutePlanCacheMissAndCorruptFileReadAsNil() throws {
         let cache = try RoutePlanCache(directory: scratch)
-        XCTAssertNil(cache.load(homeID: "never-saved"))
+        let never = RoutePlanKey(homeID: "never-saved")
+        XCTAssertNil(cache.load(never, homeFingerprint: "fp"))
 
-        try Data("not json".utf8).write(to: cache.url(for: "corrupt"))
-        XCTAssertNil(cache.load(homeID: "corrupt"),
+        let corrupt = RoutePlanKey(homeID: "corrupt")
+        try Data("not json".utf8).write(to: cache.url(for: corrupt))
+        XCTAssertNil(cache.load(corrupt, homeFingerprint: "fp"),
                      "a corrupt cache file must read as a miss, never throw into the UI")
     }
 
