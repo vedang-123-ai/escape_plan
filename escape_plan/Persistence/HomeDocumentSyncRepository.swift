@@ -123,6 +123,13 @@ final class HomeDocumentSyncRepository: SyncHomeRepository, HomeDeletionObservin
     }
 
     func checkCanWritePulledHome(_ home: HomeModel) throws {
+        // The server's `home_id` becomes a file name (S11.41, AUD-012). One that could leave the
+        // Homes directory, or that the store would refuse anyway, fails this home alone, before
+        // `SyncManager` makes any conflict copy for it. `store.save` checks again.
+        guard HomeID.isValid(home.home_id) else {
+            throw Self.pulledHomeIDRefused
+        }
+
         // Never overwrite the home the user is editing. The editor holds its working copy in
         // `HomeModelStore` and writes it on autosave, so replacing the file underneath it
         // would either be discarded by the next autosave or — worse — silently reverted on
@@ -139,6 +146,14 @@ final class HomeDocumentSyncRepository: SyncHomeRepository, HomeDeletionObservin
             throw SyncFailure.localCopyUnreadable
         }
     }
+
+    /// A pulled home whose id is not a safe file name. Not retryable: the same id comes back on
+    /// every sync until the server's copy changes.
+    static let pulledHomeIDRefused = SyncFailure(
+        kind: .localWriteBlocked,
+        message: "A home from your account has an id this iPhone can't save under, so it was "
+               + "skipped. Your other homes synced normally.",
+        isRetryable: false, symbol: "exclamationmark.triangle")
 
     /// Copies the local home under a fresh `home_id` before the server's version replaces it.
     /// Reuses `HomeDocumentStore.duplicate`, which already guarantees the copy is fully

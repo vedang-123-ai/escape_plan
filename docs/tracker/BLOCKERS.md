@@ -96,7 +96,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-009 (P2) saved token overrides forever; Advanced in Release · S11.42 (owner answers in §1)
 - [ ] AUD-010 (P3) `/convert` leaks Python text as 422 · S11.31
 - [ ] AUD-011 (P3) `needs_rehash` never called · S11.28
-- [ ] AUD-012 (P3) untrusted `home_id` as filename · S11.41
+- [x] AUD-012 (P3) untrusted `home_id` as filename · **fixed 2026-10-04 by S11.41** (evidence under "S11.41 findings")
 - [x] AUD-013 (P1) House editor overwrites other writers · **fixed 2026-10-01 by S11.19** (evidence under "S11.19 findings")
 - [ ] AUD-014 (P2) home-switch race; cancel shown as offline · **late-response half fixed 2026-10-03 by S11.23** (evidence under "S11.23 findings"); the shared classifier half (`BackendFailure` reads `URLError.cancelled` as offline) stays with S11.37
 - [x] AUD-015 (P2) conflict copies pile up · **fixed 2026-10-02 by S11.22** (evidence under "S11.22 findings")
@@ -145,6 +145,39 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.41 findings (2026-10-04, branch s11-41-home-id-validation)
+
+AUD-012. `escape_plan/Sync/HomeID.swift` (`HomeID.isValid`, `[A-Za-z0-9_-]{1,64}`, EditorCore-tested) guards every
+`HomeDocumentStore` read, write and delete, and `HomeDocumentSyncRepository.checkCanWritePulledHome` refuses an invalid
+pulled id as a per-home `SyncFailure` before any conflict copy. `list()` lists by file name and skips (logs, keeps on
+disk) a file whose name is invalid or whose `home_id` differs from it, ignoring case. Decisions: 2026-10-04 S11.41
+rows. Note: `docs/tracker/notes/2026-10-04-s11-41-home-id-validation.md`.
+
+- [x] **Verified 2026-10-04:** EditorCore **646 passed, 0 failed** (+4 `HomeIDTests`). `scripts/typecheck-ios.sh` ok on
+      all four targets; `-default-isolation MainActor` type-check shows only the three pre-existing warnings. Simulator
+      (iPhone 17 Pro, iOS 26.5) `-only-testing:escape_planTests`: **1036 passed, 0 failed, 3 skipped** (scratchpad
+      `full1.xcresult`), against S11.40's 1022 / 0 / 3: +14, exactly the new tests. 10 mutations, all caught (note).
+      Re-run after the last edit: `typecheck-ios.sh` ok on all four targets. ecc:security-reviewer and
+      swift-scenekit-reviewer: no must-fix; findings acted on or listed below.
+- [x] Every id format in use today is accepted (listed in the note), so no existing home stops loading.
+- [ ] **@owner of `escape_plan/Persistence/ScoreCache.swift`: same bug class.** `file(for:)` (line ~14) does
+      `appendingPathComponent("\(homeID).json")` with the id unchecked (ecc:security-reviewer confirmed it is the only
+      other id-to-path use in `escape_plan/`). Next action: guard it with `HomeID.isValid` (skip the cache for an invalid
+      id) or use the route cache's `fileSafe`. Not owned by S11.41.
+- [ ] **A skipped home file is only logged, not shown.** A renamed or hand-edited file (Debug builds still expose
+      Documents in Files) disappears from the library with an `os.Logger` line and stays on disk. Next action: none unless
+      Anish wants a "1 file couldn't be opened" row; that is `HomeLibrary`/`HomeScreen`, not owned here.
+- [ ] **`BuildFromPlanView` would show a server-flavoured message for an invalid draft id** (swift-scenekit-reviewer).
+      `library.store.save(model: home)` (~line 272) can now throw `InvalidHomeID`, which goes to
+      `BackendFailure(error, while: .houseBuilder)`. Unreachable today: `/build` drafts get a uuid4 (`builder.py`). Next
+      action: whoever owns `BuildFromPlanView.swift`/S11.37 (honest failures) maps a non-network error to its own text.
+- [ ] **The schema says `home_id` is `format: uuid`, but the app has never followed it** (`TEST-DEMO-HOME-1234`, the
+      `…-empty-123` fixture, test ids); pydantic is `home_id: str`. The client rule is now `[A-Za-z0-9_-]{1,64}`.
+      Next action: none before submission; a schema `pattern` would be a `schema-contract-guardian` call with a version bump.
+- [ ] **A rejected pulled id is retried every sync.** `pulledHomeIDRefused` is not retryable, but the plan re-plans the
+      pull each run until the server's copy changes. Harmless while sync is switched off (since 2026-10-02); worth a look
+      if accounts come back (server-side id rules are out of scope here).
 
 ### S11.40 findings (2026-10-03, branch `s11-40-release-files`)
 
@@ -512,10 +545,13 @@ Anish chose to handle these after the S11 sessions. Each has its evidence and fi
       write fails the home is gone from disk with no tombstone and may come back once, and a "removed from your
       account" promise is not kept. Next action (S11.22, owns the file): return the failure so Home can say so.
       **Done by S11.22:** it throws `DeletionNotRemembered`, which reaches `library.loadError` and "Your homes".
-- [ ] **@S11.41: delete now reaches `HomeDocumentStore.url(for:)` with an id read from a file's `home_id`**
+- [x] **@S11.41: delete now reaches `HomeDocumentStore.url(for:)` with an id read from a file's `home_id`**
       (ecc:security-reviewer). Ids are not validated anywhere (server `home_id: str`), so a synced `"../x"` could be
       written (pre-existing, `writePulledHome`) and now also deleted from "Your homes". Next action: S11.41's planned
       validation covers `url(for:)` and `writePulledHome` (reject anything that is not a UUID or a fixture id).
+      **Done by S11.41 (2026-10-04):** `delete` validates (`testDeleteRefusesATraversalIDAndLeavesTheFileOutsideAlone`,
+      mutation-checked). The rule is `[A-Za-z0-9_-]{1,64}`, not "UUID or fixture id", which would have broken
+      `TEST-DEMO-HOME-1234` and test ids.
 - [ ] **Per-home data is left behind when a home is deleted:** `RouteCache/<id>.routeplan.json` (seen on disk),
       checklist ticks (`ChecklistStateStore`), drill log, meeting point (`MeetingPointStore`), score cache and scan
       freshness, all keyed by home id and in files S11.21 does not own. Harmless for a random-id home; a deleted starter
@@ -545,7 +581,7 @@ Anish chose to handle these after the S11 sessions. Each has its evidence and fi
       `try?` above are yours; conflict copies ("(this device)") can now be deleted by the user, so a preserved-copy id
       you record may point at a deleted (tombstoned) home. S11.41: delete is one more caller of `url(for:)`. S11.48:
       "Your homes" reads `library.homes`, so moving `list()` off the main thread must keep the sheet's list current
-      after a delete/duplicate.
+      after a delete/duplicate. **S11.41 (2026-10-04): read and handled** (delete validated; merged on top of S11.21).
 
 ### S11.20 findings (2026-10-02, branch `s11-20-profiles-reachable`)
 

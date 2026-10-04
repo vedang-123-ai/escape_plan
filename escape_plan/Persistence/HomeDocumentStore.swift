@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import os
 
 /// FileManager-backed store for home documents.
 ///
@@ -14,8 +15,13 @@ import Foundation
 /// Each file is exactly the HomeModel JSON of `schema/homemodel.schema.json`,
 /// so "export" is the stored file and there is no separate index to corrupt.
 /// Writes are atomic; a crash mid-save leaves the previous document intact.
+///
+/// Every id is checked by `HomeID.isValid` before it becomes a path (S11.41, AUD-012): ids come
+/// from the server and from hand-editable files, and `../` would otherwise leave the directory.
 struct HomeDocumentStore {
     static let fileExtension = "homeplan.json"
+
+    private static let log = Logger(subsystem: "escape_plan", category: "HomeDocumentStore")
 
     let directory: URL
     private let fileManager: FileManager
@@ -71,6 +77,12 @@ struct HomeDocumentStore {
 
     /// Every saved home, newest first. Unreadable files are skipped rather than
     /// failing the whole list — one bad document must not hide the others.
+    ///
+    /// Listed by FILE NAME, because that is what `load(homeID:)` opens (S11.41, AUD-012). A file
+    /// whose name is not a valid id, or whose embedded `home_id` differs from its name (renamed or
+    /// hand-edited in Files), is logged and skipped rather than listed as a home that then fails
+    /// to open. Case is ignored in that comparison (see below). Not repaired: rewriting the embedded id would change the home's identity for sync
+    /// and could collide with another file's home. The file is left on disk untouched.
     func list() -> [HomeSummary] {
         let urls = (try? fileManager.contentsOfDirectory(
             at: directory,
@@ -79,11 +91,24 @@ struct HomeDocumentStore {
         )) ?? []
 
         var summaries: [HomeSummary] = []
-        for url in urls where url.lastPathComponent.hasSuffix(Self.fileExtension) {
+        let suffix = ".\(Self.fileExtension)"
+        for url in urls where url.lastPathComponent.hasSuffix(suffix) {
+            let homeID = String(url.lastPathComponent.dropLast(suffix.count))
+            guard HomeID.isValid(homeID) else {
+                Self.log.error("Skipped a home file whose name is not a valid home id.")
+                continue
+            }
             guard let data = try? Data(contentsOf: url),
-                  let document = try? HomeDocument(data: data),
-                  let homeID = document.homeID
+                  let document = try? HomeDocument(data: data)
             else { continue }
+            // Case-insensitive: the simulator's (and a Mac's) volume is, so a pull of `ABC…`
+            // over `abc….homeplan.json` can leave the old name on the new contents. Listing the
+            // file name keeps it openable, since `load` opens by name.
+            guard let embedded = document.homeID,
+                  embedded.caseInsensitiveCompare(homeID) == .orderedSame else {
+                Self.log.error("Skipped home file \(homeID, privacy: .public): its home_id does not match its name.")
+                continue
+            }
             let fallback = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
                 .contentModificationDate
             summaries.append(
@@ -102,7 +127,7 @@ struct HomeDocumentStore {
     /// Loads a home, checking `schema_version` and migrating forward if needed.
     /// A migrated document is written back so the upgrade happens once.
     func load(homeID: String) throws -> HomeDocument {
-        let url = url(for: homeID)
+        let url = try checkedURL(for: homeID)
         guard fileManager.fileExists(atPath: url.path) else {
             throw PersistenceError.homeNotFound(homeID: homeID)
         }
@@ -128,7 +153,8 @@ struct HomeDocumentStore {
     }
 
     func exists(homeID: String) -> Bool {
-        fileManager.fileExists(atPath: url(for: homeID).path)
+        guard let url = try? checkedURL(for: homeID) else { return false }
+        return fileManager.fileExists(atPath: url.path)
     }
 
     // MARK: - Write
@@ -138,8 +164,9 @@ struct HomeDocumentStore {
     func save(_ document: HomeDocument, now: Date = Date()) throws -> HomeSummary {
         guard let homeID = document.homeID else { throw PersistenceError.missingHomeID }
         guard document.schemaVersion != nil else { throw PersistenceError.missingSchemaVersion }
+        let target = try checkedURL(for: homeID)
         let stamped = document.touched(at: now)
-        try write(stamped, to: url(for: homeID))
+        try write(stamped, to: target)
         return HomeSummary(
             id: homeID,
             name: stamped.name ?? "Untitled Home",
@@ -156,7 +183,7 @@ struct HomeDocumentStore {
     }
 
     func delete(homeID: String) throws {
-        let url = url(for: homeID)
+        let url = try checkedURL(for: homeID)
         guard fileManager.fileExists(atPath: url.path) else {
             throw PersistenceError.homeNotFound(homeID: homeID)
         }
@@ -171,7 +198,7 @@ struct HomeDocumentStore {
         let copyID = UUID().uuidString.lowercased()
         let copyName = newName ?? "\(source.name ?? "Untitled Home") copy"
         let copy = source.reidentified(homeID: copyID, name: copyName, modified: now)
-        try write(copy, to: url(for: copyID))
+        try write(copy, to: checkedURL(for: copyID))
         return HomeSummary(
             id: copyID,
             name: copyName,
@@ -207,7 +234,7 @@ struct HomeDocumentStore {
             name: migrated.name ?? "Imported Home",
             modified: now
         )
-        try write(imported, to: self.url(for: newID))
+        try write(imported, to: checkedURL(for: newID))
         return HomeSummary(
             id: newID,
             name: imported.name ?? "Imported Home",
@@ -219,8 +246,25 @@ struct HomeDocumentStore {
 
     // MARK: - Paths
 
+    /// Where `homeID` is stored. Every read and write in this type goes through
+    /// `checkedURL(for:)`, which refuses an invalid id; this non-throwing form stays for callers
+    /// that only inspect paths. It still cannot leave the directory: an invalid id is
+    /// percent-escaped, so `/` and `.` become `%2F` and `%2E` and the result is one file name
+    /// inside `directory`, which this store never writes to.
     func url(for homeID: String) -> URL {
-        directory.appendingPathComponent("\(homeID).\(Self.fileExtension)")
+        let name = HomeID.isValid(homeID)
+            ? homeID
+            : homeID.addingPercentEncoding(withAllowedCharacters: Self.idCharacters) ?? "%"
+        return directory.appendingPathComponent("\(name).\(Self.fileExtension)")
+    }
+
+    private static let idCharacters = CharacterSet(
+        charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+
+    /// `url(for:)`, after `HomeID.validate`. Throws `InvalidHomeID` before any file is touched.
+    private func checkedURL(for homeID: String) throws -> URL {
+        try HomeID.validate(homeID)
+        return url(for: homeID)
     }
 
     /// Filesystem-safe, human-recognisable name for a shared file.
