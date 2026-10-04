@@ -40,3 +40,5 @@ artifacts/
 .build-p3/
 # Lane A (lane/editor) derived data — parallel-lane isolation
 .build-laneA/
+.build-*.log
+demo-homes/
