@@ -95,6 +95,12 @@ including that the high-severity cap above (40) always reads "Needs work", and t
 
 `practice.drill_recent` (6-month cadence) and `rescan.home` (6-month cadence) are both `scoring: false`. A lapsed or never-completed drill, or a stale scan, shows up as an open checklist item — but it never subtracts a point. The scoring items are listed above.
 
+### Recurrence through `/score` (S11.34)
+
+`/score` accepts a completion time per recurring item (`checklist_state` value: an ISO-8601 UTC timestamp, or a bare `true`) and judges it against the server clock. Intervals: `practice.drill_recent` and `rescan.home` 183 days; `alarm.test_monthly` 30 days (corpus: "test every alarm monthly", `usfa-smoke-alarms`). A bare `true` means "done at an unknown time" and stays done until a timestamp replaces it. The response carries each item's `recurrence_days` and the `completed_at` the server used.
+
+`alarm.test_monthly` is a `scoring: true` smoke-alarm item, so unlike the drill and the rescan, **a lapsed monthly test does lower the score** (one smoke-alarm item's share, until the user tests again). Weights are unchanged; only the item can now lapse. Pinned by `backend/tests/test_recurrence.py`.
+
 ## Worked examples
 
 All reproduce the fixtures in `schema/fixtures/`, with no agent findings and an empty checklist. **Every number below was read off a `compute_score` run on 2026-09-22, not derived by hand** — `backend/tests/test_scoring.py` asserts each one.

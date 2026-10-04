@@ -17,7 +17,7 @@ to decide which of these categories earn points.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -64,8 +64,9 @@ Persisted on the home document by the iOS app (S2.4).
 For recurring items, the value may be an ISO 8601 timestamp string recording
 when the item was last completed. The done state is then computed by comparing
 that timestamp against the item's recurrence_days. A plain `True` is always
-treated as "done at an unknown time" — fresh for non-recurring items, stale
-for recurring ones (conservative: forces re-completion).
+treated as "done at an unknown time" and stays done until a completion writes
+a timestamp (S11.34 decision, docs/decisions.md): flipping it to stale on
+deploy would reopen every existing user's drill and rescan tasks at once.
 """
 
 
@@ -100,11 +101,46 @@ class ChecklistItem(BaseModel):
             "ENGINEERING CHOICE for intervals not specified by the corpus."
         ),
     )
+    completed_at: Optional[datetime] = Field(
+        default=None,
+        description=(
+            "The completion time the server used to judge a recurring item, "
+            "UTC. Null when the item is not recurring, was never completed, or "
+            "was ticked with a legacy bare `true` (time unknown)."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
 # Recurrence helper
 # ---------------------------------------------------------------------------
+
+#: A completion stamped up to this far ahead of the server clock is device clock
+#: skew and still counts; further ahead is treated as not done.
+FUTURE_SKEW_TOLERANCE = timedelta(days=1)
+
+
+def parse_completion_time(raw: str) -> datetime:
+    """Parse an ISO-8601 completion timestamp into an aware UTC datetime.
+
+    A timestamp with no offset is read as UTC (the contract is UTC). Raises
+    ValueError on anything that is not ISO-8601.
+    """
+    parsed = datetime.fromisoformat(raw)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _completed_at(item_id: str, state: ChecklistState) -> datetime | None:
+    raw = state.get(item_id)
+    if not isinstance(raw, str):
+        return None
+    try:
+        return parse_completion_time(raw)
+    except ValueError:
+        return None
+
 
 def _is_done(
     item_id: str,
@@ -125,14 +161,20 @@ def _is_done(
         # value as done (backward compatible with callers that don't pass now).
         return bool(raw)
     if isinstance(raw, str):
-        try:
-            completed_at = datetime.fromisoformat(raw)
-            elapsed = (now - completed_at).days
-            return elapsed < recurrence_days
-        except (ValueError, TypeError):
+        completed_at = _completed_at(item_id, state)
+        if completed_at is None:
             return False
-    # bool True on a recurring item with a clock = done at unknown time → stale.
-    return False
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        age = now - completed_at
+        if age < -FUTURE_SKEW_TOLERANCE:
+            # Stamped far in the future: a wrong clock or a bad value, never a
+            # completion. Counting it would make the item permanently done.
+            return False
+        return age < timedelta(days=recurrence_days)
+    # A bare `true` on a recurring item: done at an unknown time. Stays done
+    # until the next completion writes a timestamp (S11.34 STEP 0, option a).
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +192,14 @@ def _bedrooms(home: HomeModel) -> list[tuple[str, str, str]]:
     ]
 
 
-def smoke_alarm_items(home: HomeModel, state: ChecklistState) -> list[ChecklistItem]:
+#: ENGINEERING CHOICE: "monthly" (usfa-smoke-alarms: "Test every alarm monthly")
+#: read as 30 days.
+ALARM_TEST_RECURRENCE_DAYS = 30
+
+
+def smoke_alarm_items(
+    home: HomeModel, state: ChecklistState, now: datetime | None = None
+) -> list[ChecklistItem]:
     """Alarm placement + maintenance items, exactly as corpus/smoke-alarms-usfa.md
     prescribes: one per bedroom, one outside each sleeping area, one per level,
     plus the monthly test and the 10-year replacement."""
@@ -158,7 +207,9 @@ def smoke_alarm_items(home: HomeModel, state: ChecklistState) -> list[ChecklistI
     floors_with_bedrooms = {floor_id for floor_id, _, _ in bedrooms}
     items: list[ChecklistItem] = []
 
-    def add(item_id: str, title: str, detail: str) -> None:
+    def add(
+        item_id: str, title: str, detail: str, recurrence_days: int | None = None
+    ) -> None:
         items.append(
             ChecklistItem(
                 id=item_id,
@@ -167,10 +218,18 @@ def smoke_alarm_items(home: HomeModel, state: ChecklistState) -> list[ChecklistI
                 title=title,
                 detail=detail,
                 why="Working smoke alarms cut the home-fire death rate by ~55%. [cite: nfpa-smoke-alarms-report]",
-                done=state.get(item_id, False) is True,
+                done=(
+                    _is_done(item_id, state, recurrence_days, now)
+                    if recurrence_days is not None
+                    else state.get(item_id, False) is True
+                ),
                 source_citation="usfa-smoke-alarms",
                 scoring=True,
                 component=SMOKE_ALARM_COMPONENT,
+                recurrence_days=recurrence_days,
+                completed_at=(
+                    _completed_at(item_id, state) if recurrence_days is not None else None
+                ),
             )
         )
 
@@ -198,6 +257,7 @@ def smoke_alarm_items(home: HomeModel, state: ChecklistState) -> list[ChecklistI
         "alarm.test_monthly",
         "Test every smoke alarm this month",
         "Press the test button on every alarm once a month.",
+        recurrence_days=ALARM_TEST_RECURRENCE_DAYS,
     )
     add(
         "alarm.replace_10y",
@@ -243,6 +303,7 @@ def practice_items(
             scoring=False,
             component=PRACTICE_COMPONENT,
             recurrence_days=drill_recurrence,
+            completed_at=_completed_at("practice.drill_recent", state),
         ),
         ChecklistItem(
             id="rescan.home",
@@ -256,6 +317,7 @@ def practice_items(
             source_citation=None,
             scoring=False,
             recurrence_days=drill_recurrence,
+            completed_at=_completed_at("rescan.home", state),
         ),
     ]
 
@@ -1204,7 +1266,7 @@ def build_checklist(
         hazards = analyze_object_hazards(home, object_hazard_thresholds)
 
     items = [
-        *smoke_alarm_items(home, state),
+        *smoke_alarm_items(home, state, now),
         *practice_items(state, now),
         *route_items(plan, state),
         *(egress_window_items(home, thresholds, state) if thresholds else []),
