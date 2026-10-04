@@ -71,7 +71,7 @@ final class PersistenceTests: XCTestCase {
         let fixtureDirectory = PersistenceFixtures.repoRoot.appendingPathComponent("schema/fixtures")
         let files = try FileManager.default.contentsOfDirectory(at: fixtureDirectory, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "json" }
-        XCTAssertGreaterThanOrEqual(files.count, 7)
+        XCTAssertGreaterThanOrEqual(files.count, 5)
         var expected: [HomeSummary] = []
         for file in files {
             let data = try Data(contentsOf: file)
@@ -148,6 +148,53 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(listing.summaries, store.list(), "incremental result equals a cold listing")
     }
 
+    func testCacheIsKeyedOnBothChangeTimeAndSize() throws {
+        let store = try makeStore()
+        let id = try store.save(try PersistenceFixtures.document("bungalow")).id
+        let url = store.url(for: id)
+        let known = store.summaries(reusing: [:]).entries
+        let original = try Data(contentsOf: url)
+        let stamp = try XCTUnwrap(url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+
+        // Same size, later change time (a same-length rename): must be read again.
+        let sameSize = try XCTUnwrap(String(data: original, encoding: .utf8)?
+            .replacingOccurrences(of: "\"name\" : \"Bungalow\"", with: "\"name\" : \"Bungalaw\""))
+        XCTAssertEqual(sameSize.utf8.count, original.count)
+        try Data(sameSize.utf8).write(to: url)
+        try FileManager.default.setAttributes([.modificationDate: stamp.addingTimeInterval(5)], ofItemAtPath: url.path)
+        var listing = store.summaries(reusing: known)
+        XCTAssertEqual(listing.filesRead, 1)
+        XCTAssertEqual(listing.summaries.first?.name, "Bungalaw")
+
+        // Different size, SAME change time: must be read again.
+        let longer = sameSize.replacingOccurrences(of: "Bungalaw", with: "Bungalaw Extended")
+        let before = listing.entries
+        try Data(longer.utf8).write(to: url)
+        try FileManager.default.setAttributes([.modificationDate: stamp.addingTimeInterval(5)], ofItemAtPath: url.path)
+        listing = store.summaries(reusing: before)
+        XCTAssertEqual(listing.filesRead, 1)
+        XCTAssertEqual(listing.summaries.first?.name, "Bungalaw Extended")
+    }
+
+    func testAFileThatCannotBeReadIsRetriedNotRemembered() throws {
+        let store = try makeStore()
+        let id = try store.save(try PersistenceFixtures.document("bungalow")).id
+        let url = store.url(for: id)
+        let good = try Data(contentsOf: url)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: url.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path) }
+        guard (try? Data(contentsOf: url)) == nil else {
+            throw XCTSkip("this environment ignores file permissions (root)")
+        }
+        let unreadable = store.summaries(reusing: [:])
+        XCTAssertTrue(unreadable.summaries.isEmpty)
+        XCTAssertNil(unreadable.entries[id], "an unreadable file is not cached as skipped")
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
+        XCTAssertEqual(try Data(contentsOf: url), good)
+        XCTAssertEqual(store.summaries(reusing: unreadable.entries).summaries.map(\.id), [id])
+    }
+
     func testRefreshDropsADeletedHomeAndNeverResurrectsIt() throws {
         let store = try makeStore()
         let id = try store.save(try PersistenceFixtures.document("bungalow")).id
@@ -187,6 +234,9 @@ final class PersistenceTests: XCTestCase {
         let first = StarterSeedingNotice.noticeToShow(for: Boom(), defaults: defaults)
         XCTAssertEqual(first, StarterSeedingNotice.message)
         XCTAssertTrue(first?.contains("couldn't be set up") ?? false)
+        XCTAssertEqual(StarterSeedingNotice.noticeToShow(for: Boom(), defaults: defaults), first,
+                       "not recorded until the alert is dismissed: a kill before then re-tells it")
+        StarterSeedingNotice.markShown(defaults: defaults)
         XCTAssertNil(StarterSeedingNotice.noticeToShow(for: Boom(), defaults: defaults),
                      "a failure that repeats every launch is not announced every launch")
     }

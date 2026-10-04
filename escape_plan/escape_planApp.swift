@@ -126,7 +126,7 @@ struct escape_planApp: App {
                 .tint(Theme.accent)
                 .alert("Starter homes unavailable", isPresented: Binding(
                     get: { seedingNotice != nil },
-                    set: { if !$0 { seedingNotice = nil } }
+                    set: { if !$0 { seedingNotice = nil; StarterSeedingNotice.markShown() } }
                 )) {
                     Button("OK", role: .cancel) {}
                 } message: {
@@ -146,12 +146,16 @@ enum StarterSeedingNotice {
     static let message = "The sample homes couldn't be set up. You can still build your own "
         + "from the Home tab. Restarting the app will try again."
 
-    /// The message, if this failure has not been announced yet, and records that it now has.
+    /// Logs the failure, and returns the message unless it has already been announced. It does not
+    /// record anything: `markShown` does, when the alert is dismissed, so an app killed before the
+    /// person saw it still tells them next launch.
     static func noticeToShow(for error: Error, defaults: UserDefaults = .standard) -> String? {
         Logger(subsystem: "escape_plan", category: "Launch")
             .error("Starter-home seeding failed: \(String(describing: error), privacy: .public)")
-        guard !defaults.bool(forKey: shownDefaultsKey) else { return nil }
+        return defaults.bool(forKey: shownDefaultsKey) ? nil : message
+    }
+
+    static func markShown(defaults: UserDefaults = .standard) {
         defaults.set(true, forKey: shownDefaultsKey)
-        return message
     }
 }

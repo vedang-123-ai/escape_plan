@@ -88,9 +88,9 @@ struct HomeDocumentStore {
     }
 
     /// What `summaries(reusing:)` remembers about one file: the file's identity on disk (change
-    /// time and size) and the row it produced, or nil when the file is skipped (unreadable, bad
-    /// name, mismatched `home_id`). Skipped files are remembered too, so a bad file is not
-    /// re-read on every refresh.
+    /// time and size) and the row it produced, or nil when the file's CONTENTS make it skipped
+    /// (not a HomeModel, mismatched `home_id`). Such files are remembered so they are not re-read
+    /// on every refresh. A file that could not be read at all is never remembered.
     struct SummaryEntry: Equatable, Sendable {
         let modificationDate: Date?
         let fileSize: Int?
@@ -138,10 +138,13 @@ struct HomeDocumentStore {
                 continue
             }
             filesRead += 1
+            // A file that cannot be read at all (locked, a read racing a write) is not remembered,
+            // so the next refresh tries it again. Only a verdict about the contents is cached.
+            guard let data = try? Data(contentsOf: url) else { continue }
             entries[homeID] = SummaryEntry(
                 modificationDate: modificationDate,
                 fileSize: fileSize,
-                summary: Self.readSummary(at: url, homeID: homeID, fallbackModified: modificationDate)
+                summary: Self.readSummary(data, homeID: homeID, fallbackModified: modificationDate)
             )
         }
         // Ties (two homes stamped the same second) fall back to the id, so the order is the same on
@@ -155,10 +158,8 @@ struct HomeDocumentStore {
     /// One row, from a light decode of one file: only `home_id`, `name`, `floors[].rooms` and
     /// `meta.modified` are materialised, not the whole document tree (which is most of what
     /// `list()` used to spend, since it built every home's full `JSONValue`).
-    private static func readSummary(at url: URL, homeID: String, fallbackModified: Date?) -> HomeSummary? {
-        guard let data = try? Data(contentsOf: url),
-              let probe = try? JSONDecoder().decode(SummaryProbe.self, from: data)
-        else { return nil }
+    private static func readSummary(_ data: Data, homeID: String, fallbackModified: Date?) -> HomeSummary? {
+        guard let probe = try? JSONDecoder().decode(SummaryProbe.self, from: data) else { return nil }
         // Case-insensitive: the simulator's (and a Mac's) volume is, so a pull of `ABC…`
         // over `abc….homeplan.json` can leave the old name on the new contents. Listing the
         // file name keeps it openable, since `load` opens by name.
