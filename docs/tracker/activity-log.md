@@ -3301,3 +3301,27 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - M docs/tracker/activity-log.md
   - ?? docs/tracker/notes/2026-10-04-s11-41-home-id-validation.md
 
+## 2026-10-04T08:50:28Z · Anish Yarrakonda · `main` @ `856ba72`
+
+**Commits this session**
+  - 856ba72 Merge s11-41-home-id-validation (S11.41): home ids validated on every store path; list() never lists an unopenable home (AUD-012)
+  - 325d9bf S11.41: close out — BLOCKERS, note, decisions, README index
+  - b87c339 S11.41: validate home ids on every store path; list() lists by filename (AUD-012)
+  - 91d85bf Merge s11-40-release-files (S11.40): Release keeps Documents out of Files; raw scans cleaned up (AUD-008)
+
+## 2026-10-04T17:56:24Z · Anish Yarrakonda · `s11-42-server-settings` @ `856ba72`
+
+**Uncommitted working-tree changes (4)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Networking/APIClient.swift
+  - M escape_plan/Screens/SettingsScreen.swift
+  - ?? escape_planTests/APIClientConfigTests.swift
+
+## 2026-10-04T17:56:47Z · Anish Yarrakonda · `s11-42-server-settings` @ `856ba72`
+
+**Uncommitted working-tree changes (4)**
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Networking/APIClient.swift
+  - M escape_plan/Screens/SettingsScreen.swift
+  - ?? escape_planTests/APIClientConfigTests.swift
+

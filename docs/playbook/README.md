@@ -97,7 +97,7 @@ task is ticked by hand through `toggleDone`); **S11.36** keys the route cache in
 | [S11.39](S11-39.md) | AI inspector: wire it or cut the claim | 022, 044 | P1 | 4 Integration | D + E | `s11-39-ai-inspector` | S11.14 decision, S11.27, S11.29 | |
 | [S11.40](S11-40.md) | ~~Release builds keep data out of Files; scans cleaned~~ **DONE 2026-10-03** | 008 | P2 | 5 Storage & session | D | `s11-40-release-files` | ~~S11.24~~ (dropped, prereq lifted) | DONE 2026-10-03 |
 | [S11.41](S11-41.md) | ~~Home ids validated on every write~~ **DONE 2026-10-04** | 012 | P3 | 5 Storage & session | D | `s11-41-home-id-validation` | S11.21, S11.40 | DONE 2026-10-04 |
-| [S11.42](S11-42.md) | Server settings: rotation reaches installs, bad URLs refused | 009 | P2 | 5 Storage & session | D | `s11-42-server-settings` | S11.14 owner answers | |
+| [S11.42](S11-42.md) | ~~Server settings: rotation reaches installs, bad URLs refused~~ **DONE 2026-10-04** | 009 | P2 | 5 Storage & session | D | `s11-42-server-settings` | S11.14 owner answers | DONE 2026-10-04 |
 | [S11.43](S11-43.md) | ~~Signing in lasts; expiry is announced~~ | 031 | P2 | 5 Storage & session | D + E | `s11-43-session-length` | S11.16, S11.28 | **DROPPED 2026-10-02** (accounts cut) |
 | [S11.44](S11-44.md) | Chat rejects uncited safety claims | 030 | P2 | 6 Grounding & CI | E | `s11-44-chat-citations` | S11.29 | |
 | [S11.45](S11-45.md) | One conversation per home, bounded history | 033, 049 | P3 | 6 Grounding & CI | D | `s11-45-conversation-per-home` | S11.26, S11.37 | |

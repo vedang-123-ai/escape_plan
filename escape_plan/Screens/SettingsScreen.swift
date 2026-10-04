@@ -29,6 +29,7 @@ struct SettingsScreen: View {
     @State private var bearerTokenText: String = ""
     @State private var health: HealthState = .unknown
     @State private var showSaved = false
+    @State private var addressError: String?
     @State private var showingHowRoutes = false
 
     var body: some View {
@@ -54,11 +55,12 @@ struct SettingsScreen: View {
                             .disabled(health == .checking)
                             .accessibilityHint("Checks whether this iPhone can reach the Escape Plan server.")
                     }
+                    #if DEBUG
                     footnote("Escape Plan is already set up to use its own server — you only need to change these if the team gives you new values.")
 
                     section("Advanced") {
                         row("Server address") {
-                            TextField("api.example.com", text: $baseURLText)
+                            TextField("https://your-server.example.com", text: $baseURLText)
                                 .font(.subheadline.monospaced())
                                 .foregroundStyle(DS.supporting)
                                 .multilineTextAlignment(.trailing)
@@ -93,8 +95,14 @@ struct SettingsScreen: View {
                             }
                         }
                     }
+                    if let addressError {
+                        Text(addressError)
+                            .font(.footnote)
+                            .foregroundStyle(Theme.warning)
+                            .padding(.horizontal, DS.pagePadding)
+                            .accessibilityIdentifier("settings.addressError")
+                    }
 
-                    #if DEBUG
                     section("Developer") {
                         actionRow("Use deployed server") {
                             setBaseURL(APIClient.deployedDefaultBaseURL)
@@ -102,6 +110,15 @@ struct SettingsScreen: View {
                             health = .unknown
                         }
                         .accessibilityHint("Points the app back at the team's hosted server.")
+                        divider
+                        actionRow("Reset to default") {
+                            apiClient.resetToDefaults()
+                            setBaseURL(apiClient.baseURL)
+                            refreshFields()
+                            addressError = nil
+                            health = .unknown
+                        }
+                        .accessibilityHint("Restores the bundled server address and access token.")
                         divider
                         actionRow("Use local dev server (localhost:8000)") {
                             setBaseURL(APIClient.localDevBaseURL)
@@ -311,10 +328,23 @@ struct SettingsScreen: View {
     }
 
     private func save() {
-        if let url = URL(string: baseURLText.trimmingCharacters(in: .whitespaces)) {
-            setBaseURL(url)
+        switch APIClient.validatedBaseURL(baseURLText) {
+        case .failure(let error):
+            addressError = error.message
+            UIAccessibility.post(notification: .announcement, argument: error.message)
+            return
+        case .success(let url):
+            addressError = nil
+            if url != apiClient.baseURL { setBaseURL(url) }
         }
-        apiClient.bearerToken = bearerTokenText
+        // The token is stored as an override only when the person actually changed it.
+        // An empty field means "no override", never an empty token that beats the bundled one.
+        if bearerTokenText.isEmpty {
+            apiClient.clearBearerTokenOverride()
+            bearerTokenText = apiClient.bearerToken
+        } else if bearerTokenText != apiClient.bearerToken {
+            apiClient.overrideBearerToken(bearerTokenText)
+        }
         health = .unknown
         withAnimation { showSaved = true }
         Task {
