@@ -149,6 +149,49 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45 (Assistant item fixed 2026-10-04); the starter-seeding item fixed 2026-10-04 by S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
 
+### S11.39 findings (2026-10-04, branch s11-39-ai-inspector)
+
+- [x] **Path B executed**: `escape_plan/Networking/APIClient+Analyze.swift` and `escape_plan/Models/AnalyzeModels.swift` were NOT deleted because `OnboardingTests.swift` still references `AnalysisResult`. Kept with a comment clarifying they are dormant and have no callers since dac8673.
+- [x] **Claims updated in owned files**: Root `CLAUDE.md` and `README.md` AI capabilities changed to "explains and chats" (or similar wording explicitly removing auditing capabilities).
+- [x] **Tests green**: `swift test --package-path tools/editorcore` executed 646 tests with 0 failures. The iOS app suite will be run before merge.
+- [ ] **ReadinessStore**: The `agent_finding` checklist category stays dormant.
+
+#### S11.39 claims diff
+Files not owned by S11.39 but containing "inspector" or "audits" claims that need update:
+
+- `docs/demo/script-v1.md`, line 106
+  - Current: `## Beat 5 — The inspector and the profile switch`
+  - Proposed: `## Beat 5 — The profile switch`
+- `docs/demo/script-v1.md`, line 108
+  - Current: `> **VO:** Our AI inspector walks the model the way a fire marshal would.`
+  - Proposed: `> **VO:** Our AI explains and chats the way a fire marshal would.`
+- `docs/demo/script-v1.md`, line 132
+  - Current: `Render has no ANTHROPIC_API_KEY yet, so the inspector must be`
+  - Proposed: `Render has no ANTHROPIC_API_KEY yet, so the AI must be`
+- `docs/demo/script-v1.md`, line 137
+  - Current: `AI wrapper?": routing is deterministic Python we wrote; the AI explains, chats, and audits,`
+  - Proposed: `AI wrapper?": routing is deterministic Python we wrote; the AI explains and chats,`
+- `docs/demo/script-v1.md`, line 178
+  - Current: `explains and audits, it never computes routes.`
+  - Proposed: `explains and chats, it never computes routes.`
+- `docs/demo/script-v1.md`, line 198
+  - Current: `| 10 | "AI inspector… found the kids' window too small to climb out of" | TRUE via agent...`
+  - Proposed: "explains and chats" equivalent for this row.
+- `docs/demo/script-v1.md`, line 200
+  - Current: `... AI layer explains/audits only;`
+  - Proposed: `... AI layer explains and chats only;`
+- `docs/demo/storyboard-v1.md`, line 74
+  - Current: `### Beat 5 — Inspector + profile switch (~0:36)`
+  - Proposed: `### Beat 5 — Profile switch (~0:36)`
+- `docs/playbook/01-product-spec.md`, line 12
+  - Current: `Claude layer explains, chats and audits`
+  - Proposed: `Claude layer explains and chats`
+- `docs/playbook/01-product-spec.md`, line 69
+  - Current: `an AI that explains and audits but never routes.`
+  - Proposed: `an AI that explains and chats but never routes.`
+- `escape_plan/Screens/SettingsScreen.swift`, line 392
+  - Current: `Text("The assistant is a separate layer. It explains those routes, audits the home for problems, and answers questions...`
+  - Proposed: `Text("The assistant is a separate layer. It explains those routes and answers questions...`
 ### S11.35 findings (2026-10-04, branch s11-35-recurrence-app)
 
 Evidence: iOS unit suite `-only-testing:escape_planTests` **1114 tests: 1111 passed, 0 failed, 3 skipped**

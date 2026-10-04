@@ -10,7 +10,7 @@
 
 import Foundation
 
-/// One validated finding from the agentic inspector. `evidence` holds tool_use_ids the
+/// One validated finding from the /analyze endpoint. `evidence` holds tool_use_ids the
 /// backend already validated against the trace; the app keeps them for transparency but
 /// renders `finding`/`recommendation`/`citation`.
 struct AgentFinding: Decodable, Equatable, Identifiable, Hashable {
