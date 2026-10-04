@@ -97,7 +97,7 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-011 (P3) `needs_rehash` never called · S11.28
 - [ ] AUD-012 (P3) untrusted `home_id` as filename · S11.41
 - [x] AUD-013 (P1) House editor overwrites other writers · **fixed 2026-10-01 by S11.19** (evidence under "S11.19 findings")
-- [ ] AUD-014 (P2) home-switch race; cancel shown as offline · S11.23, S11.37
+- [ ] AUD-014 (P2) home-switch race; cancel shown as offline · **late-response half fixed 2026-10-03 by S11.23** (evidence under "S11.23 findings"); the shared classifier half (`BackendFailure` reads `URLError.cancelled` as offline) stays with S11.37
 - [x] AUD-015 (P2) conflict copies pile up · **fixed 2026-10-02 by S11.22** (evidence under "S11.22 findings")
 - [ ] AUD-016 (P2) `POST /homes` lost update · S11.30 (server, deploy first), S11.32 (client)
 - [ ] AUD-017 (P2) re-scan "Add to Home" bypasses the reducer · S11.24
@@ -175,6 +175,36 @@ rewrite (trim 2).
       the item dropped from the backend checklist.
 - [ ] **Signed-in phones from earlier builds** are signed out on first launch of this build; their homes stay. Never
       walked with a real account. Next action: none (no testers have accounts).
+
+### S11.23 findings (2026-10-03, branch `s11-23-score-race`)
+
+AUD-014's late-response half. Note: `notes/2026-10-03-s11-23-score-race.md`.
+
+- [x] **A score lands only on the home it was asked for.** Every /score (launch, switching homes, onboarding, sync,
+      pull to refresh, Retry, a tick, a household change, House's autosave) goes through one cancellable task in
+      `ReadinessStore`; a new one cancels the old; a generation number drops any superseded answer, success or failure;
+      `breakdown` is stored with its home id and is nil for any other home; `isScoring` belongs to the current request;
+      a cancelled request (`CancellationError` or `URLError.cancelled`) changes nothing and shows nothing. Switching
+      homes also clears the previous home's failure notice. Evidence: 7 new `ReadinessStoreTests` with a stub that holds
+      each /score until the test answers it; the 6 race tests all fail on the pre-fix store (mutation run
+      `.build-s1123/mut.xcresult`), the 7th fails with its guard removed (`.build-s1123/mut2.xcresult`). S11.17's 5 draft
+      tests pass unchanged. Full suite 2026-10-03: **1012 tests, 1001 passed, 0 failed, 11 skipped** (xcresulttool,
+      `.build-s1123/full.xcresult`); EditorCore 642/0; typecheck ok ×4; backend 1003 passed.
+- [x] **The S11.17 hand-off is done:** `ScoreCache.remove(homeID:)` (owned-files exception, `docs/decisions.md`) and
+      `clearScoreForDraft` calls it.
+- [ ] **A tick on a stale row from home A can still tick B's copy of a task whose id every home shares**
+      (`practice.meeting_point`, `supply_kit.72h`, `alerts.weather_radio`, `safe_room.know`). `toggleDone` now ignores
+      ids that are not on B's checklist, but the backend gives these the same id in every home, so the store cannot tell
+      them apart. Hard to reach (a sheet covers the home switcher). Next action: whoever next owns `TasksScreen`/
+      `HomeScreen` rows (S11.35 touches the checklist) passes the row's home id to `toggleDone(_:forHome:)`, and the
+      store checks it against `activeHomeID`.
+- [ ] **Stale comment in `Screens/ProfilesScreen.swift` (`reloadReadinessIfChanged`)** says `load` "would race" an
+      in-flight /score; since S11.23 `load` cancels it too. `replaceActiveHome` is still the right call (it does not
+      re-read the file). Next action: the next session that owns ProfilesScreen fixes the comment.
+- [ ] **Never watched on a device against the cold Render server** (the 51 s case the audit measured). Next action:
+      S11.10 device pass: switch homes while the first score is loading; the second home's score must stay.
+- [ ] **`URLError.cancelled` still reads as "Couldn't reach the server" in `BackendFailure`** for every other caller.
+      ReadinessStore no longer passes it there. Next action: S11.37 (owns the classifier).
 
 ### Demo trim 2 findings (2026-10-03, branch `trim-2-drill-playback`)
 
@@ -538,7 +568,8 @@ Anish chose to handle these after the S11 sessions. Each has its evidence and fi
       `DrillScreen(homeID:)` call site is on Home or Tasks, all hidden for a draft), but it would POST `/routes` on one.
       Next action: S11.36 (owns DrillScreen's route-fetch lines) adds `guard !homeModel.hasAIDraftContent`, mirroring
       `HouseScreen.fetchRoutes`.
-- [ ] **A score cached for a draft by a build before this fix is never deleted.** `ReadinessStore` no longer shows it
+- [x] **Done 2026-10-03 by S11.23** (`ScoreCache.remove(homeID:)`, called by `ReadinessStore.clearScoreForDraft`;
+      `testScoreCachedBeforeTheFixIsNotShownForADraft` asserts the file is gone). ~~A score cached for a draft by a build before this fix is never deleted.~~ `ReadinessStore` no longer shows it
       (not for the draft, and not after confirm in the same launch), but the file stays until the first successful
       `/score` overwrites it, and `HouseScreen.loadIfNeeded` reads it for hazard emphasis while the draft is open. Only
       homes drafted on a pre-fix build are affected. Next action: whoever next owns `Persistence/ScoreCache.swift` adds a

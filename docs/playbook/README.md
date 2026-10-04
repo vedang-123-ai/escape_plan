@@ -78,7 +78,7 @@ task is ticked by hand through `toggleDone`); **S11.36** keys the route cache in
 | [S11.20](S11-20.md) | ~~Household profiles are reachable again~~ **DONE 2026-10-02** | 020, 044 | P1 | 2 Data integrity | D | `s11-20-profiles-reachable` | S11.19 | DONE 2026-10-02 |
 | [S11.21](S11-21.md) | ~~Delete and duplicate homes; no blank home until the first edit~~ **DONE 2026-10-02** | 021, 039 | P1 | 2 Data integrity | D | `s11-21-home-delete` | S11.19 | DONE 2026-10-02 |
 | [S11.22](S11-22.md) | ~~Sync: at most one conflict copy, never while open~~ **DONE 2026-10-02** | 015 | P2 | 2 Data integrity | D | `s11-22-sync-conflict-copies` | S11.19, S11.21 | DONE 2026-10-02 |
-| [S11.23](S11-23.md) | A score belongs to the home it was asked for | 014 | P2 | 2 Data integrity | D | `s11-23-score-race` | S11.17 | |
+| [S11.23](S11-23.md) | ~~A score belongs to the home it was asked for~~ **DONE 2026-10-03** | 014 | P2 | 2 Data integrity | D | `s11-23-score-race` | S11.17 | DONE 2026-10-03 |
 | [S11.24](S11-24.md) | ~~Re-check a room end to end~~ | 017, 029, 049 | P2 | 2 Data integrity | D | `s11-24-recheck-flow` | S11.19, S11.23 | **DROPPED 2026-10-02** (re-scan review cut) |
 | [S11.25](S11-25.md) | ~~Residential size bounds, server and editor alike~~ **DONE 2026-09-30** | 004 | P1 | 3 Backend hardening | E | `s11-25-home-bounds` | S11.14 | DONE 2026-09-30 |
 | [S11.26](S11-26.md) | ~~Request size limits and input caps~~ **DONE 2026-10-03** | 004, 035, 024 | P1 | 3 Backend hardening | E | `s11-26-request-limits` | S11.14 | DONE 2026-10-03 |

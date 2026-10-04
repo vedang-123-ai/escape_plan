@@ -21,6 +21,10 @@ struct ScoreCache {
         } catch { }
     }
 
+    func remove(homeID: String) {
+        try? FileManager.default.removeItem(at: file(for: homeID))
+    }
+
     func load(homeID: String) -> ScoreBreakdown? {
         do {
             let data = try Data(contentsOf: file(for: homeID))

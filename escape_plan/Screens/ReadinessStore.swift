@@ -17,13 +17,21 @@ final class ReadinessStore {
 
     private(set) var activeHomeID: String?
     private(set) var activeHome: HomeModel?
-    private(set) var breakdown: ScoreBreakdown?
+    /// The last score, tagged with the home it was computed for (AUD-014). `ScoreBreakdown` alone
+    /// cannot say which request it answered, so the tag is kept beside it.
+    private var scored: (homeID: String, breakdown: ScoreBreakdown)?
     private(set) var checklistState: [String: Bool] = [:]
     private(set) var isScoring = false
     private(set) var scoreFailure: BackendFailure?
     private(set) var preventionTips: [PreventionTip] = []
 
+    /// The one in-flight /score request. Every way in (launch, switching homes, onboarding, sync,
+    /// pull to refresh, Retry, a ticked task, a household change) goes through `startScoreFetch`,
+    /// which cancels this first, so at most one request can change state.
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    /// Bumped whenever the in-flight request stops counting (cancelled or replaced). A response
+    /// carries the value it started with and is dropped if it no longer matches.
+    @ObservationIgnored private var scoreGeneration = 0
     /// Homes seen as unreviewed drafts this launch. Their cached score (written by a build before
     /// AUD-023 was fixed) describes the guessed plan, so it is not shown once they are confirmed;
     /// the first /score after confirming replaces it.
@@ -38,6 +46,13 @@ final class ReadinessStore {
     }
 
     // MARK: - Reading
+
+    /// The score on screen. Only ever the active home's: a score computed for another home is
+    /// never returned, whatever order responses arrived in (AUD-014).
+    var breakdown: ScoreBreakdown? {
+        guard let scored, scored.homeID == activeHomeID else { return nil }
+        return scored.breakdown
+    }
 
     /// Empty for an unreviewed draft, so the tab badge, Up next and the Tasks header follow the
     /// same predicate as the score, whatever a late response left in `breakdown`.
@@ -86,19 +101,29 @@ final class ReadinessStore {
     /// Keeps `activeHomeID` pointing at a home that exists (after a delete, or a first sync).
     func ensureActiveHome() {
         if activeHomeID == nil || !library.homes.contains(where: { $0.id == activeHomeID }) {
-            activeHomeID = library.homes.first?.id
+            switchActiveHome(to: library.homes.first?.id)
         }
     }
 
     func select(_ homeID: String, api: APIClient) async {
         guard homeID != activeHomeID || activeHome == nil else { return }
-        activeHomeID = homeID
-        breakdown = nil
+        switchActiveHome(to: homeID)
         await load(api: api)
     }
 
-    /// A model changed outside the editor (the household editor in Profiles).
+    /// The only place `activeHomeID` changes after launch. The previous home's request, score and
+    /// failure all stop counting here, before anything about the new home is shown.
+    private func switchActiveHome(to homeID: String?) {
+        cancelScoreFetch()
+        activeHomeID = homeID
+        scored = nil
+        scoreFailure = nil
+    }
+
+    /// A model changed outside the editor (the household editor in Profiles). Ignored unless it
+    /// is the active home: another home's household must not be scored under this one's name.
     func replaceActiveHome(_ home: HomeModel, api: APIClient) {
+        guard home.id == activeHomeID else { return }
         activeHome = home
         rescore(api: api)
     }
@@ -106,9 +131,11 @@ final class ReadinessStore {
     // MARK: - Loading and scoring
 
     func load(api: APIClient) async {
+        // Whatever was in flight was asked for the model about to be replaced.
+        cancelScoreFetch()
         guard let activeHomeID else {
             activeHome = nil
-            breakdown = nil
+            scored = nil
             scoreFailure = nil
             return
         }
@@ -128,7 +155,7 @@ final class ReadinessStore {
             // Nothing stale is left standing either: the previous home's model and a cached
             // score would otherwise sit under the new home's id.
             activeHome = nil
-            breakdown = nil
+            scored = nil
             scoreFailure = .localLoad(error)
             return
         }
@@ -137,61 +164,106 @@ final class ReadinessStore {
             clearScoreForDraft()
             return
         }
-        if breakdown == nil, !seenAsDraft.contains(activeHomeID), let cache = try? ScoreCache() {
-            breakdown = cache.load(homeID: activeHomeID)
+        if breakdown == nil, !seenAsDraft.contains(activeHomeID),
+           let cached = (try? ScoreCache())?.load(homeID: activeHomeID) {
+            scored = (activeHomeID, cached)
         }
-        await fetchScore(api: api)
+        // Awaited so pull to refresh keeps spinning until the answer; a newer request cancels
+        // this one and the await returns early.
+        await startScoreFetch(api: api).value
     }
 
     /// Returns the task so a test can await it instead of sleeping.
     @discardableResult
     func rescore(api: APIClient) -> Task<Void, Never> {
-        refreshTask?.cancel()
-        let task = Task { await fetchScore(api: api) }
+        startScoreFetch(api: api)
+    }
+
+    /// Every path to /score passes here (load, rescore, a ticked task, a household change). It
+    /// cancels the previous request and tags the new one with the home and generation it is for.
+    private func startScoreFetch(api: APIClient) -> Task<Void, Never> {
+        cancelScoreFetch()
+        // `ensureActiveHome` moves the id before the next `load` reads the new model; a Retry in
+        // that window must not send the previous home's model (or clear its draft state).
+        guard let home = activeHome, home.id == activeHomeID else { return Task {} }
+        guard !needsDraftReview else {
+            clearScoreForDraft()
+            return Task {}
+        }
+        scoreGeneration += 1
+        let generation = scoreGeneration
+        let state = checklistState
+        isScoring = true
+        let task = Task { [weak self] in
+            let result: Result<ScoreBreakdown, Error>
+            do {
+                result = .success(try await api.score(home: home, checklistState: state))
+            } catch {
+                result = .failure(error)
+            }
+            self?.finishScore(result, for: home, generation: generation)
+        }
         refreshTask = task
         return task
     }
 
-    private func fetchScore(api: APIClient) async {
-        guard let activeHome else { return }
-        // Every path to /score passes here (load, rescore, a ticked task, a household change).
-        guard !needsDraftReview else {
-            clearScoreForDraft()
-            return
-        }
-        isScoring = true
-        defer { isScoring = false }
-        do {
-            let new = try await api.score(home: activeHome, checklistState: checklistState)
-            // A request started before a draft became active must not land on it. (The general
-            // "which home was this for" race is AUD-014, S11.23.)
-            guard !Task.isCancelled, !needsDraftReview else { return }
-            breakdown = new
-            if let cache = try? ScoreCache() { cache.save(new, for: activeHome.id) }
+    /// Lands a /score answer, or drops it. Success and failure are treated alike: only the
+    /// current request, for the home still active, that is not an unreviewed draft, changes state.
+    private func finishScore(_ result: Result<ScoreBreakdown, Error>, for home: HomeModel, generation: Int) {
+        // Cancelled or replaced: whoever did that owns `isScoring` now.
+        guard generation == scoreGeneration else { return }
+        refreshTask = nil
+        isScoring = false
+        // Asked for another home, or the home became a draft while it was in flight (S11.17).
+        guard home.id == activeHomeID, !needsDraftReview else { return }
+        switch result {
+        case .success(let new):
+            scored = (home.id, new)
+            (try? ScoreCache())?.save(new, for: home.id)
             scoreFailure = nil
-        } catch is CancellationError {
-            // superseded by a newer request
-        } catch {
-            guard !needsDraftReview else { return }
+        case .failure(let error):
+            // A cancelled request is not a failure. A cancelled URLSession load throws
+            // URLError(.cancelled), not CancellationError, so both are checked.
+            guard !Self.isCancellation(error) else { return }
             scoreFailure = BackendFailure(error, while: .score)
         }
     }
 
-    private func clearScoreForDraft() {
-        if let id = activeHome?.id { seenAsDraft.insert(id) }
-        // Cancels a queued re-score only; a fetch started by `load` is caught after its await.
+    nonisolated static func isCancellation(_ error: Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
+    }
+
+    /// Stops the in-flight request counting. It changes no score and shows no failure.
+    private func cancelScoreFetch() {
         refreshTask?.cancel()
-        breakdown = nil
+        refreshTask = nil
+        scoreGeneration += 1
+        isScoring = false
+    }
+
+    private func clearScoreForDraft() {
+        cancelScoreFetch()
+        if let id = activeHome?.id {
+            seenAsDraft.insert(id)
+            // A score cached for a guessed floor plan by a build before AUD-023 was fixed.
+            (try? ScoreCache())?.remove(homeID: id)
+        }
+        scored = nil
         scoreFailure = nil
     }
 
     // MARK: - Done state
 
     /// Flips a narrative item and re-scores. Done gets the firmer tick, undone a quiet notch.
+    /// Only an item of the checklist on screen, which `items` guarantees is the active home's, so
+    /// an item id from another home's score is never saved into this home's state (AUD-014).
+    /// Ids the backend gives every home alike (`practice.meeting_point`) cannot be told apart
+    /// here: that needs the row to pass its home id (BLOCKERS, S11.23 findings).
     func toggleDone(_ item: ChecklistItem, api: APIClient, animated: Bool = true) {
+        guard let activeHomeID, items.contains(where: { $0.id == item.id }) else { return }
         let newDone = !isDone(item)
         withAnimation(animated ? .snappy(duration: 0.22) : nil) { checklistState[item.id] = newDone }
-        if let activeHomeID { stateStore.save(checklistState, homeID: activeHomeID) }
+        stateStore.save(checklistState, homeID: activeHomeID)
         if newDone { Haptics.tick() } else { Haptics.selection() }
         rescore(api: api)
     }
