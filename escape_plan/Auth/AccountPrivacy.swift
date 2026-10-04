@@ -91,15 +91,16 @@ enum AccountPrivacy {
     /// What our server passes on to Anthropic. Nothing here is keyed: the server builds these
     /// from the request rather than forwarding it. `/chat` sends `summarize_home` (home, floor
     /// and room names, exits, stairs) and the message history; the app sends no `profiles`.
-    /// `/build` sends the image and the description. Only the first page of a PDF is rendered
-    /// and sent (`BuildFromPlanView`).
+    /// `/build` sends the image and the description. A photo is re-encoded to JPEG with no
+    /// metadata copied (`ImagePreparation.photo`, S11.33; `testLocationMetadataIsNotSent` checks
+    /// GPS and the capture date are gone). Only the first page of a PDF is rendered and sent.
     static let sentToAnthropic: [String] = [
         "The assistant: your messages, its earlier replies, and a summary of the floor plan — "
             + "the home's name, its floor and room names and types, its exits and its stairs. "
             + "Not the household members you added.",
         "Import Plan: the photo, or the first page of the PDF, that you pick, and any "
-            + "description you type. A photo is sent as it is, including any location your "
-            + "camera saved in it.",
+            + "description you type. A photo is first re-saved as a smaller JPEG, without the "
+            + "location or date your camera saved in it.",
         "Anthropic handles what it receives under its own policies, not ours.",
     ]
 
@@ -176,8 +177,8 @@ enum AccountPrivacy {
         "Camera images from a scan. A LiDAR scan sends the measurements and labels listed "
             + "above; no photo or video frame from the camera leaves this iPhone. Import Plan is "
             + "the one exception, and only for the picture you choose.",
-        "Your location. Escape Plan never asks for it. The one way it can leave is inside a "
-            + "photo you pick for Import Plan, as described above.",
+        "Your location. Escape Plan never asks for it, and a photo you pick for Import Plan "
+            + "is re-saved without the location your camera stored in it.",
         "Analytics or tracking. There is none. Like any server, ours records when each request "
             + "arrived and from which internet address.",
     ]

@@ -113,8 +113,9 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] AUD-023 (P1) AI drafts scored without review · **fixed 2026-10-01 by S11.17** (evidence under "S11.17 findings");
       the live `/build` → House → confirm path is still owed to S11.49
 - [ ] AUD-024 (P1) photo `/build` mislabelled PNG · **server half fixed 2026-10-03 by S11.26** (media-type
-      allow-list + decoded-size check). **The user-visible symptom is NOT fixed**: the client hardcodes `image/png`, so
-      real HEIC still arrives mislabelled and still reaches Anthropic · S11.33 (client), S11.49 (live)
+      allow-list + decoded-size check); **client half fixed 2026-10-03 by S11.33** (photos re-encoded to JPEG ≤1568 px,
+      PDF stays PNG, no media-type default; evidence under "S11.33 findings"). Stays open until **S11.49** sends a
+      HEIC, a JPEG, a Live Photo and a PDF to a funded `/build` and sees a draft come back
 - [x] AUD-025 (P1) drill appends client-written tornado advice · **fixed 2026-09-30 by S11.15** (evidence under
       "S11.15 findings")
 - [ ] AUD-026 (P2) checklist recurrence unreachable · S11.34 (server, deploy first), S11.35
@@ -143,6 +144,35 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-047 (P3) `list()` on the main thread · S11.48 (optional; deferred on purpose unless the owner un-defers)
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45, S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
+
+### S11.33 findings (2026-10-03, branch `s11-33-photo-jpeg`)
+
+AUD-024 client half. Every Import Plan image now goes through `escape_plan/Networking/ImagePreparation.swift` (ImageIO,
+no UIKit): a photo (HEIC, JPEG, PNG, Live Photo still) becomes a JPEG at most 1568 px on the long edge, EXIF orientation
+applied, no metadata, under the server's 10,000,000-char base64 cap; a PDF's first page becomes a 1568 px PNG from its
+crop box, rotation applied. `APIClient.build` takes only a `PreparedImage`, and both `image/png` defaults are gone.
+
+- [x] **Verified on the simulator (2026-10-03, iPhone 17 Pro, iOS 26.5):** `ImagePreparationTests` +
+      `BuildRequestEncodingTests` **19 passed, 0 failed, 0 skipped** (xcresulttool, scratchpad bundle `r2.xcresult`). HEIC
+      encoding works on this simulator, so the HEIC tests ran rather than skipped. Every new test was mutation-checked
+      (11 mutations, all caught but one; see the note). `scripts/typecheck-ios.sh` ok on all four targets; EditorCore
+      642 passed, 0 failed. **Full suite `-only-testing:escape_planTests`: 1013 passed, 0 failed, 3 skipped** (scratchpad
+      `full1.xcresult`), against the last stamp of 997 / 0 / 3: +16, exactly the new tests, no new failures.
+- [ ] **Live check owed to S11.49:** HEIC, JPEG, Live Photo and PDF through a funded `/build`. Nothing here touched
+      the network.
+- [ ] **The white background behind transparent photos is not proven by any test.** Removing the flatten step failed
+      no test, because iOS 26.5's ImageIO JPEG encoder already composites onto white. Kept for iOS 17, where that is
+      unverified. Next action: S11.49 or the device pass picks a transparent PNG screenshot on an iOS 17 device, if one
+      exists, and checks the draft's input is white-backed (or accept the risk).
+- [ ] **"A failed pick attaches nothing and shows a message" is not unit-tested** (it lives in the view). The wire test
+      proves only that a failed `PreparedImage` leaves no image fields in the request. Next action: device pass picks a
+      non-image file (e.g. a corrupt photo, if Photos offers one) and confirms the message appears and is announced.
+- [ ] **`scripts/typecheck-ios.sh` does not pass `-default-isolation MainActor`**, but the app target sets
+      `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so the script misses actor-isolation warnings that Xcode shows
+      (the reviewer reproduced one in this session's first draft; fixed by marking the helper `nonisolated`). Next
+      action: whoever owns `scripts/` adds the flag and the approachable-concurrency features to match the target.
+- [ ] **No device check of a 48 MP HEIC's memory and time.** The thumbnail decode never builds a full-size bitmap, and
+      a "Preparing your floor plan…" row with Build disabled covers the wait, but nobody has timed it. Device pass.
 
 ### Demo trim 1 findings (2026-10-02, branch `trim-1-demo-cuts`)
 
@@ -646,11 +676,10 @@ Anish chose to handle these after the S11 sessions. Each has its evidence and fi
       the server — `deletionSummary` is then false. Next action: S11.43 (owns session length, AUD-031) checks
       `token.isExpired()` before the delete and sends the user to sign in again; a 401 on delete must not count as
       success unless the server says the account is gone.
-- [ ] **Import Plan sends the picked photo's original bytes, metadata and all** (`BuildFromPlanView` `loadTransferable(
-      type: Data.self)`), so a geotagged photo carries its GPS location to our server and Anthropic. The copy now says
-      so. Next action: whoever fixes AUD-024 (photo labelled PNG; S11.26/S11.33/S11.49) re-encodes through `UIImage` to
-      JPEG, which also strips metadata, then removes the "including any location" clause from
-      `AccountPrivacy.sentToAnthropic` and the location line of `notUploaded`.
+- [x] **Import Plan sends the picked photo's original bytes, metadata and all** · **fixed 2026-10-03 by S11.33**: photos
+      are re-encoded through ImageIO with no metadata copied (`testLocationMetadataIsNotSent`, mutation-checked), and
+      the location clause in `AccountPrivacy.sentToAnthropic` and `notUploaded` now says the photo is re-saved without
+      it (evidence under "S11.33 findings").
 - [ ] **The assistant cannot see household members, but its prompt promises personalised answers.** The app never
       sends `profiles` to `/chat`, so the house context always says "No family profiles configured yet."
       (`summary.py`), while `CHAT_RULES` (`service.py`) gives examples like "your kids' bedroom". Good for privacy,
