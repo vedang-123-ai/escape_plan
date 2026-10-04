@@ -5,7 +5,7 @@
 #   python3.12 -m venv /tmp/lock && /tmp/lock/bin/pip install -r requirements.txt
 #   /tmp/lock/bin/pip freeze --all | grep -v '^\(pip\|setuptools\|wheel\)=' >> requirements.lock
 # (keeping this header). CI fails if requirements.txt asks for something this
-# file does not satisfy. Generated 2026-09-25 with pip 26.2.1 on CPython 3.12.3.
+# file does not satisfy. Regenerated 2026-10-04 (S11.47) on CPython 3.12; anthropic moved 1.8.0 to 1.11.0, fastapi to 0.142.2.
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anthropic==1.11.0

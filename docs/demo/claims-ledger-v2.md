@@ -16,5 +16,5 @@
 | 12 | "fire module is fully quantified... earthquake and tornado modules use FEMA and NOAA readiness guidance" | VERIFIED | Scope lock (`CLAUDE.md`, spec) |
 | 13 | "share a snapshot of your plan with your local fire department" | VERIFIED | `ShareWithFireDepartmentCard` |
 | 14 | "AI assistant to chat about your home" | VERIFIED (Needs credits) | `AssistantScreen`, `/chat` (cannot film without funded backend) |
-| 15 | "Every answer is grounded... cites its sources" | VERIFIED | Grounded AI architecture, citation validation (`test_chat.py`) |
+| 15 | "Every safety answer is grounded... cites its source... if it can't back something up, it says so" | VERIFIED in tests (stub client); live behaviour needs credits (S11.49) | S11.44: uncited safety replies are retried, then replaced by a deferral; small talk and the 911 line are legitimately uncited, so "every answer" was too strong. `backend/tests/test_chat.py` |
 | 16 | "AI explains, but it never computes a route" | VERIFIED | Routing = Python engine, AI layer explains only |

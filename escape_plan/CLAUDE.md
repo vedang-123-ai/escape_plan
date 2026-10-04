@@ -50,7 +50,7 @@ injects them with `.environment(...)`. `RootView` chooses the soft auth gate vs 
 | `BuildFromPlanView` | text/photo `/build` intake, draft-only, mandatory editor review | stable |
 | `ConsentSheet` (+ `Export/`) | "Share with your fire department" consent and snapshot | S11.6 |
 | `AuthGateView`, `LoginView`, `SignupView`, `AuthSheetView`, `SyncStatusBadge` | **unreachable since 2026-10-02** (accounts cut, code kept); `AccountPrivacyDisclosure` is still used by Settings | — |
-| `RouteFindingViews`, `HomeThumbnailView`, `BackendFailureBanner` | presentation only; the shared failure notice | stable |
+| `RouteFindingViews`, `BackendFailureBanner` | presentation only; the shared failure notice | stable |
 
 ## Hard rules
 

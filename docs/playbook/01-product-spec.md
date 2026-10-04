@@ -9,7 +9,7 @@ A **home-safety readiness and prevention app** for iOS. A family scans or builds
 of its home (Apple RoomPlan LiDAR accelerates it; a real editor finishes it). A **deterministic engine**
 computes escape routes, shelter choices and hazard findings on that model for **fire, earthquake and
 severe weather (tornado)**, and turns them into a readiness score, a checklist and animated routes on a
-SceneKit dollhouse. A server-side **Claude layer explains, chats and audits**, grounded in a curated,
+SceneKit dollhouse. A server-side **Claude layer explains and chats**, grounded in a curated,
 cited FEMA / NFPA / Red Cross / USFA corpus.
 
 **The AI never computes a route and never invents safety guidance.** That separation is the answer to

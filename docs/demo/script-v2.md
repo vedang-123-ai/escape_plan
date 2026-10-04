@@ -47,4 +47,4 @@
 
 > **VO:** Finally, we included an AI assistant to chat about your home and explain safety tips.
 >
-> Every answer is grounded in FEMA, NFPA, or Red Cross guidance, and it cites its sources. The AI explains, but it never computes a route. Because a safety app can't guess.
+> Every safety answer is grounded in FEMA, NFPA, or Red Cross guidance and cites its source. If it can't back something up, it says so and points you to your local fire department. The AI explains, but it never computes a route. Because a safety app can't guess.
