@@ -3,8 +3,8 @@
 iOS home-safety **readiness and prevention** app. It builds a structured 3D model of a home — a full 3D
 editor, accelerated by an Apple RoomPlan LiDAR scan — and a deterministic Python engine computes routes,
 shelters, hazard findings, a readiness score and a checklist for **fire, earthquake and severe weather
-(tornado)**, drawn as animated paths on a SceneKit dollhouse. A server-side Claude layer explains, chats
-and audits, grounded in a curated, cited FEMA/NFPA/Red Cross/USFA corpus.
+(tornado)**, drawn as animated paths on a SceneKit dollhouse. A server-side Claude layer explains and chats,
+grounded in a curated, cited FEMA/NFPA/Red Cross/USFA corpus.
 
 **The AI never computes a route and never invents safety guidance.** That separation is the answer to a
 judge asking "isn't this an AI wrapper?" — defend it in every design decision.

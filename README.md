@@ -4,10 +4,10 @@ An iOS home-safety **readiness and prevention** app. A family scans its home wit
 (or builds it in a full 3D editor), and a deterministic Python engine computes escape routes, shelter
 choices, hazard findings, a readiness score and a checklist for **fire, earthquake and severe weather
 (tornado)**. Routes are drawn as animated paths on a SceneKit dollhouse. A server-side Claude layer
-explains, answers questions and audits, grounded in a curated, cited FEMA / NFPA / Red Cross / USFA corpus.
+explains and chats, grounded in a curated, cited FEMA / NFPA / Red Cross / USFA corpus.
 
 **The AI never computes a route and never invents safety guidance.** The engine is deterministic and
-testable; the AI explains, audits and cites. Neither does the other's job.
+testable; the AI explains and chats. Neither does the other's job.
 
 Congressional App Challenge 2026. Submit by Oct 24, 2026.
 

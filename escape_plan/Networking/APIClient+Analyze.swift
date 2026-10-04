@@ -6,9 +6,11 @@
 import Foundation
 
 extension APIClient {
-    /// Runs the server-side agentic safety inspection over `home`. The agent loop is capped at
-    /// 15 iterations (<60 s acceptance) and only ever calls the same deterministic engines
-    /// /routes uses — the app just renders the validated findings verbatim.
+    /// Runs the server-side agentic safety inspection over `home`.
+    /// 
+    /// Note (S11.39): The AI inspector (/analyze, /explain) is NOT wired into the app
+    /// and this method has had no callers since dac8673. This client extension and its 
+    /// models are kept dormant because OnboardingTests still references AnalysisResult.
     ///
     /// 502 means the agent couldn't produce a validated result (including an unset
     /// ANTHROPIC_API_KEY on the server) — routes and score still work without it.
