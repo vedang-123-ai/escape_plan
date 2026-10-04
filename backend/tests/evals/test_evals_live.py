@@ -11,7 +11,7 @@ Run it with:
     ANTHROPIC_API_KEY=sk-... BACKEND_BEARER_TOKEN=live-test \\
       backend/.venv/bin/python -m pytest backend/tests/evals/ -m live -v
 
-Expected outcome on a funded key: **16 cases scored** — 11 through `chat()`,
+Expected outcome on a funded key: **18 cases scored** — 13 through `chat()`,
 2 through `explain_routes()` and 3 through `run_builder()` (graded on the
 BuildResult, since /build returns no prose), each printing its question, what
 came back and its grader result. Each case is bound to its OWN fixture, not to one shared home. Failures
