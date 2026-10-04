@@ -4,6 +4,7 @@ Running log of deviations from playbook defaults, and why. Newest first.
 
 | Date | Session | Decision | Why |
 |------|---------|----------|-----|
+| 2026-10-04 | S11.12 (`s11-12-pitch-v2`) | **AI chat requires a funded account to film.** If Anthropic credits are missing, Beat 5 will be cut rather than faked. | The rules prohibit faking AI features for the pitch video. |
 | 2026-10-04 | S11.35 (`s11-35-recurrence-app`) | **Store shape: one UserDefaults dictionary holding a Bool or a Date per item (`ChecklistMark`), not an enum with custom Codable and not two dictionaries.** | A property list stores both types natively, so a pre-S11.35 Bool-only store needs no migration step and re-saves byte-identical; the old `as? [String: Bool]` cast that dropped everything is gone. |
 | 2026-10-04 | S11.35 | **`isDone` follows the server's `done` for recurring items, with a short-lived override for a tick the user just made (cleared when a `/score` answer lands or the home changes).** | One clock (the server). Without the override a tick shows nothing until the answer arrives, which can be ~50 s on a cold server. A fresh tick is always "done now", so the override can never disagree with the clock. |
 | 2026-10-04 | S11.35 | **Touched `TaskDestination` (ReadinessStore.swift) and `TaskRow` (TaskComponents.swift): a smoke-alarm item with `recurrence_days` ticks in place; rows show the due label.** Owner chose both, live. | `alarm.test_monthly` went to House, which cannot tick it, so it could never get a date. Server-driven (`recurrence_days`), not an id list. |

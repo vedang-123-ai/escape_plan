@@ -22,7 +22,7 @@ physical iPhone 17 Pro.** Assign people to lanes however you like; run a session
 | [S11.9](S11-9.md) | Device pass I: camera, frame rate, framing, floors | C | `s11-9-device-camera` | S11.8 |
 | [S11.10](S11-10.md) | Device pass II: real scan, AR Drill, haptics, VoiceOver, print | C | `s11-10-device-drill` | S11.9 |
 | [S11.11](S11-11.md) | Integration gate and golden-path polish | all | `s11-11-integration` | S11.1-S11.10 |
-| [S11.12](S11-12.md) | Pitch v2: script, storyboard, truth audit | any | `s11-12-pitch-v2` | drafts early; truth pass after S11.11 |
+| [S11.12](S11-12.md) | Pitch v2: script, storyboard, truth audit (draft v2 written 2026-10-04) | any | `s11-12-pitch-v2` | drafts early; truth pass after S11.11 |
 | [S11.13](S11-13.md) | Film, edit, submit | all | `s11-13-film-submit` | S11.11, S11.12 |
 
 ```
