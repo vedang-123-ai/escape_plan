@@ -3276,6 +3276,7 @@ connection — reconnect and try again." with Try again, Settings shows "Can't r
 New always-on tests pin the dead-server behaviour: `escape_planUITests/DeadServerUITests.swift` (2 tests, mutation-checked).
 Full app suite on this branch, 2026-10-05, first run, from `xcresulttool` on `full1.xcresult` (scratchpad, not committed):
 **1153 tests: 1131 passed, 0 failed, 22 skipped** (the 11 new walk-driver steps skip without `TEST_RUNNER_WALK_OUT`).
+Re-run after merging `origin/main` `e0a5cb6` (unit + UI targets, `full3.xcresult`): the same, 1153 / 1131 / 0 / 22.
 
 **Not defects, noted:** the first `/health` after idle took 52 s (Render cold start; preflight's warm run 0.2 s). A
 refused connection to a server that is down is worded "You're offline" although the phone is online. A failed chat
