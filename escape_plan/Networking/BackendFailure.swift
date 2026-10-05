@@ -184,6 +184,18 @@ struct BackendFailure: Equatable {
             return
         }
 
+        // A fault on this phone (a home that will not encode, a bad home id, a file that will
+        // not read) never reached the network, so "check your connection" would be a lie.
+        if error is EncodingError || error is InvalidHomeID
+            || (error as NSError).domain == NSCocoaErrorDomain {
+            self.init(kind: .localData,
+                      message: "Something went wrong on this phone before anything was sent. "
+                             + "Try again; if it keeps happening, choose the home again or re-create it from a scan.",
+                      isRetryable: true, suggestsSettings: false,
+                      symbol: "doc.badge.exclamationmark")
+            return
+        }
+
         guard case APIClientError.unexpectedResponse(let statusCode) = error else {
             let urlError = error as? URLError
             let offline = urlError.map {

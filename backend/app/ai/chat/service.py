@@ -28,7 +28,7 @@ import anthropic
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai.grounded import GroundingError, corpus_text, valid_source_ids
-from app.ai.chat.claims import CITE_RE, uncited_safety_claims
+from app.ai.chat.claims import cited_ids, uncited_safety_claims
 from app.ai.chat.summary import summarize_home, summarize_profiles, summarize_route_plan
 from app.ai.client import (
     CHAT_DEADLINE_S,
@@ -177,7 +177,7 @@ def build_chat_system_blocks(
 def find_invalid_chat_citations(reply: str) -> list[str]:
     """Fabricated citation ids in `reply` (present but not in sources.json)."""
     valid = valid_source_ids()
-    cited = set(CITE_RE.findall(reply))
+    cited = set(cited_ids(reply))
     return sorted(cited - valid)
 
 
@@ -269,7 +269,7 @@ def chat(
             if corrected_for_uncited and rejected_had_911 and "911" not in reply:
                 logger.warning("chat attempt=%d: retry dropped the 911 line; deferring", attempt)
                 return _deferral()
-            return ChatResponse(reply=reply, citations=sorted(CITE_RE.findall(reply)))
+            return ChatResponse(reply=reply, citations=sorted(set(cited_ids(reply))))
 
         if corrected_for_uncited:
             logger.warning(

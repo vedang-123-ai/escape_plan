@@ -52,7 +52,14 @@ from __future__ import annotations
 
 import re
 
-CITE_RE = re.compile(r"\[cite:\s*([a-z0-9-]+)\]")
+# One tag may list several ids ("[cite: a, b]"); an uppercase or odd id is still a tag, so the
+# fabricated-id check rejects it instead of the claim looking uncited.
+CITE_RE = re.compile(r"\[cite:\s*([A-Za-z0-9_-]+(?:\s*,\s*[A-Za-z0-9_-]+)*)\s*\]")
+
+
+def cited_ids(text: str) -> list[str]:
+    """Every source id named in `text`, one per id even when a tag lists several."""
+    return [i.strip() for group in CITE_RE.findall(text) for i in group.split(",")]
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
 _CLAUSE_SPLIT = re.compile(

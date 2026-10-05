@@ -582,3 +582,23 @@ def test_chat_endpoint_maps_value_error_to_422(bungalow_home_and_plan, monkeypat
         headers=AUTH,
     )
     assert resp.status_code == 422
+
+
+def test_one_tag_may_list_several_source_ids():
+    from app.ai.chat.claims import cited_ids, uncited_safety_claims
+
+    text = "Test every smoke alarm monthly [cite: nfpa-escape-planning, redcross-two-minutes]."
+    assert cited_ids(text) == ["nfpa-escape-planning", "redcross-two-minutes"]
+    assert find_invalid_chat_citations(text) == []
+    # A multi-id tag is a citation: the claim must not be treated as uncited.
+    assert uncited_safety_claims(text) == []
+
+
+def test_a_bad_id_inside_a_multi_id_tag_is_still_rejected():
+    text = "Test every smoke alarm monthly [cite: nfpa-escape-planning, made-up-source]."
+    assert find_invalid_chat_citations(text) == ["made-up-source"]
+
+
+def test_a_capitalised_id_is_rejected_not_treated_as_missing():
+    text = "Test every smoke alarm monthly [cite: NFPA-Escape-Planning]."
+    assert find_invalid_chat_citations(text) == ["NFPA-Escape-Planning"]
