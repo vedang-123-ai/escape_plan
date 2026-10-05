@@ -3147,3 +3147,47 @@ These are real, reproduced or reasoned, and several would read badly to a judge.
 - The four `scratch_*.py` files were deleted. `HomeThumbnailView.swift` was claimed deleted but was still on main; the review deleted it (no references). Its Live3D sibling `Renderer/HomeThumbnail.swift` is a separate file and stays.
 - `jsonschema` and `pytest` moved to `requirements-dev.txt`.
 - `.github/workflows/gate.yml` was updated to install BOTH `requirements.lock` and `requirements-dev.txt` for tests.
+
+### S11.51 findings (2026-10-05, branch s11-51-submission-paperwork)
+
+Drafts are in `docs/submission/` (app description, what we learned, written answers, checklist) and `docs/tools-used.md`
+is complete. They answer §5's last line except the parts only a person can do. Source for the rules below: the official
+2026 CAC Rules PDF (`congressionalappchallenge.us/wp-content/uploads/2026/05/2026-CAC-Rules.pdf`), read 2026-10-05; the
+auditors could not re-fetch it, so a person should glance at it once.
+
+- [ ] **The video limit is 3:00, not 3:15.** Rules §4: "max 3 min", "1-3 minutes long". Wrong figure in §5 above
+      ("confirm under 3:15"), `docs/demo/script-v2.md:5` and `:9`, `script-v1.md`. Owner: S11.13 (`docs/demo/**`).
+- [ ] **`script-v2.md` lacks four things the rules require in the video:** each participant's name; a one-sentence
+      purpose (suggested sentence: `docs/submission/written-answers-draft.md` Q2); the target audience; the tools and
+      coding languages used. Owner: S11.13.
+- [ ] **Per-member contribution statement owed.** Rules §3: AI must be disclosed and "must not constitute the entirety
+      of the technical development". 513 of 634 non-merge commits on `main` carry a Claude co-author trailer (git,
+      2026-10-05). Each team member writes one or two sentences on what they personally designed, decided, built or
+      checked (placeholder in `written-answers-draft.md`). Owner: the team.
+- [ ] **Confirm the AI tool list is complete** (`tools-used.md`): Claude Code, Claude / Claude Design, Google
+      Antigravity (Gemini); also confirm the wording that the team "directed" the spec and plans. Owner: Anish.
+- [ ] **Who is on the entry?** Max 4 students, at least half in the district. Commit authors: `vedang-123-ai`, Anish,
+      Yuki Tanaka. Owner: Anish.
+- [ ] **Judges may request the app and source code** (rules §7.3; refusing disqualifies). The repo is private. Decide
+      how to give access (GitHub collaborator or zip) and how a judge runs the app. Owner: Anish.
+- [ ] **Video on YouTube or Vimeo, set to public; deadline 12:00 pm EDT Mon Oct 26** (our target is Oct 24;
+      `S11-13.md:3` calls Oct 24 "the submission deadline"). Every member completes the Exit Questionnaire afterwards.
+      Owner: S11.13.
+- [ ] **The "really cool" firefighter line is not in the spec** (`01-product-spec.md` §2 does not say it; it traces to
+      `S11-12.md:25` and `script-v2.md:40`). The S11.51 drafts leave it out until his permission is recorded; the
+      script still says it. Owner: S11.13.
+- [ ] **Wrong claims elsewhere (not S11.51's files, so not edited):** the `render.yaml` comment says the 2026-09-19
+      broken merge "reached production", but the Out-of-band section above says the deploy failed. `docs/capabilities.md`
+      (2026-08-05) is stale: scan "never run on real hardware" (it was, 2026-09-08), "~80%", no earthquake or tornado,
+      "explains and audits" and the agentic inspection contradict AUD-022 Path B, icon marked OPEN. `01-product-spec.md`
+      lines 37-38, 53 and 69 still keep accounts, AR Drill, guided tagging and "audits". `script-v2.md:50` implies the
+      server checks for FEMA/NFPA/Red Cross sources only; it checks all 36. `script-v1.md` and `storyboard-v1.md` still
+      exist although S11.12's acceptance says delete them.
+- [x] **Audits run 2026-10-05, findings fixed before merge.** pitch-truth-auditor: 10 false or overclaimed items (backup
+      route "from every room", source list too narrow, "every finding carries a number", the "really cool" line, the
+      2026-09-19 deploy, the accounts-cut reason, the pip version's source, spec authorship, the Claude-authored count,
+      a pointer to the wrong decisions row). doc-auditor: this section missing, the second Claude Design project, S7.7
+      Antigravity use, the word count, a stale "DONE", file length, a missing ObjectiveC import. All fixed in S11.51's
+      files.
+- [ ] **Not verified, so not claimed:** live AI behaviour (stub tests only; AUD-002); the final build on a real iPhone
+      (§2); the Render dashboard setting (§1).
