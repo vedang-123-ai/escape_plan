@@ -642,4 +642,119 @@ final class ReadinessStoreTests: XCTestCase {
         XCTAssertTrue(TaskDestination(monthly).isTickedByUser)
         XCTAssertEqual(TaskDestination(placement), .house)
     }
+
+    // MARK: - S11.50: an old cache plus an offline tick; a phone clock that is far off
+
+    /// The drill item as a score cached before S11.35 holds it: no recurrence keys at all.
+    private func legacyCachedScore(home: String) throws -> ScoreBreakdown {
+        try JSONDecoder().decode(ScoreBreakdown.self, from: Data("""
+        {"home_id": "\(home)", "home_name": "\(home)", "score": 70,
+         "sub_scores": {"fire": 70, "earthquake": 70, "severe_weather": 70},
+         "components": [],
+         "checklist": [{"id": "\(drillID)", "category": "practice", "title": "Practice a fire drill",
+                        "detail": "Twice a year.", "done": false, "scoring": false}]}
+        """.utf8))
+    }
+
+    /// Before S11.50 the tick stayed a plain `true`, which the server counts as done forever (it
+    /// never lapses). Now, once an answer says the item recurs, the tick gets the time it was made.
+    func testAnOfflineTickOverAnOldCacheGetsItsDateOnceTheItemIsKnownToRecur() async throws {
+        let cache = try XCTUnwrap(try? ScoreCache())
+        cache.save(try legacyCachedScore(home: homeID), for: homeID)
+        let readiness = try scorableStore()
+        let api = gatedClient()
+        let ticked = Date(timeIntervalSince1970: 1_791_117_296) // 2026-10-04T12:34:56Z
+        readiness.now = { ticked }
+
+        let load = Task { await readiness.load(api: api) }
+        _ = try await gatedRequest(0)                       // the old cache is on screen, no answer yet
+        let item = try XCTUnwrap(readiness.items.first)
+        XCTAssertNil(item.recurrence_days, "fixture: the cached item does not say it recurs")
+        readiness.toggleDone(item, api: api, animated: false)
+        XCTAssertEqual(readiness.checklistState[drillID], .flag(true), "nothing says it recurs yet")
+        let offline = try await gatedRequest(1)
+        XCTAssertEqual(offline.checklistState[drillID] as? Bool, true)
+        offline.respond(status: 503)                        // offline
+        await load.value
+        try await waitUntilScored(readiness)
+
+        // Back online: the answer says the drill recurs and (bare true) counts it done.
+        let reload = Task { await readiness.load(api: api) }
+        try await gatedRequest(2).respond(status: 200, body: drillScoreJSON(home: homeID, done: true, completedAt: nil))
+        await reload.value
+
+        XCTAssertEqual(readiness.checklistState[drillID], .completed(ticked), "the tick got its time")
+        XCTAssertEqual(ChecklistStateStore().load(homeID: homeID)[drillID], .completed(ticked), "and it is saved")
+        let resend = try await gatedRequest(3)
+        XCTAssertEqual(resend.checklistState[drillID] as? String, "2026-10-04T12:34:56Z", "sent again with the date")
+        XCTAssertTrue(readiness.isDone(try XCTUnwrap(readiness.items.first)), "still shown done meanwhile")
+        resend.respond(status: 200, body: drillScoreJSON(home: homeID, done: true, completedAt: "2026-10-04T12:34:56Z"))
+        try await waitUntilScored(readiness)
+        XCTAssertTrue(readiness.isDone(try XCTUnwrap(readiness.items.first)))
+        XCTAssertEqual(GatedScoreProtocol.requests.count, 4, "one extra request, no loop")
+    }
+
+    /// An item that turns out not to recur keeps its plain tick and costs no extra request.
+    func testAnUntimedTickOnAnItemThatDoesNotRecurIsLeftAlone() async throws {
+        let readiness = try scorableStore()
+        let api = gatedClient()
+        let load = Task { await readiness.load(api: api) }
+        try await gatedRequest(0).respond(status: 200, body: scoreJSON(home: homeID, score: 50, itemID: "practice.meeting_point"))
+        await load.value
+        readiness.toggleDone(try XCTUnwrap(readiness.items.first), api: api, animated: false)
+        try await gatedRequest(1).respond(status: 200, body: scoreJSON(home: homeID, score: 50, itemID: "practice.meeting_point"))
+        try await waitUntilScored(readiness)
+        XCTAssertEqual(readiness.checklistState["practice.meeting_point"], .flag(true))
+        XCTAssertEqual(GatedScoreProtocol.requests.count, 2)
+    }
+
+    /// The server refuses a fresh tick's date only when this phone's clock is far off. The row
+    /// used to flip back to not done with no reason; now Tasks says why and what to do.
+    func testATickRefusedForTheClockSaysToCheckTheDateAndTime() async throws {
+        let readiness = try scorableStore()
+        let api = gatedClient()
+        let wrongClock = Date(timeIntervalSince1970: 1_791_117_296 + 3 * 86_400) // 3 days ahead
+        readiness.now = { wrongClock }
+        let load = Task { await readiness.load(api: api) }
+        try await gatedRequest(0).respond(status: 200, body: drillScoreJSON(home: homeID, done: false, completedAt: nil))
+        await load.value
+        XCTAssertNil(readiness.tickNotice)
+
+        readiness.toggleDone(try XCTUnwrap(readiness.items.first), api: api, animated: false)
+        // The server read the date (it echoes it) and refused it.
+        try await gatedRequest(1).respond(status: 200, body: drillScoreJSON(home: homeID, done: false,
+                                                                             completedAt: "2026-10-07T12:34:56Z"))
+        try await waitUntilScored(readiness)
+        XCTAssertFalse(readiness.isDone(try XCTUnwrap(readiness.items.first)))
+        let notice = try XCTUnwrap(readiness.tickNotice, "the flip back must be explained")
+        XCTAssertTrue(notice.contains("Practice a fire drill"))
+        XCTAssertTrue(notice.contains("date and time"))
+        XCTAssertTrue(notice.contains("tick it again"))
+
+        // The next answer that refuses nothing clears it; a plain reload is not a new refusal.
+        readiness.rescore(api: api)
+        try await gatedRequest(2).respond(status: 200, body: drillScoreJSON(home: homeID, done: false,
+                                                                             completedAt: "2026-10-07T12:34:56Z"))
+        try await waitUntilScored(readiness)
+        XCTAssertNil(readiness.tickNotice)
+    }
+
+    func testOnlyAFreshTickWhoseOwnDateCameBackRefusedCounts() throws {
+        let stamp = Date(timeIntervalSince1970: 1_791_117_296)
+        func answer(done: Bool, echoed: String?) throws -> ScoreBreakdown {
+            try JSONDecoder().decode(ScoreBreakdown.self, from: drillScoreJSON(home: "h", done: done, completedAt: echoed))
+        }
+        let sent: [String: ChecklistMark] = [drillID: .completed(stamp)]
+        let ticked = [drillID: true]
+        XCTAssertEqual(ReadinessStore.refusedTicks(in: try answer(done: false, echoed: "2026-10-04T12:34:56Z"),
+                                                   sent: sent, ticked: ticked).map(\.id), [drillID])
+        XCTAssertTrue(ReadinessStore.refusedTicks(in: try answer(done: true, echoed: "2026-10-04T12:34:56Z"),
+                                                  sent: sent, ticked: ticked).isEmpty, "accepted")
+        XCTAssertTrue(ReadinessStore.refusedTicks(in: try answer(done: false, echoed: "2026-01-01T00:00:00Z"),
+                                                  sent: sent, ticked: ticked).isEmpty, "not the date we sent")
+        XCTAssertTrue(ReadinessStore.refusedTicks(in: try answer(done: false, echoed: "2026-10-04T12:34:56Z"),
+                                                  sent: sent, ticked: [:]).isEmpty, "not ticked just now")
+        XCTAssertTrue(ReadinessStore.refusedTicks(in: try answer(done: false, echoed: "2026-10-04T12:34:56Z"),
+                                                  sent: [drillID: .flag(false)], ticked: ticked).isEmpty, "unticked")
+    }
 }

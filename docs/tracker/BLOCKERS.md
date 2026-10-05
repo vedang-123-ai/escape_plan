@@ -149,6 +149,34 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45 (Assistant item fixed 2026-10-04); the starter-seeding item fixed 2026-10-04 by S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
 
+### S11.50 findings (2026-10-05, branch s11-50-code-defects)
+
+Five code items left open on purpose by S11.35, S11.37 and S11.45, each re-checked in the code first, fixed, tested and
+mutation-checked (each fix broken, a named test went red, restored from a copy). The fixed lines are marked in their
+own sections above. Evidence: iOS unit suite `-only-testing:escape_planTests` **1130 tests: 1127 passed, 0 failed,
+3 skipped** (`xcrun xcresulttool get test-results summary`, iPhone 17 Pro simulator, iOS 26.5, `CODE_SIGNING_ALLOWED=NO`,
+2026-10-05, before merging origin/main; bundle not committed). Backend `pytest -m "not live"` **1176 passed, 1 skipped,
+31 deselected**; EditorCore **646 tests, 0 failures**; corpus valid; `scripts/typecheck-ios.sh` ok on all four targets.
+No backend, corpus, prompt or schema file changed. **Re-run after merging origin/main @ 343fdb6 (S11.51 to S11.54):** iOS
+**1130 tests: 1127 passed, 0 failed, 3 skipped** (xcresulttool, `full4.xcresult`, 2026-10-05); backend **1249 passed, 1
+skipped, 31 deselected**; EditorCore 646, 0 failures; corpus valid; typecheck ok on all four targets.
+
+- [ ] **Screen behaviour not driven by a test.** The live "too long" line and Send turning off (`AssistantScreen`), the
+      plain refusal for an old thread that already ends in an over-long message, and the clock notice card on Tasks
+      are views; their logic is tested, the views are not. Device check, about 3 minutes: paste 9,000 characters into
+      the Assistant box (line shows, Send off); set the phone's date 3 days ahead, tick the drill task, wait for the
+      row to flip back (card explains), set the date back.
+- [ ] **Render's real 502 body is unverified.** The rule assumes the edge sends HTML or nothing; anything that is not
+      `{"detail": "<text>"}` counts as a proxy. If Render ever sends JSON with a string `detail`, it would read as the
+      app's own 502 again. Check during S11.49's live run.
+- [ ] **A proxy 502 does not fall back to cached routes.** `APIClient.isConnectionFailure` still lists only `URLError`
+      codes, so /routes shows the cut-off banner instead of the saved plan. Deliberately not changed (it decides when a
+      stale plan is shown, a bigger call).
+- [ ] **The due label still uses the phone's clock.** With a clock far off it can read "Done today · due again now"
+      next to the clock notice. Display only; the server still decides done.
+- [ ] **Owner decisions, untouched on purpose:** the lapsed monthly alarm test lowering the score, `alarm.replace_10y`
+      not tickable, the "this month" wording, and the on-device Tasks drill row check (all in S11.35's section).
+
 ### S11.52 findings (2026-10-05, branch `s11-52-engine-stress`)
 
 Adversarial pass over the engine and `/routes` `/score` `/evacuate` `/diff_obstructions`
@@ -251,10 +279,16 @@ Owned classes (`ChecklistStateStoreTests`, `ScoreModelsTests`, `ReadinessStoreTe
 - [ ] **Not observed on screen: the drill row itself.** No tap tool was available in this session, so nobody has opened Tasks
       and seen the drill row's label or ticked it by hand. Owner, about 2 minutes: open the app, Tasks tab, tap the drill
       task, tap "We practiced it for real", close the sheet. The row should say "Done today · due in 6 months".
-- [ ] **Phone clock wrong by more than a day:** a tick is stamped in the future, the server ignores it, and the row flips back
+- [x] **Phone clock wrong by more than a day:** a tick is stamped in the future, the server ignores it, and the row flips back
       to not done with no explanation (both reviewers). Needs a design call (a "check your date and time" hint); not built.
-- [ ] **Old score cache plus an offline tick:** before the first fresh `/score` after updating, a cached answer has no
+      Fixed 2026-10-05 (S11.50): when the server echoes the date of a tick just made and still says not done, Tasks shows
+      "... didn't stay ticked because this iPhone's date and time look wrong ... turn on Set Automatically, then tick it
+      again." No silent clock correction. Tests in `ReadinessStoreTests`, mutation-checked.
+- [x] **Old score cache plus an offline tick:** before the first fresh `/score` after updating, a cached answer has no
       `recurrence_days`, so a tick in that window is stored as plain `true` (no date). Self-heals on the next tick. Low.
+      Fixed 2026-10-05 (S11.50). Correction to this line: the server counts a bare `true` on a recurring item as done
+      forever, so it never lapsed. Now the tick's time is kept, and once an answer says the item recurs it is stored as
+      that date and sent again (one extra `/score`). In memory only: if the app quits first, the plain `true` stays.
 - [ ] **`alarm.replace_10y` is still not tickable** (sent to House, nothing ticks it). Same shape as the monthly test; not
       changed because nobody asked. Owner call.
 - [ ] **Title wording:** "Test every smoke alarm this month" is a rolling 30 days. Server copy, not changed (S11.34's line stands).
@@ -359,14 +393,20 @@ mutC, mutD; details in the note). UI tests not run (no UI-test file changed).
 - [ ] **Screen-level behaviour is not unit-tested.** The blocked-save rule, the quiet line and the notices live in
       `AssistantScreen` (a view); the store throws and the screen catches, but nothing drives the view. Verify on a
       device: long chat shows the line; switching homes keeps both threads.
-- [ ] **Tests that delete homes touch the test host's real `Documents/Assistant`.** `HomeLibrary.conversations`
+- [x] **Tests that delete homes touch the test host's real `Documents/Assistant`.** `HomeLibrary.conversations`
       defaults to the real store; only the S11.45 tests inject a temp one. Harmless (deletes `<id>.json` for test
       ids inside the simulator test host) but not hermetic. Fix would be an init parameter on `HomeLibrary`.
+      Fixed 2026-10-05 (S11.50): `HomeLibrary(store:conversations:)` has no default for it; `ContentView` passes the
+      real store. `HomeLibraryHermeticTests`, mutation-checked.
 - [ ] **Kept-aside files are never shown or cleaned** (except on home delete), and a moved old thread whose home was
       already deleted becomes an orphan file. Small; disk only.
-- [ ] **A final user message over 8,000 characters is still sent** (on purpose, never silently cut) and the server
+- [x] **A final user message over 8,000 characters is still sent** (on purpose, never silently cut) and the server
       answers 422, which S11.37 shows as the server's sentence. The composer has no length limit; a counter would
       be kinder (not owned here).
+      Fixed 2026-10-05 (S11.50). Correction: the server's per-message 422 is a validation list, not a sentence, so the
+      user saw "The server couldn't use what we sent for the assistant." Now the screen checks first: Send is off and
+      a line says "This message is N characters. The assistant takes up to 8,000 at a time, so shorten it before
+      sending." The draft stays. Still never cut. `ChatMessageLengthTests`, mutation-checked.
 
 ### S11.44 findings (2026-10-04, branch s11-44-chat-citations)
 
@@ -423,12 +463,18 @@ session changes on purpose; that test was updated.
 - [ ] **Manual simulator check not done: "a host that never answers shows the waking-up copy."** The behaviour is
       covered by `ChatTimeoutTests.testSlowChatReadsAsWakingUpNotOffline` through the real client with a stub session
       that fails `.timedOut`, but nobody has watched the Assistant screen do it. Next action: the device pass.
-- [ ] **A 502 from a proxy (Render edge) on a slow call reads as "the server needs attention", with no Retry.** The
+- [x] **A 502 from a proxy (Render edge) on a slow call reads as "the server needs attention", with no Retry.** The
       classifier cannot tell a proxy 502 from the app's own deliberate 502. Unverified whether Render cuts a request
       near 100 s. Next action: measure on the deployed server (S11.49). See also the older 502 line below.
-- [ ] **A `DecodingError` from a truncated proxy body (200 with garbage) also says "Update the app".** Accurate for a
+      Fixed 2026-10-05 (S11.50) in code: a 502 whose body is not the app's own `{"detail": "<text>"}` is a proxy's
+      (`APIClientError.gatewayFailure`), and reads "The server's answer about X was cut off on the way. Try again in a
+      moment." with Retry. Still unverified: what Render's edge actually sends, and whether it cuts near 100 s (S11.49).
+- [x] **A `DecodingError` from a truncated proxy body (200 with garbage) also says "Update the app".** Accurate for a
       real shape mismatch, wrong for a transient cut. Left non-retryable per the playbook. Next action: judgment call
       for whoever next edits the copy.
+      Fixed 2026-10-05 (S11.50): a body that is not JSON at all (root `dataCorrupted` with a parser error underneath)
+      is `.responseCutOff`, same copy as above, with Retry. A wrong shape inside valid JSON stays "Update the app".
+      `ResponseCutOffTests`, mutation-checked.
 - [x] **`EncodingError` and local file-read errors still fall into "Couldn't reach the server, check Settings".** The
       classifier's generic branch has no case for a fault on this phone (pre-existing, not new). Next action: a
       `.localFault` kind; the reviewer found it, no screen produces it today.

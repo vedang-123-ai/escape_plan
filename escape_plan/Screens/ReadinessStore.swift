@@ -24,6 +24,15 @@ final class ReadinessStore {
     /// A recurring item ticked or unticked since the last /score answer (S11.35). Shown until the
     /// answer lands, then dropped: from there the server's `done` is the only clock.
     private var pendingRecurring: [String: Bool] = [:]
+    /// When each item was ticked done while the checklist on screen did not say it recurs
+    /// (S11.50). Only a score cached before S11.35 lacks `recurrence_days`, so such a tick is stored
+    /// as a plain `true`. If the next answer says the item does recur, the tick gets this date, so
+    /// it can lapse like any other; a plain `true` on a recurring item would count as done forever.
+    /// Kept in memory only: if the app quits first, the plain `true` stays, as before.
+    private var untimedTicks: [String: Date] = [:]
+    /// Shown on Tasks when the server refused the date of a tick just made: the phone's clock is
+    /// out by more than the server allows (S11.50). Cleared by the next answer that refuses none.
+    private(set) var tickNotice: String?
     /// The time a tick records. A test sets it; nothing else does.
     @ObservationIgnored var now: () -> Date = { Date() }
     private(set) var isScoring = false
@@ -132,6 +141,8 @@ final class ReadinessStore {
         cancelScoreFetch()
         activeHomeID = homeID
         pendingRecurring = [:]
+        untimedTicks = [:]
+        tickNotice = nil
         scored = nil
         scoreFailure = nil
     }
@@ -219,7 +230,7 @@ final class ReadinessStore {
             } catch {
                 result = .failure(error)
             }
-            self?.finishScore(result, for: home, generation: generation)
+            self?.finishScore(result, for: home, sent: state, generation: generation, api: api)
         }
         refreshTask = task
         return task
@@ -227,7 +238,8 @@ final class ReadinessStore {
 
     /// Lands a /score answer, or drops it. Success and failure are treated alike: only the
     /// current request, for the home still active, that is not an unreviewed draft, changes state.
-    private func finishScore(_ result: Result<ScoreBreakdown, Error>, for home: HomeModel, generation: Int) {
+    private func finishScore(_ result: Result<ScoreBreakdown, Error>, for home: HomeModel,
+                             sent: [String: ChecklistMark], generation: Int, api: APIClient) {
         // Cancelled or replaced: whoever did that owns `isScoring` now.
         guard generation == scoreGeneration else { return }
         refreshTask = nil
@@ -236,10 +248,13 @@ final class ReadinessStore {
         guard home.id == activeHomeID, !needsDraftReview else { return }
         switch result {
         case .success(let new):
+            let refused = Self.refusedTicks(in: new, sent: sent, ticked: pendingRecurring)
             scored = (home.id, new)
             pendingRecurring = [:]
             (try? ScoreCache())?.save(new, for: home.id)
             scoreFailure = nil
+            tickNotice = refused.first.map(Self.clockNotice(for:))
+            dateUntimedTicks(in: new, homeID: home.id, api: api)
         case .failure(let error):
             // A cancelled request is not a failure. A cancelled URLSession load throws
             // URLError(.cancelled), not CancellationError, so both are checked.
@@ -250,6 +265,45 @@ final class ReadinessStore {
 
     nonisolated static func isCancellation(_ error: Error) -> Bool {
         BackendFailure.isCancellation(error)
+    }
+
+    /// Recurring items ticked since the last answer whose date the server read and refused
+    /// (S11.50). A fresh tick is stamped "now", so the server only refuses it when this phone's
+    /// clock is more than a day ahead of the server's (`FUTURE_SKEW_TOLERANCE` in
+    /// backend/app/scoring/checklist.py) or so far behind that the date is already past the
+    /// item's interval. The echoed `completed_at` proves the server read our date, not another.
+    nonisolated static func refusedTicks(in answer: ScoreBreakdown, sent: [String: ChecklistMark],
+                                         ticked: [String: Bool]) -> [ChecklistItem] {
+        answer.checklist.filter { item in
+            guard item.recurrence_days != nil, !item.done, ticked[item.id] == true,
+                  case .completed(let stamped)? = sent[item.id],
+                  let echoed = item.completedAt else { return false }
+            return abs(echoed.timeIntervalSince(stamped)) < 1
+        }
+    }
+
+    /// Plain words, no blame on the server: the fix is the phone's own setting.
+    nonisolated static func clockNotice(for item: ChecklistItem) -> String {
+        "\u{201C}\(item.title)\u{201D} didn't stay ticked because this iPhone's date and time look wrong. "
+            + "In the iPhone's Settings, open General, then Date & Time, turn on Set Automatically, "
+            + "then tick it again."
+    }
+
+    /// A tick made while the checklist did not know an item recurs (an old cached score) was
+    /// stored as a plain `true`. Now that an answer says it recurs, it gets the time it was made
+    /// and is sent again, so it can lapse like any other tick (S11.50).
+    private func dateUntimedTicks(in answer: ScoreBreakdown, homeID: String, api: APIClient) {
+        defer { untimedTicks = [:] }  // every item's recurrence is known from here on
+        var dated = false
+        for item in answer.checklist where item.recurrence_days != nil {
+            guard let tickedAt = untimedTicks[item.id], checklistState[item.id] == .flag(true) else { continue }
+            checklistState[item.id] = .completed(tickedAt)
+            pendingRecurring[item.id] = true
+            dated = true
+        }
+        guard dated else { return }
+        stateStore.save(checklistState, homeID: homeID)
+        rescore(api: api)
     }
 
     /// Stops the in-flight request counting. It changes no score and shows no failure.
@@ -288,6 +342,8 @@ final class ReadinessStore {
             checklistState[item.id] = mark
             if recurs { pendingRecurring[item.id] = newDone }
         }
+        // Whether it really recurs may not be known yet (an old cached score): remember when.
+        if !recurs { untimedTicks[item.id] = newDone ? now() : nil }
         stateStore.save(checklistState, homeID: activeHomeID)
         if newDone { Haptics.tick() } else { Haptics.selection() }
         rescore(api: api)

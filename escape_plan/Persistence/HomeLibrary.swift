@@ -39,10 +39,14 @@ final class HomeLibrary: ObservableObject {
     weak var deletionObserver: HomeDeletionObserving?
     /// Each home's assistant conversation (S11.45): deleting a home deletes its thread. nil when
     /// `Documents/Assistant` could not be opened at launch; then the delete cannot reach a thread.
-    var conversations: ConversationStore? = try? ConversationStore()
+    var conversations: ConversationStore?
 
-    init(store: HomeDocumentStore) {
+    /// `conversations` is passed in, never defaulted to the real `Documents/Assistant`: the app
+    /// (`ContentView`) passes that one, and a test gets nothing unless it hands in a temporary
+    /// store, so no test can create, read or delete a file in the real folder (S11.50).
+    init(store: HomeDocumentStore, conversations: ConversationStore? = nil) {
         self.store = store
+        self.conversations = conversations
         refresh()
     }
 

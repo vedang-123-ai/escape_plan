@@ -47,8 +47,9 @@ enum ChatHistory {
     /// The longest run of most-recent turns within every cap, oldest dropped first.
     ///
     /// - The final message is always kept, even if it alone breaks a cap: dropping the question
-    ///   the user just asked would answer something else. The server then refuses it with a 422
-    ///   whose sentence the screen shows (S11.37), which is the honest outcome.
+    ///   the user just asked would answer something else. A final message over the per-message
+    ///   cap is stopped by the screen before sending (`tooLongNotice`, S11.50); one over the total
+    ///   alone is over the per-message cap too.
     /// - The run is contiguous: a long turn in the middle ends it rather than being skipped, so
     ///   the model never sees a conversation with a hole in it.
     /// - It never starts with an assistant turn (unless that is all there is), so a trimmed
@@ -74,6 +75,18 @@ enum ChatHistory {
     /// Python's `len(str)`: Unicode scalars, not Swift's grapheme clusters (an emoji flag is one
     /// `Character` but two scalars, and the server would count two).
     static func characterCount(_ text: String) -> Int { text.unicodeScalars.count }
+
+    /// Why `text` cannot go as one message, or nil when it can (S11.50). The server refuses a
+    /// message over `maxMessageChars` with a 422 whose detail is a validation list, which reached
+    /// the user as the vague "couldn't use what we sent". Neither side cuts the message, because an
+    /// answer to half a question is worse than being asked for a shorter one: the screen checks
+    /// first, keeps the draft in the box and says this instead.
+    static func tooLongNotice(for text: String) -> String? {
+        let count = characterCount(text)
+        guard count > maxMessageChars else { return nil }
+        return "This message is \(count.formatted()) characters. The assistant takes up to "
+             + "\(maxMessageChars.formatted()) at a time, so shorten it before sending."
+    }
 }
 
 /// 200 response. Citations appear inline in `reply` as `[cite: source-id]` tags;
@@ -133,6 +146,9 @@ extension APIClient {
             return try JSONDecoder().decode(ChatResponse.self, from: data)
         case 401:
             throw ChatError.unauthorized
+        case 502 where !APIClientError.isAppErrorBody(data):
+            // A proxy's 502, not the server's own: a dropped connection, retryable (S11.50).
+            throw APIClientError.gatewayFailure(statusCode: http.statusCode)
         case 500...599:
             throw ChatError.aiUnavailable(statusCode: http.statusCode)
         default:

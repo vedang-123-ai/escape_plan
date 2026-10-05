@@ -39,6 +39,7 @@ struct TasksScreen: View {
                     } else {
                         filterBar
                         if let reason = readiness.nudgeReason { nudge(reason) }
+                        if let notice = readiness.tickNotice { clockNotice(notice) }
                         groups
                     }
                     // The meeting point opens the PDF export and the fire-department card shares
@@ -272,6 +273,23 @@ struct TasksScreen: View {
         .dsCard(padding: 14)
         .padding(.horizontal, DS.pagePadding)
         .padding(.bottom, 12)
+    }
+
+    /// A tick the server refused because this phone's clock is off (S11.50). Without it the row
+    /// just flipped back to not done with no reason given.
+    private func clockNotice(_ notice: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            DSIconBadge(systemImage: "clock.badge.exclamationmark", fill: Theme.caution, size: 28)
+            Text(notice)
+                .font(.footnote)
+                .foregroundStyle(Theme.text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .dsCard(padding: 14)
+        .padding(.horizontal, DS.pagePadding)
+        .padding(.bottom, 12)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Family plan

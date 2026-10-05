@@ -87,6 +87,13 @@ struct AssistantScreen: View {
                             .foregroundStyle(DS.supporting)
                             .padding(.horizontal, DS.pagePadding)
                     }
+                    if let tooLong = ChatHistory.tooLongNotice(for: draft) {
+                        // Live, so the person sees why Send is off before they press it.
+                        Label(tooLong, systemImage: "text.badge.xmark")
+                            .font(.caption)
+                            .foregroundStyle(Theme.warning)
+                            .padding(.horizontal, DS.pagePadding)
+                    }
                     if omittedTurns > 0 {
                         Text("Older messages stay here but aren't sent with new questions.")
                             .font(.caption)
@@ -350,6 +357,7 @@ struct AssistantScreen: View {
 
     private var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && ChatHistory.tooLongNotice(for: draft) == nil
             && !isSending
             && home != nil
     }
@@ -398,6 +406,8 @@ struct AssistantScreen: View {
     private func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, home != nil, !isSending else { return }
+        // Too long for the server: the draft stays in the box to be shortened (S11.50).
+        guard ChatHistory.tooLongNotice(for: text) == nil else { return }
         draft = ""
         messages.append(AssistantMessage(role: .user, content: text))
         persist()
@@ -414,6 +424,13 @@ struct AssistantScreen: View {
     /// stays there on failure; the error banner offers Retry instead of dropping it.
     private func deliverPendingUserMessage() {
         guard let home else { return }
+        // A thread saved before S11.50 can end in a message the server will refuse for length:
+        // say so plainly rather than send it for a vague 422.
+        if let last = messages.last, last.role == .user,
+           let tooLong = ChatHistory.tooLongNotice(for: last.content) {
+            failure = .chatMessageTooLong(tooLong + " Start a new chat to ask it again.")
+            return
+        }
         isSending = true
         failure = nil
         // The most recent turns that fit the server's caps; the full thread stays on screen.

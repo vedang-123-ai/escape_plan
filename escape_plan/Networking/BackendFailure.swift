@@ -54,6 +54,10 @@ struct BackendFailure: Equatable {
         /// The server answered 200 but the body did not decode: the app and the server disagree
         /// about the data's shape. Retrying cannot help; updating the app can (S11.37).
         case appServerMismatch
+        /// The answer was lost on the way: a body that is not JSON at all (cut off mid-transfer,
+        /// or a proxy's HTML page), or a 502 from a proxy in front of the server rather than from
+        /// the server itself. Nothing is wrong with the app or the account, so Retry (S11.50).
+        case responseCutOff
     }
 
     /// The operation that failed, which supplies the noun and the honest fallback line.
@@ -173,9 +177,21 @@ struct BackendFailure: Equatable {
             return
         }
 
+        if case APIClientError.gatewayFailure = error {
+            Self.log.error("proxy 502 for \(operation.path, privacy: .public)")
+            self.init(cutOffWhile: operation)
+            return
+        }
+
         if let decoding = error as? DecodingError {
             // Path and shape only, never the values: a body can hold a home layout.
             Self.log.error("decode failed for \(operation.path, privacy: .public): \(Self.label(decoding), privacy: .public) at \(Self.codingPath(decoding), privacy: .private)")
+            if Self.isNotJSON(decoding) {
+                // Not a shape disagreement: the body never arrived whole. "Update the app"
+                // would send people to the App Store for a dropped connection.
+                self.init(cutOffWhile: operation)
+                return
+            }
             self.init(kind: .appServerMismatch,
                       message: "The app and the server disagree about \(operation.noun). "
                              + "Update the app, then try again.",
@@ -298,6 +314,25 @@ struct BackendFailure: Equatable {
         return text
     }
 
+    /// The answer was lost on the way (a proxy's 502, or a body that is not JSON). Retryable, and
+    /// it blames neither the app version nor Settings.
+    private init(cutOffWhile operation: Operation) {
+        let fallback = operation.fallback.map { " " + $0 } ?? ""
+        self.init(kind: .responseCutOff,
+                  message: "The server's answer about \(operation.noun) was cut off on the way. "
+                         + "Try again in a moment." + fallback,
+                  isRetryable: true, suggestsSettings: false,
+                  symbol: "exclamationmark.arrow.triangle.2.circlepath")
+    }
+
+    /// True when the body was not JSON at all: the decoder failed at the root with the parser's
+    /// own error underneath. A wrong shape (a missing key, a wrong type, a bad enum value) always
+    /// has a coding path or no underlying parser error, and stays `.appServerMismatch`.
+    static func isNotJSON(_ error: DecodingError) -> Bool {
+        guard case .dataCorrupted(let context) = error else { return false }
+        return context.codingPath.isEmpty && context.underlyingError != nil
+    }
+
     private static func context(_ error: DecodingError) -> DecodingError.Context? {
         switch error {
         case .typeMismatch(_, let c), .valueNotFound(_, let c), .keyNotFound(_, let c): return c
@@ -344,6 +379,14 @@ struct BackendFailure: Equatable {
                    + "are unaffected; try choosing it again, or re-create it from a scan.",
             isRetryable: false, suggestsSettings: false,
             symbol: "doc.badge.exclamationmark")
+    }
+
+    /// A chat message the server would refuse for its length, caught before sending (S11.50).
+    /// Sending the same text again fails the same way, so no Retry.
+    static func chatMessageTooLong(_ notice: String) -> BackendFailure {
+        BackendFailure(kind: .rejectedInput, message: notice,
+                       isRetryable: false, suggestsSettings: false,
+                       symbol: "text.badge.xmark")
     }
 
     /// Not a failure: routes are being shown from the offline cache. Same banner treatment so

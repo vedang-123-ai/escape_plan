@@ -37,7 +37,7 @@ extension APIClient {
     /// Asks the deterministic engine to re-solve every escape route around a fire starting in
     /// `originRoomID`, and returns the resulting `EvacuationTimeline`.
     ///
-    /// Errors are raised as `APIClientError.unexpectedResponse(statusCode:)` so callers run
+    /// Errors are raised as `APIClientError.forStatus(_:body:)` so callers run
     /// them through `BackendFailure` — the one classifier — rather than growing a second catch
     /// ladder. Notably 502 (an operator must act; no Retry offered) stays distinct from 503
     /// (busy; Retry is the right move), and a 404 here means the origin room is not in the
@@ -59,7 +59,7 @@ extension APIClient {
             throw APIClientError.unexpectedResponse(statusCode: -1)
         }
         guard http.statusCode == 200 else {
-            throw APIClientError.unexpectedResponse(statusCode: http.statusCode)
+            throw APIClientError.forStatus(http.statusCode, body: data)
         }
         // Tolerant by construction: `EvacuationTimeline` decodes every optional field with
         // `decodeIfPresent`, ignores keys this build has never heard of, and degrades an

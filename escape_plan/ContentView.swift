@@ -30,7 +30,9 @@ struct ContentView: View {
     /// `store` is the one created at launch (`escape_planApp`), not a second instance: two
     /// stores over one directory, each built with a `try!`, was the old arrangement.
     init(store: HomeDocumentStore, storageUnavailable: Bool = false) {
-        let library = HomeLibrary(store: store)
+        // The real `Documents/Assistant`, so deleting a home deletes its chat (S11.45). Explicit
+        // here because `HomeLibrary` has no default for it (S11.50: tests stay out of it).
+        let library = HomeLibrary(store: store, conversations: try? ConversationStore())
         _library = StateObject(wrappedValue: library)
         _readiness = State(wrappedValue: ReadinessStore(library: library))
         self.storageUnavailable = storageUnavailable

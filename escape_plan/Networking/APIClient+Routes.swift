@@ -28,7 +28,7 @@ extension APIClient {
             throw APIClientError.unexpectedResponse(statusCode: -1)
         }
         guard http.statusCode == 200 else {
-            throw APIClientError.unexpectedResponse(statusCode: http.statusCode)
+            throw APIClientError.forStatus(http.statusCode, body: data)
         }
         return try HomeModel.decoder.decode(RoutePlan.self, from: data)
     }
