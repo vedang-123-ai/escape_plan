@@ -1,7 +1,7 @@
 # How judges get the app
 
 _Written 2026-10-05 (S11.55). Facts about Apple and the CAC come from the pages listed under **Sources**, all read
-2026-10-05. Facts about our app come from the repo on `origin/main` the same day, except the simulator walk noted below._
+2026-10-05. Facts about our app come from the repo on `origin/main` the same day._
 
 ## What the rules ask
 
@@ -31,8 +31,8 @@ _Written 2026-10-05 (S11.55). Facts about Apple and the CAC come from the pages 
 
 ## What works without a LiDAR iPhone (iOS Simulator on a Mac)
 
-Checked by S11.53's simulator walk on 2026-10-05 (its note `docs/tracker/notes/2026-10-05-s11-53-simulator-walk.md` is on
-branch `s11-53-simulator-walk`, commit `c92013b`, **not merged to `main` as of 2026-10-05**) and by this session's local server check.
+Checked by S11.53's simulator walk on 2026-10-05 (`docs/tracker/notes/2026-10-05-s11-53-simulator-walk.md`, BLOCKERS
+"S11.53 findings"; merged to `main` in `343fdb6`) and by this session's local server check.
 
 | Works in the Simulator | Does not |
 |---|---|

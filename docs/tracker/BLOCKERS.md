@@ -3258,3 +3258,70 @@ message. GitHub's secret-scanning tool could not run ("Advanced Security not ena
       `alarm.replace_10y` become tickable (S11.35); may the firefighter be named or quoted (S11.12, S11.13).
 - [ ] **CAC portal "Submission Checklist" not read** (needs a login): check whether the form asks for an app or code
       link. Owner: Anish.
+
+### S11.53 findings (2026-10-05, branch `s11-53-simulator-walk`) · simulator walk of the demo golden path
+
+Walked on the iPhone 17 Pro simulator (iOS 26.5), Debug build of `origin/main` `988fe94` with the owner's bundled
+token, against the live Render backend (its `/health` reports commit `988fe94`). Screenshots: `docs/tracker/evidence/s11-53/`.
+The walk driver is `escape_planUITests/SimulatorWalkUITests.swift` (skipped unless `TEST_RUNNER_WALK_OUT=<dir>`).
+Only what was seen on screen or in the accessibility tree is written here.
+
+- [ ] **S53-1 · A fresh install opens on "Jagged Stack", a floor-stacking test model, not a demo home.** Repro: delete
+      the app, launch, go past onboarding, Home tab. Expected: a realistic starter home (Two-Story House, which the demo
+      and the screenshot drivers address). Actual: "Jagged Stack · 8 rooms · 3 floors · Scanned 32 days ago", and House
+      shows its "Blocked doorway" finding. Cause (read, not changed): `FixtureSeeder.seedStarterHomes` seeds every
+      `HomeFixture.allCases`, which includes `.jagged` (four homes, not the three its comment says), and
+      `ReadinessStore.init` picks `library.homes.first`. Evidence `02-fresh-install-home-jagged-stack.jpg`,
+      `03-home-switcher-four-homes.jpg`. Owner: lane D (app source).
+- [ ] **S53-2 · The chosen home is not remembered across a relaunch.** Repro: Home, tap the home name, pick Two-Story
+      House, quit the app, relaunch. Expected: Two-Story House. Actual: back on Jagged Stack (seen in three separate
+      runs). `ReadinessStore.init` sets `activeHomeID = library.homes.first?.id` and nothing persists the choice. For
+      filming, pick the home again after every relaunch. Evidence `04-after-relaunch-back-on-jagged.jpg`. Owner: lane D.
+- [ ] **S53-3 · Earthquake and tornado routes or shelters cannot be seen anywhere in the app.** House offers only
+      "Escape routes" (fire) and "Fire simulation"; the More menu has rename and delete only; no screen sends a non-fire
+      peril to `/routes`. The live server does compute them (`/routes` with `peril: tornado` / `earthquake` on
+      twostory returned 7 room plans each, the tornado ones ending in a shelter room). In the app, earthquake and
+      tornado appear only as sub-scores (Score breakdown: Fire 60, Earthquake 70, Severe weather 75) and as Tasks.
+      `CLAUDE.md`'s opening says routes and shelters for all three perils are "drawn as animated paths"; the pitch v2
+      script does not claim it. Decide: build a peril picker, or correct the claim (pitch-truth-auditor). Evidence
+      `06-house-routes-fire-only-dock.jpg`, `05-score-breakdown-three-perils.jpg`.
+- [ ] **S53-4 · Largest Dynamic Type (Accessibility XXXL) breaks words and hides labels.** Repro: launch with
+      `-UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityXXXL` (or set it in iOS Settings). Home:
+      the score pill and "Breakdown" break inside words ("So / me / gap / s to / clos / e", "Brea / kdo / wn").
+      Tasks: peril filter pills clip ("Earthqua…") and a chip outline crosses the "Fire" text. House: the floor chips
+      show only "…" (floor names unreadable) and the dock reads "Escap…" / "Fire si…". Expected: text wraps at word
+      boundaries and every control keeps a readable label. Evidence `15-ax-xxxl-home.jpg`,
+      `16-ax-xxxl-home-scrolled.jpg`, `17-ax-xxxl-tasks.jpg`, `18-ax-xxxl-house.jpg`. Owner: lane D.
+- [ ] **S53-5 · VoiceOver labels, read from the accessibility tree (VoiceOver itself was not run).** In the fire
+      simulation's "Who does what" panel, icons expose raw SF Symbol names as labels: `figure.stand`, `arrow.forward`,
+      `door.left.hand.open`. Counts read "1 issues" (simulation check) and "Done, 1 items" (Tasks group). The Home score
+      card's labelled container is element type Other, not Button, with a separate inner Button. What VoiceOver actually
+      speaks needs the device pass (BLOCKED-device). Owner: lane D.
+- [ ] **S53-6 · The live server's AI 502 is a missing key, not only credits.** `python3 scripts/demo-preflight.py`
+      2026-10-05: everything PASS except `/explain`, "HTTP 502: ANTHROPIC_API_KEY is not configured on the server". So
+      topping up credits alone will not bring the assistant back; the key must also be set in Render's environment.
+      Owner only (AUD-002).
+
+**Verified in the simulator 2026-10-05 (PASS):** onboarding first screen; tab shell; Home score card, Up next, fire
+drill and 3D cards; home switcher (4 homes); Score breakdown with the three peril sub-scores and the honest
+"code-quantified / guidance-based" labels; House 3D dollhouse with fire routes for every room, per-person route picker,
+floor chips; fire simulation (room list, start in Living Room, playback, "Illustrative only" disclaimer, people panel);
+Tasks list (40 items), peril filters, ticking "Test every smoke alarm this month" (0 → 1 of 40 done, kept after a
+relaunch), the recurring item shown as "Done today · due in 1 month"; Settings (Test connection → Connected, privacy
+disclosure, fire-department share card, version); Assistant against the live server: the 502 shows "AI features are
+unavailable right now — the server needs attention. Your escape routes still work." after about 6 s, with no Retry, no
+hang, composer usable; dead server (`http://127.0.0.1:9`): Home keeps the last score, House shows "You're offline —
+showing your last saved fire routes … Try again", Assistant shows "You're offline. Getting the assistant needs a
+connection — reconnect and try again." with Try again, Settings shows "Can't reach the server right now". No crash.
+New always-on tests pin the dead-server behaviour: `escape_planUITests/DeadServerUITests.swift` (2 tests, mutation-checked).
+Full app suite on this branch, 2026-10-05, first run, from `xcresulttool` on `full1.xcresult` (scratchpad, not committed):
+**1153 tests: 1131 passed, 0 failed, 22 skipped** (the 11 new walk-driver steps skip without `TEST_RUNNER_WALK_OUT`).
+Re-run after merging `origin/main` `e0a5cb6` (unit + UI targets, `full3.xcresult`): the same, 1153 / 1131 / 0 / 22.
+
+**Not defects, noted:** the first `/health` after idle took 52 s (Render cold start; preflight's warm run 0.2 s). A
+refused connection to a server that is down is worded "You're offline" although the phone is online. A failed chat
+question stays in the history, so resending shows it twice.
+
+**Cannot be verified without a device:** LiDAR scan → `/convert`, haptics, what VoiceOver speaks, frame rate.
+**Cannot be verified without credits (and the Render key, S53-6):** a grounded assistant answer with citations,
+`/build` from text or photo, `/explain`.
