@@ -21,10 +21,12 @@ class RoutingConstraints(BaseModel):
 
     avoid_stairs: bool = False
     avoid_windows: bool = False
-    max_sill_height_m: Optional[float] = Field(default=None, ge=0)
-    stair_penalty_m: float = Field(default=0.0, ge=0)
+    # allow_inf_nan=False (S11.52): Infinity passed `ge=0` and came back in
+    # RoutePlan.constraints as null, a plan the client cannot decode.
+    max_sill_height_m: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
+    stair_penalty_m: float = Field(default=0.0, ge=0, allow_inf_nan=False)
     """Soft surcharge per stair traversal (0 = no preference)."""
-    window_penalty_m: float = Field(default=0.0, ge=0)
+    window_penalty_m: float = Field(default=0.0, ge=0, allow_inf_nan=False)
     """Soft surcharge on window egress, on top of the engine's universal
     WINDOW_EXIT_PENALTY (0 = the universal penalty only)."""
 
