@@ -39,7 +39,7 @@ The hardest part was making escape routes that are both correct and trustworthy 
 
 - **A model that survives editing.** Doors and windows are stored as a position along a wall, not as fixed
   coordinates, so when you drag a wall in the editor its doors move with it, and the routes update.
-- **Routes that fit each person and each emergency.** We turn the home into a graph of rooms, doors, windows and
+- **Routes that fit each person, and a fire that can start anywhere.** We turn the home into a graph of rooms, doors, windows and
   stairs and run a shortest-path search (Dijkstra) for every room. A person tagged as having limited mobility has
   stairs and windows removed from their graph; a child's window exits are made more costly. For the fire simulation,
   we spread the fire through the same graph room by room, mark the rooms the fire reaches first, and re-solve
@@ -84,12 +84,13 @@ someone who cannot use stairs. Each person gets their own route.
 
 ### How does it work?
 
-1. Scan the home with an iPhone's LiDAR sensor (Apple RoomPlan), or draw it in the app. A 3D editor fixes whatever
-   the scan missed.
-2. Our deterministic Python engine computes a main and, where one exists, a backup escape route from every room, for each person, plus
-   earthquake cover and the safest room in a tornado.
-3. The app shows the routes animated on a 3D "dollhouse" of the home, runs a fire simulation from any room, and gives
-   a readiness score and a checklist for fire, earthquake and tornado.
+1. Scan the home with an iPhone's LiDAR sensor (Apple RoomPlan), or draw it in the app. A 3D editor lets you fix
+   whatever the scan missed.
+2. Our deterministic Python engine computes a main and, where one exists, a backup fire escape route from every
+   room, for each person.
+3. The app shows the fire escape routes animated on a 3D "dollhouse" of the home, runs a fire simulation from any
+   room, and gives a readiness score and a checklist for fire, earthquake and tornado. Earthquake and tornado
+   readiness appear in the score and the checklist as guidance-based content.
 4. The family can print the plan and, if they choose, share a snapshot with their fire department.
 
 Built with Swift and SwiftUI (iOS app), SceneKit (3D), RoomPlan (scanning), Python with FastAPI (engine and server,
