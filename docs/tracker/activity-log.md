@@ -3362,3 +3362,17 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - M escape_plan/Networking/BackendFailure.swift
   - M escape_planTests/BackendFailureTests.swift
 
+## 2026-10-05T01:08:35Z · Anish Yarrakonda · `s11-cleanup-fixes` @ `9c5d899`
+
+**Commits this session**
+  - 9c5d899 Cleanup: multi-id citation tags, local-fault failure copy, README deploy line, tracker truth
+
+## 2026-10-05T01:11:38Z · Anish Yarrakonda · `s11-cleanup-fixes` @ `9c5d899`
+
+**Commits this session**
+  - 9c5d899 Cleanup: multi-id citation tags, local-fault failure copy, README deploy line, tracker truth
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - M escape_planTests/ReadinessStoreTests.swift
+
