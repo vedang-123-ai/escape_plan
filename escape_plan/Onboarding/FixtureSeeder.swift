@@ -63,6 +63,17 @@ enum FixtureSeeder {
     /// deleted on purpose is never resurrected on the next launch.
     static let starterSeedDefaultsKey = "fixtures.starterHomesSeeded.v1"
 
+    /// The homes a fresh install gets. `.jagged` (the floor-stacking test model) is left out on
+    /// purpose: it stays a bundled fixture for the renderer and export tests, but it is not a
+    /// home anyone should land on (S53-1: a fresh install opened on "Jagged Stack").
+    static let starterFixtures: [HomeFixture] = [.bungalow, .apartment, .twostory]
+
+    /// The home a fresh install opens on: Two-Story House, the one the demo films.
+    static let demoFixture: HomeFixture = .twostory
+
+    /// The demo home's fixed id, or nil if the bundled fixture cannot be read.
+    static let demoHomeID: String? = try? FixtureLoader.load(demoFixture).home_id
+
     /// Installs Bungalow, Apartment 4B, and Two-Story House verbatim on a fresh
     /// install, so the demo path exists without anyone hand-building it.
     ///
@@ -82,7 +93,7 @@ enum FixtureSeeder {
     ) throws -> [HomeModel] {
         guard !defaults.bool(forKey: starterSeedDefaultsKey) else { return [] }
         var seeded: [HomeModel] = []
-        for fixture in HomeFixture.allCases {
+        for fixture in starterFixtures {
             let model = try FixtureLoader.load(fixture)
             // `now: model.meta.modified` — seed VERBATIM, including the timestamp.
             //

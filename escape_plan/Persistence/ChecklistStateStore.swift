@@ -31,7 +31,8 @@ struct ChecklistStateStore {
         var state: [String: ChecklistMark] = [:]
         for (id, value) in raw {
             if let date = value as? Date {
-                state[id] = .completed(date)
+                // A date on an item that no longer recurs (the alarm test, 2026-10-05) is a tick.
+                state[id] = ChecklistMark.completed(date).normalized(forItem: id)
             } else if let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() {
                 state[id] = .flag(number.boolValue)
             } else {

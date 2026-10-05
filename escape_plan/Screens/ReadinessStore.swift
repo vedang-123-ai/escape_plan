@@ -399,9 +399,10 @@ enum TaskDestination {
         // "re-scan your home" are practice items too, but a drill does neither (the re-scan review
         // was cut 2026-10-02), so they only tick off here.
         case .practice: self = item.id == "practice.drill_recent" ? .drill : .toggle
-        // The monthly alarm test is the user's word: nothing in the model can say a button was
-        // pressed (S11.35, owner 2026-10-04). Server-driven: a smoke-alarm item that recurs.
-        case .smoke_alarm: self = item.recurrence_days != nil ? .toggle : .house
+        // The alarm test is the user's word: nothing in the model can say a button was pressed
+        // (S11.35, owner 2026-10-04). It stopped recurring on 2026-10-05 and is still ticked
+        // here, so it is named; any other smoke-alarm item the server says recurs ticks too.
+        case .smoke_alarm: self = item.recurrence_days != nil || item.isFormerlyRecurring ? .toggle : .house
         case .routes, .egress, .agent_finding, .recommendation: self = .house
         default: self = .toggle
         }
