@@ -3371,3 +3371,15 @@ question stays in the history, so resending shows it twice.
 **Cannot be verified without a device:** LiDAR scan → `/convert`, haptics, what VoiceOver speaks, frame rate.
 **Cannot be verified without credits (and the Render key, S53-6):** a grounded assistant answer with citations,
 `/build` from text or photo, `/explain`.
+
+### S11.56 findings (2026-10-05, branch `s11-56-readme`) · public README rewrite
+
+- **Unverified: README "Run the app" against a local server end to end.** The steps (Debug build, Settings "Use local
+  dev server (localhost:8000)", "Access token", "Save changes") match the code, but no session has run the app against
+  `localhost:8000`; S11.55 checked the server with curl only. Verify once in the Simulator.
+- **Unverified: a stranger's clone builds for the Simulator** with `DEVELOPMENT_TEAM` hard-coded in the project (same
+  item as S11.55; the README tells them to pick their own team or None).
+- **Doc drift outside S11.56's owned files** (doc-auditor): `backend/README.md:13` says `ANTHROPIC_API_KEY` is "only
+  needed for /explain" (also /chat, /analyze, /build); `backend/CLAUDE.md:4-5` creates the venv from
+  `requirements.txt` only, but pytest is in `requirements-dev.txt`.
+- **Demo video link:** add to README "For judges" once the video is uploaded (no link exists in the repo yet).
