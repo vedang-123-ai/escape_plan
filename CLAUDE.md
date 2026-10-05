@@ -129,6 +129,8 @@ xcodebuild test -project escape_plan.xcodeproj -scheme escape_plan \
 python3 scripts/demo-preflight.py                               # before any device build or filming
 ```
 
+Send logs and result bundles to `.build/logs/` (gitignored), not the repo root; `scripts/clean.sh` wipes build leftovers.
+
 With no simulator, `scripts/typecheck-ios.sh` is the strongest check you have. It resolves every type, member
 and conformance, but does not build, link or run anything: never report it as a passing test suite.
 
