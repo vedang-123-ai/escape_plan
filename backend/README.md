@@ -160,4 +160,4 @@ following once (P3/Claude cannot create the account):
 
 Notes: the free tier sleeps after ~15 min idle; the first request after sleep
 takes ~30-60 s (cold start), subsequent ones are fast — warm the service before
-the <2 s acceptance check and before demos. Pushes to `main` auto-deploy.
+the <2 s acceptance check and before demos. Render deploys a push to `main` only after its GitHub checks pass (`autoDeployTrigger: checksPass` in render.yaml; the dashboard setting must agree, see BLOCKERS S11.46).

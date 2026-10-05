@@ -128,10 +128,10 @@ def test_the_set_covers_the_behaviours_the_session_asked_for() -> None:
 @pytest.mark.parametrize("case", CASES, ids=CASE_IDS)
 def test_every_case_uses_real_source_ids(case: EvalCase) -> None:
     """A case citing a fake id in its `good` probe would teach the wrong thing."""
-    from app.ai.chat.service import CITE_RE
+    from app.ai.chat.claims import cited_ids
 
     valid = valid_source_ids()
-    bogus = sorted(set(CITE_RE.findall(case.good)) - valid)
+    bogus = sorted(set(cited_ids(case.good)) - valid)
     assert not bogus, f"{case.id}: `good` cites non-existent source ids {bogus}"
 
 

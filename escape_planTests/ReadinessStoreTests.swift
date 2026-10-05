@@ -602,6 +602,10 @@ final class ReadinessStoreTests: XCTestCase {
         await load.value
         let item = try XCTUnwrap(readiness.items.first)
         readiness.toggleDone(item, api: api, animated: false)
+        // The tick's own re-score must be in flight before the reload starts: if the reload
+        // cancels it before it is sent, the reload becomes request 1 and request 2 never comes
+        // (flaked in two independent full runs on 2026-10-04).
+        _ = try await gatedRequest(1)
 
         let reload = Task { await readiness.load(api: api) }
         try await gatedRequest(2).respond(status: 503)

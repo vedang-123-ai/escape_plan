@@ -17,7 +17,7 @@ import re
 from typing import Callable, Optional
 
 from app.ai.builder import BuildResult
-from app.ai.chat.claims import CITE_RE, sentences, uncited_safety_claims
+from app.ai.chat.claims import CITE_RE, cited_ids, sentences, uncited_safety_claims
 from app.ai.chat.service import find_invalid_chat_citations
 from app.ai.grounded import valid_source_ids
 
@@ -50,7 +50,7 @@ def cites_every_safety_claim(reply: str) -> Optional[str]:
 
 def carries_no_citation(reply: str) -> Optional[str]:
     """For deferrals: citing a source for "I don't know" is its own kind of lie."""
-    found = CITE_RE.findall(reply)
+    found = cited_ids(reply)
     return f"cited {found} while deferring" if found else None
 
 

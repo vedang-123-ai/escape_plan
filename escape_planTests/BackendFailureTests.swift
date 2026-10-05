@@ -202,6 +202,25 @@ struct BackendFailureTests {
         }
     }
 
+    @Test("A fault on this phone is not blamed on the connection or on Settings")
+    func localFaultsAreNotConnectivityProblems() {
+        let faults: [Error] = [
+            EncodingError.invalidValue(1, .init(codingPath: [], debugDescription: "x")),
+            InvalidHomeID(homeID: "../evil"),
+            CocoaError(.fileReadNoSuchFile),
+        ]
+        for error in faults {
+            let f = BackendFailure(error, while: .score)
+            #expect(f.kind == .localData)
+            #expect(f.message.contains("on this phone"))
+            #expect(f.message.contains("connection") == false)
+            #expect(f.suggestsSettings == false)
+            #expect(f.isOfflineFlavoured == false)
+        }
+        // A real network error must still read as one.
+        #expect(BackendFailure(URLError(.notConnectedToInternet), while: .score).kind == .offline)
+    }
+
     @Test("A decoding failure from the chat client is still a mismatch, not a server fault")
     func chatDecodeFailure() {
         let f = BackendFailure(decodingError(#"{"reply":1}"#, as: ChatResponse.self),

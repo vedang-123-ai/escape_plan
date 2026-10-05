@@ -3343,3 +3343,36 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
 
+## 2026-10-04T23:00:23Z · Anish Yarrakonda · `main` @ `46205ee`
+
+**Commits this session**
+  - 46205ee Merge s11-review-fixes: corrections found reviewing the Antigravity sessions
+  - cdcd6bc Review fixes: Settings no longer claims the assistant audits, delete HomeThumbnailView, pitch says every safety answer, S11.47 note
+
+## 2026-10-05T01:05:48Z · Anish Yarrakonda · `s11-cleanup-fixes` @ `46205ee`
+
+**Uncommitted working-tree changes (9)**
+  - M backend/README.md
+  - M backend/app/ai/chat/claims.py
+  - M backend/app/ai/chat/service.py
+  - M backend/tests/evals/graders.py
+  - M backend/tests/evals/test_evals.py
+  - M backend/tests/test_chat.py
+  - M docs/tracker/activity-log.md
+  - M escape_plan/Networking/BackendFailure.swift
+  - M escape_planTests/BackendFailureTests.swift
+
+## 2026-10-05T01:08:35Z · Anish Yarrakonda · `s11-cleanup-fixes` @ `9c5d899`
+
+**Commits this session**
+  - 9c5d899 Cleanup: multi-id citation tags, local-fault failure copy, README deploy line, tracker truth
+
+## 2026-10-05T01:11:38Z · Anish Yarrakonda · `s11-cleanup-fixes` @ `9c5d899`
+
+**Commits this session**
+  - 9c5d899 Cleanup: multi-id citation tags, local-fault failure copy, README deploy line, tracker truth
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - M escape_planTests/ReadinessStoreTests.swift
+

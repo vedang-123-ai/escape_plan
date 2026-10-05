@@ -154,11 +154,12 @@ owning session's merge is on `origin/main` and you verified it.
 - [x] **Path B executed**: `escape_plan/Networking/APIClient+Analyze.swift` and `escape_plan/Models/AnalyzeModels.swift` were NOT deleted because `OnboardingTests.swift` still references `AnalysisResult`. Kept with a comment clarifying they are dormant and have no callers since dac8673.
 - [x] **Claims updated in owned files**: Root `CLAUDE.md` and `README.md` AI capabilities changed to "explains and chats" (or similar wording explicitly removing auditing capabilities).
 - [x] **Tests green**: `swift test --package-path tools/editorcore` executed 646 tests with 0 failures. The iOS app suite will be run before merge.
-- [ ] **ReadinessStore**: The `agent_finding` checklist category stays dormant.
+- [x] **ReadinessStore**: The `agent_finding` checklist category stays dormant.
 
 #### S11.39 claims diff
 Files not owned by S11.39 but containing "inspector" or "audits" claims that need update:
 
+      Fixed 2026-10-04 (cleanup review): decided: stays dormant by the AUD-022 Path B decision; nothing to do.
 - `docs/demo/script-v1.md`, line 106
   - Current: `## Beat 5 — The inspector and the profile switch`
   - Proposed: `## Beat 5 — The profile switch`
@@ -292,9 +293,10 @@ and `scripts/smoke-deploy.sh` checks the live commit. The dashboard half is the 
 - [ ] **Not taken by S11.46: the ad-hoc-signed `KeychainTokenStoreTests` step** (the "Owner: S11.46 or any CI session"
       line in "S11.8 findings"). `ios-tests` is still `CODE_SIGNING_ALLOWED=NO`, so those 3 tests still skip in CI.
       Owner now: any CI session.
-- [ ] **`backend/README.md` § Deploy still says "Pushes to `main` auto-deploy."** (line 163). Now false once the
+- [x] **`backend/README.md` § Deploy still says "Pushes to `main` auto-deploy."** (line 163). Now false once the
       Render setting is on: pushes deploy after the `gate` checks pass, and `bash scripts/smoke-deploy.sh` confirms the
       live commit. Not an S11.46 file; whoever next edits the backend README.
+      Fixed 2026-10-04 (cleanup review): README now says deploys wait for passing checks.
 - [x] **S11.47 boundary kept:** the install `run:` steps in `gate.yml` (`pip install -r backend/requirements.lock`,
       the lock-vs-requirements dry run) are byte-identical to `main`. Only the `uses:` lines above them changed (checkout v4 and setup-python v5, both to v7),
       so S11.47 can edit the install steps without a conflict.
@@ -356,8 +358,9 @@ mutC, mutD; details in the note). UI tests not run (no UI-test file changed).
 - [ ] **Known gaps in the check, on purpose.** Plain statements of fact with no advice in them ("water spreads grease
       fires") and "you can ..." sentences are not caught. The check is a word-pattern rule, not understanding. The
       live run shows how much this matters.
-- [ ] **A tag with two ids (`[cite: a, b]`) or capital letters counts as no tag.** This was already true before this
+- [x] **A tag with two ids (`[cite: a, b]`) or capital letters counts as no tag.** This was already true before this
       session; it now leads to a retry and possibly the fallback, not a pass. The chat prompt asks for one id per tag.
+      Fixed 2026-10-04 (cleanup review): a tag may now list several ids, `[cite: a, b]`; a bad id inside it or a capitalised id is rejected as fabricated, not read as missing. `cited_ids()` in `claims.py`, three tests in `test_chat.py`, mutation-checked.
 - [x] **Gate 2026-10-04:** `pytest backend/tests -m "not live"` **1173 passed, 1 skipped, 31 deselected** (before
       merging origin/main); `python3 backend/corpus/validate.py` valid. Mutation checks: 30 code breaks over three
       rounds, each turned a named test red, then restored from a backup. Five first survived and got new probes.
@@ -397,11 +400,13 @@ session changes on purpose; that test was updated.
 - [ ] **A `DecodingError` from a truncated proxy body (200 with garbage) also says "Update the app".** Accurate for a
       real shape mismatch, wrong for a transient cut. Left non-retryable per the playbook. Next action: judgment call
       for whoever next edits the copy.
-- [ ] **`EncodingError` and local file-read errors still fall into "Couldn't reach the server, check Settings".** The
+- [x] **`EncodingError` and local file-read errors still fall into "Couldn't reach the server, check Settings".** The
       classifier's generic branch has no case for a fault on this phone (pre-existing, not new). Next action: a
       `.localFault` kind; the reviewer found it, no screen produces it today.
-- [ ] **`BuildFromPlanView` still maps a non-network error such as `InvalidHomeID` to the server copy** (earlier line,
+      Fixed 2026-10-04 (cleanup review): the classifier now returns `.localData` ("Something went wrong on this phone", no Settings, no connection blame) for EncodingError, InvalidHomeID and Cocoa file errors; test `localFaultsAreNotConnectivityProblems`, mutation-checked.
+- [x] **`BuildFromPlanView` still maps a non-network error such as `InvalidHomeID` to the server copy** (earlier line,
       not done: it needs the screen's own error, outside this session's files). Next action: the owner of that screen.
+      Fixed 2026-10-04 (cleanup review): same fix; the screen already routes through `BackendFailure`, which now recognises `InvalidHomeID`.
 - [ ] **The analyze screen can still read an empty `truncated` result as "no problems found"**
       (`escape_plan/Models/AnalyzeModels.swift`, still calls it the iteration cap). The 80 s server deadline now returns
       exactly that shape. Not touched: `Models/` is schema territory. Next action: whoever next touches the analyze
