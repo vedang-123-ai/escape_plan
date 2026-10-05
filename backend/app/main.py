@@ -8,6 +8,7 @@ the shared bearer token.
 from __future__ import annotations
 
 import logging
+import math
 from app.routing.diff import compute_diff, DiffRequest, DiffResult
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -15,6 +16,8 @@ from typing import Any, AsyncIterator, Optional, Literal
 
 import anthropic
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from app.models import HomeModel, FloorObject
@@ -179,6 +182,33 @@ def ai_deadline_exceeded(_request: Request, exc: DeadlineExceeded) -> JSONRespon
     return JSONResponse(
         status_code=504,
         content={"detail": f"The AI took too long and was stopped: {exc}"},
+    )
+
+
+def _json_safe(value: Any) -> Any:
+    """Replace NaN and ±Infinity with their spelling as a string, recursively."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return "NaN" if math.isnan(value) else ("Infinity" if value > 0 else "-Infinity")
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+@app.exception_handler(RequestValidationError)
+def request_validation_error(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    """FastAPI's own 422, made safe to render (S11.52).
+
+    Python's JSON parser accepts the non-standard tokens NaN and Infinity. The
+    models reject them, but each error echoes its `input`, and Starlette refuses
+    to serialize a non-finite float, so the client got a 500 instead of the
+    validation message. Same shape as FastAPI's default handler; only the
+    non-finite numbers inside it become strings.
+    """
+    return JSONResponse(
+        status_code=422,
+        content={"detail": _json_safe(jsonable_encoder(exc.errors()))},
     )
 
 

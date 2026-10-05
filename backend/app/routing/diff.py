@@ -1,9 +1,9 @@
 import math
 from typing import Sequence, Optional
 from pydantic import BaseModel
-from app.models import HomeModel, FloorObject, Room, EXTERIOR_ID
+from app.models import HomeModel, FloorObject, ObjectCategory, OpeningKind, Room, Source
 from app.routing.obstructions import Obstruction
-from app.routing.egress import EgressThresholds
+from app.routing.egress import EgressThresholds, check_egress
 from app.routing.obstructions import culprit_object_ids, tolerated_clearance_m, _suggested_move_m, COMFORT_MARGIN_M, _room_openings, code_clearance_m, opening_midpoint, _reachable, objects_intersecting, polygon_centroid
 from app.routing.graph import Point
 
@@ -129,9 +129,10 @@ def compute_diff(
                 break
         if not matched:
             sc_obj.id = f"scan_{sc_obj.id}"
-            sc_obj.source = "scan"
+            # Enum members, not bare strings: pydantic warned on every serialize.
+            sc_obj.source = Source.scan
             sc_obj.confidence = 0.3
-            sc_obj.category = "other"  # per spec: NEVER a guessed category
+            sc_obj.category = ObjectCategory.other  # per spec: NEVER a guessed category
             diff_objects.append(sc_obj)
             
     if not diff_objects:
@@ -152,10 +153,22 @@ def compute_diff(
     
     polygons = {r.id: list(r.polygon) for r in target_floor.rooms}
     
+    # Identity, not the "scan_" prefix: a stored object kept from an earlier diff
+    # carries that prefix too, and must not be reported as new (S11.52).
+    new_object_refs = {id(o) for o in diff_objects}
+
     for op in _room_openings(target_floor, target_room):
-        if EXTERIOR_ID in op.room_ids:
-            continue
-            
+        # Exits are probed too, as in analyze_obstructions: the approach to the
+        # front door matters most. Only a window that is not a viable exit anyway
+        # is skipped. S11.52: every exit used to be skipped here, so a newly
+        # scanned wardrobe in front of the only door reported nothing.
+        if op.kind == OpeningKind.window:
+            assessment = op.egress if op.egress is not None else check_egress(
+                op, thresholds, grade_floor=target_floor.level <= 0
+            )
+            if not assessment.viable:
+                continue
+
         required_width = thresholds.window_min_width_m if op.kind == "window" else thresholds.door_min_width_m
         host_polygon = polygons.get(op.wall_segment.room_id)
         if not host_polygon:
@@ -177,7 +190,7 @@ def compute_diff(
         culprits = culprit_object_ids(list(target_room.polygon), local, start, goal, probe_c, goal_radius)
         
         # Are any diff objects in culprits?
-        diff_culprits = [c for c in culprits if c.id.startswith("scan_")]
+        diff_culprits = [c for c in culprits if id(c) in new_object_refs]
         if not diff_culprits:
             continue
             

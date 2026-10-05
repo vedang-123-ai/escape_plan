@@ -124,12 +124,17 @@ def parse_completion_time(raw: str) -> datetime:
     """Parse an ISO-8601 completion timestamp into an aware UTC datetime.
 
     A timestamp with no offset is read as UTC (the contract is UTC). Raises
-    ValueError on anything that is not ISO-8601.
+    ValueError on anything that is not ISO-8601, or that leaves datetime's range
+    once converted to UTC (year 1 at +14:00, year 9999 at -12:00). That used to
+    raise OverflowError, which /score's validator did not catch: a 500 (S11.52).
     """
     parsed = datetime.fromisoformat(raw)
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    try:
+        return parsed.astimezone(timezone.utc)
+    except OverflowError as exc:
+        raise ValueError(f"{raw!r} is out of range in UTC") from exc
 
 
 def _completed_at(item_id: str, state: ChecklistState) -> datetime | None:
