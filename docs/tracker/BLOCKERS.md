@@ -149,6 +149,33 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45 (Assistant item fixed 2026-10-04); the starter-seeding item fixed 2026-10-04 by S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
 
+### S11.52 findings (2026-10-05, branch `s11-52-engine-stress`)
+
+Adversarial pass over the engine and `/routes` `/score` `/evacuate` `/diff_obstructions`
+(`backend/tests/test_engine_stress.py`, 73 tests). Backend gate 2026-10-05: 1249 passed, 1 skipped, 31 deselected.
+
+- [x] **200-room home (MAX_ROOMS) took minutes** · fixed: `find_bottlenecks` ran a Dijkstra per room per opening
+      (~O(rooms³)); now one search from EXTERIOR per opening. Tornado shelter search recounted exterior walls per
+      (source, target) pair; now cached per plan. 200-room grid: fire 0.29 s, tornado 23.4 s to 0.41 s, `/score` 0.96 s.
+      Outputs byte-identical to the old engine on every fixture plus three grid homes (all perils + score hashed).
+- [x] **500s fixed (now 422)**: numeric/bool/list `schema_version` (`schema_migrator.py`); a checklist timestamp that
+      overflows when converted to UTC (`0001-01-01T00:00:00+14:00`); NaN/Infinity anywhere in a body (the 422
+      renderer crashed echoing the value back; `main.py` now renders them as strings).
+- [x] **Infinity accepted in `RoutingConstraints`** and echoed as `null` in `RoutePlan.constraints` · now 422.
+- [x] **`/diff_obstructions` skipped every exit**, so a new wardrobe in front of the only front door reported nothing;
+      and it blamed any stored object whose id starts with `scan_` as new · both fixed (`routing/diff.py`).
+- [ ] **An opening can be wider than its wall.** A 1 µm × 1 µm room with a 0.9 m door validates, routes out as a viable
+      exit and scores 74. Needs a validator (opening width vs host edge length) in `models.py`, pydantic and Swift
+      lockstep: a contract change, so not done here · owner: whoever next touches the schema · next: decide a
+      tolerance, add it to `models.py` + `EditorValidation.swift`.
+- [ ] **Diff ids can collide.** `/diff_obstructions` names a new object `scan_<scan id>`; if the stored home already has
+      that id (from an earlier diff), merging the result gives a duplicate id the model rejects. Changing the id scheme
+      changes the endpoint's contract with the (currently cut) re-scan flow · next: pick a collision-free scheme if
+      re-scan comes back.
+- [ ] **Object-heavy homes are still the slow case.** 8 rooms × 25 objects piled at the doors (200 objects, every bound
+      at its maximum): `/score` 11.6 s, each `/routes` peril ~3.9 s on a 2026 Mac. Inside the S11.25 ~25 s budget;
+      culprit attribution is still super-linear (S11.25 note) · no action unless Render's CPU makes it a timeout.
+
 ### S11.39 findings (2026-10-04, branch s11-39-ai-inspector)
 
 - [x] **Path B executed**: `escape_plan/Networking/APIClient+Analyze.swift` and `escape_plan/Models/AnalyzeModels.swift` were NOT deleted because `OnboardingTests.swift` still references `AnalysisResult`. Kept with a comment clarifying they are dormant and have no callers since dac8673.

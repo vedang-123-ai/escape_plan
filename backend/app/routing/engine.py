@@ -228,19 +228,30 @@ def find_bottlenecks(
     *,
     min_rooms: int = 2,
 ) -> list[Bottleneck]:
-    """Openings whose removal disconnects >= min_rooms rooms from every exit."""
-    no_constraints = RoutingConstraints()
-    room_ids = sorted(
-        n.id for n in graph.nodes.values() if n.kind == NodeKind.room
-    )
+    """Openings whose removal disconnects >= min_rooms rooms from every exit.
+
+    Reachability here is unconstrained, so a room reaches an exit exactly when it
+    shares a connected component with EXTERIOR once the banned opening is removed
+    (with default constraints `_edge_cost` refuses nothing but banned openings, and
+    every edge is in both endpoints' adjacency). One search from EXTERIOR answers
+    it for every room at once. S11.52: this used to run one Dijkstra per room per
+    opening, ~O(rooms³), and a 200-room home (MAX_ROOMS) took minutes per plan.
+    `tests/test_engine_stress.py` keeps the per-room definition as the known answer.
+    """
+    room_ids = {n.id for n in graph.nodes.values() if n.kind == NodeKind.room}
 
     def reachable_rooms(banned: frozenset[str]) -> set[str]:
-        return {
-            rid
-            for rid in room_ids
-            if _dijkstra_to_exterior(graph, rid, openings, no_constraints, banned)
-            is not None
-        }
+        seen = {EXTERIOR_ID}
+        stack = [EXTERIOR_ID]
+        while stack:
+            node = stack.pop()
+            for edge in graph.neighbors(node):
+                other = edge.other(node)
+                if other in seen or other in banned:
+                    continue
+                seen.add(other)
+                stack.append(other)
+        return seen & room_ids
 
     baseline = reachable_rooms(frozenset())
     bottlenecks: list[Bottleneck] = []
@@ -295,6 +306,8 @@ def compute_route_plan(
         if obstruction.kind == "narrows_route":
             narrowings_by_room.setdefault(room_id, []).append(obstruction)
 
+    # Per-room tornado exposure counts, shared across every source room (S11.52).
+    tornado_exposure: dict[str, tuple[int, int]] = {}
     room_plans: list[RoomRoutePlan] = []
     for floor in home.floors:
         for room in floor.rooms:
@@ -362,7 +375,7 @@ def compute_route_plan(
             if peril == "tornado":
                 # Tornado is a shelter search, not an exit search.
                 shelter_room_id, primary_route = find_tornado_shelter(
-                    home, graph, room.id, openings, constraints
+                    home, graph, room.id, openings, constraints, tornado_exposure
                 )
                 if primary_route is None:
                     findings.append(
