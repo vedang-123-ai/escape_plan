@@ -157,7 +157,9 @@ own sections above. Evidence: iOS unit suite `-only-testing:escape_planTests` **
 3 skipped** (`xcrun xcresulttool get test-results summary`, iPhone 17 Pro simulator, iOS 26.5, `CODE_SIGNING_ALLOWED=NO`,
 2026-10-05, before merging origin/main; bundle not committed). Backend `pytest -m "not live"` **1176 passed, 1 skipped,
 31 deselected**; EditorCore **646 tests, 0 failures**; corpus valid; `scripts/typecheck-ios.sh` ok on all four targets.
-No backend, corpus, prompt or schema file changed.
+No backend, corpus, prompt or schema file changed. **Re-run after merging origin/main @ e0a5cb6 (S11.51, S11.52):** iOS
+**1130 tests: 1127 passed, 0 failed, 3 skipped** (xcresulttool, `full3.xcresult`, 2026-10-05); backend **1249 passed, 1
+skipped, 31 deselected**; EditorCore 646, 0 failures; corpus valid; typecheck ok on all four targets.
 
 - [ ] **Screen behaviour not driven by a test.** The live "too long" line and Send turning off (`AssistantScreen`), the
       plain refusal for an old thread that already ends in an over-long message, and the clock notice card on Tasks
