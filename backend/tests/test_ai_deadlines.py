@@ -23,6 +23,7 @@ from app.ai.agent import run_agent_analysis
 from app.ai.builder import BuildResult, run_builder
 from app.ai.chat import service as chat_service
 from app.ai.chat.service import ChatMessage, ChatResponse, chat
+from app.ai.grounded import GroundingError
 from app.ai.client import (
     ANALYZE_DEADLINE_S,
     BUILD_DEADLINE_S,
@@ -391,3 +392,63 @@ def test_chat_deadline_tracks_the_swift_chat_timeout():
     phone = int(match.group(1))
     assert phone == PHONE_TIMEOUT_S["chat"]
     assert 5 <= phone - CHAT_DEADLINE_S <= 15, "server should give up 5-15 s before the phone"
+
+
+# ---------------------------------------------------------------------------
+# /score degrades rather than discarding a finished deterministic score
+#
+# Found by the grounding-auditor reviewing S11.29 (finding F4). /score computes
+# three deterministic peril route plans and the whole ScoreBreakdown BEFORE the
+# optional `include_recommendations` AI call, whose items are explicitly
+# non-scoring. Letting DeadlineExceeded escape turned a slow garnish into a 504
+# that threw away completed work — on the endpoint the demo path leans on most.
+
+
+def test_score_keeps_its_deterministic_breakdown_when_the_ai_times_out(
+    http: TestClient, bungalow: dict, monkeypatch: pytest.MonkeyPatch
+):
+    """The project's central claim applied to its own code path.
+
+    "The deterministic half never depends on the AI half" has to hold for
+    /score itself, not just in the architecture diagram: the score must degrade
+    to exactly what `include_recommendations=false` returns.
+    """
+
+    def boom(*args, **kwargs):
+        raise DeadlineExceeded("explain ran out of time")
+
+    monkeypatch.setattr("app.main.recommendation_items", boom)
+    r = http.post(
+        "/score",
+        # `include_recommendations` is a BODY field on ScoreRequest, not a query
+        # parameter — in the query string it is silently ignored and the AI branch
+        # never runs, so the test would pass without exercising anything.
+        json={"home": bungalow, "include_recommendations": True},
+        headers=AUTH,
+    )
+    assert r.status_code == 200, "a slow AI must not 504 the whole score"
+    body = r.json()
+    assert isinstance(body["score"], (int, float))
+    assert body["checklist"], "the deterministic checklist is still there"
+
+
+def test_score_still_502s_when_the_ai_is_unfunded(
+    http: TestClient, bungalow: dict, monkeypatch: pytest.MonkeyPatch
+):
+    """The degradation above must not have swallowed the deliberate 502.
+
+    A missing key is an operator problem the app is meant to surface; a timeout
+    is a transient one it can ride out. Those two must stay distinguishable, or
+    an unfunded account looks like a slow one and nobody tops it up.
+    """
+
+    def unfunded(*args, **kwargs):
+        raise GroundingError("ANTHROPIC_API_KEY is not configured on the server")
+
+    monkeypatch.setattr("app.main.recommendation_items", unfunded)
+    r = http.post(
+        "/score",
+        json={"home": bungalow, "include_recommendations": True},
+        headers=AUTH,
+    )
+    assert r.status_code == 502

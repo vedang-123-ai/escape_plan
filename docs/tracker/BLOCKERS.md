@@ -149,6 +149,45 @@ owning session's merge is on `origin/main` and you verified it.
 - [ ] AUD-049 (P3) silent failures on user writes · S11.24, S11.38 (Settings item fixed), S11.45 (Assistant item fixed 2026-10-04); the starter-seeding item fixed 2026-10-04 by S11.48
 - [x] AUD-050 (P1) privacy copy false · **fixed 2026-10-01 by S11.16** (evidence under "S11.16 findings")
 
+### Audit follow-up: /score deadline (2026-10-05, branch `audit-s11-29-score-deadline`)
+
+- [x] **`/score?include_recommendations=true` no longer 504s when its AI half times out.** Confirmed still live on
+      `origin/main` `f3cd237` by a probe test before fixing: status **504**. `/score` computes three deterministic
+      peril route plans and the whole `ScoreBreakdown` BEFORE the optional, explicitly non-scoring AI call;
+      `explain_routes` defaults to a `Deadline` and `app/scoring/recommend.py` neither passes one nor catches it, so
+      `DeadlineExceeded` escaped the handler's `except GroundingError` and reached the app-level 504 — discarding
+      finished deterministic work because its garnish was slow, on the endpoint the demo path leans on hardest. It now
+      degrades to exactly what `include_recommendations=false` returns. Evidence: 2 tests in
+      `backend/tests/test_ai_deadlines.py`; suite **1251 passed, 1 skipped, 31 deselected** (2026-10-05). Removing the
+      `except` fails the new test.
+- [x] **The deliberate 502 for an unfunded key is unaffected**, asserted by its own test. A missing key is an operator
+      problem the app must surface; a timeout is a transient one it can ride out. Collapsing the two would mean an
+      unfunded account reads as a slow one and nobody tops it up.
+- [ ] **`app/scoring/recommend.py` still takes no deadline and catches nothing** — the fix is at the `/score` call
+      site in `main.py`, not in `recommend.py`, so any FUTURE caller of `recommendation_items` inherits the same trap.
+      Next action: if another route ever calls it, give it the same `except` or thread a deadline through
+      `recommend.py`. Low risk today: `grep -rn "recommendation_items" backend/app` has exactly one call site.
+
+**Provenance:** found by the `grounding-auditor` agent while reviewing a *duplicate* local S11.29 implementation built
+in parallel on 2026-10-03 (see "Parallel-work collision" below). The duplicate was discarded in favour of the merged
+one; this single finding was the only thing in it that the merged implementation did not already have, and it is
+landed here on its own rather than as a session.
+
+### Parallel-work collision (2026-10-05)
+
+- [ ] **S11.29 and S11.33 were each implemented TWICE, in parallel, by two people on the same day.** Both of my
+      implementations were discarded (preserved locally on tags `local-duplicate-s11-29-33` and
+      `local-s11-29-33-preCollision` and branches `s11-29-ai-deadlines` / `s11-33-photo-jpeg`; nothing was pushed).
+      The merged versions are better on the points that mattered: the merged S11.33 uses ImageIO/CoreGraphics with no
+      UIKit, so **its tests run without a simulator** — the exact blocker that left my version's 17 tests unexecuted —
+      and reads `backend/app/limits.py` for the client/server cap lockstep instead of hardcoding it. The merged
+      S11.29 uses `anthropic.Timeout` with a separate connect timeout rather than one float.
+      **Root cause: `docs/playbook/README.md` is the only claim-staking mechanism and it is only updated at session
+      END**, so two people picking "the next unblocked session" at the same time pick the same one and neither finds
+      out until push time. Next action (owner, before anyone starts another parallel batch): decide a claiming
+      convention — a `CLAIMED` column written at session START, or pushing the empty branch first so
+      `git branch -r` is the lock. Three sessions remain unstarted; the next collision costs the same few hours.
+
 ### S11.50 findings (2026-10-05, branch s11-50-code-defects)
 
 Five code items left open on purpose by S11.35, S11.37 and S11.45, each re-checked in the code first, fixed, tested and
