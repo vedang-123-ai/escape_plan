@@ -15,11 +15,11 @@ cited FEMA / NFPA / Red Cross / USFA corpus.
 **The AI never computes a route and never invents safety guidance.** That separation is the answer to
 "isn't this an AI wrapper?" Defend it in every decision.
 
-## 2. What we learned from a firefighter (Fremont, 19 years paid + 5 volunteer)
+## 2. What we learned from a working firefighter (long-serving; not named, details withheld until he agrees)
 
 | He said | So we do |
 |---|---|
-| ~75-80% of ~20,000 calls a year are medical, ~10% are fires; fires start anywhere (kitchens, candles, garage lithium batteries) | Prevention across the whole house, not just routes. The hazard engine and prevention tips are the product, not a side feature |
+| ~75-80% of his department's calls are medical, ~10% are fires; fires start anywhere (kitchens, candles, garage lithium batteries) | Prevention across the whole house, not just routes. The hazard engine and prevention tips are the product, not a side feature |
 | In a working fire he cannot see his hand; he moves by touch, wall-tracing and hearing, and would not trust a stored layout after a remodel | **Not an operational tool for firefighters.** Never pitch it as one |
 | "Might be marketable on a fire prevention / public education front": the department shares a QR code, the family scans the house, gets escape routes, and can opt in to share with the department | Reposition as prevention and readiness. Promote the **Responder Snapshot** to an opt-in "Share with your fire department" feature |
 | The department already runs a manual **Clutter Survey Program** after medical calls; self-reporting clutter to the department is unrealistic (exigent-circumstance law, privacy, stigma) | Our hazard engine is the self-service version. Sharing is informational and opt-in, never something a department is expected to act on |
