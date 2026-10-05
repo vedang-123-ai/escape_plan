@@ -187,7 +187,7 @@ struct BackendFailureTests {
         let decodeErrors: [Error] = [
             decodingError(#"{"rooms":"many"}"#),   // typeMismatch
             decodingError(#"{}"#),                  // keyNotFound
-            decodingError("not json"),              // dataCorrupted
+            // "not json" (a cut-off body) is no longer a mismatch since S11.50: ResponseCutOffTests.
         ]
         for error in decodeErrors {
             #expect(error is DecodingError, "the fixture must produce a real DecodingError")

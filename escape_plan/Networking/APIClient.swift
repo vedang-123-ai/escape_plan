@@ -15,6 +15,25 @@ import Observation
 enum APIClientError: Error {
     case invalidBaseURL
     case unexpectedResponse(statusCode: Int)
+    /// A 502 that did not come from our server. Every 502 the backend sends on purpose (no AI
+    /// credit, a bad key, grounding that failed) is JSON with a string `detail`; a proxy in front
+    /// of it (Render's edge cutting a slow request) answers with an HTML page or nothing. That one
+    /// is a dropped connection, so a retry can work, unlike the operator-must-act 502 (S11.50).
+    case gatewayFailure(statusCode: Int)
+
+    /// The error for a non-200 answer. Only a 502 is looked at more closely: the app's own 502
+    /// and a proxy's 502 mean opposite things to the user. 503 and 504 read the same either way.
+    static func forStatus(_ statusCode: Int, body: Data) -> APIClientError {
+        if statusCode == 502, !isAppErrorBody(body) { return .gatewayFailure(statusCode: statusCode) }
+        return .unexpectedResponse(statusCode: statusCode)
+    }
+
+    /// `{"detail": "<text>"}`: the shape of every error the backend writes itself (FastAPI's
+    /// HTTPException and the app's exception handlers in backend/app/main.py).
+    static func isAppErrorBody(_ body: Data) -> Bool {
+        guard let object = try? JSONSerialization.jsonObject(with: body) as? [String: Any] else { return false }
+        return object["detail"] is String
+    }
 }
 
 @Observable

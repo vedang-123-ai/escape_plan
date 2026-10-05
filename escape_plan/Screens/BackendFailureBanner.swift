@@ -131,7 +131,7 @@ struct BackendFailureBanner: View {
         switch failure.kind {
         case .offline, .timedOut, .cancelled: return .secondary
         case .unauthorized, .rejectedInput, .localData: return Color(DollhousePalette.warningBadge)
-        case .aiUnavailable, .serverBusy, .server, .serverTimedOut, .appServerMismatch:
+        case .aiUnavailable, .serverBusy, .server, .serverTimedOut, .appServerMismatch, .responseCutOff:
             return Color(DollhousePalette.warningBadge)
         }
     }

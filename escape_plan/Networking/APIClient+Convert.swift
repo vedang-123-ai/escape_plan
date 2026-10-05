@@ -42,7 +42,7 @@ extension APIClient {
         // outcome for a partial or malformed scan, not a bug. Surfaced to the caller as the
         // status code so the scan flow can offer a rescan rather than a generic failure.
         guard http.statusCode == 200 else {
-            throw APIClientError.unexpectedResponse(statusCode: http.statusCode)
+            throw APIClientError.forStatus(http.statusCode, body: data)
         }
         return try HomeModel.decoder.decode(HomeModel.self, from: data)
     }
