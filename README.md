@@ -9,7 +9,26 @@ explains and chats, grounded in a curated, cited FEMA / NFPA / Red Cross / USFA 
 **The AI never computes a route and never invents safety guidance.** The engine is deterministic and
 testable; the AI explains and chats. Neither does the other's job.
 
-Congressional App Challenge 2026. Submit by Oct 24, 2026.
+Congressional App Challenge 2026 entry. Official deadline 12:00 pm EDT, Monday Oct 26, 2026; our own target is Oct 24.
+
+## For judges
+
+- **What it is:** a home fire-escape and readiness planner for families. It is a prevention tool, not something
+  firefighters use during a fire.
+- **Honest status (2026-10-05):** routes, fire simulation, score, tasks and the 3D editor work in the iOS Simulator
+  against our server (seen in a simulator walk on 2026-10-05). LiDAR scanning needs a real iPhone Pro; a real scan worked on 2026-09-08 on an earlier build,
+  and the final build has not yet been tested on the phone. The AI assistant and Import Plan are switched off in
+  practice: the deployed server has no working Anthropic key or credits, so those calls return an error. Everything not done or not
+  verified is listed in [`docs/tracker/BLOCKERS.md`](docs/tracker/BLOCKERS.md).
+- **To see it working:** watch our demo video, ask us for a live demo on our iPhone, or build it yourself (below).
+  Details: [`docs/submission/judge-access.md`](docs/submission/judge-access.md).
+- **Quick run on a Mac (Xcode 26, Python 3.11+), no secrets needed:** start the backend locally with a password you
+  choose (see **Backend** below, e.g. `BACKEND_BEARER_TOKEN=judge-local-token`). Open `escape_plan.xcodeproj`, pick any
+  iPhone simulator on iOS 17 or newer, and Run (a Debug build). In the app, open Settings, tap "Use local dev server
+  (localhost:8000)", type the same password in "Access token", and Save. If Xcode asks for a signing team, choose
+  your own team or None; the Simulator does not need one. Pick a sample home and open House.
+- **AI tools and libraries we used** are disclosed in [`docs/tools-used.md`](docs/tools-used.md). Copyright and reuse:
+  [`LICENSE`](LICENSE).
 
 ## Layout
 
@@ -27,18 +46,20 @@ Congressional App Challenge 2026. Submit by Oct 24, 2026.
 
 ```
 cd backend
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # add -r requirements-dev.txt to run the tests
 export BACKEND_BEARER_TOKEN=dev-local-token     # the service fails closed without this
 export ANTHROPIC_API_KEY=sk-ant-...             # only needed for /explain, /analyze, /chat, /build
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
 Without `ANTHROPIC_API_KEY` the AI endpoints return a clean 502; the deterministic endpoints
-(`/routes`, `/score`, `/convert`, `/evacuate`) still work. A deployed instance runs on Render.
+(`/routes`, `/score`, `/convert`, `/evacuate`) still work. A deployed instance runs on Render; its token is
+private and is never committed.
 
-**iOS.** Open `escape_plan.xcodeproj` and run (iOS 17+). Set the backend URL and token in Settings, or
-create the gitignored `escape_plan/BackendConfig.local.json`. LiDAR scanning needs a real iPhone Pro;
-everything else works on the simulator.
+**iOS.** Open `escape_plan.xcodeproj` and run (iOS 17+). In a Debug build, set the backend URL and token in
+Settings ("Use local dev server" plus "Access token"), or create the gitignored
+`escape_plan/BackendConfig.local.json` (`{"bearer_token": "..."}`). Release builds read only that file. LiDAR
+scanning needs a real iPhone Pro; everything else works on the simulator.
 
 ## Verifying
 
@@ -72,7 +93,7 @@ session's gate is green. See `docs/playbook/README.md` for lanes, branch protoco
 ## Scope
 
 Fire, earthquake and severe weather (tornado); iOS only; LiDAR scan plus editor as the primary capture, with a
-draft-only text/photo builder as an accessibility fallback; accounts and cloud sync optional and soft-gated;
-no custom or trained ML. The scope has moved deliberately, each time with a dated entry in
-[`docs/decisions.md`](docs/decisions.md). The current lock is in
-[`docs/playbook/01-product-spec.md`](docs/playbook/01-product-spec.md) §4.
+draft-only text/photo builder as an accessibility fallback; no accounts or cloud sync in the app (the code is kept
+but switched off since 2026-10-02); no custom or trained ML. The scope has moved deliberately, each time with a dated entry in
+[`docs/decisions.md`](docs/decisions.md). The current lock is the "Scope lock" section of [`CLAUDE.md`](CLAUDE.md);
+[`docs/playbook/01-product-spec.md`](docs/playbook/01-product-spec.md) §4 predates the 2026-10-02 cuts.

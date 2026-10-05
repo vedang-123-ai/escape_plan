@@ -242,6 +242,8 @@ Owned classes (`ChecklistStateStoreTests`, `ScoreModelsTests`, `ReadinessStoreTe
 - [x] **Due label** (wording chosen by the owner): "Done 3 months ago · due in 3 months", "… · due again now" when lapsed,
       "Repeats every 6 months" when no date is known. Display only; worked out from the response's `completed_at`.
 - [x] **Owner answer to S11.34's question:** a lapsed monthly alarm test **keeps** lowering the smoke-alarm score. No change.
+      **Superseded 2026-10-05 by the owner (product choice):** it does NOT lower the score; the item becomes a one-time tick
+      with no date tracking. The cited monthly guidance stays in the text. Code change pending, see "S11.55 findings".
 - [x] **Manual check against the live server (simulator, no code edit):** a drill date written as "now" came back
       `done: true, completed_at` = that time; the same date moved back 200 days came back `done: false`. The alarm test row
       showed "Repeats every month" with a tick circle. Done by writing the stored date with `simctl ... defaults write`, so
@@ -461,7 +463,7 @@ session changes on purpose; that test was updated.
 - [x] **Gate (2026-10-04, after merging origin/main):** `pytest backend/tests/ -m "not live"` 1045 passed / 1 skipped / 29 deselected; `python3 backend/corpus/validate.py` valid. 21 new tests in `backend/tests/test_recurrence.py`, all through `TestClient`.
 - [x] **Mutation checks** (each made a named test fail, then restored): no clock passed to `compute_score`, legacy `true` made stale, monthly recurrence removed, timestamp validator removed, staleness comparison inverted, `completed_at` dropped from the drill item, naive timestamp not read as UTC, future-timestamp guard removed. One did NOT change the result: replacing `age < timedelta(days=N)` with `age.days < N`, because they agree for non-negative ages (the reviewer's "floor stretches the window" finding was wrong; the boundary test stays as a pin only).
 - [x] **Reviewers:** grounding-auditor: GROUNDED, no violations. ecc:python-reviewer: approve with warnings; acted on future timestamps, the non-recurring-timestamp note and five weaker tests; declined the `.days` change as a bug (above) and left `now=None` meaning "truthy is done" (only `/score` calls it and it passes `now`).
-- [ ] **Owner decision (product):** `alarm.test_monthly` is a scoring item, so a lapsed monthly test now lowers the smoke-alarm score, unlike the drill and rescan (non-punitive). Weights are unchanged; say if the monthly test should be `scoring: false` too.
+- [x] **Owner decision (product), answered 2026-10-05:** a lapsed alarm test must NOT lower the score; `alarm.test_monthly` becomes a one-time tick with no date tracking (owner's product choice, decisions.md 2026-10-05). The corpus still says test monthly [cite: usfa-smoke-alarms]; keep that in the item's text. **The code change is not done** (see "S11.55 findings").
 - [ ] **Not done: deploy not confirmed.** The branch is merged to main; whether the live service runs it was not checked in this session (`/health` `commit` is the proof). S11.35 must not ship before that is confirmed.
 - [ ] **Title wording:** "Test every smoke alarm this month" is a rolling 30 days, not a calendar month. Copy left as is.
 
@@ -3187,16 +3189,17 @@ auditors could not re-fetch it, so a person should glance at it once.
 - [ ] **`script-v2.md` lacks four things the rules require in the video:** each participant's name; a one-sentence
       purpose (suggested sentence: `docs/submission/written-answers-draft.md` Q2); the target audience; the tools and
       coding languages used. Owner: S11.13.
-- [ ] **Per-member contribution statement owed.** Rules §3: AI must be disclosed and "must not constitute the entirety
+- [ ] **Per-member contribution statement owed. Deferred by the owner 2026-10-05; he decides later.** Rules §3: AI must be disclosed and "must not constitute the entirety
       of the technical development". 513 of 634 non-merge commits on `main` carry a Claude co-author trailer (git,
       2026-10-05). Each team member writes one or two sentences on what they personally designed, decided, built or
       checked (placeholder in `written-answers-draft.md`). Owner: the team.
 - [ ] **Confirm the AI tool list is complete** (`tools-used.md`): Claude Code, Claude / Claude Design, Google
       Antigravity (Gemini); also confirm the wording that the team "directed" the spec and plans. Owner: Anish.
-- [ ] **Who is on the entry?** Max 4 students, at least half in the district. Commit authors: `vedang-123-ai`, Anish,
-      Yuki Tanaka. Owner: Anish.
-- [ ] **Judges may request the app and source code** (rules §7.3; refusing disqualifies). The repo is private. Decide
-      how to give access (GitHub collaborator or zip) and how a judge runs the app. Owner: Anish.
+- [x] **Who is on the entry?** Owner confirmed team eligibility is done (2026-10-05). Commit authors: `vedang-123-ai`,
+      Anish, Yuki Tanaka.
+- [ ] **Judges may request the app and source code** (rules §7.3; refusing disqualifies). Owner decided 2026-10-05: the
+      repo will be made public (not done yet; read "S11.55 findings" first). How a judge runs the app is still the
+      owner's call; recommendation in `docs/submission/judge-access.md`. Owner: Anish.
 - [ ] **Video on YouTube or Vimeo, set to public; deadline 12:00 pm EDT Mon Oct 26** (our target is Oct 24;
       `S11-13.md:3` calls Oct 24 "the submission deadline"). Every member completes the Exit Questionnaire afterwards.
       Owner: S11.13.
@@ -3218,3 +3221,40 @@ auditors could not re-fetch it, so a person should glance at it once.
       files.
 - [ ] **Not verified, so not claimed:** live AI behaviour (stub tests only; AUD-002); the final build on a real iPhone
       (§2); the Render dashboard setting (§1).
+
+### S11.55 findings (2026-10-05, branch s11-55-judge-access)
+
+Public-repo audit, read-only on history. Tools: gitleaks 8.30.1 (downloaded to a scratch folder, checksum checked) over
+`--all` history and the working tree; regex scans over every blob in `git rev-list --objects --all` and every commit
+message. GitHub's secret-scanning tool could not run ("Advanced Security not enabled" on a private repo). Detail in
+`docs/tracker/notes/2026-10-05-s11-55-judge-access.md`.
+
+- [x] **Secrets: none real in git history.** No Anthropic key, private key, provisioning profile, signing cert,
+      `.env` or `BackendConfig.local.json` was ever committed. gitleaks' two history hits are test fixtures (a JWT
+      for `user-abc-123` in `AuthClientTests.swift`, a token string in `TokenStoreTests.swift`). Token-like strings
+      are all dummies (`devtoken`, `dev-local-token`, `ci-dummy-bearer-token`, `live-test`, `example.net`). A local
+      `.env` holding a real Anthropic key exists on the dev Mac; it is gitignored (`.gitignore:18`) and was never committed.
+- [ ] **Commit author emails become public** with the repo: three personal email addresses. Owner call: accept, rewrite history (force-push; breaks every clone and worktree), or publish a
+      fresh repo without history. Going forward each member can use GitHub's `noreply` email. Owner: Anish.
+- [ ] **The firefighter's identifying details are in history** (city, years of service, department call volume, in
+      `01-product-spec.md` §2 and the 2026-09-18 decisions row since `fadd4a9`). Removed from the current files today;
+      old commits still show them once public. His name is not anywhere. Same owner call as above. Owner: Anish.
+- [ ] **A teammate's Mac username** (possibly a person's full name) was in an S3.3 note path; removed today, still in
+      history (`4ae3a63`). Low. Build output committed under `.build-assess/` in July (untracked in `07e413a`) carries
+      `/Users/<name>` paths for two more Macs. Low.
+- [ ] **Owner must check before flipping to public:** whether there is a paid Apple Developer membership (the repo cannot
+      tell), and after flipping, turn on GitHub secret scanning and push protection (free on public repos). Owner: Anish.
+- [ ] **Not verified: building in the Xcode app without our Apple Account.** The gate builds with
+      `CODE_SIGNING_ALLOWED=NO`; a stranger in the Xcode app may see a signing-team message. README says to pick their
+      own team or None. Needs one try on a Mac signed out of the team account. Owner: any teammate.
+- [x] **Judge path to a local server works** (2026-10-05): this branch's backend run with
+      `BACKEND_BEARER_TOKEN=judge-local-token` answered `/health`; `/routes` gave 401 without the token and 200 with
+      routes for `schema/fixtures/bungalow.json` with it.
+- [ ] **Alarm test code change pending** (owner decision 2026-10-05, decisions.md): `alarm.test_monthly`
+      (`backend/app/scoring/checklist.py`) must stop lowering the score and become a one-time tick with no date. Keep the
+      corpus-cited "test every alarm monthly" guidance in its title and text; change only scoring and date tracking.
+      Today it recurs every 30 days and scores. Not done here; a later session owns it (backend scoring plus the S11.35 app code).
+- [ ] **Still-open owner questions:** keep or delete `docs/ai-assistance/improved_prompt.md` (S11.47); should
+      `alarm.replace_10y` become tickable (S11.35); may the firefighter be named or quoted (S11.12, S11.13).
+- [ ] **CAC portal "Submission Checklist" not read** (needs a login): check whether the form asks for an app or code
+      link. Owner: Anish.

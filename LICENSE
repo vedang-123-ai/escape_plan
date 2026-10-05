@@ -1,0 +1,19 @@
+Copyright (c) 2026 the Escape Plan team. All rights reserved.
+
+This repository is public so that Congressional App Challenge 2026 judges, and anyone else, can read the source
+code, build it and run it to evaluate the app. No other licence is granted: you may not copy, modify, redistribute
+or publish this code or its content, in whole or in part, without written permission from the team.
+
+Congressional App Challenge: entering the Challenge grants Congress and the Challenge administrator the royalty-free
+licence described in the 2026 CAC Rules, section 11. Nothing in this file limits that licence.
+
+Third-party material keeps its own terms:
+
+- Python packages used by the backend are listed with their licences in docs/tools-used.md. They are installed from
+  PyPI and are not copied into this repository.
+- The safety guidance in backend/corpus/ is our own paraphrase of public material from the sources listed in
+  backend/corpus/sources.json (FEMA, NFPA, the American Red Cross, USFA, NOAA, USGS and others). Those
+  organisations own their original publications and do not endorse this app.
+- Apple frameworks (SwiftUI, SceneKit, RoomPlan and others) are used under Apple's SDK licence and are not included.
+
+The team may replace this file with an open-source licence after judging ends.
