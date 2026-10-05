@@ -26,19 +26,12 @@ __pycache__/
 .pytest_cache/
 .venv/
 
-# Build artifacts: S2.4 export acceptance, SwiftPM harnesses (tools/editorcore), xcodebuild CLI output
+# Build artifacts: SwiftPM (tools/editorcore) and xcodebuild CLI output. `.build-*` covers derived-data folders,
+# logs and .xcresult bundles left in the repo root; put new logs under `.build/logs/` instead (scripts/clean.sh wipes both).
 .build/
-.build-*/
+.build-*
 build/
 
 # S1.3 acceptance run artifacts (screenshots + test logs) — regenerate via scripts/s13-acceptance.sh
 artifacts/
-.build-s13/
-# xcodebuild -derivedDataPath output from the 2026-07-22 integration verification pass
-.build-merge/
-# private derived data for the 2026-07-22 device-acceptance pass (isolated from concurrent sessions)
-.build-p3/
-# Lane A (lane/editor) derived data — parallel-lane isolation
-.build-laneA/
-.build-*.log
 demo-homes/
