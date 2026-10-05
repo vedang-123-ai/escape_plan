@@ -30,7 +30,14 @@ def migrate(data: Any) -> Any:
     version = data.get("schema_version")
     if not version:
         raise ValueError("The document has no schema_version and cannot be read safely.")
-        
+    if not isinstance(version, str):
+        # A number (2.1), bool or list reached `.split` below and raised
+        # AttributeError, which pydantic does not catch: a 500 instead of a 422 (S11.52).
+        raise ValueError(
+            f"schema_version must be a string such as \"{CURRENT_VERSION}\", "
+            f"got {type(version).__name__}."
+        )
+
     if version == CURRENT_VERSION:
         return data
         

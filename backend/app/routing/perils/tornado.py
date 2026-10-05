@@ -158,26 +158,40 @@ def find_tornado_shelter(
     graph: NavGraph,
     source_room_id: str,
     openings: dict,
-    constraints: RoutingConstraints
+    constraints: RoutingConstraints,
+    exposure_cache: Optional[dict[str, tuple[int, int]]] = None,
 ) -> tuple[Optional[str], Optional[Route]]:
-    """Find the best tornado safe room from the source room."""
+    """Find the best tornado safe room from the source room.
+
+    `exposure_cache` maps room id -> (exterior walls, exterior openings). Both
+    depend only on the home, never on the source room, so compute_route_plan
+    passes one dict for the whole plan. S11.52: recounting them for every
+    (source, target) pair made a 200-room tornado plan take ~25 s. The caller
+    owns the dict; nothing here is global.
+    """
     reachable = dijkstra_to_all_rooms(graph, source_room_id, openings, constraints)
-    
+
     floors = {f.id: f for f in home.floors}
     rooms = {r.id: r for f in home.floors for r in f.rooms}
-    
+    if exposure_cache is None:
+        exposure_cache = {}
+
     candidates = []
     for target_id, search_result in reachable.items():
         room = rooms[target_id]
         floor = floors[graph.nodes[target_id].floor_id]
-        
-        ext_walls = count_exterior_walls(room, floor)
-        ext_openings = count_exterior_openings(room, floor)
-        dist = sum(e.weight for e in search_result.edges)
-        
+
         if floor.level > 0:
             continue
-            
+
+        if target_id not in exposure_cache:
+            exposure_cache[target_id] = (
+                count_exterior_walls(room, floor),
+                count_exterior_openings(room, floor),
+            )
+        ext_walls, ext_openings = exposure_cache[target_id]
+        dist = sum(e.weight for e in search_result.edges)
+
         candidates.append({
             "room_id": target_id,
             "level": floor.level,
