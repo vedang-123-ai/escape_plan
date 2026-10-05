@@ -15,13 +15,13 @@ submission "cannot be modified in any way" (rules §4).
 
 | Item | Status | Notes |
 |---|---|---|
-| Every team member is enrolled in middle or high school on Oct 26, 2026 | PERSON | |
-| Team has at most 4 students; at least half live or go to school in the same district | PERSON | Commit authors on `main` are `vedang-123-ai`, Anish Yarrakonda and Yuki Tanaka; 22 more commits are authored by "Claude" (an AI agent, not a team member). Confirm who is on the entry |
-| The district is hosting a 2026 App Challenge | PERSON | Check on the CAC site |
-| Each person enters only one app, in one district | PERSON | |
+| Every team member is enrolled in middle or high school on Oct 26, 2026 | DONE | Owner confirmed 2026-10-05 |
+| Team has at most 4 students; at least half live or go to school in the same district | DONE | Owner confirmed 2026-10-05. Commit authors on `main` are `vedang-123-ai`, Anish Yarrakonda and Yuki Tanaka; 22 more commits are authored by "Claude" (an AI agent, not a team member). Entry confirmed by the owner |
+| The district is hosting a 2026 App Challenge | DONE | Owner confirmed 2026-10-05 |
+| Each person enters only one app, in one district | DONE | Owner confirmed 2026-10-05 |
 | App was created after Oct 30, 2025 | DONE | First commit on `main` is 2026-07-10 |
-| Register: personal (not school) email, home address with 9-digit ZIP, district and Member of Congress; school address with 9-digit ZIP; a parent or guardian's name and email; coding teacher or mentor (optional) | PERSON | For every team member |
-| One teammate creates the team profile and invites the others; everyone completes a personal profile and the eligibility quiz | PERSON | The application opens after the eligibility email arrives |
+| Register: personal (not school) email, home address with 9-digit ZIP, district and Member of Congress; school address with 9-digit ZIP; a parent or guardian's name and email; coding teacher or mentor (optional) | DONE (inferred) | Owner confirmed 2026-10-05 that team eligibility is done, which needs this for every member; not confirmed for this row specifically |
+| One teammate creates the team profile and invites the others; everyone completes a personal profile and the eligibility quiz | DONE (inferred) | Owner confirmed 2026-10-05 that team eligibility is done; not confirmed for this row specifically. The application opens after the eligibility email arrives |
 
 ## Demonstration video (rules §4)
 
@@ -49,14 +49,14 @@ submission "cannot be modified in any way" (rules §4).
 | What we learned, including how the firefighter interview changed the product | DRAFTED | [`what-we-learned.md`](what-we-learned.md) |
 | All open-source libraries, frameworks and external tools documented | DONE | [`../tools-used.md`](../tools-used.md), completed 2026-10-05 |
 | All AI usage fully disclosed | DRAFTED | `tools-used.md` "AI tools used to build the app". A person must confirm the list is complete (owner said Claude and Google Antigravity/Gemini only, 2026-09-29) |
-| A statement of each member's own contribution and understanding | PERSON | The rules: AI "must not constitute the entirety of the technical development". 513 of 634 non-merge commits carry a Claude co-author line, so this sentence matters (BLOCKERS, S11.51) |
+| A statement of each member's own contribution and understanding | PERSON (deferred) | Owner deferred this on 2026-10-05 and will decide later. The rules: AI "must not constitute the entirety of the technical development". 513 of 634 non-merge commits carry a Claude co-author line, so this sentence matters (BLOCKERS, S11.51) |
 | Firefighter: not named or quoted unless he agrees | PERSON | S11.13 emails him. All drafts here say only "a working firefighter" |
 
 ## Judges' access (rules §7)
 
 | Item | Status | Notes |
 |---|---|---|
-| Be able to give judges the app and the source code on request | PERSON | The repo is private (`vedang-123-ai/escape_plan`). Decide how: add a judge as a GitHub collaborator, or send a zip. Decide how a judge runs the app (TestFlight or in person). Refusing a request means disqualification |
+| Be able to give judges the app and the source code on request | PERSON | Owner decided 2026-10-05 to make the repo (`vedang-123-ai/escape_plan`) **public**; not done yet, and read the S11.55 findings in BLOCKERS first. How a judge runs the app is undecided: the recommendation (video + live demo on the team iPhone + build from source, TestFlight only if a parent pays $99) is in [`judge-access.md`](judge-access.md). Refusing a request means disqualification |
 | The deployed backend is up and its token matches the app | PERSON (last verified 2026-09-29) | Preflight passed `/routes` and `/score` on 2026-09-29; re-run `python3 scripts/demo-preflight.py` before submitting |
 
 ## After submitting

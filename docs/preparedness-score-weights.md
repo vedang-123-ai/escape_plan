@@ -99,7 +99,7 @@ including that the high-severity cap above (40) always reads "Needs work", and t
 
 `/score` accepts a completion time per recurring item (`checklist_state` value: an ISO-8601 UTC timestamp, or a bare `true`) and judges it against the server clock. Intervals: `practice.drill_recent` and `rescan.home` 183 days; `alarm.test_monthly` 30 days (corpus: "test every alarm monthly", `usfa-smoke-alarms`). A bare `true` means "done at an unknown time" and stays done until a timestamp replaces it. The response carries each item's `recurrence_days` and the `completed_at` the server used.
 
-`alarm.test_monthly` is a `scoring: true` smoke-alarm item, so unlike the drill and the rescan, **a lapsed monthly test does lower the score** (one smoke-alarm item's share, until the user tests again). Weights are unchanged; only the item can now lapse. Pinned by `backend/tests/test_recurrence.py`.
+`alarm.test_monthly` is a `scoring: true` smoke-alarm item, so unlike the drill and the rescan, **a lapsed monthly test does lower the score** (one smoke-alarm item's share, until the user tests again). Weights are unchanged; only the item can now lapse. Pinned by `backend/tests/test_recurrence.py`. **The owner reversed this on 2026-10-05:** a lapsed test should not lower the score and the item becomes a one-time tick; code change pending (BLOCKERS, S11.55).
 
 ## Worked examples
 
