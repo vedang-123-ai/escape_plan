@@ -32,6 +32,9 @@ struct BackendFailureBanner: View {
 
     @State private var showingSettings = false
     @State private var isHidden = false
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var hasActions: Bool { (failure.isRetryable && retry != nil) || failure.suggestsSettings || autoHides }
 
     static let autoHideDelay: Duration = .seconds(8)
 
@@ -64,51 +67,24 @@ struct BackendFailureBanner: View {
         .sheet(isPresented: $showingSettings) { SettingsScreen() }
     }
 
+    /// At the accessibility text sizes the buttons move under the message: side by side they
+    /// squeezed it into a column one syllable wide over House's model (S11.57, found at XXXL).
     private var banner: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: failure.symbol)
-                .foregroundStyle(tint)
-                .accessibilityHidden(true)
+        let large = typeSize.isAccessibilitySize
+        let layout = large ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                           : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 10))
+        return layout {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: failure.symbol)
+                    .foregroundStyle(tint)
+                    .accessibilityHidden(true)
 
-            Text(failure.message)
-                .font(.caption)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            if failure.isRetryable, let retry {
-                Button("Retry", action: retry)
-                    .font(.caption.bold())
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.accentText)
-                    .minimumTapTarget()
-                    .accessibilityIdentifier("failure.retry")
-                    .accessibilityLabel("Try again")
+                Text(failure.message)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            if failure.suggestsSettings {
-                Button("Settings") {
-                    if let openSettings { openSettings() } else { showingSettings = true }
-                }
-                .font(.caption.bold())
-                .buttonStyle(.plain)
-                .foregroundStyle(Theme.accentText)
-                .minimumTapTarget()
-                .accessibilityIdentifier("failure.settings")
-                .accessibilityLabel("Open Settings")
-                .accessibilityHint("Check the server address and access token.")
-            }
-            if autoHides {
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) { isHidden = true }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .minimumTapTarget()
-                .accessibilityIdentifier("failure.dismiss")
-                .accessibilityLabel("Dismiss")
-            }
+            if hasActions { HStack(alignment: .firstTextBaseline, spacing: 10) { actions } }
         }
         .padding(12)
         .glassPanel(cornerRadius: 14)
@@ -122,6 +98,44 @@ struct BackendFailureBanner: View {
             AccessibilityNotification.Announcement(message).post()
         }
         .transition(.opacity)
+    }
+
+    @ViewBuilder
+    private var actions: some View {
+        if failure.isRetryable, let retry {
+            Button("Retry", action: retry)
+                .font(.caption.bold())
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.accentText)
+                .minimumTapTarget()
+                .accessibilityIdentifier("failure.retry")
+                .accessibilityLabel("Try again")
+        }
+        if failure.suggestsSettings {
+            Button("Settings") {
+                if let openSettings { openSettings() } else { showingSettings = true }
+            }
+            .font(.caption.bold())
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.accentText)
+            .minimumTapTarget()
+            .accessibilityIdentifier("failure.settings")
+            .accessibilityLabel("Open Settings")
+            .accessibilityHint("Check the server address and access token.")
+        }
+        if autoHides {
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) { isHidden = true }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .minimumTapTarget()
+            .accessibilityIdentifier("failure.dismiss")
+            .accessibilityLabel("Dismiss")
+        }
     }
 
     /// Only a genuine fault gets the warning red. Offline and cached-data notices are states,

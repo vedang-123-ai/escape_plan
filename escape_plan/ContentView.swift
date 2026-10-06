@@ -34,7 +34,8 @@ struct ContentView: View {
         // here because `HomeLibrary` has no default for it (S11.50: tests stay out of it).
         let library = HomeLibrary(store: store, conversations: try? ConversationStore())
         _library = StateObject(wrappedValue: library)
-        _readiness = State(wrappedValue: ReadinessStore(library: library))
+        // The real memory, so the chosen home survives a relaunch (S53-2).
+        _readiness = State(wrappedValue: ReadinessStore(library: library, homeMemory: ActiveHomeMemory()))
         self.storageUnavailable = storageUnavailable
     }
 

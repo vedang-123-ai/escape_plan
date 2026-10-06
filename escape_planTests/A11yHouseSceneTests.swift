@@ -285,7 +285,7 @@ struct HouseSceneStepsTests {
         let (home, plan) = try bed()
         let spoken = HouseSceneAccessibility.spokenSteps(for: plan, in: home, drawn: nil)
         let steps = HouseSceneAccessibility.steps(for: plan, in: home, drawn: nil)
-        #expect(spoken.hasPrefix("Route from the Bedroom, \(steps.count) steps."))
+        #expect(spoken.hasPrefix("Route from the Bedroom, \(CountPhrase.of(steps.count, "step"))."))
         for step in steps {
             #expect(spoken.contains(step.spoken))
         }

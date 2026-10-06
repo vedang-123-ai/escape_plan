@@ -113,7 +113,7 @@ final class OnboardingTests: XCTestCase {
         XCTAssertTrue(state.commitAndFinish(), state.commitError ?? "")
     }
 
-    /// The answers land on the ACTIVE home — the first home in the library, which is the one
+    /// The answers land on the ACTIVE home — with one home, that home; the one
     /// `ReadinessStore` shows — not on a demo copy nobody is looking at, and not nowhere.
     @MainActor
     func testProfilesAndTenureLandOnTheActiveHome() throws {
@@ -144,6 +144,38 @@ final class OnboardingTests: XCTestCase {
         XCTAssertTrue(grandpa.tags.contains(.mobility_limited))
         XCTAssertEqual(saved.household?.tenure, .rent)
         XCTAssertEqual(store.list().count, 1, "no demo copy was added alongside the user's home")
+    }
+
+    /// S11.57: with several homes, the answers go to the home the app opens on: the remembered
+    /// home if there is one, else the demo home, even when the demo home is not first on disk.
+    @MainActor
+    func testAnswersLandOnTheRememberedHomeElseTheDemoHome() throws {
+        let store = try HomeDocumentStore(directory: scratch)
+        let ids = ["home-a", "home-b", "home-demo"]
+        for id in ids {
+            var model = try FixtureLoader.load(.bungalow)
+            model.home_id = id
+            model.profiles = []
+            try store.save(model: model)
+        }
+        XCTAssertNotEqual(store.list().first?.id, "home-demo", "fixture: the demo home must not be first")
+
+        func commit(memory: ActiveHomeMemory?) throws -> String? {
+            let state = OnboardingState(documentStore: store, homeMemory: memory, demoHomeID: "home-demo")
+            state.seedIfNeeded()
+            state.persons = [OnboardingState.Person(name: "Maya", age: "7")]
+            XCTAssertTrue(state.commitAndFinish(), state.commitError ?? "")
+            return state.committedHomeID
+        }
+
+        XCTAssertEqual(try commit(memory: nil), "home-demo")
+
+        let suite = "OnboardingTests.memory.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let memory = ActiveHomeMemory(defaults: defaults)
+        memory.remember("home-b")
+        XCTAssertEqual(try commit(memory: memory), "home-b")
     }
 
     @MainActor
