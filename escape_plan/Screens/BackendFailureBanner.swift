@@ -102,40 +102,40 @@ struct BackendFailureBanner: View {
 
     @ViewBuilder
     private var actions: some View {
-            if failure.isRetryable, let retry {
-                Button("Retry", action: retry)
-                    .font(.caption.bold())
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.accentText)
-                    .minimumTapTarget()
-                    .accessibilityIdentifier("failure.retry")
-                    .accessibilityLabel("Try again")
-            }
-            if failure.suggestsSettings {
-                Button("Settings") {
-                    if let openSettings { openSettings() } else { showingSettings = true }
-                }
+        if failure.isRetryable, let retry {
+            Button("Retry", action: retry)
                 .font(.caption.bold())
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.accentText)
                 .minimumTapTarget()
-                .accessibilityIdentifier("failure.settings")
-                .accessibilityLabel("Open Settings")
-                .accessibilityHint("Check the server address and access token.")
+                .accessibilityIdentifier("failure.retry")
+                .accessibilityLabel("Try again")
+        }
+        if failure.suggestsSettings {
+            Button("Settings") {
+                if let openSettings { openSettings() } else { showingSettings = true }
             }
-            if autoHides {
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) { isHidden = true }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .minimumTapTarget()
-                .accessibilityIdentifier("failure.dismiss")
-                .accessibilityLabel("Dismiss")
+            .font(.caption.bold())
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.accentText)
+            .minimumTapTarget()
+            .accessibilityIdentifier("failure.settings")
+            .accessibilityLabel("Open Settings")
+            .accessibilityHint("Check the server address and access token.")
+        }
+        if autoHides {
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) { isHidden = true }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
             }
+            .buttonStyle(.plain)
+            .minimumTapTarget()
+            .accessibilityIdentifier("failure.dismiss")
+            .accessibilityLabel("Dismiss")
+        }
     }
 
     /// Only a genuine fault gets the warning red. Offline and cached-data notices are states,

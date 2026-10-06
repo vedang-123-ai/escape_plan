@@ -199,7 +199,6 @@ struct ChecklistItem: Codable, Identifiable, Hashable {
         self.severity = severity
         self.recurrence_days = recurrence_days
         self.completed_at = completed_at
-        dropRetiredRecurrence()
     }
 }
 
@@ -216,7 +215,10 @@ extension ChecklistItem {
 
     /// A score cached before the change still says the alarm test recurs every 30 days. Read
     /// that as the item is now: no recurrence, so no date is stored for it and no
-    /// "due in ..." line is shown, whatever the cache says.
+    /// "due in ..." line is shown, whatever the cache says. Applied when decoding (the one way a
+    /// score enters the app, live or cached), deliberately: a reviewer suggested the consumer, but
+    /// every reader (Home, Tasks, the detail sheet, `TaskDestination`) would then have to remember it.
+    /// The live server already sends no recurrence for it, so only an old cache is changed.
     fileprivate mutating func dropRetiredRecurrence() {
         guard isFormerlyRecurring else { return }
         recurrence_days = nil

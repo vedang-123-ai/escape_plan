@@ -161,9 +161,18 @@ final class HomeDeleteUITests: XCTestCase {
         XCTAssertTrue(app.buttons[activeID].waitForNonExistence(timeout: 10))
         let next = rows(app).firstMatch
         if next.waitForExistence(timeout: 5) {
-            let current = rows(app).matching(NSPredicate(format: "label CONTAINS 'current home'")).firstMatch
-            XCTAssertTrue(current.waitForExistence(timeout: 10), "No home became active after the delete.")
-            XCTAssertNotEqual(current.identifier, activeID)
+            // S11.57: the next home is the demo home (Two-Story House) when it exists, else the
+            // first; it may sit far down a long list, off screen, so read it from Home's switcher.
+            let demoRow = rows(app).matching(NSPredicate(format: "label BEGINSWITH 'Two-Story House'")).firstMatch
+            let demoListed = demoRow.exists
+            closeYourHomes(app)
+            let switcher = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Home: '")).firstMatch
+            XCTAssertTrue(switcher.waitForExistence(timeout: 10))
+            XCTAssertFalse(switcher.label.hasPrefix("Home: none"), "No home became active after the delete.")
+            if demoListed {
+                XCTAssertTrue(switcher.label.hasPrefix("Home: Two-Story House."),
+                              "Deleting the active home should open the demo home: \(switcher.label)")
+            }
         } else {
             closeYourHomes(app)
             XCTAssertTrue(app.staticTexts["Map your home"].waitForExistence(timeout: 10))

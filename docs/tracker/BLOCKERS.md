@@ -271,7 +271,8 @@ Owned classes (`ChecklistStateStoreTests`, `ScoreModelsTests`, `ReadinessStoreTe
       "Repeats every 6 months" when no date is known. Display only; worked out from the response's `completed_at`.
 - [x] **Owner answer to S11.34's question:** a lapsed monthly alarm test **keeps** lowering the smoke-alarm score. No change.
       **Superseded 2026-10-05 by the owner (product choice):** it does NOT lower the score; the item becomes a one-time tick
-      with no date tracking. The cited monthly guidance stays in the text. Code change pending, see "S11.55 findings".
+      with no date tracking. The cited monthly guidance stays in the text. Done in S11.57 (see "S11.57 findings"): it
+      still ticks in place, shows no due label, and an old stored date reads as done.
 - [x] **Manual check against the live server (simulator, no code edit):** a drill date written as "now" came back
       `done: true, completed_at` = that time; the same date moved back 200 days came back `done: false`. The alarm test row
       showed "Repeats every month" with a tick circle. Done by writing the stored date with `simctl ... defaults write`, so
@@ -3296,7 +3297,7 @@ message. GitHub's secret-scanning tool could not run ("Advanced Security not ena
 - [x] **Judge path to a local server works** (2026-10-05): this branch's backend run with
       `BACKEND_BEARER_TOKEN=judge-local-token` answered `/health`; `/routes` gave 401 without the token and 200 with
       routes for `schema/fixtures/bungalow.json` with it.
-- [ ] **Alarm test code change pending** (owner decision 2026-10-05, decisions.md): `alarm.test_monthly`
+- [x] **Done in S11.57 (2026-10-05)**, see "S11.57 findings". Original line: **Alarm test code change pending** (owner decision 2026-10-05, decisions.md): `alarm.test_monthly`
       (`backend/app/scoring/checklist.py`) must stop lowering the score and become a one-time tick with no date. Keep the
       corpus-cited "test every alarm monthly" guidance in its title and text; change only scoring and date tracking.
       Today it recurs every 30 days and scores. Not done here; a later session owns it (backend scoring plus the S11.35 app code).
@@ -3312,18 +3313,18 @@ token, against the live Render backend (its `/health` reports commit `988fe94`).
 The walk driver is `escape_planUITests/SimulatorWalkUITests.swift` (skipped unless `TEST_RUNNER_WALK_OUT=<dir>`).
 Only what was seen on screen or in the accessibility tree is written here.
 
-- [ ] **S53-1 · A fresh install opens on "Jagged Stack", a floor-stacking test model, not a demo home.** Repro: delete
+- [x] **FIXED in S11.57 (see "S11.57 findings").** **S53-1 · A fresh install opens on "Jagged Stack", a floor-stacking test model, not a demo home.** Repro: delete
       the app, launch, go past onboarding, Home tab. Expected: a realistic starter home (Two-Story House, which the demo
       and the screenshot drivers address). Actual: "Jagged Stack · 8 rooms · 3 floors · Scanned 32 days ago", and House
       shows its "Blocked doorway" finding. Cause (read, not changed): `FixtureSeeder.seedStarterHomes` seeds every
       `HomeFixture.allCases`, which includes `.jagged` (four homes, not the three its comment says), and
       `ReadinessStore.init` picks `library.homes.first`. Evidence `02-fresh-install-home-jagged-stack.jpg`,
       `03-home-switcher-four-homes.jpg`. Owner: lane D (app source).
-- [ ] **S53-2 · The chosen home is not remembered across a relaunch.** Repro: Home, tap the home name, pick Two-Story
+- [x] **FIXED in S11.57.** **S53-2 · The chosen home is not remembered across a relaunch.** Repro: Home, tap the home name, pick Two-Story
       House, quit the app, relaunch. Expected: Two-Story House. Actual: back on Jagged Stack (seen in three separate
       runs). `ReadinessStore.init` sets `activeHomeID = library.homes.first?.id` and nothing persists the choice. For
       filming, pick the home again after every relaunch. Evidence `04-after-relaunch-back-on-jagged.jpg`. Owner: lane D.
-- [ ] **S53-3 · Earthquake and tornado routes or shelters cannot be seen anywhere in the app.** House offers only
+- [x] **FIXED in S11.57 by correcting the claims (owner: fire routes only).** **S53-3 · Earthquake and tornado routes or shelters cannot be seen anywhere in the app.** House offers only
       "Escape routes" (fire) and "Fire simulation"; the More menu has rename and delete only; no screen sends a non-fire
       peril to `/routes`. The live server does compute them (`/routes` with `peril: tornado` / `earthquake` on
       twostory returned 7 room plans each, the tornado ones ending in a shelter room). In the app, earthquake and
@@ -3331,14 +3332,14 @@ Only what was seen on screen or in the accessibility tree is written here.
       `CLAUDE.md`'s opening says routes and shelters for all three perils are "drawn as animated paths"; the pitch v2
       script does not claim it. Decide: build a peril picker, or correct the claim (pitch-truth-auditor). Evidence
       `06-house-routes-fire-only-dock.jpg`, `05-score-breakdown-three-perils.jpg`.
-- [ ] **S53-4 · Largest Dynamic Type (Accessibility XXXL) breaks words and hides labels.** Repro: launch with
+- [x] **FIXED in S11.57.** **S53-4 · Largest Dynamic Type (Accessibility XXXL) breaks words and hides labels.** Repro: launch with
       `-UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityXXXL` (or set it in iOS Settings). Home:
       the score pill and "Breakdown" break inside words ("So / me / gap / s to / clos / e", "Brea / kdo / wn").
       Tasks: peril filter pills clip ("Earthqua…") and a chip outline crosses the "Fire" text. House: the floor chips
       show only "…" (floor names unreadable) and the dock reads "Escap…" / "Fire si…". Expected: text wraps at word
       boundaries and every control keeps a readable label. Evidence `15-ax-xxxl-home.jpg`,
       `16-ax-xxxl-home-scrolled.jpg`, `17-ax-xxxl-tasks.jpg`, `18-ax-xxxl-house.jpg`. Owner: lane D.
-- [ ] **S53-5 · VoiceOver labels, read from the accessibility tree (VoiceOver itself was not run).** In the fire
+- [x] **FIXED in S11.57 (what VoiceOver actually speaks still needs the device pass).** **S53-5 · VoiceOver labels, read from the accessibility tree (VoiceOver itself was not run).** In the fire
       simulation's "Who does what" panel, icons expose raw SF Symbol names as labels: `figure.stand`, `arrow.forward`,
       `door.left.hand.open`. Counts read "1 issues" (simulation check) and "Done, 1 items" (Tasks group). The Home score
       card's labelled container is element type Other, not Button, with a separate inner Button. What VoiceOver actually

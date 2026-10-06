@@ -84,13 +84,22 @@ struct escape_planApp: App {
         // UI tests only (S11.57): a /score answer handed in by the test, cached for every home, so
         // the layout tests see a score card and a checklist with no server running. The app shows
         // it exactly as it shows any cached score; the live /score still runs (and fails offline).
-        if let json = ProcessInfo.processInfo.environment["UITEST_CANNED_SCORE"],
-           let canned = try? JSONDecoder().decode(ScoreBreakdown.self, from: Data(json.utf8)),
-           let cache = try? ScoreCache() {
-            for summary in homeStore.list() {
-                var score = canned
-                score.home_id = summary.id
-                cache.save(score, for: summary.id)
+        // Tagged by its `home_name`, and removed again on the next launch without the variable, so a
+        // canned score never outlives the UI test run on this simulator.
+        if let cache = try? ScoreCache() {
+            let tag = "UITEST_CANNED_SCORE"
+            if let json = ProcessInfo.processInfo.environment[tag],
+               let canned = try? JSONDecoder().decode(ScoreBreakdown.self, from: Data(json.utf8)) {
+                for summary in homeStore.list() {
+                    var score = canned
+                    score.home_id = summary.id
+                    score.home_name = tag
+                    cache.save(score, for: summary.id)
+                }
+            } else {
+                for summary in homeStore.list() where cache.load(homeID: summary.id)?.home_name == tag {
+                    cache.remove(homeID: summary.id)
+                }
             }
         }
 #endif
