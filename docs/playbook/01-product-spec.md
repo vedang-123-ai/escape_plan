@@ -44,7 +44,7 @@ in a curated, cited FEMA / NFPA / Red Cross / USFA corpus.
 | **Improve** | Home tab | Reframed around readiness and prevention (S11.5) |
 | **Cut** | Any claim that firefighters navigate with the app; self-reported clutter feeding a department database; Vision photo-assist (S7.9 was a NO-GO); anything needing custom ML | Not credible, not legal, or not built on evidence |
 
-## 4. Scope lock (restated 2026-09-18)
+## 4. Scope lock (restated 2026-09-18; fire-only routes in the app 2026-10-05)
 
 - **Perils:** fire + earthquake + severe weather (tornado) in the score and checklist. No fourth peril.
   **Routes drawn in the app: fire only** (2026-10-05). The engine's earthquake and tornado plans stay in

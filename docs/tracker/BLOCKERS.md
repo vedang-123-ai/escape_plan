@@ -213,7 +213,7 @@ skipped, 31 deselected**; EditorCore 646, 0 failures; corpus valid; typecheck ok
       stale plan is shown, a bigger call).
 - [ ] **The due label still uses the phone's clock.** With a clock far off it can read "Done today · due again now"
       next to the clock notice. Display only; the server still decides done.
-- [ ] **Owner decisions, untouched on purpose:** the lapsed monthly alarm test lowering the score, `alarm.replace_10y`
+- [ ] **Owner decisions, untouched on purpose:** ~~the lapsed monthly alarm test lowering the score~~ (done S11.57: one-time tick), `alarm.replace_10y`
       not tickable, the "this month" wording, and the on-device Tasks drill row check (all in S11.35's section).
 
 ### S11.52 findings (2026-10-05, branch `s11-52-engine-stress`)
@@ -331,7 +331,7 @@ Owned classes (`ChecklistStateStoreTests`, `ScoreModelsTests`, `ReadinessStoreTe
       that date and sent again (one extra `/score`). In memory only: if the app quits first, the plain `true` stays.
 - [ ] **`alarm.replace_10y` is still not tickable** (sent to House, nothing ticks it). Same shape as the monthly test; not
       changed because nobody asked. Owner call.
-- [ ] **Title wording:** "Test every smoke alarm this month" is a rolling 30 days. Server copy, not changed (S11.34's line stands).
+- [ ] **Title wording:** "Test every smoke alarm this month" now sits on a one-time tick (S11.57; no 30-day window any more). The title and its cited monthly guidance stay as the owner asked; whether "this month" reads oddly on a one-time tick is an owner copy call.
 
 ### S11.46 findings (2026-10-04, branch s11-46-ci-gating)
 
@@ -551,7 +551,7 @@ session changes on purpose; that test was updated.
 - [x] **Reviewers:** grounding-auditor: GROUNDED, no violations. ecc:python-reviewer: approve with warnings; acted on future timestamps, the non-recurring-timestamp note and five weaker tests; declined the `.days` change as a bug (above) and left `now=None` meaning "truthy is done" (only `/score` calls it and it passes `now`).
 - [x] **Owner decision (product), answered 2026-10-05:** a lapsed alarm test must NOT lower the score; `alarm.test_monthly` becomes a one-time tick with no date tracking (owner's product choice, decisions.md 2026-10-05). The corpus still says test monthly [cite: usfa-smoke-alarms]; keep that in the item's text. **Done in S11.57** (see "S11.57 findings").
 - [ ] **Not done: deploy not confirmed.** The branch is merged to main; whether the live service runs it was not checked in this session (`/health` `commit` is the proof). S11.35 must not ship before that is confirmed.
-- [ ] **Title wording:** "Test every smoke alarm this month" is a rolling 30 days, not a calendar month. Copy left as is.
+- [ ] **Title wording:** superseded by S11.57: the item is a one-time tick, so there is no rolling 30 days. Open question only: "this month" on a one-time tick (owner copy call; guidance unchanged).
 
 ### S11.48 findings (2026-10-04, branch s11-48-library-listing)
 
@@ -3458,7 +3458,57 @@ Python 3.12.13 venv, Xcode 26.6. Detail: `docs/tracker/notes/2026-10-05-s11-58-r
       keeps "choose your own team or None" as a fallback. Owner: any teammate with Xcode open.
 - [ ] **Not run: the full `xcodebuild test` suite from the fresh tree** (another agent was queued on the simulator;
       S11.53 ran the same suite on `main`). Owner: next gate run.
-- [ ] **`backend/README.md` drift (owned by agent H this round, not edited here):** line 11 installs without a venv and
+- [x] **Fixed in S11.57 (venv + `requirements-dev.txt`, AI-route key line, twostory scores 66).** **`backend/README.md` drift (owned by agent H this round, not edited here):** line 11 installs without a venv and
       without pytest while line 17 runs pytest (needs `requirements-dev.txt`); line 13 key "only needed for /explain"
       (also `/analyze`, `/chat`, `/build`); lines 86-88 say twostory "with an empty checklist scores 75" but the server
       returns 66 empty and 71 for the example shown. Owner: whoever owns `backend/README.md` next.
+
+### S11.57 findings (2026-10-05, branch `s11-57-defect-fixes`) · S53-1 to S53-5, one-time alarm test, fire-only claims
+
+Note: `docs/tracker/evidence/s11-56/` holds THIS session's screenshots (the brief named that folder before the README
+session took the number S11.56). `before-*` are the S11.53 walk's own images (origin/main 988fe94; the XXXL ones show
+Jagged Stack); `after-*` are `LargestTextUITests` attachments (Two-Story House, offline, canned score). Detail:
+`docs/tracker/notes/2026-10-05-s11-57-defect-fixes.md`.
+
+- [x] **S53-1 fixed:** a fresh install seeds Bungalow, Apartment 4B, Two-Story House (`FixtureSeeder.starterFixtures`) and
+      opens on Two-Story House. Test `HomeLibraryEditorSeamTests.testAFreshInstallGetsTheThreeDemoHomesAndOpensOnTwoStory`
+      (mutation: seeding `allCases` again fails it). Existing installs keep a Jagged Stack they already have.
+- [x] **S53-2 fixed:** `Readiness/ActiveHomeMemory` (UserDefaults `readiness.activeHomeID`): remembered, else Two-Story,
+      else first, at launch, after a delete, and for onboarding's household target. Tests: 5 in `ReadinessStoreTests`
+      (first launch, relaunch, delete active, remembered home deleted, delete last), `ActiveHomeMemoryTests` (5, also run
+      by `swift test`), `OnboardingTests.testAnswersLandOnTheRememberedHomeElseTheDemoHome`, UI
+      `LargestTextUITests.testTheChosenHomeSurvivesARelaunch`. All mutation-checked. `HomeDeleteUITests` now reads the
+      new active home from Home's switcher (the demo home can sit off screen in a long list).
+- [x] **S53-3 fixed by correcting the claims** (owner: the app shows fire routes only): `CLAUDE.md`, `escape_plan/CLAUDE.md`,
+      spec §1 and §4, `script-v2.md`, `claims-ledger-v2.md`, `backend/README.md`; decisions row 2026-10-05. No in-app string
+      claimed non-fire routes. Backend capability and tests untouched.
+- [x] **S53-4 fixed** at the accessibility sizes (default layout kept; one deliberate default change: dock segments 44 pt,
+      were 40). UI test `LargestTextUITests` at Accessibility XXXL: score card, four Tasks filters, both floor chips and
+      both dock segments exist, are hittable, at least 44 pt tall and inside the screen; the dock stacks. Default-size
+      test: dock side by side. Mutation-checked (filters back to a scroll row: "earthquake runs off the right edge";
+      dock never stacks: fails). Found and fixed on the way: at XXXL House's offline notice pushed the floor chips out of
+      the scene card and broke mid-word.
+- [x] **S53-5 fixed:** "1 issue", "Done, 1 item", "1 step" via `CountPhrase` (tests in `S1157AccessibilityTests`,
+      `CountPhraseTests`); "Who does what" icons have spoken labels (`PersonLineIcon`); the score card has the button
+      trait (UI test finds it as a button). All mutation-checked. Finding: XCUITest lists every image by its symbol
+      name even when hidden from VoiceOver, so the S11.53 reading was the XCUITest tree; the new guard checks controls
+      and text only.
+- [x] **Alarm test one-time tick, end to end** (owner 2026-10-05): backend `FORMERLY_RECURRING_IDS` (any string = done,
+      never 422; 9 new or changed tests in `test_recurrence.py`, 3 mutations each caught); app drops a cached 30-day
+      recurrence, loads an old date as `true`, still ticks in place, no due label (tests in `ReadinessStoreTests`,
+      `ChecklistStateStoreTests`, `RetiredRecurrenceTests`; mutation-checked). **Not checked: whether Render runs it**
+      (`/health` commit after deploy).
+- [x] **Gate, 2026-10-05, after merging origin/main `2ef253b`:** `scripts/typecheck-ios.sh` 4 ok; `xcodebuild test`
+      unit + UI (`full2.xcresult`, scratchpad, first run): **1194 tests, 1172 passed, 0 failed, 22 skipped**;
+      `swift test --package-path tools/editorcore` 656 passed; backend pytest (Python 3.12 venv from `requirements.lock`)
+      **1258 passed, 1 skipped, 31 deselected**; corpus valid. The pre-merge run (`full1`) had 1 failure,
+      `HomeDeleteUITests.testDeletingTheActiveHomeMovesHomeToAnother`, real (not flake), fixed as above.
+- [ ] **Owner copy call (doc-auditor):** `safe_room.know` in Tasks says "Your home's safe room has been identified by the
+      engine" (`backend/app/scoring/checklist.py`), but no screen shows that room now that the app draws fire routes only.
+      Name the room in the item, or reword to point at the cited guidance. Backend text next to corpus guidance, so not
+      changed here. Owner: Anish.
+- [ ] **Stale playbook files (doc-auditor, not this session's):** `docs/playbook/S11-36.md` and `S11-15.md` describe a
+      tornado drill picker and a `DrillScreen`; both sessions are DONE, so the files should be deleted per
+      `.claude/rules/paths/docs.md`. Owner: next docs pass.
+- [ ] **Device pass still needed:** what VoiceOver actually speaks on the score card, Tasks group headers and the
+      people cards (BLOCKED-device).

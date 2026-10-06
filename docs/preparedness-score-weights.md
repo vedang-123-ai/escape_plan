@@ -17,7 +17,7 @@ Every other checklist category (`routes`, `egress`, `shutoffs`, `supply_kit`, `a
 
 As of **S11.2 (2026-09-22)** the `scoring: true` items are, all at fixed weight-per-item:
 
-- `smoke_alarm` — placement + maintenance (one per bedroom, one per sleeping area, one per level, monthly test, 10-year replacement). **Fire.**
+- `smoke_alarm` — placement + maintenance (one per bedroom, one per sleeping area, one per level, monthly test (a one-time tick since 2026-10-05), 10-year replacement). **Fire.**
 - `practice.meeting_point` — the single "pick an outside meeting place" item. **General**, so it counts toward all three.
 - `eq.*` — earthquake preparation: move tall furniture away from beds and seating, heavy objects to lower shelves, TV/computer straps, cabinet latches (homes with a kitchen), flexible gas connectors (homes with a water heater or a tagged gas shutoff). **Earthquake.**
 - `safe_room.know`, `safe_room.head_protection`, `safe_room.practice_the_move`, `alerts.weather_radio` — **Severe weather.**

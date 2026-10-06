@@ -6,7 +6,7 @@
 > **Tone:** talking to a parent about their house. Plain, warm, specific. No "leveraging AI",
 > no "revolutionary", no "cutting-edge". Numbers only if they're in `backend/corpus/`.
 
-**Total VO: 237 words ≈ 1:34 at 150 wpm.** (Fits well within 3:15 limit).
+**Total VO: 311 words ≈ 2:04 at 150 wpm** (recounted with `wc -w` over the VO lines, 2026-10-05, S11.57; the earlier "236 words ≈ 1:34" was a miscount). Under the official 3:00 maximum (S11.51).
 
 ---
 
