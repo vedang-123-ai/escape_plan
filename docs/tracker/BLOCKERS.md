@@ -3422,3 +3422,42 @@ question stays in the history, so resending shows it twice.
   needed for /explain" (also /chat, /analyze, /build); `backend/CLAUDE.md:4-5` creates the venv from
   `requirements.txt` only, but pytest is in `requirements-dev.txt`.
 - **Demo video link:** add to README "For judges" once the video is uploaded (no link exists in the repo yet).
+
+### S11.58 findings (2026-10-05, branch `s11-58-readme-verify`) · a stranger follows the README
+
+Done in a fresh export of `origin/main` `f3cd237` (`git archive`, so no `.env`, `.venv` or `BackendConfig.local.json`),
+Python 3.12.13 venv, Xcode 26.6. Detail: `docs/tracker/notes/2026-10-05-s11-58-readme-verify.md`.
+
+- [x] **Backend from the README works** with `requirements.txt` only: `/health` 200; `/routes` 401 without the token,
+      200 with it (twostory, 7 rooms); `/score` 200 (twostory 66 with an empty checklist, 71 with
+      `practice.meeting_point`). With no `ANTHROPIC_API_KEY`, `/explain`, `/analyze`, `/chat`, `/build` each return 502
+      `{"detail":"ANTHROPIC_API_KEY is not configured on the server"}`, no traceback. A 4th AI call within a minute
+      gets 429 (burst 3), by design.
+- [x] **README "Run the tests" lines pass from the fresh tree:** corpus valid (36 sources); pytest
+      **1249 passed, 1 skipped, 31 deselected**; `swift test --package-path tools/editorcore` 646 tests, 0 failures.
+- [x] **Fixed: macOS's own `python3` is 3.9.6.** With it `pip install` succeeds but the server dies on import
+      (`TypeError: Unable to evaluate type annotation 'str | None'`). README now says so and gives the 3.12 route.
+- [x] **Fixed: `backend/CLAUDE.md` venv recipe** installed `requirements.txt` only, which has no pytest (confirmed:
+      "No module named pytest"). Now `requirements-dev.txt`.
+- [x] **Signing is not a problem in the Simulator.** `xcodebuild build` for `iPhone 17 Pro` with
+      `DEVELOPMENT_TEAM=ZZZ9999999` (a team nobody has) and signing ON: BUILD SUCCEEDED, signed "Sign to Run Locally".
+      With `CODE_SIGNING_ALLOWED=NO`: BUILD SUCCEEDED. **No project change needed.** The built app carries no
+      `BackendConfig.local.json`.
+- [x] **App against a local server, verified in the Simulator** (new simulator device, Debug build from the fresh
+      tree, no launch arguments): first-run tour shown and skipped with "I'll do this later"; before setup Home says
+      the server did not answer, with an "Open Settings" button; Settings "Use local dev server" sets
+      `http://localhost:8000`; token typed, "Saved"; Test connection "Connected"; Two-Story House scored 66 with the
+      breakdown (Fire 60, Earthquake 70, Severe weather 75); House shows the 3D dollhouse with fire routes; fire
+      simulation started in Living Room; Tasks "0 of 33 done"; Assistant shows "AI features are unavailable right
+      now ...". Server log: the app's `/score`, `/routes`, `/evacuate` 200, `/chat` 502.
+- [ ] **Deviation, not a defect:** port 8000 on the dev Mac is held by an unrelated uvicorn started about 10 days ago
+      (not touched), so the walk ran the backend on 8001 and typed `http://localhost:8001` in Server address. README
+      now covers another port. Owner: Anish, stop that process if it is stale.
+- [ ] **Not verified: the Xcode app GUI** (only `xcodebuild` was run). Same build system, so expected fine; README
+      keeps "choose your own team or None" as a fallback. Owner: any teammate with Xcode open.
+- [ ] **Not run: the full `xcodebuild test` suite from the fresh tree** (another agent was queued on the simulator;
+      S11.53 ran the same suite on `main`). Owner: next gate run.
+- [ ] **`backend/README.md` drift (owned by agent H this round, not edited here):** line 11 installs without a venv and
+      without pytest while line 17 runs pytest (needs `requirements-dev.txt`); line 13 key "only needed for /explain"
+      (also `/analyze`, `/chat`, `/build`); lines 86-88 say twostory "with an empty checklist scores 75" but the server
+      returns 66 empty and 71 for the example shown. Owner: whoever owns `backend/README.md` next.
