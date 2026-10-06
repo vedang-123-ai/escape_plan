@@ -62,7 +62,7 @@ from app.routing.plan import RoutePlan, RoutingConstraints
 from app.routing.profiles import find_profile
 from app.scoring.findings import Finding
 from app.scoring.recommend import recommendation_items
-from app.scoring.checklist import parse_completion_time
+from app.scoring.checklist import FORMERLY_RECURRING_IDS, parse_completion_time
 from app.scoring.score import ScoreBreakdown, compute_score
 
 logging.basicConfig(level=logging.INFO)
@@ -609,7 +609,9 @@ class ScoreRequest(BaseModel):
         description="item id -> done (true) or, for a recurring item, the ISO-8601 "
         "UTC time it was last completed. A bare true on a recurring item means "
         "done at an unknown time and stays done until a timestamp is written. "
-        "A timestamp on a non-recurring item is ignored (not done).",
+        "A timestamp on a non-recurring item is ignored (not done), except on "
+        "alarm.test_monthly, which recurred until 2026-10-05: any string there "
+        "is an old phone's completion date and counts as done.",
     )
     include_recommendations: bool = Field(
         default=False,
@@ -622,7 +624,8 @@ class ScoreRequest(BaseModel):
     @classmethod
     def _timestamps_parse(cls, state: dict[str, bool | str]) -> dict[str, bool | str]:
         for item_id, value in state.items():
-            if isinstance(value, str):
+            # A formerly recurring item takes any string as done, never a 422.
+            if isinstance(value, str) and item_id not in FORMERLY_RECURRING_IDS:
                 try:
                     parse_completion_time(value)
                 except ValueError as exc:

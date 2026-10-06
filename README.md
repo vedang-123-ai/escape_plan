@@ -108,14 +108,18 @@ snapshot is something a family chooses to share in advance.
 
 ## Get started
 
-You need a Mac with Xcode 26 and Python 3.11 or newer. The 3D editor, the sample homes, routes, the fire simulation,
-the score and Tasks all run in the iOS Simulator. Scanning a real home needs an iPhone or iPad with LiDAR.
+You need a Mac with Xcode 26 and Python 3.11 or newer (we use 3.12). The 3D editor, the sample homes, routes, the fire
+simulation, the score and Tasks all run in the iOS Simulator. No Apple developer account is needed for the Simulator.
+Scanning a real home needs an iPhone or iPad with LiDAR.
 
 ### 1. Run the backend
 
+The `python3` that ships with macOS is 3.9, which is too old. If `python3 --version` shows anything below 3.11,
+install Python 3.12 (from python.org, or `brew install python@3.12`) and use `python3.12` in the venv line below.
+
 ```bash
 cd backend
-python3 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate      # or: python3.12 -m venv .venv
 pip install -r requirements.txt
 export BACKEND_BEARER_TOKEN=<an access token you choose>
 uvicorn app.main:app --reload --port 8000
@@ -132,12 +136,20 @@ Interactive API docs are then at `http://localhost:8000/docs`. More endpoints an
 ### 2. Run the app
 
 1. Open `escape_plan.xcodeproj` in Xcode.
-2. Choose any iPhone simulator on iOS 17 or newer and press **Run**. If Xcode asks for a signing team, choose your
-   own team or None; the Simulator does not need one.
+2. Choose any iPhone simulator on iOS 17 or newer and press **Run**. Simulator builds sign locally, so you do not
+   need our team's account; if Xcode shows a signing-team message, choose your own team or None.
 3. Finish or skip the first-run tour. Open **Settings**, tap **Use local dev server (localhost:8000)**, enter the
    same access token under **Access token**, and tap **Save changes**. (These settings appear in builds run from
-   Xcode.)
+   Xcode.) If you started the backend on another port, type `http://localhost:<port>` under **Server address**
+   before saving. **Test connection** should then show **Connected**.
 4. Tap the home name at the top of **Home**, pick a sample home, and open the **House** tab.
+
+To build from the command line instead of Xcode:
+
+```bash
+xcodebuild build -project escape_plan.xcodeproj -scheme escape_plan \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO
+```
 
 ### Run the tests
 

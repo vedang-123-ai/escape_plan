@@ -8,9 +8,10 @@ grounded in `corpus/`.
 
 ```bash
 cd backend
-pip install -r requirements.txt # requirements-dev.txt adds matplotlib for graph renders
+python3.12 -m venv .venv && source .venv/bin/activate   # macOS's own python3 is 3.9, too old
+pip install -r requirements-dev.txt # requirements.txt plus pytest and matplotlib (graph renders)
 export BACKEND_BEARER_TOKEN=dev-local-token
-export ANTHROPIC_API_KEY=sk-ant-... # only needed for /explain
+export ANTHROPIC_API_KEY=sk-ant-... # needed for the AI routes: /explain, /chat, /analyze, /build, and /score with include_recommendations (502 without it)
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -22,7 +23,7 @@ see § AI tests below.
 | Endpoint | Auth | Purpose |
 |---|---|---|
 | `GET /health` | none | liveness / platform health check |
-| `POST /routes` | bearer | HomeModel (+ optional constraints) → RoutePlan, deterministic |
+| `POST /routes` | bearer | HomeModel (+ optional constraints, `peril`) → RoutePlan, deterministic. The engine plans fire, earthquake and tornado; the iOS app requests and draws **fire only** |
 | `POST /convert` | bearer | `{scan: <RoomPlan export>, home_name?}` → validated HomeModel (S1.5 converter) |
 | `POST /explain` | bearer | HomeModel + RoutePlan (+ optional profile) → cited, structured explanation (S3.1) |
 | `POST /score` | bearer | HomeModel (+ constraints, `/analyze` findings, checklist state) → 0–100 preparedness score + breakdown + checklist (S3.5) |
@@ -84,8 +85,9 @@ curl -s -X POST $BASE/explain \
  --data @/tmp/explain-req.json | python3 -m json.tool
 
 # preparedness score (deterministic — no API key needed unless you ask for
-# recommendations). twostory with an empty checklist scores 75; see
-# docs/preparedness-score-weights.md for the hand-calculation.
+# recommendations). twostory with an empty checklist scores 66; see
+# docs/preparedness-score-weights.md for the hand-calculation. The example below
+# ticks the meeting point and scores 71 (checked 2026-10-05).
 python3 - <<'EOF' > /tmp/score-req.json
 import json
 print(json.dumps({

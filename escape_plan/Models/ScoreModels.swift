@@ -166,6 +166,7 @@ struct ChecklistItem: Codable, Identifiable, Hashable {
         // IfPresent: a ScoreCache file written before S11.35 has neither key.
         recurrence_days = try container.decodeIfPresent(Int.self, forKey: .recurrence_days)
         completed_at = try container.decodeIfPresent(String.self, forKey: .completed_at)
+        dropRetiredRecurrence()
     }
 
     func encode(to encoder: Encoder) throws {
@@ -198,6 +199,40 @@ struct ChecklistItem: Codable, Identifiable, Hashable {
         self.severity = severity
         self.recurrence_days = recurrence_days
         self.completed_at = completed_at
+    }
+}
+
+// MARK: - Items that stopped recurring (owner, 2026-10-05)
+
+extension ChecklistItem {
+    /// Items that recurred from S11.34 until the owner made them one-time ticks on 2026-10-05:
+    /// the monthly alarm test is ticked once and stays done, never lapses and never lowers the
+    /// score. Its cited text still says to test monthly. Mirrors `FORMERLY_RECURRING_IDS` in
+    /// `backend/app/scoring/checklist.py`; the recurring items left are the drill and the rescan.
+    static let formerlyRecurringIDs: Set<String> = ["alarm.test_monthly"]
+
+    var isFormerlyRecurring: Bool { Self.formerlyRecurringIDs.contains(id) }
+
+    /// A score cached before the change still says the alarm test recurs every 30 days. Read
+    /// that as the item is now: no recurrence, so no date is stored for it and no
+    /// "due in ..." line is shown, whatever the cache says. Applied when decoding (the one way a
+    /// score enters the app, live or cached), deliberately: a reviewer suggested the consumer, but
+    /// every reader (Home, Tasks, the detail sheet, `TaskDestination`) would then have to remember it.
+    /// The live server already sends no recurrence for it, so only an old cache is changed.
+    fileprivate mutating func dropRetiredRecurrence() {
+        guard isFormerlyRecurring else { return }
+        recurrence_days = nil
+        completed_at = nil
+    }
+}
+
+extension ChecklistMark {
+    /// What a stored value means today. A date stored for an item that no longer recurs (an
+    /// alarm test ticked on a build before 2026-10-05) is a tick: it reads as done and is sent as
+    /// `true`. Everything else is unchanged.
+    func normalized(forItem id: String) -> ChecklistMark {
+        if case .completed = self, ChecklistItem.formerlyRecurringIDs.contains(id) { return .flag(true) }
+        return self
     }
 }
 

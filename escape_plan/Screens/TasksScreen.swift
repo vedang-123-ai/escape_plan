@@ -14,6 +14,7 @@ struct TasksScreen: View {
     @Environment(AppRouter.self) private var router
     @EnvironmentObject private var library: HomeLibrary
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     @State private var filter: HazardTag?
     @State private var urgentExpanded = true
@@ -84,6 +85,8 @@ struct TasksScreen: View {
                     withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) { showDetails.toggle() }
                 } label: {
                     Image(systemName: showDetails ? "text.alignleft" : "list.bullet")
+                        // The glyph sits in a fixed 36 pt tile: capped so it stays inside it at XXXL.
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(showDetails ? Theme.accentText : Theme.supporting)
                         .frame(width: 36, height: 36)
@@ -154,12 +157,24 @@ struct TasksScreen: View {
 
     private var filterBar: some View {
         let perils = HazardTag.allCases.filter { tag in tag != .general && readiness.items.contains { $0.hazard == tag } }
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                filterPill("All", tag: nil)
-                ForEach(perils, id: \.self) { filterPill($0.label, tag: $0) }
+        return Group {
+            if typeSize.isAccessibilitySize {
+                // S53-4: at XXXL the scrolling row showed "Earthqua…" at the screen edge with the
+                // rest out of sight. The pills wrap onto new lines instead, all in view.
+                FlowLayout(spacing: 6, lineSpacing: 0) {
+                    filterPill("All", tag: nil)
+                    ForEach(perils, id: \.self) { filterPill($0.label, tag: $0) }
+                }
+                .padding(.horizontal, DS.pagePadding)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        filterPill("All", tag: nil)
+                        ForEach(perils, id: \.self) { filterPill($0.label, tag: $0) }
+                    }
+                    .padding(.horizontal, DS.pagePadding)
+                }
             }
-            .padding(.horizontal, DS.pagePadding)
         }
         .padding(.bottom, 12)
     }
@@ -177,7 +192,9 @@ struct TasksScreen: View {
             .font(.footnote.weight(.medium))
             .foregroundStyle(selected ? Theme.text : Theme.supporting)
             .padding(.horizontal, 11)
-            .frame(height: 30)
+            // A minimum, not a fixed 30: at XXXL the text is taller and the outline crossed it.
+            .padding(.vertical, typeSize.isAccessibilitySize ? 6 : 0)
+            .frame(minHeight: 30)
             .background(selected ? Theme.hover : Theme.card, in: Capsule())
             .overlay(Capsule().strokeBorder(selected ? Theme.borderStrong : Theme.border, lineWidth: 1))
             .frame(minHeight: 44)
@@ -185,6 +202,7 @@ struct TasksScreen: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
+        .accessibilityIdentifier("tasks.filter.\(tag?.rawValue ?? "all")")
     }
 
     // MARK: - Groups

@@ -145,6 +145,25 @@ final class HomeLibraryEditorSeamTests: XCTestCase {
         XCTAssertEqual(library.homes.map(\.id), [blank.home_id])
     }
 
+    /// S53-1: a fresh install gets the three real demo homes and opens on Two-Story House, never
+    /// on "Jagged Stack" (the floor-stacking test model, which stays a bundled fixture).
+    func testAFreshInstallGetsTheThreeDemoHomesAndOpensOnTwoStory() throws {
+        let (docStore, library) = try makeStores()
+        let suite = "s1157-seed-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let seeded = try FixtureSeeder.seedStarterHomes(into: docStore, defaults: defaults)
+        XCTAssertEqual(Set(seeded.map(\.name)), ["Bungalow", "Apartment 4B", "Two-Story House"])
+        library.refresh()
+        XCTAssertEqual(library.homes.count, 3)
+        XCTAssertFalse(library.homes.contains { $0.name == "Jagged Stack" })
+        XCTAssertNoThrow(try FixtureLoader.load(.jagged), "the test model is still bundled")
+
+        let readiness = ReadinessStore(library: library, homeMemory: ActiveHomeMemory(defaults: defaults))
+        XCTAssertEqual(library.homes.first { $0.id == readiness.activeHomeID }?.name, "Two-Story House")
+        XCTAssertEqual(readiness.activeHomeID, FixtureSeeder.demoHomeID)
+    }
+
     /// Starter homes are removable like any home, and the seeding flag keeps a deleted one gone
     /// on the next launch.
     func testADeletedStarterHomeIsNotReseeded() throws {

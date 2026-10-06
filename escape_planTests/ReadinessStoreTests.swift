@@ -757,4 +757,132 @@ final class ReadinessStoreTests: XCTestCase {
         XCTAssertTrue(ReadinessStore.refusedTicks(in: try answer(done: false, echoed: "2026-10-04T12:34:56Z"),
                                                   sent: [drillID: .flag(false)], ticked: ticked).isEmpty, "unticked")
     }
+
+    // MARK: - S11.57: the alarm test is a one-time tick (owner, 2026-10-05)
+
+    private let alarmTestID = "alarm.test_monthly"
+
+    /// A score cached by a build before the change: the alarm test recurs every 30 days and has
+    /// lapsed (done false, completed 40 days before 2026-10-04).
+    private func preChangeAlarmCache(home: String) throws -> ScoreBreakdown {
+        try JSONDecoder().decode(ScoreBreakdown.self, from: Data("""
+        {"home_id": "\(home)", "home_name": "\(home)", "score": 70,
+         "sub_scores": {"fire": 70, "earthquake": 70, "severe_weather": 70},
+         "components": [],
+         "checklist": [{"id": "\(alarmTestID)", "category": "smoke_alarm", "title": "Test every smoke alarm this month",
+                        "detail": "Press the test button on every alarm once a month.", "done": false, "scoring": true,
+                        "recurrence_days": 30, "completed_at": "2026-08-25T12:00:00Z"}]}
+        """.utf8))
+    }
+
+    /// An old phone stored a date for the alarm test. It reads as done at once (before any
+    /// answer, over a cache that says it lapsed), is sent as `true`, shows no "due" line, and
+    /// unticking it stores `false`, not a date.
+    func testAnOldStoredAlarmDateReadsAsDoneAndIsSentAsTrue() async throws {
+        let old = Date(timeIntervalSince1970: 1_787_659_200) // 2026-08-25T12:00:00Z
+        ChecklistStateStore().save([alarmTestID: .completed(old)], homeID: homeID)
+        let cache = try XCTUnwrap(try? ScoreCache())
+        cache.save(try preChangeAlarmCache(home: homeID), for: homeID)
+        let readiness = try scorableStore()
+        let api = gatedClient()
+
+        let load = Task { await readiness.load(api: api) }
+        let request = try await gatedRequest(0)
+        let cached = try XCTUnwrap(readiness.items.first)
+        XCTAssertNil(cached.recurrence_days, "a cached 30-day recurrence is dropped")
+        XCTAssertNil(cached.recurrenceLabel(now: Date()), "no due line")
+        XCTAssertTrue(readiness.isDone(cached), "the old date counts as done before any answer")
+        XCTAssertEqual(request.checklistState[alarmTestID] as? Bool, true, "sent as a tick, not a date")
+        request.respond(status: 503)
+        await load.value
+
+        let item = try XCTUnwrap(readiness.items.first)
+        XCTAssertEqual(TaskDestination(item), .toggle, "still ticked by hand")
+        readiness.toggleDone(item, api: api, animated: false)
+        XCTAssertEqual(readiness.checklistState[alarmTestID], .flag(false))
+        readiness.toggleDone(try XCTUnwrap(readiness.items.first), api: api, animated: false)
+        XCTAssertEqual(readiness.checklistState[alarmTestID], .flag(true), "a fresh tick stores no date")
+    }
+
+    // MARK: - S11.57: which home opens (S53-1, S53-2)
+
+    private func homeMemory() throws -> (ActiveHomeMemory, UserDefaults, String) {
+        let suite = "ReadinessStoreTests.home.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        return (ActiveHomeMemory(defaults: defaults), defaults, suite)
+    }
+
+    /// Three homes on disk; the demo home is deliberately not the first in the library.
+    private func threeHomeLibrary() throws -> (HomeLibrary, demo: String, others: [String]) {
+        let documents = try HomeDocumentStore(directory: directory)
+        let ids = ["\(homeID!)-1", "\(homeID!)-2", "\(homeID!)-demo"]
+        for id in ids {
+            var model = try Fixtures.load("bungalow")
+            model.home_id = id
+            _ = try documents.save(model: model)
+        }
+        let library = HomeLibrary(store: documents)
+        let demo = ids[2]
+        let others = ids.filter { $0 != demo }
+        XCTAssertNotEqual(library.homes.first?.id, demo, "fixture: the demo home must not sort first")
+        return (library, demo, others)
+    }
+
+    func testAFirstLaunchOpensOnTheDemoHomeNotTheFirstHome() throws {
+        let (memory, defaults, suite) = try homeMemory()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let (library, demo, _) = try threeHomeLibrary()
+        let readiness = ReadinessStore(library: library, homeMemory: memory, demoHomeID: demo)
+        XCTAssertEqual(readiness.activeHomeID, demo)
+    }
+
+    func testTheChosenHomeIsRememberedAcrossARelaunch() async throws {
+        let (memory, defaults, suite) = try homeMemory()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let (library, demo, others) = try threeHomeLibrary()
+        let readiness = ReadinessStore(library: library, homeMemory: memory, demoHomeID: demo)
+        await readiness.select(others[1], api: spyClient())
+        XCTAssertEqual(memory.remembered, others[1])
+
+        // A relaunch: a new library and store over the same files and the same defaults.
+        let relaunched = ReadinessStore(library: HomeLibrary(store: library.store),
+                                        homeMemory: ActiveHomeMemory(defaults: defaults), demoHomeID: demo)
+        XCTAssertEqual(relaunched.activeHomeID, others[1])
+    }
+
+    func testDeletingTheActiveHomeMovesToTheDemoHomeAndRemembersIt() async throws {
+        let (memory, defaults, suite) = try homeMemory()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let (library, demo, others) = try threeHomeLibrary()
+        let readiness = ReadinessStore(library: library, homeMemory: memory, demoHomeID: demo)
+        await readiness.select(others[0], api: spyClient())
+
+        XCTAssertTrue(library.delete(homeID: others[0]))
+        readiness.ensureActiveHome()
+        XCTAssertEqual(readiness.activeHomeID, demo)
+        XCTAssertEqual(memory.remembered, demo)
+    }
+
+    func testARememberedHomeThatWasDeletedFallsBackToTheDemoHome() throws {
+        let (memory, defaults, suite) = try homeMemory()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        memory.remember("a-home-deleted-elsewhere")
+        let (library, demo, _) = try threeHomeLibrary()
+        XCTAssertEqual(ReadinessStore(library: library, homeMemory: memory, demoHomeID: demo).activeHomeID, demo)
+    }
+
+    func testDeletingTheLastHomeForgetsTheChoice() async throws {
+        let (memory, defaults, suite) = try homeMemory()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var model = try Fixtures.load("bungalow")
+        model.home_id = homeID
+        let (readiness, _) = try store(with: model)
+        let tracked = ReadinessStore(library: readiness.library, homeMemory: memory, demoHomeID: nil)
+        await tracked.select(homeID, api: spyClient())
+        XCTAssertEqual(memory.remembered, homeID)
+        XCTAssertTrue(readiness.library.delete(homeID: homeID))
+        tracked.ensureActiveHome()
+        XCTAssertNil(tracked.activeHomeID)
+        XCTAssertNil(memory.remembered)
+    }
 }

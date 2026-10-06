@@ -43,9 +43,16 @@ final class OnboardingState {
     /// The library's store (AUD-019). Required: a default of its own would write to Documents
     /// while the app runs on its temporary fallback store.
     private let documentStore: HomeDocumentStore
+    /// The app's remembered active home (S53-2), so the answers land on the home `ReadinessStore`
+    /// shows. nil in tests: then the demo home, else the first, exactly as `ReadinessStore` picks.
+    private let homeMemory: ActiveHomeMemory?
+    private let demoHomeID: String?
 
-    init(documentStore: HomeDocumentStore) {
+    init(documentStore: HomeDocumentStore, homeMemory: ActiveHomeMemory? = nil,
+         demoHomeID: String? = FixtureSeeder.demoHomeID) {
         self.documentStore = documentStore
+        self.homeMemory = homeMemory
+        self.demoHomeID = demoHomeID
     }
 
     /// Seeds the demo home into an EMPTY library. With homes already present it seeds nothing
@@ -65,14 +72,17 @@ final class OnboardingState {
         // No longer running /analyze in background during onboarding.
     }
 
-    /// The home the interview's answers belong to: the demo home if onboarding just seeded
-    /// one, otherwise the first home in the library — the same one `ReadinessStore` makes
-    /// active on launch (`library.homes.first`, newest first).
+    /// The home the interview's answers belong to: the demo copy if onboarding just seeded one,
+    /// otherwise the home `ReadinessStore` makes active (`ActiveHomeMemory.choose`: remembered,
+    /// else the demo home Two-Story House, else the first). On a fresh install that is Two-Story
+    /// House, so the household shows on the home the app opens on.
     private func targetHome() throws -> HomeModel? {
         if let seededHome { return seededHome }
         let documentStore = store()
-        guard let first = documentStore.list().first else { return nil }
-        return try documentStore.load(homeID: first.id, as: HomeModel.self)
+        guard let id = ActiveHomeMemory.choose(remembered: homeMemory?.remembered,
+                                               available: documentStore.list().map(\.id),
+                                               demoHomeID: demoHomeID) else { return nil }
+        return try documentStore.load(homeID: id, as: HomeModel.self)
     }
 
     /// Writes the household (profiles and tenure) to the active home through `HomeModelStore`,

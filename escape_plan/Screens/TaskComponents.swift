@@ -34,17 +34,20 @@ struct TaskChip: View {
     let text: String
     var tint: Color? = nil
     var symbol: String? = nil
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         HStack(spacing: 5) {
             if let tint { Circle().fill(tint).frame(width: 6, height: 6) }
-            if let symbol { Image(systemName: symbol).font(.system(size: 9, weight: .semibold)) }
+            if let symbol { Image(systemName: symbol).font(.system(size: 9, weight: .semibold)).accessibilityHidden(true) }
             Text(text)
         }
         .font(.caption2.weight(.medium))
         .foregroundStyle(Theme.supporting)
         .padding(.horizontal, 7)
-        .frame(height: 20)
+        // A minimum, not a fixed 20: at XXXL the outline crossed the text (S53-4).
+        .padding(.vertical, typeSize.isAccessibilitySize ? 3 : 0)
+        .frame(minHeight: 20)
         .background(Theme.canvas.opacity(0.4), in: Capsule())
         .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
         .fixedSize()
@@ -60,8 +63,16 @@ struct TaskRow: View {
     let onToggle: () -> Void
     let onOpen: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     private var destination: TaskDestination { TaskDestination(item) }
     private var recurrence: String? { item.recurrenceLabel(now: Date(), shownDone: done) }
+    /// The peril chip, if the item has one. At the accessibility sizes it sits under the title
+    /// rather than beside it, so the title keeps the row's width (S53-4: one word per line).
+    private var perilChip: TaskChip? {
+        guard let hazard = item.hazard, hazard != .general else { return nil }
+        return TaskChip(text: hazard.shortLabel, tint: hazard.tint)
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
@@ -89,11 +100,10 @@ struct TaskRow: View {
                                 .multilineTextAlignment(.leading)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
+                        if typeSize.isAccessibilitySize, let perilChip { perilChip.padding(.top, 2) }
                     }
                     Spacer(minLength: 6)
-                    if let hazard = item.hazard, hazard != .general {
-                        TaskChip(text: hazard.shortLabel, tint: hazard.tint)
-                    }
+                    if !typeSize.isAccessibilitySize, let perilChip { perilChip }
                     if let symbol = destination.symbol {
                         Image(systemName: symbol)
                             .font(.system(size: 11, weight: .semibold))
@@ -178,9 +188,17 @@ struct TaskGroupHeader<Glyph: View>: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(HapticPlainButtonStyle())
-        .accessibilityLabel("\(title), \(count) items")
+        .accessibilityLabel(TaskGroupSpeech.label(title: title, count: count))
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
         .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// What VoiceOver reads for a task group header.
+enum TaskGroupSpeech {
+    /// "Done, 1 item", "To do, 39 items" (S53-5: it read "Done, 1 items").
+    static func label(title: String, count: Int) -> String {
+        "\(title), \(CountPhrase.of(count, "item"))"
     }
 }
 
@@ -195,6 +213,7 @@ struct TaskDetailSheet: View {
     /// else (the drill item: "Run a drill" opens House, this marks it done).
     var onToggle: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var destination: TaskDestination { TaskDestination(item) }
 
@@ -202,7 +221,11 @@ struct TaskDetailSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    HStack(spacing: 6) {
+                    // Wraps instead of running off the sheet at the accessibility sizes (S53-4);
+                    // one plain row below them, as before.
+                    let chipRow = typeSize.isAccessibilitySize ? AnyLayout(FlowLayout(spacing: 6))
+                                                               : AnyLayout(HStackLayout(spacing: 6))
+                    chipRow {
                         HStack(spacing: 6) {
                             TaskStatusIcon(done: isDone, urgent: item.severity == .high)
                             Text(isDone ? "Done" : (item.severity == .high ? "Urgent" : "To do"))
@@ -210,7 +233,8 @@ struct TaskDetailSheet: View {
                         .font(.caption.weight(.medium))
                         .foregroundStyle(Theme.text)
                         .padding(.horizontal, 8)
-                        .frame(height: 24)
+                        .padding(.vertical, typeSize.isAccessibilitySize ? 2 : 0)
+                        .frame(minHeight: 24)
                         .background(Theme.raised, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.border, lineWidth: 1))
                         if let hazard = item.hazard { TaskChip(text: hazard.label, tint: hazard.tint) }

@@ -43,16 +43,15 @@ private struct EvacuationPersonCard: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.text)
                 .fixedSize(horizontal: false, vertical: true)
-            line(journey.startLine, symbol: "figure.stand", tint: Theme.supporting)
-            line(journey.passesLine, symbol: "arrow.forward", tint: Theme.routeInk)
-            line(journey.exitLine,
-                 symbol: journey.leavesThroughWindow ? "window.casement" : "door.left.hand.open",
+            line(journey.startLine, icon: .start, tint: Theme.supporting)
+            line(journey.passesLine, icon: .passes, tint: Theme.routeInk)
+            line(journey.exitLine, icon: journey.leavesThroughWindow ? .exitWindow : .exitDoor,
                  tint: Theme.exitInk)
-            line(journey.timeOutLine, symbol: "clock", tint: Theme.supporting)
+            line(journey.timeOutLine, icon: .timeOut, tint: Theme.supporting)
             if journey.overtaken {
                 // The ink is for the icon and the card's border only (Theme: safety inks label
                 // the hazard system, they are not text colours); the words stay full-contrast.
-                line(EvacuationJourney.overtakenLine, symbol: "flame.fill", tint: Theme.hazardInk,
+                line(EvacuationJourney.overtakenLine, icon: .overtaken, tint: Theme.hazardInk,
                      textTint: Theme.text)
             }
         }
@@ -66,17 +65,47 @@ private struct EvacuationPersonCard: View {
         .accessibilityIdentifier("house.simulation.person.\(journey.id)")
     }
 
-    private func line(_ text: String, symbol: String, tint: Color,
+    private func line(_ text: String, icon: PersonLineIcon, tint: Color,
                       textTint: Color = DS.bodyInk) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: symbol)
+            Image(systemName: icon.symbol)
                 .font(.caption)
                 .foregroundStyle(tint)
                 .frame(width: iconWidth)
+                // Never the SF Symbol's name (S53-5 read "figure.stand"): a real word if the icon
+                // is ever reached on its own. The card itself reads as one element (`spokenSummary`).
+                .accessibilityLabel(icon.spokenLabel)
             Text(text)
                 .font(.caption)
                 .foregroundStyle(textTint)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// The icon at the start of each line of a person's card, and what it is called aloud.
+enum PersonLineIcon: CaseIterable {
+    case start, passes, exitDoor, exitWindow, timeOut, overtaken
+
+    var symbol: String {
+        switch self {
+        case .start: return "figure.stand"
+        case .passes: return "arrow.forward"
+        case .exitDoor: return "door.left.hand.open"
+        case .exitWindow: return "window.casement"
+        case .timeOut: return "clock"
+        case .overtaken: return "flame.fill"
+        }
+    }
+
+    var spokenLabel: String {
+        switch self {
+        case .start: return "Starts in"
+        case .passes: return "Goes through"
+        case .exitDoor: return "Leaves by a door"
+        case .exitWindow: return "Leaves by a window"
+        case .timeOut: return "Time to get out"
+        case .overtaken: return "Warning"
         }
     }
 }

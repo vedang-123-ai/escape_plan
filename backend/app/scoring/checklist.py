@@ -61,6 +61,10 @@ ChecklistState = dict[str, bool | str]
 """item id -> done (bool) or ISO timestamp (str) for recurring items.
 Persisted on the home document by the iOS app (S2.4).
 
+The recurring items are `practice.drill_recent` and `rescan.home`.
+`alarm.test_monthly` stopped recurring on 2026-10-05: any string on it is an old
+phone's completion date and counts as done (`FORMERLY_RECURRING_IDS`).
+
 For recurring items, the value may be an ISO 8601 timestamp string recording
 when the item was last completed. The done state is then computed by comparing
 that timestamp against the item's recurrence_days. A plain `True` is always
@@ -197,9 +201,20 @@ def _bedrooms(home: HomeModel) -> list[tuple[str, str, str]]:
     ]
 
 
-#: ENGINEERING CHOICE: "monthly" (usfa-smoke-alarms: "Test every alarm monthly")
-#: read as 30 days.
-ALARM_TEST_RECURRENCE_DAYS = 30
+#: Items that once recurred (S11.34) and are now one-time ticks. The monthly alarm
+#: test stopped recurring on 2026-10-05 (owner's product choice, docs/decisions.md):
+#: ticked once is done for good, it never lapses and never lowers the score. Its
+#: cited text still says to test monthly. Phones from before the change stored a
+#: completion date for it, so ANY string value counts as done, never as an error.
+FORMERLY_RECURRING_IDS: frozenset[str] = frozenset({"alarm.test_monthly"})
+
+
+def _is_done_one_time(item_id: str, state: ChecklistState) -> bool:
+    """A one-time tick: `true`, or any string on a formerly recurring item."""
+    raw = state.get(item_id, False)
+    if item_id in FORMERLY_RECURRING_IDS and isinstance(raw, str):
+        return True
+    return raw is True
 
 
 def smoke_alarm_items(
@@ -226,7 +241,7 @@ def smoke_alarm_items(
                 done=(
                     _is_done(item_id, state, recurrence_days, now)
                     if recurrence_days is not None
-                    else state.get(item_id, False) is True
+                    else _is_done_one_time(item_id, state)
                 ),
                 source_citation="usfa-smoke-alarms",
                 scoring=True,
@@ -262,7 +277,6 @@ def smoke_alarm_items(
         "alarm.test_monthly",
         "Test every smoke alarm this month",
         "Press the test button on every alarm once a month.",
-        recurrence_days=ALARM_TEST_RECURRENCE_DAYS,
     )
     add(
         "alarm.replace_10y",

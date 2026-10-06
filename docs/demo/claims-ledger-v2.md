@@ -7,12 +7,12 @@
 | 3 | "scan your home, and it builds a 3D model" | VERIFIED | `Scan New Home` feature, `backend/app/convert/` |
 | 4 | "gets us most of the way there... never perfect" | VERIFIED | Schema `source`+`confidence` invariant; flagged-not-dropped |
 | 5 | "full 3D editor... fix any mistakes" | VERIFIED | `HouseScreen` 3D house view + editor features |
-| 6 | "primary escape route, and a secondary route through a different exit" | VERIFIED | Routing engine; NFPA two-ways-out logic |
+| 6 | "primary fire escape route, and a secondary route through a different exit" | VERIFIED (fire only) | Routing engine; NFPA two-ways-out logic. The app draws fire routes only: House sends no `peril` and `/routes` defaults to fire; earthquake and tornado plans exist in the backend but no screen shows them (S53-3, decisions 2026-10-05) |
 | 7 | "deterministic engine we wrote" | VERIFIED | `backend/app/routing/` |
 | 8 | "fire drill simulation... watch everyone reroute" | VERIFIED | House fire simulation + "Who does what" cards |
 | 9 | "flags object hazards, warning you if furniture narrows a path" | VERIFIED | Object-hazard engine, `Route check issues` in inventory |
 | 10 | "working firefighter... thought the idea was really cool... pointed us toward prevention" | VERIFIED | `docs/playbook/01-product-spec.md` Section 2 |
-| 11 | "readiness score and a checklist for fire, earthquakes, and tornadoes" | VERIFIED | Score screen, `ScoreModels.swift` |
+| 11 | "readiness score and a checklist for fire, earthquakes, and tornadoes" | VERIFIED | Score screen, `ScoreModels.swift`. Score and Tasks only: never say the app draws earthquake or tornado routes or shelters |
 | 12 | "fire module is fully quantified... earthquake and tornado modules use FEMA and NOAA readiness guidance" | VERIFIED | Scope lock (`CLAUDE.md`, spec) |
 | 13 | "share a snapshot of your plan with your local fire department" | VERIFIED | `ShareWithFireDepartmentCard` |
 | 14 | "AI assistant to chat about your home" | VERIFIED (Needs credits) | `AssistantScreen`, `/chat` (cannot film without funded backend) |

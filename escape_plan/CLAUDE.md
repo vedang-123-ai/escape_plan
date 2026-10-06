@@ -20,7 +20,7 @@ compiled automatically (no `project.pbxproj` edit, and no stray scratch files). 
   never computed client-side.
 - `Capture/` — RoomPlan LiDAR capture and the raw JSON/USDZ exporter matching the converter contract.
 - `Networking/` — `APIClient` (base URL + shared bearer token) plus `+Routes`, `+Chat`, `+Score` extensions.
-- `Onboarding/` — first-run flow, household interview, `FixtureSeeder` (seeds the demo home only into an empty library).
+- `Onboarding/` — first-run flow, household interview, `FixtureSeeder` (starter homes Bungalow, Apartment 4B and Two-Story House on a fresh install, which opens on Two-Story; `Readiness/ActiveHomeMemory` remembers the chosen home across launches; `.jagged` stays a test fixture).
 - **No drill folder since trim 2 (2026-10-03).** "Run a fire drill" opens House on its fire simulation
   (`AppRouter.openFireDrill`); the old practice drill, practice log, reminders and the AR walk (`Drill/`, `DrillMode/`)
   were deleted. History: git before the trim-2 merge.
@@ -44,7 +44,7 @@ injects them with `.environment(...)`. `RootView` chooses the soft auth gate vs 
 | `TasksScreen` | the full readiness checklist (Urgent / To do / Done), peril filter, family plan | revamp |
 | `ReadinessStore`, `AppRouter` | shared state: active home + `/score` result + checklist; tab and cross-tab requests | revamp |
 | `ScoreScreen`, `ProfilesScreen`, `ProfileEditorView` | score breakdown (reads `ReadinessStore`); per-home family profiles CRUD | S11.5 / stable |
-| `HouseScreen` | THE unified 3D screen: editor (rooms, openings, stairs, undo/redo), route viewer and fire simulation (the drill) at once; `EvacuationPeoplePanel` is its "Who does what" | S11.9 (camera) |
+| `HouseScreen` | THE unified 3D screen: editor (rooms, openings, stairs, undo/redo), fire route viewer (the app requests and draws fire routes only) and fire simulation (the drill) at once; `EvacuationPeoplePanel` is its "Who does what" | S11.9 (camera) |
 | `AssistantScreen` | grounded chat against `/chat`; degrades gracefully with no key or bearer | stable |
 | `SettingsScreen` | server URL/token, fire-department share, Privacy ("what leaves this iPhone") | S11.7 |
 | `BuildFromPlanView` | text/photo `/build` intake, draft-only, mandatory editor review | stable |
