@@ -10,7 +10,7 @@ grounded in `corpus/`.
 cd backend
 pip install -r requirements.txt # requirements-dev.txt adds matplotlib for graph renders
 export BACKEND_BEARER_TOKEN=dev-local-token
-export ANTHROPIC_API_KEY=sk-ant-... # only needed for /explain
+export ANTHROPIC_API_KEY=sk-ant-... # needed for the AI routes: /explain, /chat, /analyze, /build (502 without it)
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -22,7 +22,7 @@ see § AI tests below.
 | Endpoint | Auth | Purpose |
 |---|---|---|
 | `GET /health` | none | liveness / platform health check |
-| `POST /routes` | bearer | HomeModel (+ optional constraints) → RoutePlan, deterministic |
+| `POST /routes` | bearer | HomeModel (+ optional constraints, `peril`) → RoutePlan, deterministic. The engine plans fire, earthquake and tornado; the iOS app requests and draws **fire only** |
 | `POST /convert` | bearer | `{scan: <RoomPlan export>, home_name?}` → validated HomeModel (S1.5 converter) |
 | `POST /explain` | bearer | HomeModel + RoutePlan (+ optional profile) → cited, structured explanation (S3.1) |
 | `POST /score` | bearer | HomeModel (+ constraints, `/analyze` findings, checklist state) → 0–100 preparedness score + breakdown + checklist (S3.5) |

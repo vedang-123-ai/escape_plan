@@ -1,10 +1,12 @@
 # Escape Plan — Congressional App Challenge 2026
 
 iOS home-safety **readiness and prevention** app. It builds a structured 3D model of a home — a full 3D
-editor, accelerated by an Apple RoomPlan LiDAR scan — and a deterministic Python engine computes routes,
-shelters, hazard findings, a readiness score and a checklist for **fire, earthquake and severe weather
-(tornado)**, drawn as animated paths on a SceneKit dollhouse. A server-side Claude layer explains and chats,
-grounded in a curated, cited FEMA/NFPA/Red Cross/USFA corpus.
+editor, accelerated by an Apple RoomPlan LiDAR scan — and a deterministic Python engine computes fire
+evacuation routes, drawn as animated paths on a SceneKit dollhouse, plus hazard findings, a readiness score and
+a checklist covering **fire, earthquake and severe weather (tornado)**; earthquake and tornado are guidance-based
+readiness content. The engine can also compute earthquake and tornado plans (shelters), but **the app draws fire
+routes only** (decisions 2026-10-05). A server-side Claude layer explains and chats, grounded in a curated, cited
+FEMA/NFPA/Red Cross/USFA corpus.
 
 **The AI never computes a route and never invents safety guidance.** That separation is the answer to a
 judge asking "isn't this an AI wrapper?" — defend it in every design decision.
@@ -91,9 +93,11 @@ sign-off.** Invariants:
 - **Don't trust a clean merge.** A textually clean merge of `origin/main` once combined a flipped rotation with
   tests written for the original. Run the gate after every merge.
 
-## Scope lock (restated 2026-09-18, demo trim 2026-10-02; full text in the product spec §4)
+## Scope lock (restated 2026-09-18, demo trim 2026-10-02, fire-only routes 2026-10-05; full text in the product spec §4)
 
-Fire + earthquake + severe weather (tornado); iOS only; LiDAR scan plus editor primary, with the text/photo
+Fire + earthquake + severe weather (tornado) in the readiness score and Tasks; **the app draws fire evacuation
+routes only** (House never requests an earthquake or tornado plan; the backend engine can compute them, and keeps
+that capability and its tests); iOS only; LiDAR scan plus editor primary, with the text/photo
 builder as a draft-only accessibility fallback; **no accounts or cloud sync in the app** (cut 2026-10-02: `Auth/`
 and `Sync/` are kept but switched off, no screen reaches them); **no custom or trained ML**; no fourth peril, no
 Android. Fire is fully code-quantified; earthquake and tornado are FEMA/NOAA-grounded readiness modules and must be

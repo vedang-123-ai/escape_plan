@@ -7,10 +7,12 @@ Status: APPROVED 2026-09-18. Supersedes the fire-only spec, the S6 pivot charter
 
 A **home-safety readiness and prevention app** for iOS. A family scans or builds a structured 3D model
 of its home (Apple RoomPlan LiDAR accelerates it; a real editor finishes it). A **deterministic engine**
-computes escape routes, shelter choices and hazard findings on that model for **fire, earthquake and
-severe weather (tornado)**, and turns them into a readiness score, a checklist and animated routes on a
-SceneKit dollhouse. A server-side **Claude layer explains and chats**, grounded in a curated,
-cited FEMA / NFPA / Red Cross / USFA corpus.
+computes fire escape routes and hazard findings on that model; the app draws the **fire** evacuation routes
+as animated paths on a SceneKit dollhouse. The readiness score and checklist cover **fire, earthquake and
+severe weather (tornado)**, with earthquake and tornado as guidance-based readiness content. The engine
+can also compute earthquake and tornado plans (shelter choices), but the app does not show them
+(correction 2026-10-05, `docs/decisions.md`). A server-side **Claude layer explains and chats**, grounded
+in a curated, cited FEMA / NFPA / Red Cross / USFA corpus.
 
 **The AI never computes a route and never invents safety guidance.** That separation is the answer to
 "isn't this an AI wrapper?" Defend it in every decision.
@@ -44,7 +46,9 @@ cited FEMA / NFPA / Red Cross / USFA corpus.
 
 ## 4. Scope lock (restated 2026-09-18)
 
-- **Perils:** fire + earthquake + severe weather (tornado). No fourth peril.
+- **Perils:** fire + earthquake + severe weather (tornado) in the score and checklist. No fourth peril.
+  **Routes drawn in the app: fire only** (2026-10-05). The engine's earthquake and tornado plans stay in
+  the backend with their tests, but no screen requests or draws them.
 - **Honest tiering:** fire is **fully code-quantified** (egress windows, timing, hazard thresholds).
   Earthquake and tornado are **FEMA/NOAA-grounded readiness modules**; where no codified number exists we
   say so and never manufacture one. The pitch must not imply three equally quantified pillars.

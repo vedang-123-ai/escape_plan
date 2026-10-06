@@ -17,7 +17,8 @@ struct OnboardingFlowView: View {
     /// `documentStore` is the library's store (AUD-019). Passed in, not read from the
     /// environment: ContentView presents this cover outside its `.environmentObject(library)`.
     init(documentStore: HomeDocumentStore, onFinished: @escaping () -> Void) {
-        _state = State(initialValue: OnboardingState(documentStore: documentStore))
+        _state = State(initialValue: OnboardingState(documentStore: documentStore,
+                                                     homeMemory: ActiveHomeMemory()))
         self.onFinished = onFinished
     }
 
@@ -286,6 +287,7 @@ struct OnboardingFlowView: View {
                 Image(systemName: symbol)
                     .font(.largeTitle)
                     .foregroundStyle(selected ? Theme.accent : DS.bodyInk)
+                    .accessibilityHidden(true)  // the label says it; never the symbol's name
                 Text(label)
                     .font(.body.weight(.semibold))
                     .foregroundStyle(DS.ink)

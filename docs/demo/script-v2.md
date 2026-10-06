@@ -6,7 +6,7 @@
 > **Tone:** talking to a parent about their house. Plain, warm, specific. No "leveraging AI",
 > no "revolutionary", no "cutting-edge". Numbers only if they're in `backend/corpus/`.
 
-**Total VO: 236 words ≈ 1:34 at 150 wpm.** (Fits well within 3:15 limit).
+**Total VO: 237 words ≈ 1:34 at 150 wpm.** (Fits well within 3:15 limit).
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## Beat 3 — The money shot & hazards
 
-> **VO:** Then it computes. Every room gets a primary escape route, and a secondary route through a different exit.
+> **VO:** Then it computes. Every room gets a primary fire escape route, and a secondary route through a different exit.
 >
 > The routes are calculated by a deterministic engine we wrote. We even added a fire drill simulation, where you start a fire in any room and watch everyone reroute around it. It also flags object hazards, warning you if furniture narrows a path.
 

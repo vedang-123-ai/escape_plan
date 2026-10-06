@@ -526,6 +526,10 @@ struct HouseScreen: View {
                     routesBanner
                     simulationBanner
                 }
+                // The scene card has a fixed height. At XXXL a full-size notice outgrew it and
+                // pushed the floor chips out of the top (S11.57). Over the model the notices top
+                // out at the first accessibility size; the dock below repeats the way to retry.
+                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                 .opacity(isImmersive ? 1 : 1 - collapseProgress)
                 .allowsHitTesting(isImmersive || collapseProgress < 0.5)
                 // Non-negotiable: while a timeline is on screen, this notice is on screen.
@@ -537,6 +541,8 @@ struct HouseScreen: View {
             .padding(.horizontal, 12)
             .padding(.top, 10)
             .padding(.bottom, isImmersive ? 28 : 10)
+            // Anything too tall for the card overflows at the bottom, never over the chip strip.
+            .frame(maxHeight: .infinity, alignment: .top)
         }
         .clipShape(RoundedRectangle(cornerRadius: isImmersive ? 0 : 26, style: .continuous))
         .shadow(color: .black.opacity(isImmersive ? 0 : 0.10), radius: 14, y: 5)
@@ -601,10 +607,12 @@ struct HouseScreen: View {
                         store.setActiveFloor(floor.id)
                         focusFloor(floor.id)
                     } label: {
-                        // The chip strip is fixed-height so it can never resize the scene; at
-                        // the accessibility sizes a long floor name must therefore shorten
-                        // rather than grow the strip. It still reads in full to VoiceOver.
-                        Text(name)
+                        // The chip strip is fixed-height so it can never resize the scene. At
+                        // the accessibility sizes a floor name never fits (S53-4: every chip read
+                        // "…"), so the chip shows the floor's number, counted from the lowest,
+                        // the same number VoiceOver reads ("floor 2 of 3"). Full name to VoiceOver.
+                        Text(Self.floorChipTitle(name: name, number: index + 1,
+                                                 accessibilitySize: dynamicTypeSize.isAccessibilitySize))
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
                     }
@@ -649,6 +657,18 @@ struct HouseScreen: View {
         .glassGroup()
     }
 
+    /// A floor chip's visible title: the floor's name, or at the accessibility sizes its number
+    /// ("1", "2", "3" from the lowest floor), which is what fits a chip there (S53-4).
+    static func floorChipTitle(name: String, number: Int, accessibilitySize: Bool) -> String {
+        accessibilitySize ? "\(number)" : name
+    }
+
+    /// The dock switch's segment titles. At the accessibility sizes the two segments stack (one
+    /// per line, full width) instead of truncating side by side to "Escap…" / "Fire si…" (S53-4).
+    private static func dockModeTitle(_ mode: DockMode) -> String {
+        mode == .routes ? "Escape routes" : "Fire simulation"
+    }
+
     // MARK: - View controls (routes)
 
     /// Quiet section header — the dock's wayfinding. Sentence case, secondary, no chrome.
@@ -658,17 +678,24 @@ struct HouseScreen: View {
 
     /// The design's two-segment card: one job at a time.
     private var dockModeSwitch: some View {
-        HStack(spacing: 0) {
+        let stacked = dynamicTypeSize.isAccessibilitySize
+        let layout = stacked ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
+        return layout {
             ForEach([DockMode.routes, .fire], id: \.self) { mode in
                 let selected = dockMode == mode
                 Button {
                     withAnimation(reduceMotion ? nil : .snappy) { dockMode = mode }
                 } label: {
-                    Text(mode == .routes ? "Escape routes" : "Fire simulation")
+                    Text(Self.dockModeTitle(mode))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(selected ? .white : DS.bodyInk)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.vertical, stacked ? 8 : 0)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 40)
+                        // 44 pt target (was a fixed 40): a minimum, so large text grows it.
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                         .background(selected ? Theme.accent : .clear,
                                     in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                 }
@@ -1211,7 +1238,7 @@ struct HouseScreen: View {
                         .padding(.horizontal, 6)
                         .padding(.vertical, 1)
                         .background(Color(DollhousePalette.warningBadgeSevere), in: Capsule())
-                        .accessibilityLabel("\(count) issues")
+                        .accessibilityLabel(HouseSceneAccessibility.issueBadgeLabel(count))
                 }
             }
 
@@ -1610,7 +1637,7 @@ struct HouseScreen: View {
                         .padding(.horizontal, 6)
                         .padding(.vertical, 1)
                         .background(Color(DollhousePalette.warningBadge), in: Capsule())
-                        .accessibilityLabel("\(findings.count) issues")
+                        .accessibilityLabel(HouseSceneAccessibility.issueBadgeLabel(findings.count))
                 }
             }
             if findings.isEmpty {
@@ -2613,6 +2640,10 @@ struct HouseScreen: View {
 /// `RouteGeometry.numberedStops`, which is outside this lane's fence.
 enum HouseSceneAccessibility {
 
+    /// What VoiceOver reads for the red count beside "Route check" and "Simulation check":
+    /// "1 issue", "2 issues" (S53-5: it read "1 issues").
+    static func issueBadgeLabel(_ count: Int) -> String { CountPhrase.of(count, "issue") }
+
     /// Everything the scene summary says about a running simulation.
     ///
     /// The wording of the hazard lines deliberately matches the finding cards
@@ -2669,7 +2700,7 @@ enum HouseSceneAccessibility {
 
         let floorLabel = floorName.trimmingCharacters(in: .whitespaces).isEmpty
             ? "this floor" : floorName
-        let rooms = "\(roomCount) \(roomCount == 1 ? "room" : "rooms")"
+        let rooms = CountPhrase.of(roomCount, "room")
         parts.append(floorCount > 1
             ? "Showing \(floorLabel), floor \(floorNumber) of \(floorCount), \(rooms)."
             : "\(floorLabel), \(rooms).")
@@ -2711,7 +2742,7 @@ enum HouseSceneAccessibility {
             parts.append("No rooms are untenable yet at this point in the simulation.")
         } else {
             let count = state.untenableRoomNames.count
-            parts.append("The engine models \(count) \(count == 1 ? "room" : "rooms") as "
+            parts.append("The engine models \(CountPhrase.of(count, "room")) as "
                          + "untenable at this point: \(list(state.untenableRoomNames)).")
         }
 
@@ -2788,7 +2819,7 @@ enum HouseSceneAccessibility {
         guard !lines.isEmpty else {
             return "The routing engine returned no route for the \(room.room_name)."
         }
-        return (["Route from the \(room.room_name), \(lines.count) steps."]
+        return (["Route from the \(room.room_name), \(CountPhrase.of(lines.count, "step"))."]
                 + lines.map(\.spoken)).joined(separator: " ")
     }
 }

@@ -32,6 +32,9 @@ struct BackendFailureBanner: View {
 
     @State private var showingSettings = false
     @State private var isHidden = false
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var hasActions: Bool { (failure.isRetryable && retry != nil) || failure.suggestsSettings || autoHides }
 
     static let autoHideDelay: Duration = .seconds(8)
 
@@ -64,17 +67,41 @@ struct BackendFailureBanner: View {
         .sheet(isPresented: $showingSettings) { SettingsScreen() }
     }
 
+    /// At the accessibility text sizes the buttons move under the message: side by side they
+    /// squeezed it into a column one syllable wide over House's model (S11.57, found at XXXL).
     private var banner: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: failure.symbol)
-                .foregroundStyle(tint)
-                .accessibilityHidden(true)
+        let large = typeSize.isAccessibilitySize
+        let layout = large ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                           : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 10))
+        return layout {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: failure.symbol)
+                    .foregroundStyle(tint)
+                    .accessibilityHidden(true)
 
-            Text(failure.message)
-                .font(.caption)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(failure.message)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if hasActions { HStack(alignment: .firstTextBaseline, spacing: 10) { actions } }
+        }
+        .padding(12)
+        .glassPanel(cornerRadius: 14)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(failure.message)
+        // A banner that appears while VoiceOver focus is elsewhere is otherwise silent: the
+        // user hears nothing went wrong (audit 2026-09-25). Announce it once when it appears,
+        // and again if a different failure replaces it in place.
+        .onAppear { AccessibilityNotification.Announcement(failure.message).post() }
+        .onChange(of: failure.message) { _, message in
+            AccessibilityNotification.Announcement(message).post()
+        }
+        .transition(.opacity)
+    }
 
+    @ViewBuilder
+    private var actions: some View {
             if failure.isRetryable, let retry {
                 Button("Retry", action: retry)
                     .font(.caption.bold())
@@ -109,19 +136,6 @@ struct BackendFailureBanner: View {
                 .accessibilityIdentifier("failure.dismiss")
                 .accessibilityLabel("Dismiss")
             }
-        }
-        .padding(12)
-        .glassPanel(cornerRadius: 14)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(failure.message)
-        // A banner that appears while VoiceOver focus is elsewhere is otherwise silent: the
-        // user hears nothing went wrong (audit 2026-09-25). Announce it once when it appears,
-        // and again if a different failure replaces it in place.
-        .onAppear { AccessibilityNotification.Announcement(failure.message).post() }
-        .onChange(of: failure.message) { _, message in
-            AccessibilityNotification.Announcement(message).post()
-        }
-        .transition(.opacity)
     }
 
     /// Only a genuine fault gets the warning red. Offline and cached-data notices are states,

@@ -80,6 +80,21 @@ struct escape_planApp: App {
         }
         _seedingNotice = State(initialValue: seedingNotice)
 
+#if DEBUG
+        // UI tests only (S11.57): a /score answer handed in by the test, cached for every home, so
+        // the layout tests see a score card and a checklist with no server running. The app shows
+        // it exactly as it shows any cached score; the live /score still runs (and fails offline).
+        if let json = ProcessInfo.processInfo.environment["UITEST_CANNED_SCORE"],
+           let canned = try? JSONDecoder().decode(ScoreBreakdown.self, from: Data(json.utf8)),
+           let cache = try? ScoreCache() {
+            for summary in homeStore.list() {
+                var score = canned
+                score.home_id = summary.id
+                cache.save(score, for: summary.id)
+            }
+        }
+#endif
+
         // One sidecar, shared: the repository writes deletion tombstones into it and the
         // manager reads and writes sync records. Two instances over the same file would
         // last-write-wins each other's updates.

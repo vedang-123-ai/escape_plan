@@ -97,9 +97,9 @@ including that the high-severity cap above (40) always reads "Needs work", and t
 
 ### Recurrence through `/score` (S11.34)
 
-`/score` accepts a completion time per recurring item (`checklist_state` value: an ISO-8601 UTC timestamp, or a bare `true`) and judges it against the server clock. Intervals: `practice.drill_recent` and `rescan.home` 183 days; `alarm.test_monthly` 30 days (corpus: "test every alarm monthly", `usfa-smoke-alarms`). A bare `true` means "done at an unknown time" and stays done until a timestamp replaces it. The response carries each item's `recurrence_days` and the `completed_at` the server used.
+`/score` accepts a completion time per recurring item (`checklist_state` value: an ISO-8601 UTC timestamp, or a bare `true`) and judges it against the server clock. The recurring items are `practice.drill_recent` and `rescan.home`, both 183 days. A bare `true` means "done at an unknown time" and stays done until a timestamp replaces it. The response carries each item's `recurrence_days` and the `completed_at` the server used.
 
-`alarm.test_monthly` is a `scoring: true` smoke-alarm item, so unlike the drill and the rescan, **a lapsed monthly test does lower the score** (one smoke-alarm item's share, until the user tests again). Weights are unchanged; only the item can now lapse. Pinned by `backend/tests/test_recurrence.py`. **The owner reversed this on 2026-10-05:** a lapsed test should not lower the score and the item becomes a one-time tick; code change pending (BLOCKERS, S11.55).
+**`alarm.test_monthly` is a one-time tick since 2026-10-05** (owner's product choice, `docs/decisions.md`; implemented in S11.57). It recurred every 30 days from S11.34 until then. Now ticking it once marks it done for good: it never lapses and never lowers the score, so it scores like any other one-time smoke-alarm item (one smoke-alarm item's share while open). Its title, text and citation are unchanged: the corpus still says "test every alarm monthly" (`usfa-smoke-alarms`). Phones from before the change stored a completion date for it; `/score` counts `true` or **any string** on this id as done and never answers 422 for it. Pinned by `backend/tests/test_recurrence.py`.
 
 ## Worked examples
 

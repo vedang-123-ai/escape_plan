@@ -100,7 +100,7 @@ struct DSPrimaryButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                if let systemImage { Image(systemName: systemImage).font(.subheadline.weight(.semibold)) }
+                if let systemImage { Image(systemName: systemImage).font(.subheadline.weight(.semibold)).accessibilityHidden(true) }
                 Text(title).font(.body.weight(.semibold))
             }
             .foregroundStyle(.white)
@@ -199,15 +199,81 @@ struct DSIconBadge: View {
 struct DSStatusPill: View {
     let text: String
     var tint: Color
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        HStack(spacing: 5) {
-            Circle().fill(tint).frame(width: 6, height: 6)
-            Text(text).font(.caption.weight(.medium)).foregroundStyle(Theme.text)
+        if typeSize.isAccessibilitySize {
+            // At the accessibility sizes the label may wrap (at word breaks): a capsule around
+            // two lines reads as a blob, so the shape becomes a rounded rectangle (S53-4).
+            let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Circle().fill(tint).frame(width: 6, height: 6)
+                Text(text).font(.caption.weight(.medium)).foregroundStyle(Theme.text)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Theme.raised, in: shape)
+            .overlay(shape.strokeBorder(Theme.border, lineWidth: Theme.hairline))
+        } else {
+            // Below the accessibility sizes: exactly the pill as it was.
+            HStack(spacing: 5) {
+                Circle().fill(tint).frame(width: 6, height: 6)
+                Text(text).font(.caption.weight(.medium)).foregroundStyle(Theme.text)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Theme.raised, in: Capsule())
+            .overlay(Capsule().strokeBorder(Theme.border, lineWidth: Theme.hairline))
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(Theme.raised, in: Capsule())
-        .overlay(Capsule().strokeBorder(Theme.border, lineWidth: Theme.hairline))
+    }
+}
+
+/// Lays children left to right and wraps to a new line when the row is full, like words in a
+/// sentence. For chip rows that must stay readable at the accessibility text sizes (S53-4).
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+    var lineSpacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(subviews, width: proposal.width ?? .infinity)
+        let width = rows.map(\.width).max() ?? 0
+        let height = rows.map(\.height).reduce(0, +) + lineSpacing * CGFloat(max(0, rows.count - 1))
+        return CGSize(width: proposal.width ?? width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in arrange(subviews, width: bounds.width) {
+            var x = bounds.minX
+            for index in row.indices {
+                let size = subviews[index].sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
+                // Centred in its row, like an HStack, so a one-row flow looks exactly like one.
+                subviews[index].place(at: CGPoint(x: x, y: y + (row.height - size.height) / 2),
+                                      proposal: ProposedViewSize(width: min(size.width, bounds.width), height: size.height))
+                x += min(size.width, bounds.width) + spacing
+            }
+            y += row.height + lineSpacing
+        }
+    }
+
+    private struct Row { var indices: [Int] = []; var width: CGFloat = 0; var height: CGFloat = 0 }
+
+    private func arrange(_ subviews: Subviews, width: CGFloat) -> [Row] {
+        var rows: [Row] = []
+        var row = Row()
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(ProposedViewSize(width: width, height: nil))
+            let itemWidth = min(size.width, width)
+            if !row.indices.isEmpty, row.width + spacing + itemWidth > width {
+                rows.append(row)
+                row = Row()
+            }
+            row.width += (row.indices.isEmpty ? 0 : spacing) + itemWidth
+            row.height = max(row.height, size.height)
+            row.indices.append(index)
+        }
+        if !row.indices.isEmpty { rows.append(row) }
+        return rows
     }
 }

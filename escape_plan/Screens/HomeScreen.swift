@@ -143,7 +143,8 @@ struct HomeScreen: View {
                     Text(readiness.activeHome?.name ?? "Escape Plan")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.text)
-                        .lineLimit(1)
+                        .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)  // S53-4: "Jagged S…" at XXXL
+                        .multilineTextAlignment(.leading)
                     Image(systemName: "chevron.down")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(Theme.supporting)
@@ -165,6 +166,7 @@ struct HomeScreen: View {
                     .accessibilityIdentifier("Import Plan")
             } label: {
                 Label("Menu", systemImage: "plus")
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)  // stays inside its 34 pt tile at XXXL
                     .labelStyle(.iconOnly)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.text)
@@ -246,7 +248,7 @@ struct HomeScreen: View {
         let age = readiness.needsDraftReview
             ? "AI draft, not reviewed yet"
             : ScanFreshness.scanAgeText(lastScanned: home.meta.last_scanned, modified: home.meta.modified)
-        return "\(rooms) \(rooms == 1 ? "room" : "rooms") · \(floors) \(floors == 1 ? "floor" : "floors") · \(age.trimmingCharacters(in: CharacterSet(charactersIn: ".")))"
+        return "\(CountPhrase.of(rooms, "room")) · \(CountPhrase.of(floors, "floor")) · \(age.trimmingCharacters(in: CharacterSet(charactersIn: ".")))"
     }
 
     // MARK: - Score
@@ -266,6 +268,10 @@ struct HomeScreen: View {
                 .padding(.horizontal, DS.pagePadding)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Preparedness score \(breakdown.score) out of 100, \(ReadinessStore.band(for: breakdown.score).title). Opens the breakdown.")
+                // `.ignore` rebuilds the element, which dropped the Button's own trait: the card
+                // read as a plain container (S53-5). It acts as a button, so it says so.
+                .accessibilityAddTraits(.isButton)
+                .accessibilityIdentifier("home.scoreCard")
         } else if let failure = readiness.scoreFailure {
             BackendFailureBanner(failure: failure,
                                  retry: failure.isRetryable ? { readiness.rescore(api: apiClient) } : nil)
@@ -275,39 +281,69 @@ struct HomeScreen: View {
         }
     }
 
+    /// At the accessibility text sizes the gauge moves under the number and the band pill and
+    /// "Breakdown" stack, so nothing is squeezed into breaking mid-word (S53-4: "So / me / gap").
+    /// Below them the layout is exactly as before.
+    @ViewBuilder
     private func scoreCard(_ score: Int) -> some View {
-        HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Preparedness")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.supporting)
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(score)")
-                        // Dynamic Type (audit 2026-09-25): was a fixed 44 pt.
-                        .font(Theme.metric)
-                        .monospacedDigit()
-                        .kerning(-1.5)
-                        .foregroundStyle(Theme.text)
-                        .contentTransition(.numericText())
-                    Text("/ 100").font(.subheadline).foregroundStyle(Theme.supporting)
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 12) {
+                scoreHeadline(score)
+                VStack(alignment: .leading, spacing: 8) {
+                    scoreBandPill(score)
+                    breakdownLink
                 }
-                HStack(spacing: 8) {
-                    // One band definition for Home and Score (`Readiness/ScoreBand.swift`).
-                    DSStatusPill(text: ReadinessStore.band(for: score).title,
-                                 tint: ReadinessStore.band(for: score).tint)
-                    HStack(spacing: 3) {
-                        Text("Breakdown")
-                        Image(systemName: "arrow.right").font(.system(size: 9, weight: .bold))
-                    }
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(Theme.supporting)
-                }
+                DSScoreGauge(score: score)
             }
-            Spacer(minLength: 8)
-            DSScoreGauge(score: score)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .dsCard(padding: 16)
+        } else {
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    scoreHeadline(score)
+                    HStack(spacing: 8) {
+                        scoreBandPill(score)
+                        breakdownLink
+                    }
+                }
+                Spacer(minLength: 8)
+                DSScoreGauge(score: score)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .dsCard(padding: 16)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .dsCard(padding: 16)
+    }
+
+    @ViewBuilder
+    private func scoreHeadline(_ score: Int) -> some View {
+        Text("Preparedness")
+            .font(.footnote)
+            .foregroundStyle(Theme.supporting)
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text("\(score)")
+                // Dynamic Type (audit 2026-09-25): was a fixed 44 pt.
+                .font(Theme.metric)
+                .monospacedDigit()
+                .kerning(-1.5)
+                .foregroundStyle(Theme.text)
+                .contentTransition(.numericText())
+            Text("/ 100").font(.subheadline).foregroundStyle(Theme.supporting)
+        }
+    }
+
+    /// One band definition for Home and Score (`Readiness/ScoreBand.swift`).
+    private func scoreBandPill(_ score: Int) -> some View {
+        DSStatusPill(text: ReadinessStore.band(for: score).title,
+                     tint: ReadinessStore.band(for: score).tint)
+    }
+
+    private var breakdownLink: some View {
+        HStack(spacing: 3) {
+            Text("Breakdown")
+            Image(systemName: "arrow.right").font(.system(size: 9, weight: .bold)).accessibilityHidden(true)
+        }
+        .font(.caption.weight(.medium))
+        .foregroundStyle(Theme.supporting)
     }
 
     // MARK: - Up next
@@ -322,7 +358,7 @@ struct HomeScreen: View {
                 Button { router.selectedTab = .tasks } label: {
                     HStack(spacing: 3) {
                         Text("All tasks")
-                        Image(systemName: "arrow.right").font(.system(size: 9, weight: .bold))
+                        Image(systemName: "arrow.right").font(.system(size: 9, weight: .bold)).accessibilityHidden(true)
                     }
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(Theme.accentText)
@@ -666,7 +702,7 @@ private struct ManageHomesSheet: View {
     }
 
     private static func size(_ home: HomeSummary) -> String {
-        "\(home.roomCount) \(home.roomCount == 1 ? "room" : "rooms") · \(home.floorCount) \(home.floorCount == 1 ? "floor" : "floors")"
+        "\(CountPhrase.of(home.roomCount, "room")) · \(CountPhrase.of(home.floorCount, "floor"))"
     }
 
     // A delete during a sync is safe: `SyncManager` snapshots tombstones before it reads the

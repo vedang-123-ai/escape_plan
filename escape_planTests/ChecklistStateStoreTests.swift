@@ -118,4 +118,14 @@ final class ChecklistStateStoreTests: XCTestCase {
         let relaunched = ChecklistStateStore(defaults: UserDefaults(suiteName: suiteName)!)
         XCTAssertEqual(relaunched.load(homeID: "home-1"), ["alarm.every_level": true])
     }
+
+    /// The alarm test stopped recurring (owner, 2026-10-05). A date a build before that stored for
+    /// it loads as a plain tick; the drill's date is still a date.
+    func testAnOldAlarmTestDateLoadsAsATick() {
+        let tested = Date(timeIntervalSince1970: 1_787_659_200)
+        defaults.set(["alarm.test_monthly": tested, "practice.drill_recent": tested] as [String: Any],
+                     forKey: "checklistState.home-1")
+        XCTAssertEqual(store.load(homeID: "home-1"),
+                       ["alarm.test_monthly": .flag(true), "practice.drill_recent": .completed(tested)])
+    }
 }

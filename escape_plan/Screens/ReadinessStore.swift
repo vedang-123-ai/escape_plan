@@ -53,9 +53,21 @@ final class ReadinessStore {
     @ObservationIgnored private let stateStore = ChecklistStateStore()
     @ObservationIgnored let freshnessStore = ScanFreshnessStore()
 
-    init(library: HomeLibrary) {
+    /// Remembers the active home across launches (S53-2). nil in tests and previews, so they
+    /// never write the app's own choice; `ContentView` passes the real one.
+    @ObservationIgnored private let homeMemory: ActiveHomeMemory?
+    /// The home a fresh install opens on (S53-1). A test can name another.
+    @ObservationIgnored private let demoHomeID: String?
+
+    /// Opens on the remembered home if it still exists, else the demo home, else the first.
+    init(library: HomeLibrary, homeMemory: ActiveHomeMemory? = nil,
+         demoHomeID: String? = FixtureSeeder.demoHomeID) {
         self.library = library
-        activeHomeID = library.homes.first?.id
+        self.homeMemory = homeMemory
+        self.demoHomeID = demoHomeID
+        activeHomeID = ActiveHomeMemory.choose(remembered: homeMemory?.remembered,
+                                               available: library.homes.map(\.id),
+                                               demoHomeID: demoHomeID)
         preventionTips = Self.bundledTips()
     }
 
@@ -122,10 +134,14 @@ final class ReadinessStore {
 
     // MARK: - Changing the active home
 
-    /// Keeps `activeHomeID` pointing at a home that exists (after a delete, or a first sync).
+    /// Keeps `activeHomeID` pointing at a home that exists (after a delete, or a first sync or
+    /// onboarding fills an empty library). Same choice as launch: the remembered home, else the
+    /// demo home, else the first.
     func ensureActiveHome() {
         if activeHomeID == nil || !library.homes.contains(where: { $0.id == activeHomeID }) {
-            switchActiveHome(to: library.homes.first?.id)
+            switchActiveHome(to: ActiveHomeMemory.choose(remembered: homeMemory?.remembered,
+                                                         available: library.homes.map(\.id),
+                                                         demoHomeID: demoHomeID))
         }
     }
 
@@ -140,6 +156,7 @@ final class ReadinessStore {
     private func switchActiveHome(to homeID: String?) {
         cancelScoreFetch()
         activeHomeID = homeID
+        homeMemory?.remember(homeID)
         pendingRecurring = [:]
         untimedTicks = [:]
         tickNotice = nil
