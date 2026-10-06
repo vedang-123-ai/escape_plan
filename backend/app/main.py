@@ -676,6 +676,26 @@ def score(request: ScoreRequest, http_request: Request) -> ScoreBreakdown:
                         request.home, plan, request.checklist_state, request.profile
                     )
                 )
+            except DeadlineExceeded as exc:
+                # The deterministic breakdown is ALREADY COMPUTED here — three peril
+                # route plans and the whole score — and the AI half adds only
+                # explicitly non-scoring checklist items. Letting DeadlineExceeded
+                # escape turned a slow garnish into a 504 that discarded finished
+                # work, on the endpoint the demo path leans on hardest.
+                #
+                # Degrade to exactly what `include_recommendations=false` returns.
+                # This is the project's central claim applied to its own code: the
+                # deterministic half never depends on the AI half, so /score has to
+                # be the last thing to break, not the first.
+                #
+                # A missing key stays a 502 below: that is an operator problem the
+                # app should surface, where a timeout is a transient one it can ride
+                # out. The two must not collapse into one response.
+                logging.warning(
+                    "score: AI recommendations timed out (%s); returning the "
+                    "deterministic breakdown without them",
+                    exc,
+                )
             except GroundingError as exc:
                 raise HTTPException(status_code=502, detail=str(exc)) from exc
     return breakdown

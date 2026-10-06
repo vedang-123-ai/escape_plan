@@ -1,8 +1,9 @@
 # backend/ — Python FastAPI service
 
 Read the root `CLAUDE.md` first; run, deploy and curl docs are in `README.md`. Create the venv once:
-`python3 -m venv .venv && .venv/bin/pip install -r requirements.txt` (it is gitignored), then run tests with
-`.venv/bin/python -m pytest tests/ -m "not live"`.
+`python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt` (it is gitignored; `requirements-dev.txt`
+pulls in `requirements.txt` plus pytest, which `requirements.txt` alone does not install; macOS's own `python3` is 3.9
+and too old), then run tests with `.venv/bin/python -m pytest tests/ -m "not live"`.
 
 ## Layout
 
