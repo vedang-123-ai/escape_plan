@@ -138,7 +138,7 @@ final class ScoreCacheTests: XCTestCase {
             basis: nil,
             components: [],
             checklist: [
-                ChecklistItem(id: "alarm.smoke.installed", category: .equipment, title: "Smoke Alarm",
+                ChecklistItem(id: "alarm.smoke.installed", category: .smoke_alarm, title: "Smoke Alarm",
                               detail: "Installed", done: true, source_citation: nil, scoring: true)
             ]
         )

@@ -214,7 +214,9 @@ final class ReadinessStore {
            let cached = (try? ScoreCache())?.loadEntry(homeID: activeHomeID) {
             if let activeHome {
                 let currentFingerprint = ScoreCache.fingerprint(of: activeHome)
-                if cached.matchStatus(against: currentFingerprint) != .mismatch {
+                // A score for an edited home is not shown; a legacy entry (no fingerprint) is.
+                if case .mismatch = cached.matchStatus(against: currentFingerprint) {
+                } else {
                     scored = (activeHomeID, cached.score)
                 }
             } else {

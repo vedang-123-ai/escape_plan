@@ -1,7 +1,7 @@
 import Foundation
 import os
 
-struct CachedScore: Equatable {
+struct CachedScore {
     let score: ScoreBreakdown
     let savedAt: Date?
     let homeFingerprint: String?

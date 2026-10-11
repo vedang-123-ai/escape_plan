@@ -57,6 +57,9 @@ final class AuditNetworkStubProtocol: URLProtocol {
     override func stopLoading() {}
 }
 
+// Nested in OfflineIntegrityTests' serialized suite: both stub `URLSession.shared` through a
+// globally registered URLProtocol, so they must never run at the same time.
+extension OfflineIntegrityTests {
 @Suite("Audit Network Fallback Tests", .serialized)
 struct Audit_NetworkFallbackTests {
 
@@ -283,4 +286,5 @@ struct Audit_NetworkFallbackTests {
         #expect(failure.message == actionableDetail)
         #expect(failure.isRetryable == false)
     }
+}
 }

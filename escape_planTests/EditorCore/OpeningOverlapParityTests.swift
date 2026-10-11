@@ -29,8 +29,8 @@ final class OpeningOverlapParityTests: XCTestCase {
         let doorA = Opening(
             id: "door_a",
             kind: .door,
-            wall_segment: WallSegmentRef(room_id: "room_main", edge_index: 0, t0: 0.2, t1: 0.5),
             room_ids: ["room_main", EXTERIOR_ID],
+            wall_segment: WallSegmentRef(room_id: "room_main", edge_index: 0, t0: 0.2, t1: 0.5),
             width_m: 1.5,
             height_m: 2.0,
             sill_height_m: 0.0,
@@ -40,8 +40,8 @@ final class OpeningOverlapParityTests: XCTestCase {
         let doorB = Opening(
             id: "door_b",
             kind: .door,
-            wall_segment: WallSegmentRef(room_id: "room_main", edge_index: 0, t0: 0.4, t1: 0.7),
             room_ids: ["room_main", EXTERIOR_ID],
+            wall_segment: WallSegmentRef(room_id: "room_main", edge_index: 0, t0: 0.4, t1: 0.7),
             width_m: 1.5,
             height_m: 2.0,
             sill_height_m: 0.0,

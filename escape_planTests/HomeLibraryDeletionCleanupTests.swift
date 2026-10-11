@@ -8,6 +8,7 @@ import Foundation
 import XCTest
 @testable import escape_plan
 
+@MainActor
 final class HomeLibraryDeletionCleanupTests: XCTestCase {
     private var tempDir: URL!
     private var defaults: UserDefaults!
