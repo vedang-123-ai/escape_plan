@@ -93,7 +93,6 @@ final class HomeLibrary: ObservableObject {
         ChecklistStateStore(defaults: defaults).clear(homeID: homeID)
         MeetingPointStore(defaults: defaults).setMeetingPoint("", forHomeID: homeID)
         defaults.removeObject(forKey: "readiness.wallEdgeCount.\(homeID)")
-        defaults.removeObject(forKey: "readiness.scanFreshnessDismissed.\(homeID)")
         (try? ScoreCache(fileManager: fileManager))?.remove(homeID: homeID)
 
         if let documents = try? fileManager.url(for: .documentDirectory, in: .userDomainMask,

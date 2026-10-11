@@ -103,9 +103,8 @@ struct GlassChipButtonStyle: ButtonStyle {
             // while preserving the visual chip size and shape.
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
-            // Non-colour cue is visually provided by the active stroke in glassPill.
-            // VoiceOver gets .isSelected trait and "Selected" value state.
-            .accessibilityValue(isSelected ? "Selected" : "")
+            // Non-colour cue is the active stroke in glassPill; VoiceOver gets the .isSelected
+            // trait, which it already speaks as "Selected" (a value too would say it twice).
             .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }

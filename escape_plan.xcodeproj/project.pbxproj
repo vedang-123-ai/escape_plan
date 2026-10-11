@@ -33,7 +33,6 @@
 		27C930F030018964002825E5 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				BackendConfig.local.json,
 				CLAUDE.md,
 				"Capture/README.md",
 			);
@@ -117,7 +116,6 @@
 				27C930BD3001895C002825E5 /* Sources */,
 				27C930BE3001895C002825E5 /* Frameworks */,
 				27C930BF3001895C002825E5 /* Resources */,
-				27C930F130018964002825E5 /* Copy BackendConfig for Debug */,
 			);
 			buildRules = (
 			);
@@ -246,27 +244,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		27C930F130018964002825E5 /* Copy BackendConfig for Debug */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Copy BackendConfig for Debug";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ \"${CONFIGURATION}\" = \"Debug\" ]; then\n  CONFIG_FILE=\"${SRCROOT}/escape_plan/BackendConfig.local.json\"\n  if [ -f \"${CONFIG_FILE}\" ]; then\n    cp \"${CONFIG_FILE}\" \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/BackendConfig.local.json\"\n  fi\nfi\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		27C930BD3001895C002825E5 /* Sources */ = {

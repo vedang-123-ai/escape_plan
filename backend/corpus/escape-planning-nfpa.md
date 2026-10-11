@@ -5,7 +5,7 @@ doc_title: How to make a home fire escape plan
 url: https://www.nfpa.org/education-and-research/home-fire-safety/escape-planning
 retrieved: 2026-07-10
 topics: [escape-planning, two-ways-out, meeting-point, practice, drills]
-additional_source_ids: [usfa-escape-plans, usfa-extinguishers, ulfsri-close-your-door]
+additional_source_ids: [usfa-escape-plans, usfa-extinguishers]
 ---
 
 # Home fire escape planning (NFPA guidance)
@@ -15,7 +15,6 @@ All content below is paraphrased from NFPA's home escape planning guidance [cite
 ## Core principles
 
 - **Two ways out of every room.** Identify two escape routes from each room where possible — usually the door, plus a second path such as a window or a second doorway. A second route matters because the first can be blocked by smoke or flames. [cite: nfpa-escape-planning]
-- **Sleep with bedroom doors closed.** A closed bedroom door slows the spread of toxic smoke, heat, and flames, significantly extending survival time during a nighttime fire ("Close Before You Doze") [cite: ulfsri-close-your-door].
 - **Draw the plan.** Households (especially those with children) should draw a floor plan of the home marking two ways out of each room, including windows and doors. [cite: nfpa-escape-planning]
 - **Routes must be usable by everyone.** Verify that each escape route can actually be used safely by every member of the household — check that windows open, screens can be removed, and security bars can be released from the inside. [cite: nfpa-escape-planning]
 - **Keep exits clear.** Escape paths must be free of clutter, furniture, and stored items. [cite: usfa-escape-plans]

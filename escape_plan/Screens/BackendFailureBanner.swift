@@ -90,19 +90,6 @@ struct BackendFailureBanner: View {
         .glassPanel(cornerRadius: 14)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(failure.message)
-        .accessibilityAction(named: "Try again") {
-            if failure.isRetryable, let retry { retry() }
-        }
-        .accessibilityAction(named: "Open Settings") {
-            if failure.suggestsSettings {
-                if let openSettings { openSettings() } else { showingSettings = true }
-            }
-        }
-        .accessibilityAction(named: "Dismiss") {
-            if autoHides {
-                withAnimation(.easeOut(duration: 0.2)) { isHidden = true }
-            }
-        }
         // A banner that appears while VoiceOver focus is elsewhere is otherwise silent: the
         // user hears nothing went wrong (audit 2026-09-25). Announce it once when it appears,
         // and again if a different failure replaces it in place.

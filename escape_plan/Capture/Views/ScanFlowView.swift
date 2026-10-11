@@ -421,15 +421,15 @@ struct ScanPermissionDeniedView: View {
 
             Spacer()
 
-            Button(action: onOpenSettings) {
-                Text("Open Settings").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .accessibilityHint("Opens iOS Settings so you can allow camera access.")
+            DSPrimaryButton(title: "Open Settings", action: onOpenSettings)
+                .accessibilityHint("Opens iOS Settings so you can allow camera access.")
 
             Button("Cancel", action: onCancel)
+                .font(.body.weight(.medium))
+                .foregroundStyle(Theme.supporting)
                 .frame(maxWidth: .infinity)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
                 .accessibilityHint("Leaves the scan.")
         }
         .padding(24)

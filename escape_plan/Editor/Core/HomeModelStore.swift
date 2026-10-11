@@ -93,6 +93,15 @@ final class HomeModelStore {
         case invalidInitialModel([ValidationIssue])
     }
 
+    /// Warnings in `draft` that `before` did not already have, matched by kind and entity.
+    private static func newWarnings(in draft: HomeModel, comparedTo before: HomeModel) -> [ValidationIssue] {
+        struct Key: Hashable { let kind: ValidationIssue.Kind; let entityId: String? }
+        let existing = Set(EditorValidation.warnings(before).map { Key(kind: $0.kind, entityId: $0.entityId) })
+        return EditorValidation.warnings(draft).filter {
+            !existing.contains(Key(kind: $0.kind, entityId: $0.entityId))
+        }
+    }
+
     // MARK: - Selection (UI state — no validation, no commit)
 
     func select(_ selection: Selection) {
@@ -135,6 +144,10 @@ final class HomeModelStore {
 
         let issues = EditorValidation.validate(draft)
         guard issues.isEmpty else { return .rejected(issues) }
+        // Overlapping openings are only a warning so an imported home that already has one
+        // still opens (A17-02), but an edit may not CREATE a new one.
+        let introduced = Self.newWarnings(in: draft, comparedTo: model)
+        guard introduced.isEmpty else { return .rejected(introduced) }
 
         draft.meta.modified = now()
 

@@ -51,17 +51,17 @@ struct InFireSafetyRulesExportTests {
         // Title
         #expect(text.contains("IF THERE IS A FIRE"))
 
-        // Rule 1: Feel the door before opening
-        #expect(text.contains("Feel the door before opening"))
-        #expect(text.contains("backup route"))
+        // Rule 1: Test doors before opening
+        #expect(text.contains("Test doors before opening"))
+        #expect(text.contains("second way out"))
 
-        // Rule 2: Stay low
-        #expect(text.contains("Stay low"))
-        #expect(text.contains("crawl under smoke"))
+        // Rule 2: Get low and go
+        #expect(text.contains("get low and go"))
+        #expect(text.contains("crawl beneath the smoke"))
 
         // Rule 3: Close doors behind you
         #expect(text.contains("Close doors behind you"))
-        #expect(text.contains("slow fire and smoke"))
+        #expect(text.contains("slow the spread"))
 
         // Rule 4: Get out and stay out
         #expect(text.contains("Get out and stay out"))
@@ -69,7 +69,7 @@ struct InFireSafetyRulesExportTests {
 
         // Rule 5 & 6: Outside meeting place and call 911 from outside
         #expect(text.contains("outside meeting place"))
-        #expect(text.contains("call 911 from outside"))
+        #expect(text.contains("call 911"))
     }
 
     @Test("Responder snapshot PDF does NOT include 'If there is a fire' family rules")
@@ -84,8 +84,8 @@ struct InFireSafetyRulesExportTests {
             let page = try #require(pdf.page(at: index))
             let text = page.string ?? ""
             #expect(!text.contains("IF THERE IS A FIRE"))
-            #expect(!text.contains("Feel the door before opening"))
-            #expect(!text.contains("crawl under smoke"))
+            #expect(!text.contains("Test doors before opening"))
+            #expect(!text.contains("crawl beneath the smoke"))
         }
     }
 

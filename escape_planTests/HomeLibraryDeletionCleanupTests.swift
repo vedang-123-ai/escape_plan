@@ -49,7 +49,6 @@ final class HomeLibraryDeletionCleanupTests: XCTestCase {
         XCTAssertEqual(meetingStore.meetingPoint(forHomeID: homeID), "By the big oak tree")
 
         defaults.set(14, forKey: "readiness.wallEdgeCount.\(homeID)")
-        defaults.set(true, forKey: "readiness.scanFreshnessDismissed.\(homeID)")
         XCTAssertEqual(defaults.integer(forKey: "readiness.wallEdgeCount.\(homeID)"), 14)
 
         let scoreCache = try ScoreCache(fileManager: .default)
@@ -72,7 +71,6 @@ final class HomeLibraryDeletionCleanupTests: XCTestCase {
         XCTAssertTrue(checklistStore.load(homeID: homeID).isEmpty, "ChecklistStateStore must be cleared")
         XCTAssertEqual(meetingStore.meetingPoint(forHomeID: homeID), "", "MeetingPointStore must be cleared")
         XCTAssertNil(defaults.object(forKey: "readiness.wallEdgeCount.\(homeID)"), "Wall edge count must be cleared")
-        XCTAssertNil(defaults.object(forKey: "readiness.scanFreshnessDismissed.\(homeID)"), "Scan freshness dismissed flag must be cleared")
         XCTAssertNil(scoreCache.load(homeID: homeID), "ScoreCache must be removed")
         XCTAssertFalse(FileManager.default.fileExists(atPath: routeFile.path), "RouteCache file must be removed")
     }

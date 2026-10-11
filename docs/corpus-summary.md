@@ -4,8 +4,8 @@ One-page summary of the grounding corpus in `backend/corpus/`. The AI layer cite
 the deterministic engines read the threshold files. Validate anytime with
 `python3 backend/corpus/validate.py` (offline, stdlib-only).
 
-_Last verified 2026-10-11: **38 sources, 14 corpus files, 2 threshold files,
-46 prevention tips, 0 orphan exceptions.**_
+_Last verified 2026-10-11 on `audit-review`: **35 sources, 13 corpus files, 2 threshold files,
+44 prevention tips, 0 orphan exceptions.**_
 
 ## The corpus at a glance
 
@@ -13,10 +13,9 @@ _Last verified 2026-10-11: **38 sources, 14 corpus files, 2 threshold files,
 
 | File | Grounds | Primary source |
 |---|---|---|
-| `escape-planning-nfpa.md` | Two ways out of every room, meeting point, practice 2×/year, during-fire behavior, sleeping door safety | NFPA escape planning guidance / UL FSRI |
+| `escape-planning-nfpa.md` | Two ways out of every room, meeting point, practice 2×/year, during-fire behavior | NFPA escape planning guidance |
 | `egress-windows-irc.md` | Window/door egress code numbers + where escape openings are required | 2021 IRC §R310 / §R311 (ICC) |
 | `smoke-alarms-usfa.md` | Alarm placement (every bedroom, outside sleeping areas, every level), testing, 10-year replacement | USFA/FEMA |
-| `carbon-monoxide-safety.md` | Carbon monoxide alarm placement (outside sleeping areas, every level), fuel-burning appliances/garages, testing | NFPA / USFA |
 | `home-fire-escape-redcross.md` | Escape plan steps, the 2-minute drill loop the app's drill mode mirrors | American Red Cross |
 | `fire-facts-stats.md` | Approved statistics for AI + pitch (3-in-5 deaths, ~2 minutes to escape, 26% practiced) | NFPA research / Red Cross |
 | `special-considerations.md` | Profile guidance: mobility-limited, children, older adults, pets + deterministic tag→constraint mappings | USFA / NFPA disability evacuation guides |
@@ -60,17 +59,18 @@ strap positions are not codified here. This asymmetry is exactly what S11.2's `b
 
 ## `prevention_tips.json`
 
-46 tips (`fire` 22, `earthquake` 13, `tornado` 11), each with `id`, `peril`, `topic`, `text`, `cite`,
+44 tips (`fire` 20, `earthquake` 13, `tornado` 11), each with `id`, `peril`, `topic`, `text`, `cite`,
 `audience`. Every `cite` resolves in `sources.json` and is enforced by `validate.py` check 7. The iOS app
 bundles a byte-identical copy; `scripts/check-tips-sync.py` (S11.5) is what keeps the two from drifting.
 
 ## Grounding rules
 
-- Every citable source has an id in `sources.json` (38); inline citations are `[cite: source-id]`, and
+- Every citable source has an id in `sources.json` (35); inline citations are `[cite: source-id]`, and
   `validate.py` rejects unresolvable or undeclared ones.
 - **No orphan sources** (`validate.py` check 8): every source id must be cited by a corpus doc or named in
   a threshold file. An id the AI may cite but was never shown a document for is a hole it can invent
-  guidance through. Zero orphan exceptions remain.
+  guidance through. No exceptions remain: `usgs-earthquake`, the last one, was removed 2026-10-11 once its
+  only caller (the drill aftershock card) had been deleted.
 - Compilation docs (`fire-facts-stats.md`, `special-considerations.md`, and the four new peril docs) have
   non-source primary ids and only ever cite underlying external sources.
 - Statistics outside `fire-facts-stats.md` are off-limits; uncovered topics get honest deferral.

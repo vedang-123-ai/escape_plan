@@ -137,38 +137,31 @@ final class OpeningActionsTests: XCTestCase {
         XCTAssertEqual(before, store.model)
     }
 
-    func testOverlappingOpeningsOnSameEdgeToleratedWithWarning() throws {
+    func testOverlappingOpeningsOnSameEdgeRejected() throws {
         XCTAssertApplied(store.dispatch(.addOpening(roomId: "room_a", edgeIndex: 0, t: 0.5,
                                                     kind: .door)))
-        // Symmetrical with backend/schema (A17-02): overlapping openings do not brick the home
-        // or block editing; they apply and generate a repairable warning in EditorValidation.warnings.
-        XCTAssertApplied(store.dispatch(.addOpening(roomId: "room_a", edgeIndex: 0, t: 0.55,
-                                                    kind: .door)),
-                         "second door overlapping the first is tolerated as a warning")
-        XCTAssertEqual(store.model.floors[0].openings.count, 2)
-        XCTAssertModelValid(store.model)
+        let before = store.model
+        XCTAssertRejected(store.dispatch(.addOpening(roomId: "room_a", edgeIndex: 0, t: 0.55,
+                                                     kind: .door)),
+                          "second door overlapping the first")
+        XCTAssertEqual(before, store.model, "rejected action must leave the model untouched")
 
-        let warnings = EditorValidation.warnings(store.model)
-        XCTAssertFalse(warnings.isEmpty, "overlapping openings produce a repairable warning")
-        XCTAssertTrue(warnings.contains { $0.kind == .openingPlacement && $0.isWarning })
-
-        // Far enough along the same wall is fine without warning.
+        // Far enough along the same wall is fine.
         XCTAssertApplied(store.dispatch(.addOpening(roomId: "room_a", edgeIndex: 0, t: 0.85,
                                                     kind: .window)))
-        XCTAssertEqual(store.model.floors[0].openings.count, 3)
+        XCTAssertEqual(store.model.floors[0].openings.count, 2)
         XCTAssertModelValid(store.model)
     }
 
-    func testDragOpeningToleratesCrossingAsWarning() throws {
+    func testDragOpeningCannotCrossAnotherOpening() throws {
         XCTAssertApplied(store.dispatch(.addOpening(roomId: "room_a", edgeIndex: 0, t: 0.3,
                                                     kind: .door)))
         XCTAssertApplied(store.dispatch(.addOpening(roomId: "room_a", edgeIndex: 0, t: 0.8,
                                                     kind: .window)))
         let doorId = store.model.floors[0].openings[0].id
-        XCTAssertApplied(store.dispatch(.dragOpening(openingId: doorId, t: 0.8)),
-                         "sliding the door onto the window applies and records a warning")
+        XCTAssertRejected(store.dispatch(.dragOpening(openingId: doorId, t: 0.8)),
+                          "sliding the door onto the window")
         XCTAssertModelValid(store.model)
-        XCTAssertFalse(EditorValidation.warnings(store.model).isEmpty)
     }
 
     // MARK: - deleteOpening

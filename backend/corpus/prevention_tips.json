@@ -35,14 +35,6 @@
       "audience": "everyone"
     },
     {
-      "id": "fire-close-before-you-doze",
-      "peril": "fire",
-      "topic": "during-fire",
-      "text": "Sleep with bedroom doors closed. A closed door keeps toxic smoke, heat, and flames out of bedrooms significantly longer during a fire.",
-      "cite": "ulfsri-close-your-door",
-      "audience": "everyone"
-    },
-    {
       "id": "fire-get-out-then-call",
       "peril": "fire",
       "topic": "during-fire",
@@ -120,14 +112,6 @@
       "topic": "smoke-alarms",
       "text": "Replace every smoke alarm ten years from its manufacture date — check the date printed on the back.",
       "cite": "usfa-smoke-alarms",
-      "audience": "everyone"
-    },
-    {
-      "id": "fire-co-alarm-placement",
-      "peril": "fire",
-      "topic": "smoke-alarms",
-      "text": "Install carbon monoxide alarms outside each sleeping area and on every level of the home if you have fuel-burning appliances or an attached garage.",
-      "cite": "nfpa-carbon-monoxide",
       "audience": "everyone"
     },
     {

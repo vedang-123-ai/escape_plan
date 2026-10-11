@@ -85,4 +85,17 @@ final class OpeningOverlapParityTests: XCTestCase {
         let remainingWarnings = EditorValidation.warnings(store.model)
         XCTAssertTrue(remainingWarnings.isEmpty, "After dragging away, no warnings remain")
     }
+
+    func testExistingOverlapDoesNotLicenseANewOne() throws {
+        let store = try HomeModelStore.testStore(homeWithOverlappingOpenings())
+        let before = store.model
+        // A window on top of door_b: a NEW overlap, refused even though the home already
+        // carries one it is allowed to keep.
+        XCTAssertRejected(store.dispatch(.addOpening(roomId: "room_main", edgeIndex: 0, t: 0.6,
+                                                     kind: .window)),
+                          "a new overlap is rejected even in a home that already has one")
+        XCTAssertEqual(before, store.model)
+        // An edit that adds no overlap still applies.
+        XCTAssertApplied(store.dispatch(.setHomeName("Renamed")))
+    }
 }

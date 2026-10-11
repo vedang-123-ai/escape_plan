@@ -10,19 +10,17 @@ import XCTest
 
 final class OnboardingSmokeUITests: XCTestCase {
 
-    private static let shotsDir = URL(fileURLWithPath: "/tmp/ep-fix-qa-shots", isDirectory: true)
-
     override func setUpWithError() throws {
         installSystemAlertMonitor()
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
-        try? FileManager.default.createDirectory(at: Self.shotsDir, withIntermediateDirectories: true)
     }
 
     private func shoot(_ name: String) {
-        let shot = XCUIScreen.main.screenshot()
-        let url = Self.shotsDir.appendingPathComponent("\(name).png")
-        try? shot.pngRepresentation.write(to: url)
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .deleteOnSuccess
+        add(attachment)
     }
 
     /// First launch -> "I'll do this later" -> Main screen (Home tab) visible.
