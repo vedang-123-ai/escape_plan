@@ -84,6 +84,19 @@ struct ScanFlowView: View {
                     onRetry: { controller.retry() },
                     onCancel: onCancel
                 )
+
+            case .permissionDenied:
+                ScanPermissionDeniedView(
+                    capturedRoomCount: controller.capturedRoomCount,
+                    onOpenSettings: {
+                        #if canImport(UIKit)
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                        #endif
+                    },
+                    onCancel: onCancel
+                )
             }
         }
         // Reduce Motion: steps still swap, they just cut instead of cross-fading. The flow is
@@ -389,6 +402,49 @@ struct ScanFailureView: View {
             .accessibilityHint(capturedRoomCount > 0
                                ? "Restarts the scan. The rooms you already captured are kept."
                                : "Restarts the scan.")
+
+            Button("Cancel", action: onCancel)
+                .frame(maxWidth: .infinity)
+                .accessibilityHint("Leaves the scan.")
+        }
+        .padding(24)
+    }
+}
+
+struct ScanPermissionDeniedView: View {
+    var capturedRoomCount: Int
+    var onOpenSettings: () -> Void
+    var onCancel: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ScanHeroGlyph(systemName: "camera.badge.ellipsis", tint: Theme.caution)
+
+            Text("Camera access needed")
+                .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
+
+            Text("Escape Plan uses the camera and LiDAR scanner to measure your rooms, doors and windows. To scan your home, allow camera access in Settings.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.supporting)
+                .multilineTextAlignment(.center)
+
+            if capturedRoomCount > 0 {
+                Text("Your \(capturedRoomCount) captured room\(capturedRoomCount == 1 ? "" : "s") "
+                     + "\(capturedRoomCount == 1 ? "is" : "are") safe.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.supporting)
+                    .multilineTextAlignment(.center)
+            }
+
+            Spacer()
+
+            Button(action: onOpenSettings) {
+                Text("Open Settings").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .accessibilityHint("Opens iOS Settings so you can allow camera access.")
 
             Button("Cancel", action: onCancel)
                 .frame(maxWidth: .infinity)

@@ -88,6 +88,8 @@ jobs:
           fi
       - name: Type-check all iOS targets (no simulator; NOT a build or a test run)
         run: scripts/typecheck-ios.sh
+      - name: Device-slice build (no signing; verifies real-device and RoomPlan code compile)
+        run: xcodebuild build -project escape_plan.xcodeproj -scheme escape_plan -destination 'generic/platform=iOS' -configuration Release CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ci-device-slice-dd
       - name: EditorCore tests (Foundation-only package)
         run: swift test --package-path tools/editorcore
 

@@ -24,6 +24,10 @@ import Observation
 import UIKit
 #endif
 
+#if canImport(AVFoundation)
+import AVFoundation
+#endif
+
 #if canImport(RoomPlan)
 import RoomPlan
 #endif
@@ -42,6 +46,8 @@ enum ScanPhase: Equatable {
     case finished(ScanArtifacts)
     /// Failed; `retry()` returns to instructions without losing prior rooms.
     case failed(String)
+    /// Camera permission denied or restricted.
+    case permissionDenied
 }
 
 @MainActor
@@ -60,6 +66,16 @@ final class RoomCaptureController {
     private let scanID = UUID()
     /// Injected so tests and previews aren't bound to the wall clock.
     private var now: () -> Date
+
+    /// Camera authorization provider, injected so unit tests can simulate denied status.
+    @ObservationIgnored
+    var cameraAuthorizationStatus: () -> AVAuthorizationStatus = {
+        #if canImport(AVFoundation)
+        return AVCaptureDevice.authorizationStatus(for: .video)
+        #else
+        return .authorized
+        #endif
+    }
 
     #if canImport(RoomPlan)
     @ObservationIgnored
@@ -97,12 +113,42 @@ final class RoomCaptureController {
             phase = .failed("This device doesn't have the LiDAR sensor RoomPlan needs.")
             return
         }
+        #if canImport(AVFoundation)
+        let status = cameraAuthorizationStatus()
+        switch status {
+        case .denied, .restricted:
+            phase = .permissionDenied
+            return
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                Task { @MainActor in
+                    if granted {
+                        self?.startScanningRoom()
+                    } else {
+                        self?.phase = .permissionDenied
+                    }
+                }
+            }
+            return
+        case .authorized:
+            break
+        @unknown default:
+            break
+        }
+        #endif
         installDelegateIfNeeded()
         var configuration = RoomCaptureSession.Configuration()
         configuration.isCoachingEnabled = true
         roomCaptureView.captureSession.run(configuration: configuration)
         phase = .scanning
         #else
+        #if canImport(AVFoundation)
+        let status = cameraAuthorizationStatus()
+        if status == .denied || status == .restricted {
+            phase = .permissionDenied
+            return
+        }
+        #endif
         phase = .failed("Scanning requires a LiDAR-equipped device.")
         #endif
     }
@@ -113,12 +159,42 @@ final class RoomCaptureController {
         reset()
         recheckRoomID = roomID
         #if canImport(RoomPlan) && !targetEnvironment(simulator)
+        #if canImport(AVFoundation)
+        let status = cameraAuthorizationStatus()
+        switch status {
+        case .denied, .restricted:
+            phase = .permissionDenied
+            return
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                Task { @MainActor in
+                    if granted {
+                        self?.startSingleRoomScan(roomID: roomID)
+                    } else {
+                        self?.phase = .permissionDenied
+                    }
+                }
+            }
+            return
+        case .authorized:
+            break
+        @unknown default:
+            break
+        }
+        #endif
         installDelegateIfNeeded()
-        let configuration = RoomCaptureSession.Configuration()
+        var configuration = RoomCaptureSession.Configuration()
         configuration.isCoachingEnabled = true
         roomCaptureView.captureSession.run(configuration: configuration)
         phase = .scanning
         #else
+        #if canImport(AVFoundation)
+        let status = cameraAuthorizationStatus()
+        if status == .denied || status == .restricted {
+            phase = .permissionDenied
+            return
+        }
+        #endif
         phase = .failed("Scanning requires a LiDAR-equipped device.")
         #endif
     }
@@ -169,6 +245,13 @@ final class RoomCaptureController {
     /// Called by the delegate when RoomPlan finishes processing a room.
     fileprivate func handleRoomCaptureEnd(room: CapturedRoom?, error: Error?) {
         if let error {
+            #if canImport(AVFoundation)
+            let status = cameraAuthorizationStatus()
+            if status == .denied || status == .restricted {
+                phase = .permissionDenied
+                return
+            }
+            #endif
             phase = .failed(Self.userFacingMessage(for: error))
             return
         }

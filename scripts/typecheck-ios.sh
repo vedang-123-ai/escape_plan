@@ -12,6 +12,10 @@
 #   * no SIL, no IRGen, no linking, no resource/asset compilation
 #   * it does not run a single test
 #   * it cannot see runtime behaviour, layout, or anything a device would show you
+#   * it targets iphonesimulator: code under `#if !targetEnvironment(simulator)` (e.g. RoomPlan
+#     hardware capture) is not compiled. For device-slice compilation, CI and developers run:
+#     xcodebuild build -project escape_plan.xcodeproj -scheme escape_plan \
+#       -destination 'generic/platform=iOS' -configuration Release CODE_SIGNING_ALLOWED=NO
 # It narrows the simulator run. It never replaces it.
 #
 # Usage:   scripts/typecheck-ios.sh [ios-version]      (default: the deployment target)
