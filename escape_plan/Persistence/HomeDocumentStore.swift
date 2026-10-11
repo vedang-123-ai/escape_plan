@@ -24,7 +24,7 @@ struct HomeDocumentStore {
     private static let log = Logger(subsystem: "escape_plan", category: "HomeDocumentStore")
 
     let directory: URL
-    private let fileManager: FileManager
+    let fileManager: FileManager
 
     /// The app's real store: `<Documents>/Homes`.
     init(fileManager: FileManager = .default) throws {

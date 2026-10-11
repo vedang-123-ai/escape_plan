@@ -37,6 +37,8 @@ struct AuthFailure: Error, Equatable {
         case rejectedInput
         /// 503 — cloud sync is not configured on this deployment.
         case cloudSyncUnavailable
+        /// 401 or client check indicating the token expired — re-authentication needed.
+        case tokenExpired
         /// The request was cancelled by us, not refused by anyone.
         case serverBusy
         /// Anything else.
@@ -164,5 +166,11 @@ extension AuthFailure {
     init(localProblem message: String) {
         self.init(kind: .rejectedInput, message: message,
                   isRetryable: false, symbol: "exclamationmark.bubble")
+    }
+
+    /// Factory for session expiration where re-authentication is required.
+    static func tokenExpired(message: String = "Your session has expired. Sign in again to delete your account.") -> AuthFailure {
+        AuthFailure(kind: .tokenExpired, message: message,
+                    isRetryable: false, symbol: "clock.badge.exclamationmark")
     }
 }

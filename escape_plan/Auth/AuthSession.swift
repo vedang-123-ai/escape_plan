@@ -255,6 +255,9 @@ final class AuthSession {
     /// holding that line — `refresh()`'s post-await `state.isSignedIn` re-check already
     /// rejects a late reply on its own. It is here so the three session-ending paths have one
     /// shape, not because a test can distinguish it.
+    /// True when the active session's access token is known to have expired.
+    var isTokenExpired: Bool { token?.isExpired() ?? false }
+
     @discardableResult
     func deleteAccount() async -> Bool {
         guard !isWorking, let token else { return false }
@@ -265,15 +268,27 @@ final class AuthSession {
         persistenceWarning = nil
         defer { isWorking = false }
 
+        // If the token is already expired locally, the backend cannot authenticate the deletion
+        // and cloud records would remain in MongoDB. Distinguish this from an already-deleted
+        // account and require re-authentication (A15-03).
+        if token.isExpired() {
+            failure = .tokenExpired()
+            return false
+        }
+
         do {
             try await client.deleteAccount(token: token)
         } catch let authFailure as AuthFailure {
-            // A 401 means the account is already gone — someone deleted it from another
-            // device, or the token aged out. Either way there is nothing left to delete, so
-            // ending the session locally is the correct outcome rather than an error the user
-            // can do nothing about.
+            // A 401 on an UNEXPIRED token means credentials were valid but the user record is
+            // gone from the database (e.g. deleted from another device). In that case only,
+            // there is nothing left to delete on the server, so ending the session locally is safe.
+            // If the token expired in flight, report tokenExpired rather than falsely claiming erasure.
             guard authFailure.kind == .invalidCredentials else {
                 failure = authFailure
+                return false
+            }
+            if token.isExpired() {
+                failure = .tokenExpired()
                 return false
             }
         } catch {

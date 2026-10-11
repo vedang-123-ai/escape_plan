@@ -112,8 +112,17 @@ struct EscapePlanExporter {
                                           meetingPoint: "",
                                           generatedAt: now)
         document.isResponderSnapshot = true
-        if let cache = try? ScoreCache() {
-            document.scoreResponse = cache.load(homeID: preview.home.id)
+        if let cache = try? ScoreCache(),
+           let entry = cache.loadEntry(homeID: preview.home.id) {
+            let currentFingerprint = ScoreCache.fingerprint(of: preview.home)
+            if entry.matchStatus(against: currentFingerprint) == .match {
+                document.scoreResponse = entry.score
+            } else {
+                // The home has been edited since the score was computed, or the cache lacks
+                // a model fingerprint (legacy). Omit the score and hazard findings from the
+                // responder snapshot so stale safety data is not delivered to firefighters.
+                document.scoreResponse = nil
+            }
         }
 
         // Generate PDF

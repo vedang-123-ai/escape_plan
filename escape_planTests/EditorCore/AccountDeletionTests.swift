@@ -71,13 +71,13 @@ final class AccountDeletionTests: XCTestCase {
     }
 
     /// A session that has already signed in, so deletion has something to delete.
-    private func signedInSession() async -> AuthSession {
+    private func signedInSession(token: String? = nil) async -> AuthSession {
         defaults.set(true, forKey: AuthSession.hasLaunchedKey)
-        let token = self.token!
+        let tokenToUse = token ?? self.token!
         AuthStubURLProtocol.respond { request in
             request.url?.path == "/auth/login"
                 ? .init(statusCode: 200,
-                        body: Data(#"{"access_token":"\#(token)","token_type":"bearer"}"#.utf8),
+                        body: Data(#"{"access_token":"\#(tokenToUse)","token_type":"bearer"}"#.utf8),
                         error: nil)
                 : .init(statusCode: 200, body: Data(Self.userJSON.utf8), error: nil)
         }
@@ -234,5 +234,21 @@ final class AccountDeletionTests: XCTestCase {
         await session.refresh()
 
         XCTAssertFalse(session.state.isSignedIn)
+    }
+
+    /// An expired token cannot delete data on the server. If the token is expired,
+    /// deleteAccount() must fail, report tokenExpired, keep the token, and NOT claim erasure (A15-03).
+    func testExpiredTokenFailsAndDoesNotReportDataErased() async {
+        let expiredTokenString = Self.mintToken(expiresIn: -3600)
+        let session = await signedInSession(token: expiredTokenString)
+        XCTAssertTrue(session.state.isSignedIn)
+        XCTAssertTrue(session.isTokenExpired)
+
+        let deleted = await session.deleteAccount()
+
+        XCTAssertFalse(deleted, "An expired token must not report successful account deletion")
+        XCTAssertEqual(session.failure?.kind, .tokenExpired)
+        XCTAssertTrue(session.state.isSignedIn, "Session must not pretend to be cleanly erased")
+        XCTAssertNotNil(store.load(), "Token must remain for re-auth prompt rather than being dropped")
     }
 }

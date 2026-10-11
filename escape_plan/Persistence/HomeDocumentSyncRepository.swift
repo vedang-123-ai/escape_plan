@@ -18,6 +18,7 @@
 
 import Foundation
 import Observation
+import os
 
 /// Told when a home is deleted on this device, so the deletion can be remembered.
 ///
@@ -98,9 +99,12 @@ final class HomeDocumentSyncRepository: SyncHomeRepository, HomeDeletionObservin
         var homes: [HomeModel] = []
         var undecodable: Set<String> = []
         for summary in summaries {
-            if let home = try? store.load(homeID: summary.id, as: HomeModel.self) {
+            do {
+                let home = try store.load(homeID: summary.id, as: HomeModel.self)
                 homes.append(home)
-            } else {
+            } catch {
+                Logger(subsystem: "escape_plan", category: "HomeDocumentSyncRepository")
+                    .error("Could not decode home \(summary.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 undecodable.insert(summary.id)
             }
         }
