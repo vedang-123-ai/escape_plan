@@ -9,6 +9,7 @@
 
 import CoreGraphics
 import Foundation
+import SceneKit
 import Testing
 import UIKit
 
@@ -261,6 +262,67 @@ struct EscapePlanExportTests {
         let b = PlanProjection(bounds: bounds, in: rect)
         #expect(a.scale == b.scale)
         #expect(a.origin == b.origin)
+    }
+
+    @Test("PlanProjection and DollhouseGeometry agree on spatial orientation for an asymmetric room")
+    func planProjectionAgreesWithDollhouseOrientation() {
+        // Construct an asymmetric L-shaped room:
+        // (0,0) -> (4,0) -> (4,2) -> (2,2) -> (2,4) -> (0,4)
+        // In plan space:
+        // - "North" is +y (maxY = 4, minY = 0)
+        // - "East" is +x (maxX = 4, minX = 0)
+        // The 'notch' or narrow tower is in the Northwest (x in [0, 2], y in [2, 4]).
+        // The 'wide base' is in the South (x in [0, 4], y in [0, 2]).
+        // Door placed on North wall of the wide wing: edge from (4,2) to (2,2), at (3, 2).
+        var bounds = DollhouseGeometry.PlanBounds()
+        let lPoints = [
+            Point(x: 0, y: 0),
+            Point(x: 4, y: 0),
+            Point(x: 4, y: 2),
+            Point(x: 2, y: 2),
+            Point(x: 2, y: 4),
+            Point(x: 0, y: 4),
+        ]
+        for p in lPoints { bounds.extend(p) }
+
+        let rect = CGRect(x: 0, y: 0, width: 400, height: 400)
+        let projection = PlanProjection(bounds: bounds, in: rect)
+
+        // 1. South vs North:
+        // A point in the South (y = 0) vs a point in the North (y = 4).
+        let southPoint = Point(x: 2, y: 0)
+        let northPoint = Point(x: 1, y: 4)
+
+        // In 3D Dollhouse (default top-down view looking down -z):
+        // scenePoint.z for south is -0 = 0.
+        // scenePoint.z for north is -4.
+        // Looking towards -z, -4 is further away (top of screen), 0 is closer (bottom of screen).
+        let southScene = DollhouseGeometry.scenePoint(southPoint, y: 0)
+        let northScene = DollhouseGeometry.scenePoint(northPoint, y: 0)
+        #expect(northScene.z < southScene.z, "In 3D, North (+y) must map to smaller (more negative) scene z")
+
+        // On the 2D PDF page (UIKit y increases downward):
+        // North must have SMALLER page y (top of page).
+        // South must have LARGER page y (bottom of page).
+        let southPage = projection.point(southPoint)
+        let northPage = projection.point(northPoint)
+        #expect(northPage.y < southPage.y, "On PDF page, North (+y) must map to top of page (smaller page y)")
+
+        // 2. West vs East:
+        // Both 3D and 2D agree that East (+x) maps to right.
+        let westPoint = Point(x: 0, y: 1)
+        let eastPoint = Point(x: 4, y: 1)
+        let westPage = projection.point(westPoint)
+        let eastPage = projection.point(eastPoint)
+        #expect(eastPage.x > westPage.x, "On PDF page, East (+x) must map to right (larger page x)")
+
+        // 3. Handedness / Chiral check on the L-shape:
+        // The narrow wing is at West (x in [0,2]) and North (y in [2,4]).
+        // Top-left corner of the L is at (x=0, y=4).
+        let topLeftPage = projection.point(Point(x: 0, y: 4))
+        let bottomRightPage = projection.point(Point(x: 4, y: 0))
+        #expect(topLeftPage.x < bottomRightPage.x)
+        #expect(topLeftPage.y < bottomRightPage.y)
     }
 
     // MARK: - Honesty
