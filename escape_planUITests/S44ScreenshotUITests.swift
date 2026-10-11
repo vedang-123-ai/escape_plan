@@ -69,8 +69,8 @@ final class S44ScreenshotUITests: XCTestCase {
     func testOnboardingShot() throws {
         let app = makeApp(onboarding: true)
         app.launch()
-        let start = app.buttons["Take the tour"]
-        _ = start.waitForExistence(timeout: 15)
+        let start = app.buttons["Get started"]
+        XCTAssertTrue(start.waitForExistence(timeout: 15))
         sleep(2)
         shoot("01-onboarding-welcome")
         app.terminate()

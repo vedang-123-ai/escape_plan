@@ -34,40 +34,39 @@ final class GoldenPathRecordingUITests: XCTestCase {
         ]
         app.launch()
 
-        // Step 1 — welcome.
-        let start = app.buttons["Take the tour"]
+        // Step 0 — welcome.
+        let start = app.buttons["Get started"]
         XCTAssertTrue(start.waitForExistence(timeout: 10))
         pause(2)
         start.tap()
 
-        // Step 2 — review: the seeded copy flags 3 items.
-        let confirm = app.buttons["Confirm & Continue"]
-        XCTAssertTrue(confirm.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["3 items need review"].waitForExistence(timeout: 5))
-        pause(4)
-        confirm.tap()
+        // Step 1 — who lives here.
+        XCTAssertTrue(app.staticTexts["Who lives here?"].waitForExistence(timeout: 10))
+        let continue1 = app.buttons["Continue"]
+        XCTAssertTrue(continue1.waitForExistence(timeout: 10))
+        pause(2)
+        continue1.tap()
 
-        // Step 3 — plan: routes render in the embedded PlanScreen; /analyze + /score run in
-        // the background panel. Wait for the score chip (backend up → seconds).
-        let score = app.staticTexts.matching(
-            NSPredicate(format: "label BEGINSWITH 'Preparedness score:'")
-        ).firstMatch
-        XCTAssertTrue(score.waitForExistence(timeout: 90))
-        // Let the animated routes and the inspection panel breathe on camera.
-        pause(12)
+        // Step 2 — per-person needs.
+        XCTAssertTrue(app.staticTexts["Does anyone need extra help?"].waitForExistence(timeout: 10))
+        let continue2 = app.buttons["Continue"]
+        XCTAssertTrue(continue2.waitForExistence(timeout: 10))
+        pause(2)
+        continue2.tap()
 
-        let continueButton = app.buttons["Continue"]
-        XCTAssertTrue(continueButton.waitForExistence(timeout: 10))
-        continueButton.tap()
-
-        // Step 4 — done.
+        // Step 3 — rent or own.
+        XCTAssertTrue(app.staticTexts["Do you rent or own?"].waitForExistence(timeout: 10))
+        let own = app.buttons["Own"]
+        if own.waitForExistence(timeout: 5) {
+            own.tap()
+        }
         let finish = app.buttons["Finish"]
         XCTAssertTrue(finish.waitForExistence(timeout: 10))
-        pause(3)
+        pause(2)
         finish.tap()
 
         // Landed in the tab shell.
-        XCTAssertTrue(app.tabBars.buttons["House"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
         pause(2)
     }
 
