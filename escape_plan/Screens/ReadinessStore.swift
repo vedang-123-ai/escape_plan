@@ -211,8 +211,17 @@ final class ReadinessStore {
             return
         }
         if breakdown == nil, !seenAsDraft.contains(activeHomeID),
-           let cached = (try? ScoreCache())?.load(homeID: activeHomeID) {
-            scored = (activeHomeID, cached)
+           let cached = (try? ScoreCache())?.loadEntry(homeID: activeHomeID) {
+            if let activeHome {
+                let currentFingerprint = ScoreCache.fingerprint(of: activeHome)
+                // A score for an edited home is not shown; a legacy entry (no fingerprint) is.
+                if case .mismatch = cached.matchStatus(against: currentFingerprint) {
+                } else {
+                    scored = (activeHomeID, cached.score)
+                }
+            } else {
+                scored = (activeHomeID, cached.score)
+            }
         }
         // Awaited so pull to refresh keeps spinning until the answer; a newer request cancels
         // this one and the await returns early.
@@ -268,7 +277,8 @@ final class ReadinessStore {
             let refused = Self.refusedTicks(in: new, sent: sent, ticked: pendingRecurring)
             scored = (home.id, new)
             pendingRecurring = [:]
-            (try? ScoreCache())?.save(new, for: home.id)
+            let fingerprint = ScoreCache.fingerprint(of: home)
+            (try? ScoreCache())?.save(new, for: home.id, homeFingerprint: fingerprint, savedAt: now())
             scoreFailure = nil
             tickNotice = refused.first.map(Self.clockNotice(for:))
             dateUntimedTicks(in: new, homeID: home.id, api: api)

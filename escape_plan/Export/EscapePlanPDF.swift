@@ -368,7 +368,32 @@ enum EscapePlanPDF {
                                     gray: 0.05, indent: 6, spacingBefore: 2))
             }
         }
+
+        if floor.id == home.floorsByLevel.first?.id {
+            blocks.append(contentsOf: inFireRulesBlocks())
+        }
         return blocks
+    }
+
+    /// The in-fire rules, worded as the corpus states them (`backend/corpus/escape-planning-nfpa.md`
+    /// "During a fire" and `home-fire-escape-redcross.md`). Sources: `nfpa-escape-planning`
+    /// (test doors, get low, get out and stay out, call 911 from outside), `usfa-escape-plans`
+    /// (close doors behind you), `redcross-escape-plan` (meeting place). Do not reword from
+    /// memory; change the corpus first.
+    private static func inFireRulesBlocks() -> [Block] {
+        [
+            sectionTitle("IF THERE IS A FIRE"),
+            Block(text: "• Test doors before opening: if the door or handle is warm to the back of your hand, use your second way out.",
+                  font: .systemFont(ofSize: 8.5), gray: 0.1, indent: 6, spacingBefore: 2),
+            Block(text: "• If there is smoke, get low and go: crawl beneath the smoke where the air is cleaner.",
+                  font: .systemFont(ofSize: 8.5), gray: 0.1, indent: 6, spacingBefore: 2),
+            Block(text: "• Close doors behind you as you leave to slow the spread of fire and smoke.",
+                  font: .systemFont(ofSize: 8.5), gray: 0.1, indent: 6, spacingBefore: 2),
+            Block(text: "• Get out and stay out: never go back inside for people, pets, or belongings.",
+                  font: .systemFont(ofSize: 8.5), gray: 0.1, indent: 6, spacingBefore: 2),
+            Block(text: "• Go to your outside meeting place, and call 911 from outside the home.",
+                  font: .systemFont(ofSize: 8.5), gray: 0.1, indent: 6, spacingBefore: 2),
+        ]
     }
 
     private static func routeBlocks(for roomPlan: RoomRoutePlan,

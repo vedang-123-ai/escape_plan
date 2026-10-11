@@ -4,8 +4,8 @@ One-page summary of the grounding corpus in `backend/corpus/`. The AI layer cite
 the deterministic engines read the threshold files. Validate anytime with
 `python3 backend/corpus/validate.py` (offline, stdlib-only).
 
-_Last verified 2026-09-21 on `s11-1-corpus-depth`: **36 sources, 13 corpus files, 2 threshold files,
-44 prevention tips.**_
+_Last verified 2026-10-11 on `audit-review`: **35 sources, 13 corpus files, 2 threshold files,
+44 prevention tips, 0 orphan exceptions.**_
 
 ## The corpus at a glance
 
@@ -65,12 +65,12 @@ bundles a byte-identical copy; `scripts/check-tips-sync.py` (S11.5) is what keep
 
 ## Grounding rules
 
-- Every citable source has an id in `sources.json` (36); inline citations are `[cite: source-id]`, and
+- Every citable source has an id in `sources.json` (35); inline citations are `[cite: source-id]`, and
   `validate.py` rejects unresolvable or undeclared ones.
 - **No orphan sources** (`validate.py` check 8): every source id must be cited by a corpus doc or named in
   a threshold file. An id the AI may cite but was never shown a document for is a hole it can invent
-  guidance through. One documented exception, `usgs-earthquake`, held open only until the two callers
-  outside `backend/corpus/` are re-pointed — see `BLOCKERS.md`.
+  guidance through. No exceptions remain: `usgs-earthquake`, the last one, was removed 2026-10-11 once its
+  only caller (the drill aftershock card) had been deleted.
 - Compilation docs (`fire-facts-stats.md`, `special-considerations.md`, and the four new peril docs) have
   non-source primary ids and only ever cite underlying external sources.
 - Statistics outside `fire-facts-stats.md` are off-limits; uncovered topics get honest deferral.

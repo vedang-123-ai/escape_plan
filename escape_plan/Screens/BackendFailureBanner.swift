@@ -88,7 +88,7 @@ struct BackendFailureBanner: View {
         }
         .padding(12)
         .glassPanel(cornerRadius: 14)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(failure.message)
         // A banner that appears while VoiceOver focus is elsewhere is otherwise silent: the
         // user hears nothing went wrong (audit 2026-09-25). Announce it once when it appears,

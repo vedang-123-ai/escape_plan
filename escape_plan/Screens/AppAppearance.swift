@@ -15,13 +15,15 @@ enum AppAppearance {
         nav.configureWithOpaqueBackground()
         nav.backgroundColor = canvas
         nav.shadowColor = .clear
+        let titleFont = UIFontMetrics(forTextStyle: .headline).scaledFont(for: UIFont.systemFont(ofSize: 16, weight: .semibold))
+        let largeTitleFont = UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: UIFont.systemFont(ofSize: 30, weight: .semibold))
         nav.titleTextAttributes = [
             .foregroundColor: text,
-            .font: UIFont.systemFont(ofSize: 16, weight: .semibold),
+            .font: titleFont,
         ]
         nav.largeTitleTextAttributes = [
             .foregroundColor: text,
-            .font: UIFont.systemFont(ofSize: 30, weight: .semibold),
+            .font: largeTitleFont,
         ]
         let scrollEdge = nav.copy()
         UINavigationBar.appearance().standardAppearance = nav

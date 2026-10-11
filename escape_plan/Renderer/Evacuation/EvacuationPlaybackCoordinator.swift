@@ -195,6 +195,8 @@ nonisolated final class EvacuationPlaybackCoordinator: NSObject, SCNSceneRendere
     private var hasManualCameraOverride = false
     private var lastReportedIssues: [String]?
     private var isCleared = false
+    private var frameObservationTask: Task<Void, Never>?
+    private var frameObservationContinuation: AsyncStream<Void>.Continuation?
 
     @MainActor
     init(controller: UnifiedSceneController,
@@ -234,7 +236,7 @@ nonisolated final class EvacuationPlaybackCoordinator: NSObject, SCNSceneRendere
         }
 
         observeTimeline(generation: generation)
-        observeFrame(generation: generation)
+        startFrameObservation(generation: generation)
     }
 
     /// Explicit opt-in after a manual gesture. Playback ticks and dollhouse rebuilds never call
@@ -255,6 +257,11 @@ nonisolated final class EvacuationPlaybackCoordinator: NSObject, SCNSceneRendere
         isCleared = true
         observationGeneration += 1
         currentTimeline = nil
+
+        frameObservationTask?.cancel()
+        frameObservationTask = nil
+        frameObservationContinuation?.finish()
+        frameObservationContinuation = nil
 
         removeSceneResources()
         staticPeopleLayerProvider()?.isVisible = true
@@ -293,7 +300,26 @@ nonisolated final class EvacuationPlaybackCoordinator: NSObject, SCNSceneRendere
     }
 
     @MainActor
-    private func observeFrame(generation: Int) {
+    private func startFrameObservation(generation: Int) {
+        frameObservationTask?.cancel()
+        frameObservationContinuation?.finish()
+
+        let (stream, continuation) = AsyncStream.makeStream(of: Void.self, bufferingPolicy: .bufferingNewest(1))
+        frameObservationContinuation = continuation
+
+        // Perform initial frame observation immediately so initial state is primed.
+        updateFrameSnapshot(generation: generation, continuation: continuation)
+
+        frameObservationTask = Task { @MainActor [weak self] in
+            for await _ in stream {
+                guard let self, !self.isCleared, generation == self.observationGeneration else { break }
+                self.updateFrameSnapshot(generation: generation, continuation: continuation)
+            }
+        }
+    }
+
+    @MainActor
+    private func updateFrameSnapshot(generation: Int, continuation: AsyncStream<Void>.Continuation) {
         guard !isCleared, generation == observationGeneration, let playback else { return }
         let snapshot = withObservationTracking {
             EvacuationRenderState.Snapshot(
@@ -301,10 +327,8 @@ nonisolated final class EvacuationPlaybackCoordinator: NSObject, SCNSceneRendere
                 isPlaying: playback.isPlaying,
                 reduceMotion: playback.isSteppedMode
             )
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.observeFrame(generation: generation)
-            }
+        } onChange: {
+            continuation.yield()
         }
         renderState.setSnapshot(snapshot)
         view?.setNeedsDisplay()

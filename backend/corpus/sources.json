@@ -91,15 +91,6 @@
       "topics": ["disabilities", "mobility", "profiles", "evacuation"]
     },
     {
-      "id": "usgs-earthquake",
-      "org": "USGS (U.S. Geological Survey)",
-      "doc_title": "Earthquake Hazards Program - Prepare",
-      "url": "https://www.usgs.gov/programs/earthquake-hazards/prepare",
-      "retrieved": "2026-09-05",
-      "topics": ["earthquake", "drop-cover-hold-on", "furniture", "gas-shutoff"],
-      "verify_keywords": ["Earthquake Hazards Program"]
-    },
-    {
       "id": "fema-earthquake",
       "org": "FEMA (Federal Emergency Management Agency)",
       "doc_title": "Earthquakes | Ready.gov",

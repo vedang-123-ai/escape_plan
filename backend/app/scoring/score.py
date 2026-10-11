@@ -117,6 +117,7 @@ def compute_score(
     largest_deduction_value = -1.0
 
     has_unresolved_high_severity = False
+    binding_high_severity_item: Optional[ChecklistItem] = None
 
     for peril in sub_scores_raw:
         peril_items = [i for i in items if i.hazard in (peril, "general") and i.category != "recommendation" and i.id != "rescan.home"]
@@ -133,6 +134,8 @@ def compute_score(
                 # alerts, agent_finding, recommendation) never move points.
                 if item.severity == "high":
                     has_unresolved_high_severity = True
+                    if binding_high_severity_item is None:
+                        binding_high_severity_item = item
 
                 if item.scoring:
                     deduction = SEVERITY_DEDUCTIONS.get(item.severity, 5.0)
@@ -150,13 +153,28 @@ def compute_score(
     sorted_scores = sorted(sub_scores_raw.values())
     composite_raw = 0.5 * sorted_scores[0] + 0.25 * sorted_scores[1] + 0.25 * sorted_scores[2]
     
-    if has_unresolved_high_severity:
+    uncapped_composite = composite_raw
+    cap_bound = False
+    if has_unresolved_high_severity and composite_raw > COMPOSITE_CAP_HIGH_SEVERITY:
+        composite_raw = COMPOSITE_CAP_HIGH_SEVERITY
+        cap_bound = True
+    elif has_unresolved_high_severity:
         composite_raw = min(composite_raw, COMPOSITE_CAP_HIGH_SEVERITY)
 
     composite = _round_half_up(min(composite_raw, MAX_SCORE))
 
     components = []
-    if largest_deduction_item:
+    if cap_bound and binding_high_severity_item:
+        cap_deduction = float(_round_half_up(uncapped_composite - COMPOSITE_CAP_HIGH_SEVERITY))
+        components.append(ScoreComponent(
+            key=binding_high_severity_item.id,
+            label=binding_high_severity_item.title,
+            earned_points=0.0,
+            max_points=cap_deduction,
+            detail=f"Score capped at {int(COMPOSITE_CAP_HIGH_SEVERITY)}: {binding_high_severity_item.detail}",
+            rationale=f"High-severity life-safety findings cap the composite preparedness score at {int(COMPOSITE_CAP_HIGH_SEVERITY)} points until resolved."
+        ))
+    elif largest_deduction_item:
         components.append(ScoreComponent(
             key=largest_deduction_item.id,
             label=largest_deduction_item.title,

@@ -8,6 +8,16 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+from app.limits import (
+    MAX_ROUTE_BOTTLENECK_DISCONNECTED_ROOMS,
+    MAX_ROUTE_BOTTLENECKS,
+    MAX_ROUTE_FINDING_OBJECTS,
+    MAX_ROUTE_FINDINGS_PER_ROOM,
+    MAX_ROUTE_ROOMS,
+    MAX_ROUTE_WAYPOINTS,
+)
+
+
 class RoutingConstraints(BaseModel):
     """Profile-derived constraints applied during path search (S3.4 hook).
 
@@ -48,7 +58,7 @@ class Waypoint(BaseModel):
 class Route(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    waypoints: list[Waypoint]
+    waypoints: list[Waypoint] = Field(max_length=MAX_ROUTE_WAYPOINTS)
     length_m: float = Field(ge=0)
     uses_stairs: bool
     uses_window: bool
@@ -74,7 +84,9 @@ class RouteFinding(BaseModel):
     path succeeded, which is exactly what keeps the opening out of `blocked_openings`."""
     room_id: str
     detail: str
-    object_ids: list[str] = Field(default_factory=list)
+    object_ids: list[str] = Field(
+        default_factory=list, max_length=MAX_ROUTE_FINDING_OBJECTS
+    )
     """Objects the obstruction analysis blamed for a `blocked_opening` or a
     `narrows_route`, so the app can highlight them and the advice can say WHICH
     thing to move. Additive and defaulted — an older client simply ignores it."""
@@ -90,7 +102,9 @@ class RoomRoutePlan(BaseModel):
     primary: Optional[Route] = None
     secondary: Optional[Route] = None
     cover_object_id: Optional[str] = None
-    findings: list[RouteFinding] = Field(default_factory=list)
+    findings: list[RouteFinding] = Field(
+        default_factory=list, max_length=MAX_ROUTE_FINDINGS_PER_ROOM
+    )
 
 
 class Bottleneck(BaseModel):
@@ -99,7 +113,9 @@ class Bottleneck(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     opening_id: str
-    disconnected_room_ids: list[str]
+    disconnected_room_ids: list[str] = Field(
+        max_length=MAX_ROUTE_BOTTLENECK_DISCONNECTED_ROOMS
+    )
 
 
 class RoutePlan(BaseModel):
@@ -111,5 +127,7 @@ class RoutePlan(BaseModel):
     constraints: RoutingConstraints
     profile_id: Optional[str] = None
     """The profile whose tags produced `constraints`, when routed per-profile."""
-    rooms: list[RoomRoutePlan]
-    bottlenecks: list[Bottleneck] = Field(default_factory=list)
+    rooms: list[RoomRoutePlan] = Field(max_length=MAX_ROUTE_ROOMS)
+    bottlenecks: list[Bottleneck] = Field(
+        default_factory=list, max_length=MAX_ROUTE_BOTTLENECKS
+    )

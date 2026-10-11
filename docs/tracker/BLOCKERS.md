@@ -64,6 +64,15 @@ backend — still red, see §3._
 
 ---
 
+### Audit-review of the 2026-10-11 agent lanes (2026-10-11, branch `audit-review`)
+
+- **Device build was broken on `main` since 2026-09-10** (`RoomCaptureController` mutated a `let` RoomPlan configuration inside device-only code; the simulator type-check never compiles it). Fixed here; Release device build verified 2026-10-11. Still not run on a physical iPhone · owner · install on the demo phone before filming.
+- **Backend changes are not live on Render** (compute rate limit on `/routes` `/score`, route-plan caps, checklist title rename) · owner · deploy, then warm the server before filming.
+- **New compute rate limit (120/min, burst 60, per IP) could 429 a heavy demo** · owner · watch it while filming; raise the env value if it trips.
+- **Carbon-monoxide checklist item and "close your door at night" tip deferred** — sources not verified, the garage check read a field that does not exist, and the iOS tips copy was not synced · content owner · add verified corpus sources and fire-professional review first.
+- **PDF render still runs on the main thread (A11)** — the agents' `renderAsync` was never called and was removed · unassigned · post-demo.
+- `ReadinessStoreTests` 90 s timeout seen once in the full run; treat as the known flake unless it repeats.
+
 ## Audit remediation arc (2026-09-28)
 
 The full-repository audit of 2026-09-28 (`audit/`, 50 findings; master index `audit/15_PRIORITIZED_ISSUES.md`) is

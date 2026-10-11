@@ -26,6 +26,8 @@ def _ai_cost_guard_relaxed(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("AI_RATE_PER_MIN", "100000")
     monkeypatch.setenv("AI_RATE_BURST", "100000")
     monkeypatch.setenv("AI_MAX_CONCURRENT", "1000")
+    monkeypatch.setenv("COMPUTE_RATE_PER_MIN", "100000")
+    monkeypatch.setenv("COMPUTE_RATE_BURST", "100000")
     # S11.27 added a third piece of guard state. Unlike the bucket and the
     # semaphore it ACCUMULATES, so without a reset the suite's own AI calls
     # exhaust the day's allowance partway through and every later test 429s —

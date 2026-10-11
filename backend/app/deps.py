@@ -30,6 +30,7 @@ from app.rate_limit import (
     ai_concurrency,
     ai_rate_limit,
     busy_exception,
+    compute_rate_limit,
     enforce_budget,
     enforce_rate_limit,
     gate,
@@ -58,6 +59,15 @@ def require_token(
         credentials.credentials, expected
     ):
         raise HTTPException(status_code=401, detail="Invalid or missing bearer token")
+
+
+# Guard stack for deterministic compute routes (/routes, /score, /evacuate).
+# ORDER MATTERS: require_token first so unauthenticated requests fail with 401
+# without touching anyone's rate limit bucket.
+COMPUTE_GUARDS = [
+    Depends(require_token),
+    Depends(compute_rate_limit),
+]
 
 
 # The AI routes spend Anthropic credit, so on top of the token they get the cost

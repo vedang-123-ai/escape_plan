@@ -51,4 +51,9 @@ struct ChecklistStateStore {
         }
         defaults.set(raw, forKey: key(for: homeID))
     }
+
+    /// Clears persisted checklist state when a home is deleted.
+    func clear(homeID: String) {
+        defaults.removeObject(forKey: key(for: homeID))
+    }
 }

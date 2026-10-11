@@ -18,6 +18,7 @@
 
 import Foundation
 import Observation
+import os
 
 /// One home that could not be synced, and why. Kept per-home so the UI can say "1 home
 /// didn't sync" instead of failing a library where everything else went up fine.
@@ -494,7 +495,12 @@ final class SyncManager {
         var state = state
         adoptDeletionsWrittenSinceStart(into: &state)
         state = forgottenAccountID.map(state.forgettingAccount) ?? state
-        try? stateStore.save(state)
+        do {
+            try stateStore.save(state)
+        } catch {
+            Logger(subsystem: "escape_plan", category: "SyncManager")
+                .error("Failed to save sync state: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Copy into `state` every tombstone the sidecar gained since this sync started.

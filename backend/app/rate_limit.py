@@ -313,6 +313,21 @@ def enforce_rate_limit(request: Request) -> None:
         )
 
 
+def enforce_compute_rate_limit(request: Request) -> None:
+    """Charge the per-client compute bucket, raising 429 if it is empty (A06-04)."""
+    settings = get_settings()
+    wait = limiter.take(
+        f"compute:{client_key(request)}",
+        settings.compute_rate_per_min,
+        settings.compute_rate_burst,
+    )
+    if wait is not None:
+        raise _too_many(
+            "Too many compute requests from this device. Please wait and try again.",
+            wait,
+        )
+
+
 def enforce_budget(cost: int = 1) -> None:
     """Charge `cost` against the daily budget, raising 429 if it will not fit.
 
@@ -347,6 +362,11 @@ async def ai_rate_limit(request: Request) -> None:
     """Per-client token bucket. Declare AFTER `require_token`, so a request
     without the token is a 401 and never spends anyone's budget."""
     enforce_rate_limit(request)
+
+
+async def compute_rate_limit(request: Request) -> None:
+    """Per-client token bucket for compute endpoints. Declare AFTER require_token."""
+    enforce_compute_rate_limit(request)
 
 
 async def ai_budget() -> None:

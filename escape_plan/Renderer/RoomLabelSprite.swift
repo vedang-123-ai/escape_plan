@@ -27,13 +27,54 @@ enum RoomLabelSprite {
     /// Keep pathological names from becoming banners across the model.
     private static let maxNameLength = 22
 
+    private final class CacheKey: NSObject {
+        let text: String
+        let scale: CGFloat
+
+        init(text: String, scale: CGFloat) {
+            self.text = text
+            self.scale = scale
+        }
+
+        override func isEqual(_ object: Any?) -> Bool {
+            guard let other = object as? CacheKey else { return false }
+            return text == other.text && scale == other.scale
+        }
+
+        override var hash: Int {
+            var hasher = Hasher()
+            hasher.combine(text)
+            hasher.combine(scale)
+            return hasher.finalize()
+        }
+    }
+
+    private final class CacheBox: NSObject {
+        let sprite: Sprite
+        init(sprite: Sprite) {
+            self.sprite = sprite
+        }
+    }
+
+    private static let cache = NSCache<CacheKey, CacheBox>()
+
+    /// Clears the in-memory sprite texture cache (e.g. for testing or memory warnings).
+    static func clearCache() {
+        cache.removeAllObjects()
+    }
+
     /// The room-type accent dot is gone with the White Model overhaul: it was one more hue in a
     /// scene that is meant to have exactly two (route orange, exit green), and rooms are now
     /// identified by their walls and their name, not by color coding.
-    static func make(name: String) -> Sprite {
+    static func make(name: String, scale: CGFloat = renderScale) -> Sprite {
         let displayName = name.count > maxNameLength
             ? String(name.prefix(maxNameLength - 1)) + "…"
             : name
+
+        let key = CacheKey(text: displayName, scale: scale)
+        if let hit = cache.object(forKey: key) {
+            return hit.sprite
+        }
 
         let font = roundedFont(ofSize: fontSize, weight: .semibold)
         let attributes: [NSAttributedString.Key: Any] = [
@@ -47,7 +88,7 @@ enum RoomLabelSprite {
         let size = CGSize(width: width, height: height)
 
         let format = UIGraphicsImageRendererFormat()
-        format.scale = renderScale
+        format.scale = scale
         format.opaque = false
         let renderer = UIGraphicsImageRenderer(size: size, format: format)
 
@@ -69,7 +110,9 @@ enum RoomLabelSprite {
             _ = context // silence unused-parameter lint without discarding the renderer API
         }
 
-        return Sprite(image: image, aspect: width / height)
+        let sprite = Sprite(image: image, aspect: width / height)
+        cache.setObject(CacheBox(sprite: sprite), forKey: key)
+        return sprite
     }
 
     private static func roundedFont(ofSize size: CGFloat, weight: UIFont.Weight) -> UIFont {

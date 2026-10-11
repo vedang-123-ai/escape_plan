@@ -163,7 +163,7 @@ struct SettingsScreen: View {
                                 Spacer()
                                 Image(systemName: "chevron.right")
                                     .font(.footnote.weight(.semibold))
-                                    .foregroundStyle(Color(.tertiaryLabel))
+                                    .foregroundStyle(Theme.tertiary)
                             }
                             .padding(.horizontal, 18)
                             .frame(minHeight: 60)
@@ -177,7 +177,7 @@ struct SettingsScreen: View {
                     }
                     footnote("Escape routes are computed by a deterministic engine. The assistant explains them and never changes them.")
                 }
-                .padding(.bottom, 24)
+                .padding(.bottom, 96)
             }
             .dsPage()
             .navigationTitle("Settings")

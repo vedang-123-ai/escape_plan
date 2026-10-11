@@ -37,4 +37,4 @@ For household members who are deaf or hard of hearing, alarms with strobe lights
 
 ## How the app uses this (editorial note)
 
-Checklist items generated from this doc: alarm in each `bedroom`-type room, alarm in halls adjacent to bedrooms, at least one alarm per floor, monthly test reminder, 10-year replacement reminder. The scoring engine (S3.5) weights these items; the chat assistant cites this document for placement questions.
+Checklist items generated from this doc: alarm in each `bedroom`-type room, alarm in halls adjacent to bedrooms, at least one alarm per floor, alarm testing, and 10-year replacement verification. The scoring engine (S3.5) weights these items; the chat assistant cites this document for placement questions.

@@ -7,10 +7,10 @@
 //  drawing code, and the tests all agree on one transform instead of three.
 //
 //  Frame: the schema's floor-local plan frame is (x, y) in metres. On paper we map
-//  **x → page x (right), y → page y (down)** with a single uniform scale. No flip: UIKit's
-//  page origin is top-left, so a plan printed this way reads the same way up as the JSON
-//  vertex list — the same reasoning `DollhouseGeometry` uses when it maps plan +y to scene
-//  −z so a top-down camera sees the plan "the same way up as the JSON reads".
+//  **x → page x (right), y → page y (up on the drawing, decreasing UIKit y)** with a single uniform scale.
+//  UIKit's page origin is top-left, so mapping plan +y to decreasing page y ensures
+//  that plan +y ("North") appears at the top of the printed page, matching the 3D
+//  viewport where `DollhouseGeometry` maps plan +y to scene −z (top-down view looking down −z).
 //
 //  One projection is built for the WHOLE home (not per floor) so every page shares a scale
 //  and floors line up sheet-to-sheet — which matters for a jagged stack where an upper floor
@@ -40,12 +40,12 @@ struct PlanProjection {
         let left = rect.minX + (rect.width - drawnWidth) / 2
         let top = rect.minY + (rect.height - drawnHeight) / 2
         self.origin = CGPoint(x: left - CGFloat(bounds.isEmpty ? 0 : bounds.minX) * scale,
-                              y: top - CGFloat(bounds.isEmpty ? 0 : bounds.minY) * scale)
+                              y: top + CGFloat(bounds.isEmpty ? 0 : bounds.maxY) * scale)
     }
 
     func point(_ p: Point) -> CGPoint {
         CGPoint(x: origin.x + CGFloat(p.x) * scale,
-                y: origin.y + CGFloat(p.y) * scale)
+                y: origin.y - CGFloat(p.y) * scale)
     }
 
     func point(x: Double, y: Double) -> CGPoint {

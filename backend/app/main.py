@@ -47,7 +47,7 @@ from app.limits import (
     MAX_IMAGE_DECODED_BYTES,
     decoded_image_bytes,
 )
-from app.deps import AI_GUARDS, ai_guards_for_optional_call, require_token
+from app.deps import AI_GUARDS, COMPUTE_GUARDS, ai_guards_for_optional_call, require_token
 from app.rate_limit import (
     BUDGET_COST_ANALYZE,
     BUDGET_COST_BUILD,
@@ -56,7 +56,7 @@ from app.rate_limit import (
     enforce_budget,
 )
 from app.models import HomeModel, Profile
-from app.routing.engine import compute_route_plan
+from app.routing.engine import compute_route_plan, compute_score_route_plans
 from app.routing.hazard import EvacuationTimeline, compute_evacuation_timeline
 from app.routing.plan import RoutePlan, RoutingConstraints
 from app.routing.profiles import find_profile
@@ -360,7 +360,7 @@ async def health_db() -> DatabaseHealthResponse:
 @app.post(
     "/routes",
     response_model=RoutePlan,
-    dependencies=[Depends(require_token)],
+    dependencies=COMPUTE_GUARDS,
 )
 def routes(request: RoutesRequest) -> RoutePlan:
     """Compute primary/secondary escape routes for every room (deterministic)."""
@@ -398,7 +398,7 @@ class EvacuateRequest(BaseModel):
 @app.post(
     "/evacuate",
     response_model=EvacuationTimeline,
-    dependencies=[Depends(require_token)],
+    dependencies=COMPUTE_GUARDS,
 )
 def evacuate(request: EvacuateRequest) -> EvacuationTimeline:
     """Ignite a room and re-solve every occupant's escape around the spread.
@@ -638,7 +638,7 @@ class ScoreRequest(BaseModel):
 @app.post(
     "/score",
     response_model=ScoreBreakdown,
-    dependencies=[Depends(require_token)],
+    dependencies=COMPUTE_GUARDS,
 )
 def score(request: ScoreRequest, http_request: Request) -> ScoreBreakdown:
     """Explainable 0-100 preparedness score + checklist (S3.5).
@@ -648,9 +648,9 @@ def score(request: ScoreRequest, http_request: Request) -> ScoreBreakdown:
     part that calls the AI, and only to add non-scoring checklist items.
     """
     thresholds = get_thresholds()
-    plan = compute_route_plan(request.home, thresholds, constraints=request.constraints, peril="fire")
-    tornado_plan = compute_route_plan(request.home, thresholds, request.constraints, peril="tornado")
-    earthquake_plan = compute_route_plan(request.home, thresholds, request.constraints, peril="earthquake")
+    plan, tornado_plan, earthquake_plan = compute_score_route_plans(
+        request.home, thresholds, constraints=request.constraints
+    )
 
     breakdown = compute_score(
         request.home,

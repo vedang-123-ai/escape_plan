@@ -73,6 +73,7 @@ final class HomeLibrary: ObservableObject {
             try store.delete(homeID: homeID)
             deleted = true
             editor?.homeWasDeleted(homeID: homeID)
+            Self.cleanupAuxiliaryStores(homeID: homeID, fileManager: store.fileManager)
             // After the delete succeeds, so a failed delete never leaves a tombstone for a
             // home that is still on disk. A tombstone that will not save lands in `loadError`
             // while `deleted` stays true: the file is gone either way (S11.22).
@@ -82,6 +83,31 @@ final class HomeLibrary: ObservableObject {
             try threadDeletion.get()
         }
         return deleted
+    }
+
+    /// Purges orphaned auxiliary data for a deleted home across auxiliary stores (A07-04):
+    /// ChecklistStateStore, MeetingPointStore, ScanFreshnessStore, ScoreCache, and RoutePlanCache.
+    static func cleanupAuxiliaryStores(homeID: String,
+                                       defaults: UserDefaults = .standard,
+                                       fileManager: FileManager = .default) {
+        ChecklistStateStore(defaults: defaults).clear(homeID: homeID)
+        MeetingPointStore(defaults: defaults).setMeetingPoint("", forHomeID: homeID)
+        defaults.removeObject(forKey: "readiness.wallEdgeCount.\(homeID)")
+        (try? ScoreCache(fileManager: fileManager))?.remove(homeID: homeID)
+
+        if let documents = try? fileManager.url(for: .documentDirectory, in: .userDomainMask,
+                                                appropriateFor: nil, create: false) {
+            let routeCacheDir = documents.appendingPathComponent("RouteCache", isDirectory: true)
+            var allowed = CharacterSet.alphanumerics
+            allowed.insert(charactersIn: "-_")
+            let safeID = homeID.addingPercentEncoding(withAllowedCharacters: allowed) ?? homeID
+            let prefix = "\(safeID)."
+            if let files = try? fileManager.contentsOfDirectory(atPath: routeCacheDir.path) {
+                for file in files where file.hasPrefix(prefix) {
+                    try? fileManager.removeItem(at: routeCacheDir.appendingPathComponent(file))
+                }
+            }
+        }
     }
 
     /// Copies a home under a new id and the name "<name> copy". Returns the copy's id, or nil when

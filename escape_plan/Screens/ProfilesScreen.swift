@@ -14,9 +14,12 @@
 //  The Plan screen's profile selector (live /routes re-fetch with profile_id when you pick a
 //  family member) landed with S2.3 — see PlanScreen.routeControls.
 
+import os
 import SwiftUI
 
 struct ProfilesScreen: View {
+    private static let log = Logger(subsystem: "escape_plan", category: "ProfilesScreen")
+
     let homeID: String
     /// Called after every autosave attempt. No caller passes it today; kept for callers that
     /// show their own copy of the home.
@@ -282,10 +285,16 @@ struct ProfilesScreen: View {
     /// last (the AUD-014 race).
     private func reloadReadinessIfChanged() {
         guard changedSinceAppear, let readiness, let apiClient, let documentStore,
-              readiness.activeHomeID == homeID,
-              let saved = try? documentStore.load(homeID: homeID, as: HomeModel.self) else { return }
-        changedSinceAppear = false
-        readiness.replaceActiveHome(saved, api: apiClient)
+              readiness.activeHomeID == homeID else { return }
+        do {
+            let saved = try documentStore.load(homeID: homeID, as: HomeModel.self)
+            changedSinceAppear = false
+            readiness.replaceActiveHome(saved, api: apiClient)
+        } catch {
+            Self.log.error("Failed to reload home for readiness: \(error.localizedDescription)")
+            saveError = "Failed to update readiness score: \(error.localizedDescription)"
+            AccessibilityNotification.Announcement("Failed to update readiness score. \(error.localizedDescription)").post()
+        }
     }
 }
 

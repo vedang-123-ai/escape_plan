@@ -13,13 +13,35 @@ from app.models import EXTERIOR_ID, HomeModel, Profile
 from app.routing.plan import RoutePlan
 
 
+MAX_UNTRUSTED_LABEL_CHARS = 60
+_STRIP_DELIMITERS_TRANS = str.maketrans("", "", "\"\n\r\t\x00`<>[]{}")
+
+
+def sanitize_untrusted_label(val: str, max_length: int = MAX_UNTRUSTED_LABEL_CHARS) -> str:
+    """Neutralize user-controlled labels (home/floor/room/profile names) for prompt interpolation.
+
+    Strips control characters, newlines, and delimiter characters (quotes, backticks,
+    angle/square/curly brackets) that could manipulate prompt structures or escape
+    token boundaries, caps length, and collapses multiple whitespace characters.
+    """
+    if not val:
+        return ""
+    cleaned = "".join(ch for ch in val if ch.isprintable() and ord(ch) >= 32)
+    cleaned = cleaned.translate(_STRIP_DELIMITERS_TRANS)
+    cleaned = " ".join(cleaned.split())
+    return cleaned[:max_length]
+
+
 def summarize_home(home: HomeModel) -> str:
     """One line per floor, one line per room, exterior exits, stairs."""
-    lines = [f'Home: "{home.name}" (schema {home.schema_version}, {len(home.floors)} floor(s))']
+    lines = [
+        "[Untrusted User Home Data]",
+        f'Home: "{sanitize_untrusted_label(home.name)}" (schema {home.schema_version}, {len(home.floors)} floor(s))',
+    ]
     for floor in sorted(home.floors, key=lambda f: f.level):
-        lines.append(f'Floor "{floor.name}" (level {floor.level}, id={floor.id}):')
+        lines.append(f'Floor "{sanitize_untrusted_label(floor.name)}" (level {floor.level}, id={floor.id}):')
         for room in floor.rooms:
-            lines.append(f"  - room \"{room.name}\" ({room.type.value}), id={room.id}")
+            lines.append(f'  - room "{sanitize_untrusted_label(room.name)}" ({room.type.value}), id={room.id}')
         exits = [op for op in floor.openings if op.is_exit]
         if exits:
             for op in exits:
@@ -38,9 +60,9 @@ def summarize_home(home: HomeModel) -> str:
 
 def summarize_route_plan(plan: RoutePlan) -> str:
     """Per-room primary/secondary route summary plus findings and bottlenecks."""
-    lines = [f'Computed escape plan for "{plan.home_name}":']
+    lines = [f'Computed escape plan for "{sanitize_untrusted_label(plan.home_name)}":']
     for room in plan.rooms:
-        parts = [f'  - "{room.room_name}" (id={room.room_id}):']
+        parts = [f'  - "{sanitize_untrusted_label(room.room_name)}" (id={room.room_id}):']
         if room.primary:
             parts.append(
                 f"primary route {room.primary.length_m:.1f}m via exit "
@@ -74,14 +96,14 @@ def summarize_profiles(profiles: list[Profile], home: HomeModel) -> str:
     if not profiles:
         return "No family profiles configured yet."
     room_by_id = {r.id: (r, floor) for floor in home.floors for r in floor.rooms}
-    lines = ["Family profiles:"]
+    lines = ["Family profiles (untrusted user input):"]
     for p in profiles:
         located = room_by_id.get(p.bedroom_room_id)
         where = (
-            f'bedroom "{located[0].name}" on floor "{located[1].name}"'
+            f'bedroom "{sanitize_untrusted_label(located[0].name)}" on floor "{sanitize_untrusted_label(located[1].name)}"'
             if located
             else f"bedroom room id {p.bedroom_room_id} (not found in home)"
         )
         tags = ", ".join(t.value for t in p.tags) if p.tags else "none"
-        lines.append(f'  - {p.name}: tags=[{tags}], {where}')
+        lines.append(f'  - {sanitize_untrusted_label(p.name)}: tags=[{tags}], {where}')
     return "\n".join(lines)

@@ -89,7 +89,7 @@ struct TaskRow: View {
                             Text(item.detail)
                                 .font(.caption)
                                 .foregroundStyle(Theme.supporting)
-                                .lineLimit(2)
+                                .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                                 .multilineTextAlignment(.leading)
                         }
                         // S11.35: when a recurring task was done and when it is due again.
@@ -183,7 +183,7 @@ struct TaskGroupHeader<Glyph: View>: View {
                 Spacer()
             }
             .padding(.horizontal, 14)
-            .frame(minHeight: 40)
+            .frame(minHeight: 44)
             .background(Theme.raised.opacity(0.55))
             .contentShape(Rectangle())
         }

@@ -3401,7 +3401,246 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
 **Commits this session**
   - 0ca3607 Merge remote-tracking branch 'origin/main'
   - 2311ac2 add
+## 2026-10-05T01:30:03Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Commits this session**
+  - 988fe94 Merge s11-cleanup-fixes: multi-id citations, local-fault copy, flaky test, tracker truth
+  - f6bb8d8 Stabilise the pending-tick reload test (waits for the tick's re-score before reloading)
+  - 9c5d899 Cleanup: multi-id citation tags, local-fault failure copy, README deploy line, tracker truth
+
+## 2026-10-05T01:30:35Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Commits this session**
+  - 988fe94 Merge s11-cleanup-fixes: multi-id citations, local-fault copy, flaky test, tracker truth
+  - f6bb8d8 Stabilise the pending-tick reload test (waits for the tick's re-score before reloading)
+  - 9c5d899 Cleanup: multi-id citation tags, local-fault failure copy, README deploy line, tracker truth
 
 **Uncommitted working-tree changes (1)**
   - M docs/tracker/activity-log.md
+
+## 2026-10-05T05:58:47Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T06:57:35Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T07:07:00Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T07:10:55Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T07:11:44Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T07:12:18Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T07:12:30Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T07:29:45Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T07:35:31Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T17:25:34Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T17:31:49Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T17:42:06Z · Anish Yarrakonda · `main` @ `988fe94`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T17:43:29Z · Anish Yarrakonda · `main` @ `48ed1eb`
+
+**Commits this session**
+  - 48ed1eb Merge s11-54-tidy: one .build-* ignore rule, scripts/clean.sh, logs under .build/logs
+  - b0bd3bc S11.54: one .build-* ignore rule, scripts/clean.sh, logs go under .build/logs
+  - e0a5cb6 Merge s11-52-engine-stress: engine stress tests, 200-room perf fix, five 500s now 422, diff checks exits
+  - e7eb740 Merge remote-tracking branch 'origin/main' into s11-52-engine-stress
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T17:46:13Z · Anish Yarrakonda · `main` @ `48ed1eb`
+
+**Commits this session**
+  - 48ed1eb Merge s11-54-tidy: one .build-* ignore rule, scripts/clean.sh, logs under .build/logs
+  - b0bd3bc S11.54: one .build-* ignore rule, scripts/clean.sh, logs go under .build/logs
+  - e0a5cb6 Merge s11-52-engine-stress: engine stress tests, 200-room perf fix, five 500s now 422, diff checks exits
+  - e7eb740 Merge remote-tracking branch 'origin/main' into s11-52-engine-stress
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T17:47:36Z · Anish Yarrakonda · `main` @ `48ed1eb`
+
+**Commits this session**
+  - 48ed1eb Merge s11-54-tidy: one .build-* ignore rule, scripts/clean.sh, logs under .build/logs
+  - b0bd3bc S11.54: one .build-* ignore rule, scripts/clean.sh, logs go under .build/logs
+  - e0a5cb6 Merge s11-52-engine-stress: engine stress tests, 200-room perf fix, five 500s now 422, diff checks exits
+  - e7eb740 Merge remote-tracking branch 'origin/main' into s11-52-engine-stress
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T18:01:59Z · Anish Yarrakonda · `main` @ `48ed1eb`
+
+**Commits this session**
+  - 48ed1eb Merge s11-54-tidy: one .build-* ignore rule, scripts/clean.sh, logs under .build/logs
+  - b0bd3bc S11.54: one .build-* ignore rule, scripts/clean.sh, logs go under .build/logs
+  - e0a5cb6 Merge s11-52-engine-stress: engine stress tests, 200-room perf fix, five 500s now 422, diff checks exits
+  - e7eb740 Merge remote-tracking branch 'origin/main' into s11-52-engine-stress
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T18:08:06Z · Anish Yarrakonda · `main` @ `4507cb2`
+
+**Commits this session**
+  - 4507cb2 Merge s11-55-judge-access: public-repo audit, judge-access recommendation, owner decisions, LICENSE
+  - aa36da0 Merge remote-tracking branch 'origin/main' into s11-55-judge-access
+  - b792553 S11.55: public-repo audit, judge-access recommendation, owner decisions 2026-10-05, LICENSE
+  - 343fdb6 Merge s11-53-simulator-walk: simulator walk findings, evidence, dead-server UI tests, walk driver
+  - aedbb02 Merge remote-tracking branch 'origin/main' into s11-53-simulator-walk
+  - 8cf2cb6 S11.53: post-merge suite count
+  - 48ed1eb Merge s11-54-tidy: one .build-* ignore rule, scripts/clean.sh, logs under .build/logs
+  - f9ce724 Merge remote-tracking branch 'origin/main' into s11-53-simulator-walk
+  - b0bd3bc S11.54: one .build-* ignore rule, scripts/clean.sh, logs go under .build/logs
+  - e0a5cb6 Merge s11-52-engine-stress: engine stress tests, 200-room perf fix, five 500s now 422, diff checks exits
+  - d260eb0 Merge remote-tracking branch 'origin/main' into s11-53-simulator-walk
+  - e7eb740 Merge remote-tracking branch 'origin/main' into s11-52-engine-stress
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T18:08:27Z · Anish Yarrakonda · `main` @ `4507cb2`
+
+**Commits this session**
+  - 4507cb2 Merge s11-55-judge-access: public-repo audit, judge-access recommendation, owner decisions, LICENSE
+  - aa36da0 Merge remote-tracking branch 'origin/main' into s11-55-judge-access
+  - b792553 S11.55: public-repo audit, judge-access recommendation, owner decisions 2026-10-05, LICENSE
+  - 343fdb6 Merge s11-53-simulator-walk: simulator walk findings, evidence, dead-server UI tests, walk driver
+  - aedbb02 Merge remote-tracking branch 'origin/main' into s11-53-simulator-walk
+  - 8cf2cb6 S11.53: post-merge suite count
+  - 48ed1eb Merge s11-54-tidy: one .build-* ignore rule, scripts/clean.sh, logs under .build/logs
+  - f9ce724 Merge remote-tracking branch 'origin/main' into s11-53-simulator-walk
+  - b0bd3bc S11.54: one .build-* ignore rule, scripts/clean.sh, logs go under .build/logs
+  - e0a5cb6 Merge s11-52-engine-stress: engine stress tests, 200-room perf fix, five 500s now 422, diff checks exits
+  - d260eb0 Merge remote-tracking branch 'origin/main' into s11-53-simulator-walk
+  - e7eb740 Merge remote-tracking branch 'origin/main' into s11-52-engine-stress
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T18:13:57Z · Anish Yarrakonda · `main` @ `3d9104f`
+
+**Commits this session**
+  - 3d9104f Merge s11-50-code-defects: chat length guard, hermetic HomeLibrary, cut-off responses, untimed ticks, clock notice
+  - 944fa7e Merge remote-tracking branch 'origin/main' into s11-50-code-defects
+  - 30e19b9 S11.50: gate counts after merging 343fdb6
+  - 4507cb2 Merge s11-55-judge-access: public-repo audit, judge-access recommendation, owner decisions, LICENSE
+  - aa36da0 Merge remote-tracking branch 'origin/main' into s11-55-judge-access
+  - e3be98f Merge remote-tracking branch 'origin/main' into s11-50-code-defects
+  - b792553 S11.55: public-repo audit, judge-access recommendation, owner decisions 2026-10-05, LICENSE
+  - 481fb75 S11.50: post-merge gate counts in BLOCKERS
+  - 343fdb6 Merge s11-53-simulator-walk: simulator walk findings, evidence, dead-server UI tests, walk driver
+  - aedbb02 Merge remote-tracking branch 'origin/main' into s11-53-simulator-walk
+  - 8cf2cb6 S11.53: post-merge suite count
+  - 48ed1eb Merge s11-54-tidy: one .build-* ignore rule, scripts/clean.sh, logs under .build/logs
+  - 5a98945 Merge remote-tracking branch 'origin/main' into s11-50-code-defects
+  - f9ce724 Merge remote-tracking branch 'origin/main' into s11-53-simulator-walk
+  - b0bd3bc S11.54: one .build-* ignore rule, scripts/clean.sh, logs go under .build/logs
+  - e0a5cb6 Merge s11-52-engine-stress: engine stress tests, 200-room perf fix, five 500s now 422, diff checks exits
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T23:37:29Z · Anish Yarrakonda · `main` @ `3d9104f`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-05T23:41:52Z · Anish Yarrakonda · `main` @ `f3cd237`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-06T00:06:02Z · Anish Yarrakonda · `main` @ `2ef253b`
+
+**Commits this session**
+  - 2ef253b Merge s11-58-readme-verify: README verified from a fresh tree, Python and port notes, backend venv recipe
+  - 8bc5e8b Merge origin/main into s11-58-readme-verify
+  - af66b33 S11.58: README verified from a fresh tree; Python 3.9 trap, port note, CLI build, backend venv recipe
+  - 95fd8c5 Merge audit-s11-29-score-deadline: /score survives an AI timeout
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-06T01:47:53Z · Anish Yarrakonda · `main` @ `710f3aa`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-11T06:40:13Z · Anish Yarrakonda · `main` @ `7c9021c`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-11T19:39:19Z · Anish Yarrakonda · `main` @ `7c9021c`
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? audit/2026-10-11_comprehensive/
+
+## 2026-10-11T20:31:03Z · Anish Yarrakonda · `main` @ `7c9021c`
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? audit/2026-10-11_comprehensive/
+
+## 2026-10-11T20:33:17Z · Anish Yarrakonda · `main` @ `7c9021c`
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? audit/2026-10-11_comprehensive/
+
+## 2026-10-11T20:34:43Z · Anish Yarrakonda · `main` @ `7c9021c`
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? audit/2026-10-11_comprehensive/
+
+## 2026-10-11T20:35:55Z · Anish Yarrakonda · `main` @ `7c9021c`
+
+**Uncommitted working-tree changes (2)**
+  - M docs/tracker/activity-log.md
+  - ?? audit/2026-10-11_comprehensive/
 

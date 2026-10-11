@@ -153,7 +153,7 @@ enum DollhousePalette {
     static let hazardHalo = UIColor(hex: 0xFDBA74)
     static let warningBadge = UIColor(hex: 0xDC2626)
     /// `no_viable_route` is worse than `no_secondary_egress`; its badge darkens to match.
-    static let warningBadgeSevere = UIColor(hex: 0x991B1B)
+    static let warningBadgeSevere = UIColor(hex: 0xB91C1C)  // = Theme.warningBadgeSevere (3:1 on canvas)
 
     // MARK: - Lighting
 

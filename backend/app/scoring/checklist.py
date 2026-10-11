@@ -275,8 +275,8 @@ def smoke_alarm_items(
         )
     add(
         "alarm.test_monthly",
-        "Test every smoke alarm this month",
-        "Press the test button on every alarm once a month.",
+        "Test every smoke alarm now, then monthly",
+        "Press the test button on every alarm to confirm it sounds. Continue testing monthly as recommended by USFA.",
     )
     add(
         "alarm.replace_10y",

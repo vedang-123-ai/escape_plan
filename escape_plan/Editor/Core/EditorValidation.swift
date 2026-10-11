@@ -9,6 +9,11 @@
 import Foundation
 
 struct ValidationIssue: Equatable, Sendable, CustomStringConvertible {
+    enum Severity: String, Sendable {
+        case error
+        case warning
+    }
+
     enum Kind: String, Sendable {
         case schema_version
         case idUniqueness
@@ -27,19 +32,25 @@ struct ValidationIssue: Equatable, Sendable, CustomStringConvertible {
     }
 
     let kind: Kind
+    let severity: Severity
     /// Id of the offending entity, when there is one — for driving editor highlighting.
     let entityId: String?
     let message: String
 
-    init(_ kind: Kind, entityId: String? = nil, _ message: String) {
+    var isWarning: Bool { severity == .warning }
+    var isBlocking: Bool { severity == .error }
+
+    init(_ kind: Kind, severity: Severity = .error, entityId: String? = nil, _ message: String) {
         self.kind = kind
+        self.severity = severity
         self.entityId = entityId
         self.message = message
     }
 
     var description: String {
-        if let entityId { return "[\(kind.rawValue)] \(entityId): \(message)" }
-        return "[\(kind.rawValue)] \(message)"
+        let prefix = severity == .warning ? "[\(kind.rawValue):warning]" : "[\(kind.rawValue)]"
+        if let entityId { return "\(prefix) \(entityId): \(message)" }
+        return "\(prefix) \(message)"
     }
 }
 
@@ -122,8 +133,15 @@ enum HomeSizeBounds {
 
 enum EditorValidation {
 
-    /// Every structural rule, checked in one pass. Empty result == the backend will accept it.
+    /// Every structural rule, checked in one pass. Returns only blocking errors that prevent
+    /// editor initialization or commits, ensuring imported/scanned homes with soft
+    /// issues (like overlapping openings) do not brick the editor (A17-02).
     static func validate(_ model: HomeModel) -> [ValidationIssue] {
+        validateAll(model).filter(\.isBlocking)
+    }
+
+    /// All issues including non-blocking repairable warnings.
+    static func validateAll(_ model: HomeModel) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
 
         if model.schema_version != HomeModel.currentSchemaVersion {
@@ -148,6 +166,11 @@ enum EditorValidation {
         issues += validateSizeBounds(model)
 
         return issues
+    }
+
+    /// Non-blocking repairable warnings on a home model (e.g. opening overlaps).
+    static func warnings(_ model: HomeModel) -> [ValidationIssue] {
+        validateAll(model).filter(\.isWarning)
     }
 
     // MARK: - Size bounds (S11.25, AUD-004)
@@ -424,7 +447,7 @@ enum EditorValidation {
             let sorted = group.sorted { $0.wall_segment.t0 < $1.wall_segment.t0 }
             for (a, b) in zip(sorted, sorted.dropFirst())
             where a.wall_segment.t1 > b.wall_segment.t0 + Geometry.epsilon {
-                issues.append(.init(.openingPlacement, entityId: b.id,
+                issues.append(.init(.openingPlacement, severity: .warning, entityId: b.id,
                                     "overlaps opening '\(a.id)' on the same wall (t \(a.wall_segment.t0)…\(a.wall_segment.t1) vs \(b.wall_segment.t0)…\(b.wall_segment.t1))"))
             }
         }

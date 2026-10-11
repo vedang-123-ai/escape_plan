@@ -61,4 +61,4 @@ route, and the exception has six conditions attached to it.
 
 ## Implications for the app (editorial note, not safety guidance)
 
-These principles are the basis for the app's core features: primary + secondary route computation per room ("two ways out"), the meeting-point setting, the practice/drill mode with twice-a-year reminders, and profile-aware planning for household members with disabilities.
+These principles are the basis for the app's core features: primary + secondary route computation per room ("two ways out"), the meeting-point setting, practice checklist tracking, and profile-aware planning for household members with disabilities.
