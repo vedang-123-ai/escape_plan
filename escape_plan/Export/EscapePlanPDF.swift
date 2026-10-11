@@ -92,6 +92,14 @@ enum EscapePlanPDF {
                       floorOrder: document.home.floorsByLevel.map(\.id))
     }
 
+    /// Renders the printable document asynchronously off the main actor to avoid freezing the UI.
+    /// `UIGraphicsPDFRenderer` and CoreText drawing are thread-safe and do not touch UIKit views.
+    nonisolated static func renderAsync(_ document: EscapePlanDocument) async -> Output {
+        await Task.detached(priority: .userInitiated) {
+            render(document)
+        }.value
+    }
+
     // MARK: - Pagination
 
     private struct Page {
