@@ -43,6 +43,11 @@ class Settings(BaseModel):
     ai_rate_per_min: float = 6.0
     ai_rate_burst: int = 3
     ai_max_concurrent: int = 4
+    # Deterministic compute rate guard (A06-04). /routes, /score, /evacuate cost
+    # CPU rather than Anthropic credits. Generous defaults (120 req/min, burst 60)
+    # prevent worker starvation without hindering live demo usage.
+    compute_rate_per_min: float = 120.0
+    compute_rate_burst: int = 60
     # S11.27 (AUD-003). The bearer token ships in every app build and is public,
     # so it bounds nobody's spend. These two do.
     ai_daily_call_budget: int = 1000
@@ -151,6 +156,8 @@ def get_settings() -> Settings:
         ai_rate_per_min=_positive_number("AI_RATE_PER_MIN", "6", float),
         ai_rate_burst=_positive_number("AI_RATE_BURST", "3", int),
         ai_max_concurrent=_positive_number("AI_MAX_CONCURRENT", "4", int),
+        compute_rate_per_min=_positive_number("COMPUTE_RATE_PER_MIN", "120", float),
+        compute_rate_burst=_positive_number("COMPUTE_RATE_BURST", "60", int),
         ai_daily_call_budget=_positive_number("AI_DAILY_CALL_BUDGET", "1000", int),
         # Not _positive_number: an empty value is meaningful (disable the header)
         # and lowercased because ASGI header lookups are case-insensitive but the

@@ -274,12 +274,18 @@ def compute_route_plan(
     peril: Literal["fire", "tornado", "earthquake"] = "fire",
     profile: Profile | None = None,
     bottleneck_min_rooms: int = 2,
+    _shared_graph: NavGraph | None = None,
+    _shared_obstructions: dict[tuple[str, str], Obstruction] | None = None,
 ) -> RoutePlan:
     """Primary + secondary escape routes for every room, plus bottleneck findings.
 
     `profile` and `constraints` are alternatives: passing a profile derives the
     constraints from its tags (S3.4 mapping table). Passing both is a caller
     bug — the derived table must not be silently overridden.
+
+    `_shared_graph` and `_shared_obstructions` allow callers (like `/score` via
+    `compute_score_route_plans`) to memoize the expensive 10 cm rasterization,
+    Chamfer erosion grids, and obstruction analyses across peril solves.
     """
     from app.routing.perils import find_cover_object, find_tornado_shelter
     if profile is not None:
@@ -287,19 +293,22 @@ def compute_route_plan(
             raise ValueError("pass either profile or constraints, not both")
         constraints = constraints_for_profile(profile, thresholds)
     constraints = constraints or RoutingConstraints()
-    graph = build_graph(home, thresholds)
+    graph = _shared_graph if _shared_graph is not None else build_graph(home, thresholds)
     openings = _openings_by_id(home)
     # The analysis re-rasterizes rooms, so it is gated — but on whether the home has
     # any furniture at all, not on whether something is fully blocked. `narrows_route`
     # fires precisely where nothing is blocked, so the old `if graph.blocked_openings`
     # gate could never surface one. A home with no objects still costs nothing:
     # analyze_obstructions skips every room whose object list is empty.
-    obstructions_by_opening: dict[tuple[str, str], Obstruction] = {}
-    if graph.blocked_openings or any(floor.objects for floor in home.floors):
-        for obstruction in analyze_obstructions(home, thresholds):
-            obstructions_by_opening[(obstruction.room_id, obstruction.opening_id)] = (
-                obstruction
-            )
+    if _shared_obstructions is not None:
+        obstructions_by_opening = _shared_obstructions
+    else:
+        obstructions_by_opening = {}
+        if graph.blocked_openings or any(floor.objects for floor in home.floors):
+            for obstruction in analyze_obstructions(home, thresholds):
+                obstructions_by_opening[(obstruction.room_id, obstruction.opening_id)] = (
+                    obstruction
+                )
     # Squeezes are reported per room, in the analysis's own deterministic order.
     narrowings_by_room: dict[str, list[Obstruction]] = {}
     for (room_id, _), obstruction in obstructions_by_opening.items():
@@ -454,3 +463,50 @@ def compute_route_plan(
             graph, openings, min_rooms=bottleneck_min_rooms
         ),
     )
+
+
+def compute_score_route_plans(
+    home: HomeModel,
+    thresholds: EgressThresholds,
+    constraints: RoutingConstraints | None = None,
+) -> tuple[RoutePlan, RoutePlan, RoutePlan]:
+    """Compute (fire_plan, tornado_plan, earthquake_plan) sharing graph and obstruction analysis.
+
+    For /score (A11-04): avoids running 3 redundant double-pass integer Chamfer distance
+    transforms and obstruction bisections on identical home geometries. The resulting
+    RoutePlan objects are byte-identical to running compute_route_plan independently.
+    """
+    graph = build_graph(home, thresholds)
+    openings = _openings_by_id(home)
+    obstructions_by_opening: dict[tuple[str, str], Obstruction] = {}
+    if graph.blocked_openings or any(floor.objects for floor in home.floors):
+        for obstruction in analyze_obstructions(home, thresholds):
+            obstructions_by_opening[(obstruction.room_id, obstruction.opening_id)] = (
+                obstruction
+            )
+
+    fire_plan = compute_route_plan(
+        home,
+        thresholds,
+        constraints=constraints,
+        peril="fire",
+        _shared_graph=graph,
+        _shared_obstructions=obstructions_by_opening,
+    )
+    tornado_plan = compute_route_plan(
+        home,
+        thresholds,
+        constraints=constraints,
+        peril="tornado",
+        _shared_graph=graph,
+        _shared_obstructions=obstructions_by_opening,
+    )
+    earthquake_plan = compute_route_plan(
+        home,
+        thresholds,
+        constraints=constraints,
+        peril="earthquake",
+        _shared_graph=graph,
+        _shared_obstructions=obstructions_by_opening,
+    )
+    return fire_plan, tornado_plan, earthquake_plan

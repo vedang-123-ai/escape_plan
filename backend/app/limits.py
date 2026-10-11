@@ -46,11 +46,10 @@ dominated by 200 room polygons and 3,200 openings while its route plan still
 describes only a handful of paths. Vary each input independently, then measure the
 combination.
 
-One caveat, deliberately stated rather than hidden: `RoutePlan`'s lists carry no
-length caps of their own (see `app/routing/plan.py`), so 2.06 MB is a MEASURED
-worst case for a plan the engine actually produces, not a ceiling any validator
-enforces. A client that hand-wrote an enormous `route_plan` is still bounded by
-MAX_BODY_BYTES_DEFAULT and nothing finer. There is a BLOCKERS line to bound it.
+`RoutePlan`'s lists carry explicit length caps matching the style of `models.py`
+(see `app/routing/plan.py` and `MAX_ROUTE_*` below): `MAX_ROUTE_ROOMS` (200),
+`MAX_ROUTE_WAYPOINTS` (1000), `MAX_ROUTE_BOTTLENECKS` (200), and `MAX_ROUTE_FINDINGS_PER_ROOM` (50).
+A hand-written or corrupted `route_plan` payload cannot allocate unbounded lists.
 
 The remaining headroom is deliberate: this session ships BEFORE the client-side
 trimming (S11.45) and transcoding (S11.33), so a limit chosen tight against
@@ -143,6 +142,29 @@ what grows; 40 is a long conversation about one house."""
 
 MAX_CHAT_MESSAGE_CHARS = 8_000
 """One message. Longer than anyone types and shorter than a pasted document."""
+
+# --------------------------------------------------------------------------
+# RoutePlan nested collection bounds (A06-05)
+# --------------------------------------------------------------------------
+
+MAX_ROUTE_WAYPOINTS = 1000
+"""Maximum waypoints on a single Route. Real smoothed routes across multi-floor
+homes have dozens of waypoints; 1,000 provides ample headroom while bounding memory."""
+
+MAX_ROUTE_FINDINGS_PER_ROOM = 50
+"""Maximum RouteFinding entries per RoomRoutePlan."""
+
+MAX_ROUTE_FINDING_OBJECTS = 50
+"""Maximum blaming object IDs attached to a single RouteFinding."""
+
+MAX_ROUTE_BOTTLENECK_DISCONNECTED_ROOMS = 200
+"""Maximum disconnected room IDs per Bottleneck, matching MAX_ROOMS."""
+
+MAX_ROUTE_BOTTLENECKS = 200
+"""Maximum Bottleneck entries on a RoutePlan."""
+
+MAX_ROUTE_ROOMS = 200
+"""Maximum RoomRoutePlan entries on a RoutePlan, matching MAX_ROOMS."""
 
 MAX_CHAT_TOTAL_CHARS = 100_000
 """Every message summed (~25k tokens). MAX_CHAT_MESSAGES x MAX_CHAT_MESSAGE_CHARS
