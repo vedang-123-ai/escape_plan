@@ -376,7 +376,36 @@ enum EscapePlanPDF {
                                     gray: 0.05, indent: 6, spacingBefore: 2))
             }
         }
+
+        if floor.id == home.floorsByLevel.first?.id {
+            blocks.append(contentsOf: inFireRulesBlocks())
+        }
         return blocks
+    }
+
+    /// Authoritative life-safety rules for home fire evacuation:
+    /// - NFPA "How to make a home fire escape plan" (retrieved 2026-07-10, verified 2026-10-11):
+    ///   https://www.nfpa.org/education-and-research/home-fire-safety/escape-planning
+    /// - USFA Home Fires Escape Plans (verified 2026-10-11):
+    ///   https://www.usfa.fema.gov/prevention/home-fires/prepare-for-fire/escape-plan/
+    /// - Ready.gov Home Fires (verified 2026-10-11):
+    ///   https://www.ready.gov/home-fires
+    /// - American Red Cross Home Fire Escape Plan (verified 2026-10-11):
+    ///   https://www.redcross.org/get-help/how-to-prepare-for-emergencies/types-of-emergencies/fire.html
+    private static func inFireRulesBlocks() -> [Block] {
+        [
+            sectionTitle("IF THERE IS A FIRE"),
+            Block(text: "• Feel the door before opening: if warm, use your backup route.",
+                  font: .systemFont(ofSize: 8.5), gray: 0.1, indent: 6, spacingBefore: 2),
+            Block(text: "• Stay low: crawl under smoke where the air is cleaner.",
+                  font: .systemFont(ofSize: 8.5), gray: 0.1, indent: 6, spacingBefore: 2),
+            Block(text: "• Close doors behind you as you leave to slow fire and smoke.",
+                  font: .systemFont(ofSize: 8.5), gray: 0.1, indent: 6, spacingBefore: 2),
+            Block(text: "• Get out and stay out: never go back inside for people, pets, or belongings.",
+                  font: .systemFont(ofSize: 8.5), gray: 0.1, indent: 6, spacingBefore: 2),
+            Block(text: "• Go to your outside meeting place, then call 911 from outside.",
+                  font: .systemFont(ofSize: 8.5), gray: 0.1, indent: 6, spacingBefore: 2),
+        ]
     }
 
     private static func routeBlocks(for roomPlan: RoomRoutePlan,
