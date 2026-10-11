@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from app.models import HomeModel, FloorObject, ObjectCategory, OpeningKind, Room, Source
 from app.routing.obstructions import Obstruction
 from app.routing.egress import EgressThresholds, check_egress
-from app.routing.obstructions import culprit_object_ids, tolerated_clearance_m, _suggested_move_m, COMFORT_MARGIN_M, _room_openings, code_clearance_m, opening_midpoint, _reachable, objects_intersecting, polygon_centroid
+from app.routing.obstructions import culprit_object_ids, tolerated_clearance_m, _suggested_move_m, COMFORT_MARGIN_M, _room_openings, code_clearance_m, opening_midpoint, _reachable, objects_intersecting, polygon_centroid, _nearest_boundary_point, _shrunk, goal_radius_m, SCAN_TOLERANCE_M, SILL_STEP_OVER_M
 from app.routing.graph import Point
 
 class DiffRequest(BaseModel):
@@ -162,39 +162,50 @@ def compute_diff(
         # front door matters most. Only a window that is not a viable exit anyway
         # is skipped. S11.52: every exit used to be skipped here, so a newly
         # scanned wardrobe in front of the only door reported nothing.
+        # The rules below mirror analyze_obstructions exactly (sill, aim, tolerance).
+        candidates = local
         if op.kind == OpeningKind.window:
             assessment = op.egress if op.egress is not None else check_egress(
                 op, thresholds, grade_floor=target_floor.level <= 0
             )
             if not assessment.viable:
                 continue
+            reach = op.sill_height_m + SILL_STEP_OVER_M
+            candidates = [o for o in local if o.elevation_m + o.height_m > reach]
+            if not candidates:
+                continue
 
         required_width = thresholds.window_min_width_m if op.kind == "window" else thresholds.door_min_width_m
         host_polygon = polygons.get(op.wall_segment.room_id)
         if not host_polygon:
             continue
-            
+
         goal = opening_midpoint(
             host_polygon,
             op.wall_segment.edge_index,
             op.wall_segment.t0,
             op.wall_segment.t1,
         )
-        goal_radius = max(op.width_m / 2, 0.6)
-        
-        code_ok = _reachable(list(target_room.polygon), local, start, goal, code_c, goal_radius)
-        if code_ok and _reachable(list(target_room.polygon), local, start, goal, comfort_c, goal_radius):
+        if op.wall_segment.room_id != target_room.id:
+            goal = _nearest_boundary_point(list(target_room.polygon), goal)
+        goal_radius = goal_radius_m(op.width_m)
+
+        code_ok = _reachable(list(target_room.polygon), candidates, start, goal, code_c, goal_radius)
+        if code_ok and _reachable(list(target_room.polygon), candidates, start, goal, comfort_c, goal_radius):
             continue
-            
+
         probe_c = code_c if not code_ok else comfort_c
-        culprits = culprit_object_ids(list(target_room.polygon), local, start, goal, probe_c, goal_radius)
-        
+        forgiving = [_shrunk(o, SCAN_TOLERANCE_M) for o in candidates]
+        if _reachable(list(target_room.polygon), forgiving, start, goal, probe_c, goal_radius):
+            continue
+        culprits = culprit_object_ids(list(target_room.polygon), candidates, start, goal, probe_c, goal_radius)
+
         # Are any diff objects in culprits?
         diff_culprits = [c for c in culprits if id(c) in new_object_refs]
         if not diff_culprits:
             continue
             
-        tolerated = tolerated_clearance_m(list(target_room.polygon), local, start, goal, goal_radius, comfort_c)
+        tolerated = tolerated_clearance_m(list(target_room.polygon), candidates, start, goal, goal_radius, comfort_c)
         passable_width = round(2 * tolerated, 3)
         target_width = required_width if not code_ok else required_width + 2 * COMFORT_MARGIN_M
         
@@ -205,6 +216,7 @@ def compute_diff(
                 room_name=target_room.name,
                 floor_id=target_floor.id,
                 opening_id=op.id,
+                opening_kind=op.kind.value if hasattr(op.kind, "value") else str(op.kind),
                 object_ids=tuple(c.id for c in culprits), # include all so removal is correct
                 object_categories=tuple(c.category for c in culprits),
                 passable_width_m=passable_width,

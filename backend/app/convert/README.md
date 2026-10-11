@@ -76,8 +76,14 @@ of error the Phase-2 editor is designed to let the user correct.
 2. Chain segments end-to-end greedily (nearest endpoint, flipping as needed); gaps up
    to any size are closed by midpoint-welding, but gaps > 0.25 m cost polygon quality.
 3. Merge near-collinear consecutive edges (< 8° turn).
-4. Rectangularize: find the dominant wall direction (length-weighted, mod 90°); snap
-   every edge within 12° of a dominant axis onto it and re-intersect neighboring edges.
+4. Rectangularize: the dominant wall direction is computed ONCE over every room's walls
+   (length-weighted, mod 90°), so neighbours share one axis; snap every edge within 12°
+   of it and re-intersect neighboring edges.
+5. Remove jogs (`stitch.py`): edges under 0.25 m collapse (parallel neighbours merge at
+   their weighted offset; otherwise the neighbours meet at a corner).
+6. Stitch rooms (`stitch.py`, after every room is cleaned, before openings are placed):
+   facing walls of two rooms within 0.35 m move onto their midline; same-facing walls
+   within 0.15 m become one facade line. A room the pass would break keeps its polygon.
 5. Normalize: dedupe vertices, force CCW, verify the polygon is simple. If anything is
    degenerate, **fall back to the axis-aligned bounding box** of the wall endpoints and
    mark the room low-confidence — never crash, never drop the room.

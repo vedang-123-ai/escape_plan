@@ -27,7 +27,10 @@ class ObjectHazard:
 def _obb_corners(obj: FloorObject, inflate_w_m: float = 0.0, inflate_d_m: float = 0.0) -> list[Point]:
     w = obj.size_m[0] + 2 * inflate_w_m
     d = obj.size_m[1] + 2 * inflate_d_m
-    angle = -math.radians(obj.rotation_deg)
+    # Local → world is a +rotation_deg (CCW) turn. This was negated, which mirrored
+    # every box not at a multiple of 90° — and a scan's furniture almost never is.
+    # nav_grid.object_contains (world → local) uses the negated angle, correctly.
+    angle = math.radians(obj.rotation_deg)
     cos_a = math.cos(angle)
     sin_a = math.sin(angle)
     

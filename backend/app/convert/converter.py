@@ -20,10 +20,12 @@ from app.convert.geometry import (
     EdgePlacement,
     PolygonResult,
     WallSegment,
+    dominant_theta,
     place_opening_on_polygon,
     polygon_from_walls,
 )
 from app.convert.roomplan import RPRoom, RPStructure, RPSurface
+from app.convert.stitch import stitch_rooms
 from app.schema_migrator import CURRENT_VERSION
 from app.models import (
     EXTERIOR_ID,
@@ -114,9 +116,7 @@ class _ConvertedRoom:
     confidence: float
 
 
-def _convert_room(room: RPRoom, index: int) -> tuple[Room, _ConvertedRoom]:
-    segments = [WallSegment(*w.plan_segment) for w in room.walls]
-    result = polygon_from_walls(segments)
+def _convert_room(room: RPRoom, index: int, result: PolygonResult) -> tuple[Room, _ConvertedRoom]:
 
     wall_conf = [w.confidence.value_float for w in room.walls]
     base_conf = statistics.fmean(wall_conf) if wall_conf else 0.3
@@ -282,11 +282,29 @@ def convert_scan(
         except ValidationError as exc:
             raise ConversionError("not a valid RoomPlan export") from exc
 
+    # One axis for the whole floor, then each room cleaned onto it, then the rooms
+    # stitched to each other (stitch.py) BEFORE openings are placed on the edges.
+    theta = dominant_theta(
+        [WallSegment(*w.plan_segment) for room in structure.rooms for w in room.walls]
+    )
+    cleaned = [
+        polygon_from_walls([WallSegment(*w.plan_segment) for w in room.walls], theta)
+        for room in structure.rooms
+    ]
+    stitchable = [i for i, c in enumerate(cleaned) if not c.used_fallback]
+    stitched = stitch_rooms([cleaned[i].polygon for i in stitchable])
+    final_polys: dict[int, list] = {
+        i: [(round(x, 3), round(y, 3)) for x, y in p] for i, p in zip(stitchable, stitched)
+    }
+
     model_rooms: list[Room] = []
     converted: list[_ConvertedRoom] = []
     warnings: list[str] = []
     for index, room in enumerate(structure.rooms):
-        model_room, conv = _convert_room(room, index)
+        result = cleaned[index]
+        if index in final_polys:
+            result = PolygonResult(final_polys[index], result.quality, result.used_fallback, result.notes)
+        model_room, conv = _convert_room(room, index, result)
         model_rooms.append(model_room)
         converted.append(conv)
         for note in conv.result.notes:

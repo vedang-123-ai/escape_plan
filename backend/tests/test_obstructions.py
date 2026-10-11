@@ -231,7 +231,7 @@ def test_squeeze_suggests_a_move_that_actually_closes_the_gap(thresholds) -> Non
 
 from app.models import Opening, WallSegmentRef, OpeningKind
 
-def _window_home(is_egress: bool) -> HomeModel:
+def _window_home(is_egress: bool, blocker_height_m: float = 2.0) -> HomeModel:
     home = _blocked_home()
     # Replace the door with a window
     # Make it egress-qualifying or not based on is_egress
@@ -258,7 +258,9 @@ def _window_home(is_egress: bool) -> HomeModel:
     
     # Add an object right in front of the window (edge 0 is usually y=0 or x=0)
     # The room is typically a box. Let's just put a massive object covering the whole room.
-    blocker = _box("o_window_blocker", (2.5, 2.5), size=(5.0, 5.0))
+    blocker = _box("o_window_blocker", (2.5, 2.5), size=(5.0, 5.0)).model_copy(
+        update={"height_m": blocker_height_m}
+    )
     floor.objects.append(blocker)
     
     return home
@@ -279,3 +281,43 @@ def test_non_egress_window_blocked_emits_nothing(thresholds) -> None:
     window_obs = [o for o in obstructions if o.opening_id == "w_test_window"]
     assert len(window_obs) == 0
 
+
+
+# ---------------------------------------------------------------------------
+# Scan realism (2026-10-11 device scan: a bed under a bedroom window reported as a
+# "blocked doorway" needing a 0.05 m move)
+
+
+def test_furniture_below_the_sill_does_not_block_a_window(thresholds) -> None:
+    """You climb over a bed to get out of the window above it."""
+    home = _window_home(is_egress=True, blocker_height_m=0.6)  # sill is 1.0 m
+    obstructions = analyze_obstructions(home, thresholds)
+    assert [o for o in obstructions if o.opening_id == "w_test_window"] == []
+
+
+def _narrow_with_wardrobe_at(center_x: float, source: str) -> HomeModel:
+    raw = json.loads((FIXTURES / "bungalow-narrow.json").read_text())
+    obj = next(o for o in raw["floors"][0]["objects"] if o["id"] == "o_wardrobe_narrowing")
+    obj["center"] = [center_x, obj["center"][1]]
+    obj["source"] = source
+    if source == "scan":
+        obj["confidence"] = 0.9
+    return HomeModel.model_validate(raw)
+
+
+def test_a_shortfall_within_scan_tolerance_is_not_reported(thresholds) -> None:
+    """Placed by hand, 0.05 m short is a finding; scanned, it is RoomPlan's noise."""
+    manual = analyze_obstructions(_narrow_with_wardrobe_at(2.0, "manual"), thresholds)
+    assert [o.suggested_move_m for o in manual] == [0.05]
+    assert analyze_obstructions(_narrow_with_wardrobe_at(2.0, "scan"), thresholds) == []
+
+
+def test_a_real_squeeze_survives_the_scan_tolerance(thresholds) -> None:
+    found = analyze_obstructions(_narrow_with_wardrobe_at(2.1, "scan"), thresholds)
+    assert [(o.kind, o.suggested_move_m) for o in found] == [("narrows_route", 0.25)]
+
+
+def test_detail_names_the_opening_by_kind_not_by_id(thresholds) -> None:
+    found = analyze_obstructions(_blocked_home(), thresholds)[0]
+    assert found.opening_id not in found.detail
+    assert "the door" in found.detail
