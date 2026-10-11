@@ -48,18 +48,7 @@ PERILS = {"fire", "earthquake", "tornado"}
 # them, because code OUTSIDE backend/corpus/ still cites them and removing the id
 # would break that citation. Each entry is debt with a named owner, not a waiver --
 # delete the entry and the source together once the caller is re-pointed.
-ORPHAN_SOURCE_EXCEPTIONS = {
-    "usgs-earthquake": (
-        "S11.1 (2026-09-21): usgs.gov/.../prepare is a link directory carrying none of "
-        "the claims made of it, so no corpus doc cites it any more. One caller left "
-        "(checklist.py was re-pointed by S11.2): the aftershock card in "
-        "escape_plan/DrillMode/DrillInstructions.swift, a misattribution. It cannot simply "
-        "be re-pointed to shakeout-guidance-after, because the card's 'or if you are "
-        "instructed to do so' is in no source; the copy must change first. Owner: S11.10 "
-        "(owns escape_plan/DrillMode/) -- see BLOCKERS.md S11.1 (2026-09-24). "
-        "Then delete both this entry and the source."
-    ),
-}
+ORPHAN_SOURCE_EXCEPTIONS: dict[str, str] = {}
 
 SQFT_TO_M2 = 0.09290304
 IN_TO_M = 0.0254

@@ -275,14 +275,39 @@ def smoke_alarm_items(
         )
     add(
         "alarm.test_monthly",
-        "Test every smoke alarm this month",
-        "Press the test button on every alarm once a month.",
+        "Test every smoke alarm now, then monthly",
+        "Press the test button on every alarm to confirm it sounds. Continue testing monthly as recommended by USFA.",
     )
     add(
         "alarm.replace_10y",
         "Confirm no alarm is over 10 years old",
         "Replace every smoke alarm 10 years from its manufacture date.",
     )
+
+    # Carbon monoxide safety guidance (NFPA 720 / IRC R315 / USFA / CPSC).
+    # Emitted when the home has fuel-burning appliances (water heater, furnace/heat source,
+    # gas shutoff), a garage, or the household declares existing CO equipment.
+    has_fuel_or_garage = (
+        any(obj.category in (ObjectCategory.water_heater, ObjectCategory.heat_source) for floor in home.floors for obj in floor.objects)
+        or any(sp.kind == SafetyPointKind.gas_shutoff for floor in home.floors for sp in floor.safety_points)
+        or any(getattr(room, "room_type", None) == RoomType.garage for floor in home.floors for room in floor.rooms)
+        or (home.household is not None and Equipment.co_detector in (home.household.existing_equipment or []))
+    )
+    if has_fuel_or_garage:
+        items.append(
+            ChecklistItem(
+                id="alarm.co",
+                category="mitigation",
+                hazard="fire",
+                title="Install carbon monoxide alarms",
+                detail="Install carbon monoxide alarms outside each sleeping area and on every level of the home.",
+                why="Fuel-burning appliances, fireplaces, and attached garages produce carbon monoxide, an odorless and invisible poisonous gas. [cite: nfpa-carbon-monoxide]",
+                done=state.get("alarm.co", False) is True,
+                source_citation="nfpa-carbon-monoxide",
+                scoring=False,
+                severity="med",
+            )
+        )
     return items
 
 
@@ -1240,6 +1265,10 @@ def _apply_equipment_presatisfaction(
                 or item.id.startswith("alarm.sleeping_area.")
                 or item.id.startswith("alarm.level.")
             ):
+                item.done = True
+    if Equipment.co_detector in equipment:
+        for item in items:
+            if item.id == "alarm.co" or item.id.startswith("alarm.co."):
                 item.done = True
     return items
 

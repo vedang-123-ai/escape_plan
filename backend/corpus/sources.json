@@ -91,15 +91,6 @@
       "topics": ["disabilities", "mobility", "profiles", "evacuation"]
     },
     {
-      "id": "usgs-earthquake",
-      "org": "USGS (U.S. Geological Survey)",
-      "doc_title": "Earthquake Hazards Program - Prepare",
-      "url": "https://www.usgs.gov/programs/earthquake-hazards/prepare",
-      "retrieved": "2026-09-05",
-      "topics": ["earthquake", "drop-cover-hold-on", "furniture", "gas-shutoff"],
-      "verify_keywords": ["Earthquake Hazards Program"]
-    },
-    {
       "id": "fema-earthquake",
       "org": "FEMA (Federal Emergency Management Agency)",
       "doc_title": "Earthquakes | Ready.gov",
@@ -308,10 +299,36 @@
       "retrieved": "2026-09-21",
       "topics": ["tornado", "safe-room", "construction", "wind-speed", "thresholds"],
       "verify_keywords": []
+    },
+    {
+      "id": "nfpa-carbon-monoxide",
+      "org": "NFPA (National Fire Protection Association)",
+      "doc_title": "Carbon Monoxide Safety",
+      "url": "https://www.nfpa.org/education-and-research/home-fire-safety/carbon-monoxide",
+      "retrieved": "2026-10-11",
+      "topics": ["carbon-monoxide", "co-alarms", "maintenance", "placement"],
+      "verify_keywords": ["carbon monoxide", "sleeping area", "every level"]
+    },
+    {
+      "id": "usfa-carbon-monoxide",
+      "org": "USFA (U.S. Fire Administration / FEMA)",
+      "doc_title": "Carbon Monoxide Safety Outreach Flyer",
+      "url": "https://www.usfa.fema.gov/downloads/pdf/publications/co_safety_flyer.pdf",
+      "retrieved": "2026-10-11",
+      "topics": ["carbon-monoxide", "co-alarms", "prevention"]
+    },
+    {
+      "id": "ulfsri-close-your-door",
+      "org": "UL FSRI (Fire Safety Research Institute)",
+      "doc_title": "Close Before You Doze",
+      "url": "https://closeyourdoor.org/",
+      "retrieved": "2026-10-11",
+      "topics": ["bedroom-doors", "during-fire", "prevention", "close-before-you-doze"],
+      "verify_keywords": ["Close before you doze", "difference a closed door can make"]
     }
   ],
   "corpus_files": [
-    {"file": "escape-planning-nfpa.md", "primary_id": "nfpa-escape-planning", "source_ids": ["nfpa-escape-planning", "usfa-escape-plans", "usfa-extinguishers"]},
+    {"file": "escape-planning-nfpa.md", "primary_id": "nfpa-escape-planning", "source_ids": ["nfpa-escape-planning", "usfa-escape-plans", "usfa-extinguishers", "ulfsri-close-your-door"]},
     {"file": "egress-windows-irc.md", "primary_id": "irc-2021-r310", "source_ids": ["irc-2021-r310", "irc-2021-r311"]},
     {"file": "smoke-alarms-usfa.md", "primary_id": "usfa-smoke-alarms", "source_ids": ["usfa-smoke-alarms", "nfpa-smoke-alarms-report"]},
     {"file": "home-fire-escape-redcross.md", "primary_id": "redcross-escape-plan", "source_ids": ["redcross-escape-plan", "redcross-two-minutes", "redcross-escape-fact-sheet"]},
@@ -323,6 +340,7 @@
     {"file": "severe-weather-tornado.md", "primary_id": "severe-weather-tornado", "source_ids": ["noaa-tornado", "noaa-tornado-ww", "noaa-tornado-shelter", "fema-tornado-ready", "redcross-tornado"]},
     {"file": "tornado-safe-rooms.md", "primary_id": "tornado-safe-rooms", "source_ids": ["fema-tornado", "fema-safe-room-criteria", "fema-tornado-ready", "redcross-tornado", "noaa-tornado"]},
     {"file": "tornado-warnings-and-mobile-homes.md", "primary_id": "tornado-warnings-and-mobile-homes", "source_ids": ["noaa-tornado-ww", "noaa-tornado", "noaa-nwr-accessibility", "fema-tornado-ready", "redcross-tornado"]},
-    {"file": "heating-electrical-fire-safety.md", "primary_id": "heating-electrical-fire-safety", "source_ids": ["nfpa-heating-safety", "nfpa-cooking-safety", "nfpa-electrical-safety", "usfa-dryer-safety", "nfpa-heating-report", "nfpa-cooking-report", "usfa-batteries"]}
+    {"file": "heating-electrical-fire-safety.md", "primary_id": "heating-electrical-fire-safety", "source_ids": ["nfpa-heating-safety", "nfpa-cooking-safety", "nfpa-electrical-safety", "usfa-dryer-safety", "nfpa-heating-report", "nfpa-cooking-report", "usfa-batteries"]},
+    {"file": "carbon-monoxide-safety.md", "primary_id": "nfpa-carbon-monoxide", "source_ids": ["nfpa-carbon-monoxide", "usfa-carbon-monoxide"]}
   ]
 }
