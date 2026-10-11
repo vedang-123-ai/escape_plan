@@ -172,6 +172,23 @@ enum Theme {
     static let caution = cautionComponents.color
     static let cautionComponents = AppearancePair(both: 0xE8B93C)
 
+    /// Moderate finding badge fill ("No second way out", "Blocked doorway", #DC2626).
+    static let warningBadge = warningBadgeComponents.color
+    static let warningBadgeComponents = AppearancePair(both: 0xDC2626)
+
+    /// Severe finding badge fill ("No way out", "Hazard reaches them first").
+    /// Brightened from 0x991B1B (which only achieved 2.40:1 vs canvas) to 0xB91C1C (L = 0.1123).
+    /// Contrast ratios:
+    /// - vs canvas (#08090A): 3.08:1 (clears WCAG 2.2 SC 1.4.11 non-text component floor >= 3.0:1)
+    /// - vs card (#111214): 2.90:1
+    /// - vs raised (#1A1B1E): 2.66:1
+    /// - vs hover (#232428): 2.40:1
+    /// - white text on fill: 6.47:1 (clears WCAG 2.2 SC 1.4.3 text minimum >= 4.5:1)
+    /// Semantic hierarchy: deeper red than warningBadge (#DC2626, L = 0.1674) to signify severe finding.
+    /// Colour-blind safety: remains in warm hue family (hue ~ 0°), strictly apart from cool routes and green exits.
+    static let warningBadgeSevere = warningBadgeSevereComponents.color
+    static let warningBadgeSevereComponents = AppearancePair(both: 0xB91C1C)
+
     // MARK: - Legend inks (the ONLY chrome allowed to show route / exit / hazard colour)
     //
     // They label the 3D systems, so they stay in the same hue families the renderer draws:

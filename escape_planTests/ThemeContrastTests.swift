@@ -132,6 +132,8 @@ final class ThemeContrastTests: XCTestCase {
             ("routeInk", Theme.routeInkComponents),
             ("routeSecondaryInk", Theme.routeSecondaryInkComponents),
             ("exitInk", Theme.exitInkComponents), ("hazardInk", Theme.hazardInkComponents),
+            ("warningBadge", Theme.warningBadgeComponents),
+            ("warningBadgeSevere", Theme.warningBadgeSevereComponents),
         ]
         for (name, pair) in pairs {
             XCTAssertEqual(pair.light, pair.dark, "Theme.\(name) has two appearances")
@@ -249,6 +251,28 @@ final class ThemeContrastTests: XCTestCase {
                                  String(format: "%@: primary %.2f:1 vs backup %.2f:1",
                                         surfaceName, primary, backup))
         }
+    }
+
+    // MARK: - Finding warning badges (A03-03)
+
+    /// A03-03: `warningBadgeSevere` adjusted from #991B1B (2.40:1) to #B91C1C (3.08:1 on canvas, 6.47:1 for white text).
+    func testWarningBadgeSevereContrastClearsTargetOnCanvasAndWhiteText() {
+        assertContrast(Theme.warningBadgeSevereComponents.dark,
+                       on: Theme.canvasComponents.dark,
+                       atLeast: WCAG.Target.component,
+                       "Theme.warningBadgeSevere on canvas")
+        assertContrast(SRGB(hex: 0xFFFFFF),
+                       on: Theme.warningBadgeSevereComponents.dark,
+                       atLeast: WCAG.Target.bodyText,
+                       "white on Theme.warningBadgeSevere")
+        assertContrast(Theme.warningBadgeComponents.dark,
+                       on: Theme.canvasComponents.dark,
+                       atLeast: WCAG.Target.component,
+                       "Theme.warningBadge on canvas")
+        assertContrast(SRGB(hex: 0xFFFFFF),
+                       on: Theme.warningBadgeComponents.dark,
+                       atLeast: WCAG.Target.bodyText,
+                       "white on Theme.warningBadge")
     }
 
     // MARK: - Target size (SC 2.5.8)

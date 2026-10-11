@@ -14,8 +14,8 @@ import SwiftUI
 
 extension View {
 
-    /// Capsule background for a floating control. `isSelected` tints it with the accent so
-    /// the active floor reads as active without a second shape or a border.
+    /// Capsule background for a floating control. `isSelected` tints it with the accent and
+    /// adds an active stroke so the active floor does not rely on colour alone (SC 1.4.1).
     @ViewBuilder
     func glassPill(isSelected: Bool = false) -> some View {
         if #available(iOS 26.0, *) {
@@ -23,13 +23,23 @@ extension View {
                 isSelected ? .regular.tint(Color.accentColor.opacity(0.55)).interactive()
                            : .regular.interactive(),
                 in: .capsule)
+                .overlay(
+                    isSelected
+                        ? Capsule().strokeBorder(Theme.accentText, lineWidth: 1.5)
+                        : nil
+                )
         } else {
             self
                 .background(isSelected ? AnyShapeStyle(Color.accentColor.opacity(0.30))
                                        : AnyShapeStyle(.regularMaterial),
                             in: Capsule())
-                // Bright top edge: light catching the material's rim.
-                .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.5))
+                // Bright top edge: light catching the material's rim, or prominent stroke when selected.
+                .overlay(
+                    Capsule().strokeBorder(
+                        isSelected ? Theme.accentText : .white.opacity(0.22),
+                        lineWidth: isSelected ? 1.5 : 0.5
+                    )
+                )
         }
     }
 
@@ -89,13 +99,13 @@ struct GlassChipButtonStyle: ButtonStyle {
             .onChange(of: configuration.isPressed) { _, pressed in
                 if pressed { Haptics.press() }
             }
-            // SC 2.5.8: a compact icon-only chip is ~22pt of glyph plus 11pt padding either
-            // side; the vertical axis is what falls short, so the whole chip gets a floor.
-            .frame(minWidth: WCAG.minimumTargetSize, minHeight: 44)
-            .contentShape(Capsule())
-            // Selection is currently carried by the accent tint alone (SC 1.4.1). VoiceOver
-            // gets it as a trait; sighted colour-blind users still have the glass tint plus
-            // the label, which is why this is a trait and not a second shape.
+            // SC 2.5.8 & Apple HIG: Enlarge hit target to at least 44×44 pt with contentShape(Rectangle())
+            // while preserving the visual chip size and shape.
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+            // Non-colour cue is visually provided by the active stroke in glassPill.
+            // VoiceOver gets .isSelected trait and "Selected" value state.
+            .accessibilityValue(isSelected ? "Selected" : "")
             .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }

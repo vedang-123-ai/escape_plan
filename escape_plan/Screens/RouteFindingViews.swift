@@ -22,15 +22,15 @@ struct RouteFindingStyle {
             // The worst finding the engine emits — matches the severe badge in the scene.
             RouteFindingStyle(title: "No way out",
                               icon: "xmark.octagon.fill",
-                              tint: Color(DollhousePalette.warningBadgeSevere))
+                              tint: Theme.warningBadgeSevere)
         case .no_secondary_egress:
             RouteFindingStyle(title: "No second way out",
                               icon: "exclamationmark.triangle.fill",
-                              tint: Color(DollhousePalette.warningBadge))
+                              tint: Theme.warningBadge)
         case .blocked_opening:
             RouteFindingStyle(title: "Blocked doorway",
                               icon: "door.left.hand.closed",
-                              tint: Color(DollhousePalette.warningBadge))
+                              tint: Theme.warningBadge)
         case .narrows_route:
             // The mildest finding the engine emits: the way out still works, it is
             // just tight. Deliberately shares `warningBadge` with the tiers above
@@ -39,22 +39,22 @@ struct RouteFindingStyle {
             // reserved for lit routes. Icon and title carry the distinction.
             RouteFindingStyle(title: "Tight squeeze",
                               icon: "arrow.down.right.and.arrow.up.left",
-                              tint: Color(DollhousePalette.warningBadge))
+                              tint: Theme.warningBadge)
         case .no_viable_safe_room:
             RouteFindingStyle(title: "No safe room",
                               icon: "exclamationmark.triangle.fill",
-                              tint: Color(DollhousePalette.warningBadgeSevere))
+                              tint: Theme.warningBadgeSevere)
         case .no_cover_in_room:
             RouteFindingStyle(title: "No cover",
                               icon: "exclamationmark.triangle.fill",
-                              tint: Color(DollhousePalette.warningBadge))
+                              tint: Theme.warningBadge)
         case .unknown:
             // A kind newer than this build. The engine's `detail` still reads fine, so
             // show the warning rather than hiding a real safety finding behind a
             // version mismatch. Generic title, cautious (non-severe) tint.
             RouteFindingStyle(title: "Safety warning",
                               icon: "exclamationmark.triangle.fill",
-                              tint: Color(DollhousePalette.warningBadge))
+                              tint: Theme.warningBadge)
         }
     }
 
@@ -67,7 +67,7 @@ struct RouteFindingStyle {
     static let overtakenByHazard = RouteFindingStyle(
         title: "Hazard reaches them first",
         icon: "flame.fill",
-        tint: Color(DollhousePalette.warningBadgeSevere))
+        tint: Theme.warningBadgeSevere)
 }
 
 /// The shared chassis every finding is drawn in: severity icon in a tinted well, a titled

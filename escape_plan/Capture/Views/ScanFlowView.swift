@@ -86,6 +86,7 @@ struct ScanFlowView: View {
                 )
             }
         }
+        .dsPage()
         // Reduce Motion: steps still swap, they just cut instead of cross-fading. The flow is
         // unchanged — only the transition is.
         .animation(reduceMotion ? nil : .default, value: controller.phase)
@@ -107,14 +108,9 @@ struct ScanFlowView: View {
                     .background(.ultraThinMaterial, in: Capsule())
                     .accessibilityAddTraits(.isStaticText)
 
-                Button {
+                DSPrimaryButton(title: "Done with this room") {
                     controller.finishCurrentRoom()
-                } label: {
-                    Text("Done with this room")
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
                 .padding(.horizontal, 24)
                 .accessibilityLabel("Done with this room")
                 .accessibilityHint("Stops capturing this room and lets you scan the next one.")
@@ -179,20 +175,23 @@ struct ScanInstructionsView: View {
                     .foregroundStyle(Theme.supporting)
             }
 
-            Button(action: onStart) {
-                Text(capturedRoomCount == 0 ? "Start scanning" : "Scan next room")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            DSPrimaryButton(
+                title: capturedRoomCount == 0 ? "Start scanning" : "Scan next room",
+                action: onStart
+            )
             .disabled(!isSupported)
+            .opacity(!isSupported ? 0.5 : 1)
             .accessibilityLabel(capturedRoomCount == 0 ? "Start scanning" : "Scan next room")
             .accessibilityHint(isSupported
                                ? "Opens the camera to capture the room you're standing in."
                                : "Unavailable — this device has no LiDAR scanner.")
 
             Button("Cancel", action: onCancel)
+                .font(.body.weight(.medium))
+                .foregroundStyle(Theme.supporting)
                 .frame(maxWidth: .infinity)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
                 .accessibilityHint("Leaves the scan without saving anything.")
         }
         .padding(24)
@@ -213,7 +212,7 @@ struct ScanTipRow: View {
             Image(systemName: icon)
                 .font(.title3)
                 .frame(width: iconColumn)
-                .foregroundStyle(.tint)
+                .foregroundStyle(Theme.accentText)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline)
@@ -247,20 +246,12 @@ struct ScanRoomFinishedView: View {
 
             Spacer()
 
-            Button(action: onScanAnother) {
-                Text("Scan another room").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .accessibilityHint("Captures another room and adds it to this home.")
+            DSPrimaryButton(title: "Scan another room", action: onScanAnother)
+                .accessibilityHint("Captures another room and adds it to this home.")
 
-            Button(action: onFinish) {
-                Text("Finish scan").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .accessibilityHint("Merges the \(capturedRoomCount) captured "
-                               + "room\(capturedRoomCount == 1 ? "" : "s") into one home model.")
+            DSSecondaryButton(title: "Finish scan", action: onFinish)
+                .accessibilityHint("Merges the \(capturedRoomCount) captured "
+                                   + "room\(capturedRoomCount == 1 ? "" : "s") into one home model.")
         }
         .padding(24)
     }
@@ -307,8 +298,7 @@ struct ScanReviewView: View {
 
             Label(artifacts.usdz == nil ? "3D preview unavailable" : "3D preview saved",
                   systemImage: artifacts.usdz == nil ? "cube.transparent" : "cube.fill")
-                .foregroundStyle(artifacts.usdz == nil ? AnyShapeStyle(Theme.supporting)
-                                                       : AnyShapeStyle(.primary))
+                .foregroundStyle(artifacts.usdz == nil ? Theme.supporting : Theme.text)
 
             if let fallbackReason {
                 Label(fallbackReason, systemImage: "exclamationmark.triangle.fill")
@@ -333,19 +323,11 @@ struct ScanReviewView: View {
 
             Spacer()
 
-            Button(action: onUse) {
-                Text("Continue to editor").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .accessibilityHint("Turns this scan into an editable home model.")
+            DSPrimaryButton(title: "Continue to editor", action: onUse)
+                .accessibilityHint("Turns this scan into an editable home model.")
 
-            Button(action: onRescan) {
-                Text("Scan again").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .accessibilityHint("Discards this scan and starts over.")
+            DSSecondaryButton(title: "Scan again", action: onRescan)
+                .accessibilityHint("Discards this scan and starts over.")
         }
         .padding(24)
     }
@@ -381,17 +363,17 @@ struct ScanFailureView: View {
 
             Spacer()
 
-            Button(action: onRetry) {
-                Text("Try again").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .accessibilityHint(capturedRoomCount > 0
-                               ? "Restarts the scan. The rooms you already captured are kept."
-                               : "Restarts the scan.")
+            DSPrimaryButton(title: "Try again", action: onRetry)
+                .accessibilityHint(capturedRoomCount > 0
+                                   ? "Restarts the scan. The rooms you already captured are kept."
+                                   : "Restarts the scan.")
 
             Button("Cancel", action: onCancel)
+                .font(.body.weight(.medium))
+                .foregroundStyle(Theme.supporting)
                 .frame(maxWidth: .infinity)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
                 .accessibilityHint("Leaves the scan.")
         }
         .padding(24)
@@ -412,9 +394,7 @@ struct ScanUnsupportedView: View {
                 .font(.subheadline)
                 .foregroundStyle(Theme.supporting)
                 .multilineTextAlignment(.center)
-            Button("Back", action: onCancel)
-                .buttonStyle(.bordered)
-                .controlSize(.large)
+            DSSecondaryButton(title: "Back", action: onCancel)
                 .accessibilityHint("Goes back without scanning.")
         }
         .padding(24)

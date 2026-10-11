@@ -80,6 +80,8 @@ struct ConsentSheet: View {
                     .font(.headline)
                     .foregroundStyle(Theme.supporting)
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
                 .padding(DS.pagePadding)
             }

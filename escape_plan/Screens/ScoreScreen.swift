@@ -22,6 +22,7 @@ struct ScoreScreen: View {
     @Environment(ReadinessStore.self) private var readiness
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .largeTitle) private var scoreFontSize: CGFloat = 72
 
     var body: some View {
         content
@@ -186,9 +187,9 @@ struct ScoreScreen: View {
     private func scoreNumber(_ breakdown: ScoreBreakdown) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("\(breakdown.score)")
-                // The design's 72pt hero number below accessibility sizes; `Theme.metric`
-                // (a scaling `.largeTitle`) once the user has asked for large text.
-                .font(usesRing ? .system(size: 72, weight: .bold, design: .rounded) : Theme.metric)
+                // The design's 72pt hero number below accessibility sizes, scaling with @ScaledMetric;
+                // `Theme.metric` (a scaling `.largeTitle`) once the user has asked for large text.
+                .font(usesRing ? .system(size: scoreFontSize, weight: .bold, design: .rounded) : Theme.metric)
                 .kerning(usesRing ? -2 : 0)
                 .foregroundStyle(DS.ink)
                 .contentTransition(reduceMotion
