@@ -192,3 +192,22 @@ def test_determinism(thresholds):
     sorted_hazards = sorted(hazards1, key=lambda h: (h.floor_id, h.room_id, h.object_id, h.rule_id))
     assert hazards1 == sorted_hazards
 
+
+
+def test_rotated_box_matches_the_nav_grid_footprint():
+    """The hazard box and the routing raster must agree on where a rotated object is.
+    At 30° the hazard box used to come out at -30°, so none of its corners lay
+    inside the object routing saw (found on a real scan, 2026-10-11)."""
+    import math
+    from app.models import Source
+    from app.routing.nav_grid import object_contains
+    from app.routing.object_hazards import _obb_corners
+
+    sofa = FloorObject(id="o", category=ObjectCategory.sofa, center=(1.0, 2.0),
+                       size_m=(2.0, 0.5), height_m=0.8, rotation_deg=30.0,
+                       source=Source.manual)
+    for x, y in _obb_corners(sofa):
+        inward = (1.0 + 0.98 * (x - 1.0), 2.0 + 0.98 * (y - 2.0))
+        assert object_contains(sofa, inward)
+    tip = (1.0 + 0.99 * math.cos(math.radians(30)), 2.0 + 0.99 * math.sin(math.radians(30)))
+    assert object_contains(sofa, tip)

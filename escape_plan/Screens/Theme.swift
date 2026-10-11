@@ -172,7 +172,7 @@ enum Theme {
     static let caution = cautionComponents.color
     static let cautionComponents = AppearancePair(both: 0xE8B93C)
 
-    /// Moderate finding badge fill ("No second way out", "Blocked doorway", #DC2626).
+    /// Moderate finding badge fill ("No second way out", "Blocked way out", #DC2626).
     static let warningBadge = warningBadgeComponents.color
     static let warningBadgeComponents = AppearancePair(both: 0xDC2626)
 

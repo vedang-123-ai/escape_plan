@@ -64,6 +64,12 @@ backend — still red, see §3._
 
 ---
 
+### Scan quality fixes (2026-10-11, branch `scan-quality-fixes`)
+
+- **Converter and obstruction changes are not live until Render is redeployed** · owner · redeploy, then rescan (an existing scanned home keeps its old geometry; findings recompute on the next /routes).
+- **Not verified on a real scan.** Only the owner's screenshot was available, no export; fixes are proven on fixtures and synthetic RoomPlan rooms (`tests/test_stitch.py`, `tests/test_obstructions.py`). Next action: rescan the same rooms on the iPhone and confirm the bed/table window cards are gone and the rooms meet.
+- Stitch tolerances (0.25 m jog, 0.35 m gap, 0.15 m facade) are first guesses, untuned on real exports.
+
 ### Audit-review of the 2026-10-11 agent lanes (2026-10-11, branch `audit-review`)
 
 - **Device build was broken on `main` since 2026-09-10** (`RoomCaptureController` mutated a `let` RoomPlan configuration inside device-only code; the simulator type-check never compiles it). Fixed here; Release device build verified 2026-10-11. Still not run on a physical iPhone · owner · install on the demo phone before filming.

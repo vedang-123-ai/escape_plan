@@ -28,7 +28,7 @@ struct RouteFindingStyle {
                               icon: "exclamationmark.triangle.fill",
                               tint: Theme.warningBadge)
         case .blocked_opening:
-            RouteFindingStyle(title: "Blocked doorway",
+            RouteFindingStyle(title: "Blocked way out",
                               icon: "door.left.hand.closed",
                               tint: Theme.warningBadge)
         case .narrows_route:

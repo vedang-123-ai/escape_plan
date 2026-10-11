@@ -11,6 +11,7 @@ import math
 from dataclasses import dataclass
 
 from app.models import Point, is_simple_polygon, signed_area
+from app.convert.stitch import remove_jogs
 
 SNAP_TOL_M = 0.25
 """Endpoint gaps up to this are considered normal scan noise (no quality penalty)."""
@@ -147,7 +148,23 @@ def _line_intersection(
     return (p[0] + t * d[0], p[1] + t * d[1])
 
 
-def rectangularize(poly: list[Point], tol_deg: float = RECT_TOL_DEG) -> list[Point]:
+def dominant_theta(segments: list[WallSegment]) -> float | None:
+    """Length-weighted dominant wall direction mod 90° (circular mean of 4×angle).
+    Computed once over EVERY room's walls, so neighbouring rooms share one axis
+    instead of each snapping to its own, slightly different, one."""
+    sx = sy = 0.0
+    for s in segments:
+        angle = math.atan2(s.p1[1] - s.p0[1], s.p1[0] - s.p0[0])
+        sx += s.length * math.cos(4 * angle)
+        sy += s.length * math.sin(4 * angle)
+    if math.hypot(sx, sy) < 1e-9:
+        return None
+    return math.atan2(sy, sx) / 4.0
+
+
+def rectangularize(
+    poly: list[Point], tol_deg: float = RECT_TOL_DEG, theta: float | None = None
+) -> list[Point]:
     """Snap near-axis edges onto the dominant (length-weighted, mod-90°) direction.
 
     Each edge becomes an infinite line through its midpoint with either its snapped
@@ -164,12 +181,13 @@ def rectangularize(poly: list[Point], tol_deg: float = RECT_TOL_DEG) -> list[Poi
         mid = ((p[0] + q[0]) / 2.0, (p[1] + q[1]) / 2.0)
         edges.append((mid, angle, length))
 
-    # Dominant direction mod 90°: circular mean of 4×angle, length-weighted.
-    sx = sum(length * math.cos(4 * a) for _, a, length in edges)
-    sy = sum(length * math.sin(4 * a) for _, a, length in edges)
-    if math.hypot(sx, sy) < 1e-9:
-        return poly
-    theta = math.atan2(sy, sx) / 4.0
+    if theta is None:
+        # Dominant direction mod 90°: circular mean of 4×angle, length-weighted.
+        sx = sum(length * math.cos(4 * a) for _, a, length in edges)
+        sy = sum(length * math.sin(4 * a) for _, a, length in edges)
+        if math.hypot(sx, sy) < 1e-9:
+            return poly
+        theta = math.atan2(sy, sx) / 4.0
 
     tol = math.radians(tol_deg)
     half_pi = math.pi / 2.0
@@ -208,9 +226,12 @@ def _round_polygon(poly: list[Point], ndigits: int = 3) -> list[Point]:
     return [(round(x, ndigits), round(y, ndigits)) for x, y in poly]
 
 
-def polygon_from_walls(segments: list[WallSegment]) -> PolygonResult:
-    """Full per-room pipeline: chain → weld → merge collinear → rectangularize →
-    normalize, with a bounding-box fallback so a messy scan never crashes."""
+def polygon_from_walls(
+    segments: list[WallSegment], theta: float | None = None
+) -> PolygonResult:
+    """Full per-room pipeline: chain → weld → merge collinear → rectangularize (onto
+    the floor's shared `theta` when given) → remove jogs → normalize, with a
+    bounding-box fallback so a messy scan never crashes."""
     notes: list[str] = []
     segments = [s for s in segments if s.length >= MIN_SEGMENT_M]
     endpoints = [p for s in segments for p in (s.p0, s.p1)]
@@ -231,7 +252,10 @@ def polygon_from_walls(segments: list[WallSegment]) -> PolygonResult:
     poly = _weld_loop(ordered)
     poly = _dedupe_vertices(poly)
     poly = merge_collinear(poly)
-    poly = rectangularize(poly)
+    poly = rectangularize(poly, theta=theta)
+    poly = _dedupe_vertices(poly)
+    poly = _ensure_ccw(poly) if len(poly) >= 3 and abs(signed_area(poly)) > 1e-9 else poly
+    poly = remove_jogs(poly)
     poly = _dedupe_vertices(poly)
     poly = _round_polygon(poly)
 
