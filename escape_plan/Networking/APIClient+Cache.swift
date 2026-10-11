@@ -14,6 +14,7 @@
 // route that was computed for something else.
 
 import Foundation
+import os
 
 /// What a cached plan was computed for. Two plans with different keys are never
 /// interchangeable: a fire plan is not a tornado plan, and a route for someone who can use
@@ -165,17 +166,38 @@ enum CachedRoutesResult {
 }
 
 extension APIClient {
-    /// True for failures that mean "couldn't reach the backend" (offline, dead URL, timeout)
-    /// as opposed to the backend answering with an error status.
+    private static let cacheLog = Logger(subsystem: "escape_plan", category: "APIClient+Cache")
+
+    /// True for failures that mean "couldn't reach the backend" (offline, dead URL, timeout,
+    /// or proxy/gateway connection drops) as opposed to the backend answering with an application error.
     static func isConnectionFailure(_ error: Error) -> Bool {
-        guard let urlError = error as? URLError else { return false }
-        switch urlError.code {
-        case .notConnectedToInternet, .cannotConnectToHost, .cannotFindHost,
-             .timedOut, .networkConnectionLost, .dnsLookupFailed:
-            return true
-        default:
-            return false
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .cannotConnectToHost, .cannotFindHost,
+                 .timedOut, .networkConnectionLost, .dnsLookupFailed:
+                return true
+            default:
+                return false
+            }
         }
+        if case APIClientError.gatewayFailure = error {
+            return true
+        }
+        return false
+    }
+
+    /// True for failures where falling back to the last-good cached routes is appropriate:
+    /// transport/connection drops, edge proxy drops (`gatewayFailure`), or upstream
+    /// gateway/overload responses (502, 503, 504).
+    ///
+    /// 4xx client errors (e.g. 401, 403, 422) never fall back so configuration and validation
+    /// issues are not silently masked.
+    static func isRecoverableRouteFailure(_ error: Error) -> Bool {
+        if isConnectionFailure(error) { return true }
+        if case APIClientError.unexpectedResponse(let code) = error {
+            return code == 502 || code == 503 || code == 504
+        }
+        return false
     }
 
     /// /routes with the last-good fallback: a successful fetch updates the cache entry for
@@ -194,9 +216,13 @@ extension APIClient {
         let fingerprint = RoutePlanCache.fingerprint(of: home)
         do {
             let plan = try await fetchRoutes(home: home, peril: peril, profileID: profileID)
-            try? cache.save(plan, key: key, homeFingerprint: fingerprint)
+            do {
+                try cache.save(plan, key: key, homeFingerprint: fingerprint)
+            } catch {
+                Self.cacheLog.error("failed to save route plan to cache for \(home.home_id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
             return .live(plan)
-        } catch where Self.isConnectionFailure(error) {
+        } catch where Self.isRecoverableRouteFailure(error) {
             if let cached = cache.load(key, homeFingerprint: fingerprint) {
                 return .cached(cached)
             }
@@ -204,3 +230,4 @@ extension APIClient {
         }
     }
 }
+

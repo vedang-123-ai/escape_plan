@@ -152,8 +152,38 @@ extension APIClient {
         case 500...599:
             throw ChatError.aiUnavailable(statusCode: http.statusCode)
         default:
-            let detail = (try? JSONDecoder().decode([String: String].self, from: data))?["detail"]
+            let detail = Self.decodeErrorDetail(from: data)
             throw ChatError.unexpectedStatus(statusCode: http.statusCode, detail: detail)
         }
+    }
+
+    /// Extracts an actionable, user-friendly error message from the server's error response body.
+    /// Handles both plain string details (`{"detail": "..."}`) and FastAPI/Pydantic
+    /// validation error arrays (`{"detail": [{"msg": "...", ...}]}`).
+    static func decodeErrorDetail(from data: Data) -> String? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        if let stringDetail = json["detail"] as? String {
+            let trimmed = stringDetail.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        if let arrayDetail = json["detail"] as? [[String: Any]] {
+            for item in arrayDetail {
+                if let rawMsg = item["msg"] as? String {
+                    var msg = rawMsg.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if msg.hasPrefix("Value error, ") {
+                        msg = String(msg.dropFirst("Value error, ".count))
+                    }
+                    if let first = msg.first, first.isLowercase {
+                        msg = first.uppercased() + msg.dropFirst()
+                    }
+                    if !msg.isEmpty {
+                        return msg
+                    }
+                }
+            }
+        }
+        return nil
     }
 }
