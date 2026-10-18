@@ -13,6 +13,7 @@ enum Fixture: String, CaseIterable, Identifiable {
     case twostory
     /// The floor-stacking acceptance model — see `HomeFixture.jagged`.
     case jagged
+    case anishasHouse = "anishas-house"
 
     var id: String { rawValue }
 
@@ -22,6 +23,7 @@ enum Fixture: String, CaseIterable, Identifiable {
         case .apartment: return "Apartment"
         case .twostory: return "Two-Story"
         case .jagged: return "Jagged Stack"
+        case .anishasHouse: return "Anisha's House"
         }
     }
 }

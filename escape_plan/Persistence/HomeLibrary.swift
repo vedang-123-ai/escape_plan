@@ -125,7 +125,7 @@ final class HomeLibrary: ObservableObject {
 
     /// The bundled starter homes (`FixtureSeeder`), which keep their fixtures' fixed ids. Labelled
     /// "Demo" in the home list. A duplicate gets a new id, so it is the user's own home, not a demo.
-    static let starterHomeIDs: Set<String> = Set(HomeFixture.allCases.compactMap {
+    static let starterHomeIDs: Set<String> = Set(HomeFixture.allCases.filter { !FixtureSeeder.ownedFixtures.contains($0) }.compactMap {
         try? FixtureLoader.load($0).home_id
     })
 

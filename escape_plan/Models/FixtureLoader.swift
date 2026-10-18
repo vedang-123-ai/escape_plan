@@ -16,6 +16,7 @@ enum HomeFixture: String, CaseIterable {
     /// slab outlines and the union-sized base plate all read correctly when the stack is
     /// jagged rather than a tidy tower.
     case jagged
+    case anishasHouse = "anishas-house"
 }
 
 enum FixtureLoaderError: Error {
