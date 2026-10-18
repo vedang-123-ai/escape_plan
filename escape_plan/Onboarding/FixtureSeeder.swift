@@ -113,6 +113,31 @@ enum FixtureSeeder {
         defaults.set(true, forKey: starterSeedDefaultsKey)
         return seeded
     }
+
+    // MARK: - Owned homes
+
+    /// Bundled homes installed as the person's own, not labelled "Demo". Each has its own
+    /// defaults key, so it also arrives on a phone that already got the starter homes.
+    static let ownedFixtures: [HomeFixture] = [.anishasHouse]
+
+    static func ownedSeedDefaultsKey(_ fixture: HomeFixture) -> String {
+        "fixtures.ownedHomeSeeded.\(fixture.rawValue).v1"
+    }
+
+    @discardableResult
+    static func seedOwnedHomes(
+        into store: HomeDocumentStore,
+        defaults: UserDefaults = .standard
+    ) throws -> [HomeModel] {
+        var seeded: [HomeModel] = []
+        for fixture in ownedFixtures where !defaults.bool(forKey: ownedSeedDefaultsKey(fixture)) {
+            let model = try FixtureLoader.load(fixture)
+            try store.save(model: model, now: model.meta.modified)
+            defaults.set(true, forKey: ownedSeedDefaultsKey(fixture))
+            seeded.append(model)
+        }
+        return seeded
+    }
 }
 
 // MARK: - Review rows

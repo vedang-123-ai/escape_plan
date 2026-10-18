@@ -71,6 +71,7 @@ struct escape_planApp: App {
         if !launch.isFallback {
             do {
                 try FixtureSeeder.seedStarterHomes(into: homeStore)
+                try FixtureSeeder.seedOwnedHomes(into: homeStore)
             } catch {
                 // A missing bundled fixture must not stop the app from launching —
                 // the library simply starts empty, exactly as it did before. It is no longer
