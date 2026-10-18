@@ -13,6 +13,7 @@ build/
 
 # Claude — shared control center (.claude/) is committed; only local overrides are ignored
 .claude/settings.local.json
+.superset/config.local.json
 
 # Secrets
 .env
