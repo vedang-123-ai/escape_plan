@@ -12,7 +12,7 @@ from app.models import HomeModel
 from app.validate import validate_file
 from tests.conftest import FIXTURES_DIR, SCHEMA_PATH, load_fixture
 
-VALID_FIXTURES = ["bungalow.json", "apartment.json", "twostory.json", "anishas-house.json"]
+VALID_FIXTURES = ["bungalow.json", "apartment.json", "twostory.json", "anishs-house.json"]
 INVALID_FIXTURES = {
     "invalid/bad-room-ref.json": "does not exist on floor",
     "invalid/cw-polygon.json": "counter-clockwise",

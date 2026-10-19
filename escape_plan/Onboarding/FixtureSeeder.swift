@@ -118,7 +118,7 @@ enum FixtureSeeder {
 
     /// Bundled homes installed as the person's own, not labelled "Demo". Each has its own
     /// defaults key, so it also arrives on a phone that already got the starter homes.
-    static let ownedFixtures: [HomeFixture] = [.anishasHouse]
+    static let ownedFixtures: [HomeFixture] = [.anishsHouse]
 
     static func ownedSeedDefaultsKey(_ fixture: HomeFixture) -> String {
         "fixtures.ownedHomeSeeded.\(fixture.rawValue).v1"

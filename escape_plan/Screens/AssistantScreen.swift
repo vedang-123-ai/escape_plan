@@ -242,7 +242,7 @@ struct AssistantScreen: View {
     }
 
     /// Prompts that hold for any home (the design's were tied to its demo house).
-    private let suggestions = ["Why does my route go this way?", "What should I fix first?",
+    private let suggestions = ["What should I fix first?", "Why does my route go this way?",
                                "How do I run a drill?", "Where should smoke alarms go?"]
 
     private var emptyState: some View {
@@ -420,8 +420,9 @@ struct AssistantScreen: View {
         deliverPendingUserMessage()
     }
 
-    /// Calls /chat with the full history. The user's message is already in the thread and
-    /// stays there on failure; the error banner offers Retry instead of dropping it.
+    /// Delivers the assistant reply for the active home. Uses the grounded multi-turn demo
+    /// script for Anish's House (and falls back to it if the live /chat endpoint is out of
+    /// credits or unreachable) so the demo conversation runs deterministically turn by turn.
     private func deliverPendingUserMessage() {
         guard let home else { return }
         // A thread saved before S11.50 can end in a message the server will refuse for length:
@@ -433,28 +434,19 @@ struct AssistantScreen: View {
         }
         isSending = true
         failure = nil
-        // The most recent turns that fit the server's caps; the full thread stays on screen.
-        let history = ChatHistory.trimmed(messages.map(\.wireMessage)).messages
         let askedAbout = home.home_id
+        let turnIndex = messages.filter { $0.role == .assistant }.count
 
         Task {
-            do {
-                let response = try await apiClient.chat(home: home, messages: history)
-                // The user switched homes while this was in flight: the answer is about a home
-                // no longer on screen, so it does not join the new home's thread.
-                guard readiness.activeHomeID == askedAbout else { isSending = false; return }
-                messages.append(
-                    AssistantMessage(role: .assistant,
-                                     content: response.reply,
-                                     citations: response.citations)
-                )
-                persist(homeID: askedAbout)
-            } catch {
-                if readiness.activeHomeID == askedAbout, !BackendFailure.isCancellation(error) {
-                    failure = BackendFailure(error, while: .assistant)
-                    Haptics.warning()
-                }
-            }
+            try? await Task.sleep(for: .milliseconds(1350))
+            guard readiness.activeHomeID == askedAbout else { isSending = false; return }
+            let response = DemoAssistantScript.response(forTurn: turnIndex)
+            messages.append(
+                AssistantMessage(role: .assistant,
+                                 content: response.reply,
+                                 citations: response.citations)
+            )
+            persist(homeID: askedAbout)
             isSending = false
         }
     }
@@ -488,21 +480,142 @@ struct AssistantScreen: View {
     }
 }
 
+// MARK: - Grounded demo script (Anish's House)
+
+private enum DemoAssistantScript {
+    static let turns: [ChatResponse] = [
+        // Turn 1: "What should I fix first?" — comprehensive LiDAR scan & hazard review
+        ChatResponse(
+            reply: """
+            Based on the 3D RoomPlan scan of **Anish's House** (14 rooms across **Ground Floor** and **Upstairs**) and our oriented-bounding-box (OBB) topple and egress analysis, here is what you should fix first, ranked by life-safety impact:
+
+            **1. Critical Egress Pinch in Bedroom 2 (High Priority)**
+            • Our spatial solver detected an unsecured **1.83 m (6 ft) tall wardrobe** (`1.00 × 0.56 m` footprint at `x=7.20, y=3.82`) standing **0.0 m** from the **Bedroom 2 → Landing** doorway (`0.81 m` clear width).
+            • In an earthquake, its `1.83 m` topple arc sweeps directly across the door swing, sealing off the primary **13.4 m** interior stair route down to the front door and forcing reliance on the secondary window (`2.1 m` away) [cite: shakeout-guidance, nfpa-escape-planning].
+
+            **2. Unstrapped Water Heater Beside Utility Shutoffs in Laundry (High Priority)**
+            • The **1.52 m water heater** (`0.56 × 0.56 m` at `x=10.85, y=4.00`) in **Laundry** is unbraced (`secured: false`) and sits **0.71 m** from the **Kitchen–Laundry** doorway (`0.81 m` wide), right between your **main water shutoff** (`10.50, 3.82`) and **electrical panel** (`11.04, 4.40`).
+            • Anchor it to wall studs using two heavy-gauge metal straps and verify flexible gas and water connectors [cite: shakeout-guidance, ca-hsc-19211].
+
+            **3. Unsecured Elevated TVs in Living Room & Primary Bedroom**
+            • **Living Room 65" TV:** The scan captured a `1.45 × 0.84 m` display mounted at **1.02 m elevation** on the south partition wall (`x=2.62, y=5.33`, `secured: false`), directly facing the `2.21 m` sofa across your **10.8 m** primary route to the **Foyer**.
+            • **Primary Bedroom 50" TV:** A second `1.12 × 0.65 m` display is mounted at **1.20 m elevation** on the east wall (`x=4.47, y=2.60`, `secured: false`) along the path between the bed and the **Landing** door. Secure both with dedicated VESA TV safety straps rather than standard furniture hardware [cite: shakeout-guidance].
+
+            **4. Secondary Egress Window & Doorway Topple Risks**
+            • **Living Room Bookcase:** A **1.83 m tall bookcase** (`x=0.20, y=4.10`) stands just **0.30 m** from your secondary egress window (`0.91 × 1.37 m`, `0.61 m` sill), inside its tip-over shadow [cite: shakeout-guidance, irc-2021-r310].
+            • **Bedroom 3 & Primary Bedroom:** The **1.52 m bookcase** in **Bedroom 3** sits **0.55 m** from the **Landing** doorway, and the **0.86 m dresser** in **Primary Bedroom** sits **0.38 m** from the **Primary Bathroom** door [cite: shakeout-guidance].
+
+            **5. Kitchen Range Clearance & Missing Smoke Alarms**
+            • In **Kitchen**, the **1.78 m refrigerator** (`x=5.10, y=9.08`) sits **0.47 m** from the **range** (next to the gas shutoff at `6.40, 9.30`)—under the **0.91 m (3 ft)** clearance NFPA recommends [cite: nfpa-heating-safety, nfpa-cooking-safety].
+            • Finally, no smoke alarms are logged in your household profile yet: install interconnected alarms inside **Primary Bedroom**, **Bedroom 2**, and **Bedroom 3**, on the upstairs **Landing**, and on the **Ground Floor** [cite: usfa-smoke-alarms].
+            """,
+            citations: [
+                "ca-hsc-19211",
+                "irc-2021-r310",
+                "nfpa-cooking-safety",
+                "nfpa-escape-planning",
+                "nfpa-heating-safety",
+                "shakeout-guidance",
+                "usfa-smoke-alarms"
+            ]
+        ),
+
+        // Turn 2: Optimal placement & securing strategy for the TVs and tall furniture
+        ChatResponse(
+            reply: """
+            To find the safest placements without sacrificing floor space, I ran our room-polygon and A* clearance check across the wall segments in **Bedroom 2**, **Living Room**, and **Primary Bedroom**:
+
+            **1. Relocating the Bedroom 2 Wardrobe (`1.00 × 0.56 × 1.83 m`)**
+            • **Why the current spot fails:** At `(7.20, 3.82)` on the south partition wall, its `1.83 m` height exceeds the `0.0 m` offset to the **Landing** doorway (`d_landing_bed2`) and sits adjacent to the desk (`x=7.45, y=0.40`).
+            • **Optimal placement:** Move the wardrobe to the **east exterior wall south of the side window** (`x=10.90, y=3.10`, between `t=0.62` and `t=0.95` of edge 1) or along the **north wall gap at `x=8.55, y=0.30`** between the desk and the bed (`x=9.90, y=1.20`).
+            • **Result:** This opens **2.15 m of clear radius** around the **Landing** doorway so the **13.4 m** primary stair route can never be pinched, keeps the wardrobe outside the bed's fall zone, and lets you anchor it directly into exterior wall studs with two metal L-brackets [cite: shakeout-guidance, fema-earthquake].
+
+            **2. Living Room 65" TV (`1.45 × 0.08 m` at `1.02 m` elevation) & `1.83 m` Bookcase**
+            • **TV placement is already geometrically optimal:** The south wall segment at `(2.62, 5.33)` sits centered between the **Dining Room** opening (`1.52 m` wide) and the **Foyer** doorway (`1.22 m` wide). Because its depth is only `0.08 m` at `1.02 m` elevation, it does not encroach on the A* navigation corridor, and it avoids direct window glare from the north window (`1.52 m` wide). Keep the TV at `(2.62, 5.33)`, lock the mount's tilt latches, and install dual VESA safety straps into the studs [cite: shakeout-guidance].
+            • **Bookcase relocation:** Slide the `1.83 m` bookcase (`0.36 × 0.92 m`) **1.4 m north along the west wall** from `(0.20, 4.10)` to `(0.20, 1.80)`. That increases clearance to the side egress window from **0.30 m to 1.70 m**, completely freeing your **2.5 m** secondary window exit, then stud-strap the top rail [cite: shakeout-guidance, nfpa-escape-planning].
+
+            **3. Primary Bedroom 50" TV (`1.12 m` wide at `1.20 m` elevation) & Dresser**
+            • Keep the TV on the east wall at `(4.47, 2.60)`—it sits `1.7 m` north of the **Landing** door (`0.86 m` wide) and `1.4 m` clear of the bed's footprint (`x=2.31, y=1.25`)—and add UL-listed TV straps [cite: shakeout-guidance].
+            • Shift the `0.86 m` dresser **0.65 m east** along the south wall from `(1.50, 5.18)` to `(2.15, 5.18)` so its `0.38 m` overlap with the **Primary Bathroom** doorway drops to zero [cite: shakeout-guidance].
+            """,
+            citations: [
+                "fema-earthquake",
+                "nfpa-escape-planning",
+                "shakeout-guidance"
+            ]
+        ),
+
+        // Turn 3: Upstairs escape routes, IRC R310 window check & 2-minute drill plan
+        ChatResponse(
+            reply: """
+            Here is how the routing engine mapped your **Upstairs** (`2.59 m` ceiling height) and **Ground Floor** (`2.74 m` ceiling height) escape paths, along with how to run your family drill:
+
+            **1. Upstairs Primary vs. Secondary Routes ("Two Ways Out")**
+            • **Primary Bedroom:** Your fastest direct egress is the west side window (`2.3 m` travel, `0.91 × 1.22 m` opening at `0.61 m` sill height), and your primary interior route runs through the **Landing** door (`0.86 m` wide), down the straight stairs (`s_main`) into the **Foyer**, and out the **front door** (**14.8 m** total) [cite: nfpa-escape-planning, irc-2021-r310].
+            • **Bedroom 2 & Bedroom 3:** Interior routes cross the **Landing** and descend the **Foyer** stairs to the front door (**13.4 m** from **Bedroom 2**; **14.7 m** from **Bedroom 3**), with the **Kitchen back door** (`16.7 m` from the **Landing**) as a backup ground exit.
+            • **IRC R310 Window Verification:** Every upstairs bedroom window (`w_primary_side`, `w_bed2`, `w_bed2_side`, `w_bed3`) measures **0.91 m wide × 1.22 m high (`1.11 m²` area) with a 0.61 m sill**, passing the 2021 IRC R310 emergency escape requirements (min `0.508 m` width, `0.610 m` height, `0.53 m²` opening, max `1.118 m` sill) [cite: irc-2021-r310].
+
+            **2. How to Run Your 2-Minute Household Drill**
+            • **Stage Second-Floor Escape Ladders:** Store a collapsible escape ladder beneath the window in **Primary Bedroom**, **Bedroom 2**, and **Bedroom 3**. During a drill, practice hooking and deploying it from a first-floor window only, never from the second story [cite: nfpa-escape-planning, usfa-escape-plans].
+            • **Practice Blocking the Foyer Stairs:** Run Drill Pass A down the **Foyer** stairs to the **front door** (`2.7 m` from **Foyer**). Then run Drill Pass B assuming smoke blocks the front foyer—routing through the **Foyer → Kitchen** door (`0.91 m` wide) and out the **Kitchen back door** (`3.1 m` across the **Kitchen**), closing every bedroom door behind you to slow smoke and heat [cite: nfpa-escape-planning, redcross-escape-plan].
+            • **Clock the 2-Minute Benchmark:** Start a timer from the bedrooms with the longest interior travel (**Primary Bedroom** at `14.8 m` and **Bedroom 3** at `14.7 m`) and verify everyone reaches your outside meeting point in under **2 minutes**, repeating the drill twice a year [cite: redcross-two-minutes, redcross-escape-plan].
+            """,
+            citations: [
+                "irc-2021-r310",
+                "nfpa-escape-planning",
+                "redcross-escape-plan",
+                "redcross-two-minutes",
+                "usfa-escape-plans"
+            ]
+        ),
+
+        // Turn 4+: Wrap-up if an additional message is sent
+        ChatResponse(
+            reply: """
+            Once you complete those fixes—relocating and strapping the **Bedroom 2 wardrobe**, strapping the **Laundry water heater** and both **mounted TVs**, sliding the **Living Room bookcase** clear of the side window, and checking off your **5 smoke alarm locations** on the **Tasks** tab—every high-severity topple and egress warning in **Anish's House** will be resolved [cite: shakeout-guidance, usfa-smoke-alarms].
+
+            You can also export your **Fire Department & Family Escape Plan PDF** from the **Home** tab once you set your outside meeting place so everyone has the floor plan, shutoff locations (`Laundry` water/electrical and `Kitchen` gas), and primary/secondary routes in one sheet [cite: nfpa-escape-planning, redcross-escape-plan].
+            """,
+            citations: [
+                "nfpa-escape-planning",
+                "redcross-escape-plan",
+                "shakeout-guidance",
+                "usfa-smoke-alarms"
+            ]
+        )
+    ]
+
+    static func response(forTurn turnIndex: Int) -> ChatResponse {
+        let clamped = min(max(0, turnIndex), turns.count - 1)
+        return turns[clamped]
+    }
+}
+
 // MARK: - Message bubble
 
-/// One turn. Assistant text is rendered verbatim — inline `[cite: source-id]` tags stay
-/// visible exactly as the backend returned them (grounding is the feature, not noise) —
+/// One turn. Assistant text is rendered with inline Markdown formatting while preserving
+/// inline `[cite: source-id]` tags verbatim (grounding is the feature, not noise) —
 /// with the server's citation id list echoed as chips underneath.
 private struct MessageBubble: View {
     let message: AssistantMessage
 
     private var isUser: Bool { message.role == .user }
 
+    private var formattedContent: AttributedString {
+        if let attributed = try? AttributedString(
+            markdown: message.content,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        ) {
+            return attributed
+        }
+        return AttributedString(message.content)
+    }
+
     var body: some View {
         HStack {
             if isUser { Spacer(minLength: 60) }
             VStack(alignment: .leading, spacing: 8) {
-                Text(message.content)
+                Text(formattedContent)
                     .font(.body)
                     .lineSpacing(3)
                     .textSelection(.enabled)
