@@ -660,6 +660,9 @@ def score(request: ScoreRequest, http_request: Request) -> ScoreBreakdown:
         thresholds,
         tornado_plan=tornado_plan,
         earthquake_plan=earthquake_plan,
+        # Without this the S7 object-hazard rules (topple, heat clearance, unstrapped
+        # water heater) never ran in production: only direct compute_score tests saw them.
+        object_hazard_thresholds=get_object_hazard_thresholds(),
         now=datetime.now(timezone.utc),
     )
     if request.include_recommendations:

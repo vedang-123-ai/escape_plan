@@ -315,3 +315,15 @@ def test_a_home_inside_the_bounds_still_scores(client: TestClient, bungalow: dic
     resp = client.post("/score", json={"home": bungalow}, headers=AUTH)
     assert resp.status_code == 200
     assert 0 <= resp.json()["score"] <= 100
+
+
+def test_score_endpoint_reports_object_hazards(client: TestClient, twostory: dict):
+    """/score must run the S7 object-hazard rules, not only direct compute_score calls.
+
+    The endpoint never passed their thresholds, so the unstrapped water heater in the
+    Two-Story fixture was invisible in the app and in the fire-department snapshot.
+    """
+    resp = client.post("/score", json={"home": twostory}, headers=AUTH)
+    assert resp.status_code == 200
+    ids = {item["id"] for item in resp.json()["checklist"]}
+    assert "hazard.water_heater_unsecured.o_1_water_heater" in ids

@@ -145,6 +145,11 @@ The water heater is why earthquake is 70 here and 75 on the bungalow: `eq.flexib
 
 **Composite:** `0.5×60 + 0.25×70 + 0.25×75` = 30 + 17.5 + 18.75 = 66.25 → round-half-up → **66**
 
+**What `/score` returns: 40.** Since 2026-10-23 the endpoint runs the object-hazard rules (before that it never passed
+their thresholds). Two-Story's water heater is unstrapped (`water_heater_unsecured`, high) and its sofa sits inside the
+heat-source clearance (`heat_clearance`, high), so the cap below applies until both are checked off. The sub-scores are
+unchanged: hazard items never score.
+
 ### bungalow.json with an unstrapped water heater
 
 Bungalow with an unsecured `water_heater` object, scored **without** the peril plans (`tornado_plan` / `earthquake_plan` omitted), which is how `test_object_hazard_item_capping_score_roundtrip` calls it. This violates the `water_heater_unsecured` rule, generating an unresolved `mitigation` checklist item with `high` severity.

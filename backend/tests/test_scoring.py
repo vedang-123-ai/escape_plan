@@ -53,7 +53,9 @@ def _scored(fixture: dict, findings=None, state=None) -> ScoreBreakdown:
     plan = compute_route_plan(home, thresholds)
     # Call compute_score exactly as POST /score does (app/main.py), so these
     # tests see the same checklist the endpoint returns — the R310 egress-window
-    # items, and both peril plans.
+    # items, and both peril plans. One deliberate difference: no object-hazard
+    # thresholds. Hazard items never score, so sub-scores still match /score; only
+    # the high-severity cap can differ (test_score_endpoint_matches_the_engine).
     #
     # S11.2: the peril plans were missing here while the comment already claimed
     # parity. It went unnoticed because no tornado item scored, so the omission
@@ -548,13 +550,15 @@ def test_score_endpoint_requires_token(bungalow: dict):
 
 
 @pytest.mark.parametrize(
-    "fixture_name,expected", [("bungalow", 73), ("apartment", 70), ("twostory", 66)]
+    "fixture_name,expected", [("bungalow", 73), ("apartment", 70), ("twostory", 40)]
 )
 def test_score_endpoint_matches_the_engine(fixture_name: str, expected: int, request):
     fixture = request.getfixturevalue(fixture_name)
     resp = TestClient(app).post("/score", json={"home": fixture}, headers=AUTH)
     assert resp.status_code == 200
     breakdown = ScoreBreakdown.model_validate(resp.json())
+    # twostory is 66 by the weights (docs/preparedness-score-weights.md), but /score also
+    # runs the object-hazard rules: its unstrapped water heater is high severity -> cap 40.
     assert breakdown.score == expected
     # Same numbers the in-process engine produces — this is the test that would
     # have caught _scored drifting away from the endpoint (S11.2).
