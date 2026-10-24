@@ -420,9 +420,10 @@ struct AssistantScreen: View {
         deliverPendingUserMessage()
     }
 
-    /// Delivers the assistant reply for the active home. Uses the grounded multi-turn demo
-    /// script for Anish's House (and falls back to it if the live /chat endpoint is out of
-    /// credits or unreachable) so the demo conversation runs deterministically turn by turn.
+    /// Calls /chat with the full history. The user's message is already in the thread and
+    /// stays there on failure; the error banner offers Retry instead of dropping it. Only for
+    /// Anish's House, and only when the server cannot answer (no AI credit, a gateway error,
+    /// offline), the pre-written sample turn is shown instead, labelled as a sample.
     private func deliverPendingUserMessage() {
         guard let home else { return }
         // A thread saved before S11.50 can end in a message the server will refuse for length:
@@ -434,19 +435,40 @@ struct AssistantScreen: View {
         }
         isSending = true
         failure = nil
+        // The most recent turns that fit the server's caps; the full thread stays on screen.
+        let history = ChatHistory.trimmed(messages.map(\.wireMessage)).messages
         let askedAbout = home.home_id
         let turnIndex = messages.filter { $0.role == .assistant }.count
 
         Task {
-            try? await Task.sleep(for: .milliseconds(1350))
-            guard readiness.activeHomeID == askedAbout else { isSending = false; return }
-            let response = DemoAssistantScript.response(forTurn: turnIndex)
-            messages.append(
-                AssistantMessage(role: .assistant,
-                                 content: response.reply,
-                                 citations: response.citations)
-            )
-            persist(homeID: askedAbout)
+            do {
+                let response = try await apiClient.chat(home: home, messages: history)
+                // The user switched homes while this was in flight: the answer is about a home
+                // no longer on screen, so it does not join the new home's thread.
+                guard readiness.activeHomeID == askedAbout else { isSending = false; return }
+                messages.append(
+                    AssistantMessage(role: .assistant,
+                                     content: response.reply,
+                                     citations: response.citations)
+                )
+                persist(homeID: askedAbout)
+            } catch {
+                if readiness.activeHomeID == askedAbout, !BackendFailure.isCancellation(error) {
+                    if DemoAssistantScript.covers(homeID: askedAbout),
+                       APIClient.isRecoverableRouteFailure(error) {
+                        let sample = DemoAssistantScript.response(forTurn: turnIndex)
+                        messages.append(
+                            AssistantMessage(role: .assistant,
+                                             content: DemoAssistantScript.sampleLabel + sample.reply,
+                                             citations: sample.citations)
+                        )
+                        persist(homeID: askedAbout)
+                    } else {
+                        failure = BackendFailure(error, while: .assistant)
+                        Haptics.warning()
+                    }
+                }
+            }
             isSending = false
         }
     }
@@ -480,9 +502,18 @@ struct AssistantScreen: View {
     }
 }
 
-// MARK: - Grounded demo script (Anish's House)
+// MARK: - Pre-written sample conversation (Anish's House)
 
+/// Shown only when the live assistant cannot answer, only for Anish's House, and always under
+/// `sampleLabel`, so a pre-written turn is never passed off as a live answer.
 private enum DemoAssistantScript {
+    /// The bundled fixture's fixed `home_id` (seeded verbatim by `FixtureSeeder.seedOwnedHomes`).
+    static let homeID: String? = try? FixtureLoader.load(.anishsHouse).home_id
+
+    static func covers(homeID: String) -> Bool { homeID == self.homeID }
+
+    static let sampleLabel = "_Sample conversation: the live assistant is offline, so this is a pre-written answer for Anish's House._\n\n"
+
     static let turns: [ChatResponse] = [
         // Turn 1: "What should I fix first?" — comprehensive LiDAR scan & hazard review
         ChatResponse(
