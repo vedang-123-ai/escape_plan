@@ -94,7 +94,7 @@ struct HomeScreen: View {
                 )
             }
             .navigationDestination(isPresented: $showingNewHome) {
-                HouseScreen(homeID: nil, library: library) {
+                HouseScreen(homeID: nil, library: library, embedsNavigationStack: false) {
                     library.refresh()
                     if let id = library.homes.first?.id { switchHome(to: id) }
                 }

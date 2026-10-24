@@ -204,9 +204,15 @@ struct HouseScreen: View {
 
     /// `startsOnFireSimulation`: open with the dock on "Fire simulation" instead of "Escape
     /// routes". Home's "Run a fire drill" sets it (trim 2, 2026-10-03: the drill IS this playback).
+    /// `embedsNavigationStack: false` when pushed onto another stack (Home's "Build it myself"):
+    /// a stack nested in a pushed view hides the system back button and traps the user (A02-01/02).
+    let embedsNavigationStack: Bool
+
     init(homeID: String?, library: HomeLibrary? = nil, initialFocusItemID: String? = nil,
-         startsOnFireSimulation: Bool = false, onModelChanged: (() -> Void)? = nil) {
+         startsOnFireSimulation: Bool = false, embedsNavigationStack: Bool = true,
+         onModelChanged: (() -> Void)? = nil) {
         self.homeID = homeID
+        self.embedsNavigationStack = embedsNavigationStack
         self.library = library
         self.initialFocusItemID = initialFocusItemID
         self.onModelChanged = onModelChanged
@@ -215,10 +221,12 @@ struct HouseScreen: View {
     }
 
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle(session?.store.model.name ?? "House")
-                .toolbar { toolbarContent }
+        Group {
+            if embedsNavigationStack {
+                NavigationStack { titledContent }
+            } else {
+                titledContent
+            }
         }
         .task { loadIfNeeded() }
         // Reduce Motion degrades playback to discrete steps — it never disables the feature.
@@ -272,6 +280,12 @@ struct HouseScreen: View {
             Button("Rename") { commitRename(target) }
             Button("Cancel", role: .cancel) { renameTarget = nil }
         }
+    }
+
+    private var titledContent: some View {
+        content
+            .navigationTitle(session?.store.model.name ?? "House")
+            .toolbar { toolbarContent }
     }
 
     @ViewBuilder
