@@ -76,6 +76,9 @@ threshold files, 44 tips). **The iOS app suite (`xcodebuild test`) was not run**
   `SSL_CERT_FILE=$(backend/.venv/bin/python -c "import certifi;print(certifi.where())")` first.
 - **Demo scores changed with that deploy:** Two-Story 66 → 40, Anish's House 64 → 40 (Bungalow 73, Apartment 70
   unchanged) · team · a video that shows 66 or 64 no longer matches the app; re-film that shot or say so.
+- **README screenshots predate the `/score` hazard fix** (checked 2026-10-25): `docs/images/readiness-score.jpg` shows
+  Two-Story at 66 with a smoke-alarm largest deduction (the app now shows 40), and `tasks-checklist.jpg` shows "1 of 40
+  done" (two hazard tasks were added) · team · retake both on a simulator or the phone.
 - **Chat defers some broad questions.** "What is the biggest fire risk in my home?" got the honest "no sourced answer"
   deferral (2026-10-24); "How often should I test my smoke alarms?" and "Which rooms have only one way out?" got cited
   answers in 8–9 s. `/explain` took 23 s · team · rehearse the exact questions you will ask on camera.
@@ -3462,7 +3465,8 @@ question stays in the history, so resending shows it twice.
 - **Doc drift outside S11.56's owned files** (doc-auditor): `backend/README.md:13` says `ANTHROPIC_API_KEY` is "only
   needed for /explain" (also /chat, /analyze, /build); `backend/CLAUDE.md:4-5` creates the venv from
   `requirements.txt` only, but pytest is in `requirements-dev.txt`.
-- **Demo video link:** add to README "For judges" once the video is uploaded (no link exists in the repo yet).
+- **Demo video link:** add to the README once the video is uploaded (no link exists in the repo yet). The README's "For
+  judges" section was removed 2026-10-25 at the owner's request.
 
 ### S11.58 findings (2026-10-05, branch `s11-58-readme-verify`) · a stranger follows the README
 
