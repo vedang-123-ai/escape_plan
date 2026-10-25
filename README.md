@@ -45,8 +45,6 @@ changes.
 - **A grounded assistant.** Built to answer questions about your own home using only a curated library of 35 sources
   from FEMA, NFPA, the American Red Cross, USFA, NOAA, USGS and others.
 - **A printable plan.** Export a PDF escape plan for the fridge door, designed to stay readable in greyscale.
-- **Share with your fire department.** An opt-in snapshot of your floor plan, exits, utility shutoffs and who may need
-  help. Occupant names stay out unless you turn them on, and nothing is sent without your say-so, every time.
 - **Works offline where it counts.** The last routes the app received for a home stay on screen without a
   connection.
 - **Accessible.** Dynamic Type, VoiceOver labels, 44-point touch targets, and safety colours chosen to stay distinct
