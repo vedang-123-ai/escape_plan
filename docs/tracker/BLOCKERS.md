@@ -70,18 +70,15 @@ Gate measured 2026-10-23 on this branch: backend **1293 passed, 1 skipped, 31 de
 0 failed** (XCTest count); `scripts/typecheck-ios.sh` ok on all four targets; corpus valid (35 sources, 13 files, 2
 threshold files, 44 tips). **The iOS app suite (`xcodebuild test`) was not run** (no simulator runs on this Mac).
 
-- **The bearer token in this Mac's `BackendConfig.local.json` does not match Render: `/routes` returns 401** (preflight
-  2026-10-23). An app built on this Mac fails every compute call · owner · copy the token from Render's
-  `BACKEND_BEARER_TOKEN` into the file (never commit it), then rerun `python3 scripts/demo-preflight.py`. On this Mac
-  the preflight needs `SSL_CERT_FILE=$(backend/.venv/bin/python -c "import certifi;print(certifi.where())")` first,
-  or it fails with a local certificate error that is not the server's fault.
-- **`/score` object-hazard fix is not live until Render is redeployed** · owner · deploy, then check that Two-Story
-  shows 40 with "Strap water heater" and "Move sofa away from heat source" on Tasks. Score drops for the demo homes:
-  Two-Story 66 → 40, Anish's House 64 → 40 (Bungalow 73, Apartment 70 unchanged). A video that shows 66 or 64 no
-  longer matches the app.
-- **AI credits / live `/chat` still unverified** (AUD-002). The preflight stopped at the 401 above, so the AI checks
-  never ran. With no credit, Anish's House now shows the pre-written sample under a "Sample conversation" label;
-  every other home shows the normal error banner.
+- **Verified live on Render 2026-10-24** (after the owner fixed this Mac's token, added `ANTHROPIC_API_KEY` on Render
+  and redeployed): preflight ready; `/routes` 4/4; Two-Story `/score` 40 with the water-heater and sofa hazard items;
+  `/explain` 200; `/chat` answered with citations. On this Mac the preflight needs
+  `SSL_CERT_FILE=$(backend/.venv/bin/python -c "import certifi;print(certifi.where())")` first.
+- **Demo scores changed with that deploy:** Two-Story 66 → 40, Anish's House 64 → 40 (Bungalow 73, Apartment 70
+  unchanged) · team · a video that shows 66 or 64 no longer matches the app; re-film that shot or say so.
+- **Chat defers some broad questions.** "What is the biggest fire risk in my home?" got the honest "no sourced answer"
+  deferral (2026-10-24); "How often should I test my smoke alarms?" and "Which rooms have only one way out?" got cited
+  answers in 8–9 s. `/explain` took 23 s · team · rehearse the exact questions you will ask on camera.
 - **The sample conversation's facts were only partly checked against the engine.** The Bedroom 2 wardrobe and the
   water heater are real high findings, A* is real (`pathfind.py`), and the route lengths for Bedroom 2 (13.4 m) and
   Living Room (10.8 m) match. The turn-2 "optimal placement" coordinates are not engine output · team · reword or
