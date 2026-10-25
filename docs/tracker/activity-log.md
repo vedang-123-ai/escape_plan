@@ -3651,3 +3651,117 @@ Open work lives in `TODO.md`. This file is the record of what actually happened.
   - 9839bcb audit-review: tracker (BLOCKERS section, decisions, session note) and the 2026-10-11 audit reports
   - c20e310 audit-review: fix persist-lane compile errors, parity test arg order, serialize network fallback tests with OfflineIntegrityTests
 
+## 2026-10-18T22:57:46Z · vedang-123-ai · `main` @ `3854f04`
+
+**Commits this session**
+  - 3854f04 Merge house update
+  - 1a08725 Merge remote-tracking branch 'origin/main' into superset-workspace-setup-4262c1a0
+  - 62f4b01 Update house
+
+## 2026-10-19T00:15:08Z · vedang-123-ai · `main` @ `3854f04`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-19T01:16:58Z · vedang-123-ai · `main` @ `5be3dde`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-23T19:39:29Z · vedang-123-ai · `main` @ `5be3dde`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-23T19:59:42Z · vedang-123-ai · `main` @ `5be3dde`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-23T20:05:51Z · vedang-123-ai · `main` @ `5be3dde`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-23T20:26:10Z · vedang-123-ai · `main` @ `5be3dde`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-23T21:04:23Z · vedang-123-ai · `main` @ `5be3dde`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-23T21:21:13Z · vedang-123-ai · `main` @ `5be3dde`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-23T21:26:24Z · vedang-123-ai · `main` @ `5be3dde`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-24T23:24:11Z · vedang-123-ai · `main` @ `7c1971b`
+
+**Commits this session**
+  - 7c1971b Merge presubmit-fixes: live chat with labelled offline sample, object hazards in /score, Build-it-myself back button
+  - 5ddede1 presubmit-fixes: tracker (BLOCKERS section, decisions, session note)
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-24T23:25:31Z · vedang-123-ai · `main` @ `7c1971b`
+
+**Commits this session**
+  - 7c1971b Merge presubmit-fixes: live chat with labelled offline sample, object hazards in /score, Build-it-myself back button
+  - 5ddede1 presubmit-fixes: tracker (BLOCKERS section, decisions, session note)
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-24T23:28:55Z · vedang-123-ai · `main` @ `7c1971b`
+
+**Commits this session**
+  - 7c1971b Merge presubmit-fixes: live chat with labelled offline sample, object hazards in /score, Build-it-myself back button
+  - 5ddede1 presubmit-fixes: tracker (BLOCKERS section, decisions, session note)
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-25T02:49:22Z · vedang-123-ai · `main` @ `7c1971b`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-25T06:41:45Z · vedang-123-ai · `main` @ `7c1971b`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-25T06:47:19Z · vedang-123-ai · `main` @ `7c1971b`
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-25T06:54:14Z · vedang-123-ai · `main` @ `1635130`
+
+**Commits this session**
+  - 1635130 Merge presubmit-verify: live backend verified
+  - 8a174f1 BLOCKERS: token, Render deploy and live AI verified 2026-10-24; note score change and chat deferrals
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
+## 2026-10-25T07:18:42Z · vedang-123-ai · `main` @ `fb05556`
+
+**Commits this session**
+  - fb05556 Merge readme-accuracy: README matches the current app
+  - 1c93b6f README: drop For judges section; fix source count and first-launch homes
+  - 1635130 Merge presubmit-verify: live backend verified
+  - 8a174f1 BLOCKERS: token, Render deploy and live AI verified 2026-10-24; note score change and chat deferrals
+
+**Uncommitted working-tree changes (1)**
+  - M docs/tracker/activity-log.md
+
