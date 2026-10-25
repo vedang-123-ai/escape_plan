@@ -29,7 +29,7 @@ changes.
 ## Features
 
 - **Capture your home in 3D.** Scan it room by room with Apple RoomPlan on a LiDAR iPhone, or build it by hand. Four
-  sample homes are ready to explore on first launch.
+  ready-made homes are there to explore on first launch: three sample homes and Anish's House.
 - **A full 3D editor.** Add and edit rooms, doors, windows, stairs, floors and objects, with undo and redo. Doors and
   windows are attached to their walls, so moving a wall moves them too and the routes update.
 - **Escape routes for every person.** A deterministic routing engine finds a main and, where one exists, a backup
@@ -42,7 +42,7 @@ changes.
   weather are labelled as guidance-based and built from FEMA, NOAA and USGS guidance.
 - **A Tasks checklist.** Concrete steps, from smoke alarms to a tornado safe room, each showing its source where it
   has one. Filter by fire, earthquake or severe weather and tick items off as you go.
-- **A grounded assistant.** Built to answer questions about your own home using only a curated library of 36 sources
+- **A grounded assistant.** Built to answer questions about your own home using only a curated library of 35 sources
   from FEMA, NFPA, the American Red Cross, USFA, NOAA, USGS and others.
 - **A printable plan.** Export a PDF escape plan for the fridge door, designed to stay readable in greyscale.
 - **Share with your fire department.** An opt-in snapshot of your floor plan, exits, utility shutoffs and who may need
@@ -193,14 +193,6 @@ in [`docs/tools-used.md`](docs/tools-used.md).
 | `schema/` | The home model JSON Schema and sample homes |
 | `tools/editorcore/` | A Swift package that tests the app's pure logic on macOS in seconds |
 | `docs/` | Product spec, design notes, decisions log and submission materials |
-
-## For judges
-
-- **Submission materials:** [`docs/submission/`](docs/submission/), including the app description and how to see
-  the app working ([`judge-access.md`](docs/submission/judge-access.md)).
-- **Libraries, services and AI tools used:** [`docs/tools-used.md`](docs/tools-used.md).
-- **Licence and reuse:** [`LICENSE`](LICENSE).
-- **Design decisions, with reasons:** [`docs/decisions.md`](docs/decisions.md).
 
 ## Credits
 

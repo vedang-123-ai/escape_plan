@@ -5,6 +5,7 @@ Running log of deviations from playbook defaults, and why. Newest first.
 
 | Date | Session | Decision | Why |
 |------|---------|----------|-----|
+| 2026-10-25 | readme-accuracy | **README: removed the "For judges" section; corrected the source count (36 → 35) and the first-launch homes (three samples plus Anish's House).** | Owner request; the other two were wrong against `sources.json` and `FixtureSeeder`. Submission materials stay in `docs/submission/`, unlinked from the README. |
 | 2026-10-23 | presubmit-fixes | **The assistant calls live `/chat` again. The Oct 18 pre-written conversation is only a fallback, for Anish's House only, on a 502/503/504 or a dropped connection, and shown under a "Sample conversation" label.** Corrects `f9b1c9b`, which answered every question in every home from the script as if live. | Owner chose "live AI, labelled fallback" on 2026-10-23. The demo keeps a working assistant with no credit, and nothing pre-written is passed off as a live AI answer. |
 | 2026-10-23 | presubmit-fixes | **`/score` passes `ObjectHazardThresholds`, so the S7 hazard rules finally reach the app.** Two-Story caps at 40, Anish's House at 40. | The endpoint never passed them (no commit ever did); only direct `compute_score` tests saw `hazard.*` items. Owner chose to fix it, accepting the score change. |
 | 2026-10-23 | presubmit-fixes | **`HouseScreen(embedsNavigationStack: false)` when pushed from Home.** | A02-01/02: two nested stacks hid the back button on "Build it myself". |
